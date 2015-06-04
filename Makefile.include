@@ -1,0 +1,96 @@
+ifndef CONTIKI
+  ${error CONTIKI not defined! You must specify where CONTIKI resides}
+endif
+
+#ifeq ($(MAKECMDGOALS),upload)
+#ifndef NODE_ID
+#  ${error Please specify a value for NODE_ID}
+#endif
+#EXEFILE_ID = $(CONTIKI_PROJECT)-$(NODE_ID).exe
+#HEXFILE_ID = $(CONTIKI_PROJECT)-$(NODE_ID).hex
+#endif
+
+MCU = cc430f5137
+EXEFILE = $(CONTIKI_PROJECT).exe
+HEXFILE = $(CONTIKI_PROJECT).hex
+DISFILE = $(CONTIKI_PROJECT).dis
+
+COREDIR = $(CONTIKI)/core
+SYSDIR  = $(COREDIR)/sys
+DEVDIR  = $(COREDIR)/dev
+LIBDIR  = $(COREDIR)/lib
+PLATDIR = $(CONTIKI)/platform/cc430
+TOOLSDIR= $(CONTIKI)/tools
+OBJDIR  = ./obj
+ifeq (${wildcard $(OBJDIR)},)
+  DUMMY := ${shell mkdir $(OBJDIR)}
+endif
+
+CC = msp430-gcc
+LD = msp430-gcc
+CFLAGS  = -mmcu=$(MCU) -Os -Wall -ffunction-sections -fdata-sections -ggdb
+LDFLAGS = -mmcu=$(MCU) -Wl,--gc-sections -ggdb
+
+CORESRCS = process.c autostart.c timer.c etimer.c energest.c ringbuf.c serial-line.c random.c memb.c list.c debug-print.c
+PLATSRCS = hal_pmm.c rtimer.c clock.c uart0.c contiki-cc430-main.c spi.c fram.c async_int.c dma.c adc.c
+
+ifdef WITH_GLOSSY
+  WITH_RADIO = 1
+  PLATSRCS += glossy.c
+  CFLAGS += -DWITH_GLOSSY
+endif
+ifdef WITH_NULLMAC
+  WITH_RADIO = 1
+  PLATSRCS += nullmac.c
+  CFLAGS += -DWITH_NULLMAC
+endif
+ifdef WITH_RADIO
+  PLATSRCS += rf1a.c
+  CFLAGS += -DWITH_RADIO
+endif
+
+OBJS = ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.o) $(PLATSRCS:.c=.o) $(SRCS:.c=.o)}
+
+SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI)
+vpath %.c $(SOURCEDIRS)
+CFLAGS += ${addprefix -I,$(SOURCEDIRS)}
+
+# forward comma-separated list of arbitrary defines to the compiler
+COMMA := ,
+CFLAGS += ${addprefix -D,${subst $(COMMA), ,$(DEFINES)}}
+
+$(EXEFILE): $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ $^
+	@msp430-objcopy $(EXEFILE) -O ihex $(HEXFILE)
+	@msp430-objdump -d $(EXEFILE) > $(DISFILE)
+	@msp430-size $(EXEFILE)
+
+ifneq ($(MAKECMDGOALS),clean)
+-include ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.d) $(PLATSRCS:.c=.d) $(SRCS:.c=.d)}
+endif
+
+### See http://make.paulandlesley.org/autodep.html#advanced
+
+define FINALIZE_DEPENDENCY
+cp $(@:.o=.d) $(@:.o=.$$$$); \
+sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+    -e '/^$$/ d' -e 's/$$/ :/' < $(@:.o=.$$$$) >> $(@:.o=.d); \
+rm -f $(@:.o=.$$$$)
+endef
+
+$(OBJDIR)/%.o: %.c
+	$(CC) $(CFLAGS) -DAUTOSTART_ENABLE -MMD -c $< -o $@
+	@$(FINALIZE_DEPENDENCY)
+
+#upload: $(EXEFILE)
+#	@$(TOOLSDIR)/tos-set-symbols --exe --objcopy msp430-objcopy --objdump msp430-objdump $(EXEFILE) $(EXEFILE_ID) TOS_NODE_ID=$(NODE_ID)
+#	@msp430-objcopy $(EXEFILE_ID) -O ihex $(HEXFILE_ID)
+#	@mspdebug uif -j -d /dev/tty.TIVCP3410f* "prog $(HEXFILE_ID)"
+#	@rm -f $(EXEFILE_ID) $(HEXFILE_ID)
+
+.PHONY: clean
+
+clean:
+	@rm -rf $(OBJDIR) *~ $(CONTIKI)/*~ $(COREDIR)/*~ $(SYSDIR)/*~ $(DEVDIR)/*~ $(LIBDIR)/*~ $(PLATDIR)/*~ 
+	
+	
