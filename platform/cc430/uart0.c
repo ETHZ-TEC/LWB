@@ -62,7 +62,7 @@ void uart0_init(void) {
     // select UART mode
     UCA0CTL0 |= UCMODE_0;   // default mode
 
-    UCA0IE &= ~(UCRXIFG + UCTXIFG);     // clear pending interrupts 
+    UCA0IFG  &= ~(UCRXIFG + UCTXIFG);     // clear pending interrupts 
     UCA0CTL1 &= ~UCSWRST;               // initialize USCI state machine **before** enabling interrupts
     //UCA0IE |= UCRXIE;                 // note: DO NOT enable interrupts, they can mess up the timing due to higher priority
 }
