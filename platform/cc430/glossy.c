@@ -1,12 +1,6 @@
 
-/**
- * 
- * Changes by rdaforno:
- * - enabled_interrupts variable added, disable undesired interrupts during a glossy flood
- */
-
 #include "glossy.h"
-#include "math.h"
+
 
 #define DEBUG_GLOSSY 0
 
@@ -22,6 +16,52 @@
 // (value in clock ticks)
 #define T_SLOT_TOLERANCE 10
 
+
+#define GLOSSY_COMMON_HEADER 0x80
+
+#define SET_PKT_TYPE(pkt_type, sync, n_tx_max) (pkt_type = GLOSSY_COMMON_HEADER | ((sync) & 0x30) | ((n_tx_max) & 0x0f))
+#define SET_SYNC(pkt_type, sync)               (pkt_type = ((pkt_type) & 0xcf) | ((sync) & 0x30))
+#define SET_N_TX_MAX(pkt_type, n_tx_max)       (pkt_type = ((pkt_type) & 0xf0) | ((n_tx_max) & 0x0f))
+
+#define GET_COMMON_HEADER(pkt_type)            ((pkt_type) & 0xc0)
+#define GET_SYNC(pkt_type)                     ((pkt_type) & 0x30)
+#define GET_N_TX_MAX(pkt_type)                 ((pkt_type) & 0x0f)
+
+#define IS_INITIATOR()   (g.header.initiator_id == node_id)
+#define WITH_SYNC()      (GET_SYNC(g.header.pkt_type) == GLOSSY_WITH_SYNC)
+#define WITH_RELAY_CNT() ((WITH_SYNC()) || (GET_SYNC(g.header.pkt_type) == GLOSSY_ONLY_RELAY_CNT))
+
+#define GLOSSY_HEADER_LEN(pkt_type) ((GET_SYNC(pkt_type) == GLOSSY_WITHOUT_SYNC) ? 3 : 4)
+
+
+// mainly for debugging purposes
+#ifdef GLOSSY_START_PIN
+    #define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
+    #define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
+    #define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
+    #define GLOSSY_STOPPED      PIN_CLEAR(GLOSSY_START_PIN)
+    #define GLOSSY_RX_STOPPED   PIN_CLEAR(GLOSSY_RX_PIN)
+    #define GLOSSY_TX_STOPPED   PIN_CLEAR(GLOSSY_TX_PIN)
+#else
+    #define GLOSSY_STARTED      
+    #define GLOSSY_RX_STARTED  
+    #define GLOSSY_TX_STARTED  
+    #define GLOSSY_STOPPED   
+    #define GLOSSY_RX_STOPPED  
+    #define GLOSSY_TX_STOPPED
+#endif
+
+
+enum {
+    SUCCESS = 0,
+    FAIL = 1
+};
+
+typedef struct {
+    uint16_t initiator_id;
+    uint8_t pkt_type;
+    uint8_t relay_cnt;
+} glossy_header_t;
 
 typedef struct {
     rtimer_clock_t t_ref, t_tx_stop, t_rx_start, t_rx_stop, t_tx_start;
@@ -42,6 +82,7 @@ typedef struct {
     uint8_t enabled_interrupts;
 } glossy_state_t;
 static glossy_state_t g;
+
 
 /************************* Glossy helper functions **************************/
 
@@ -144,6 +185,7 @@ static inline void add_T_slot_measurement(rtimer_clock_t T_slot_measured) {
         g.n_T_slot++;
     }
 }
+
 
 /***************************** Glossy interface *****************************/
 
@@ -283,6 +325,7 @@ rtimer_clock_t glossy_get_t_ref(void) {
 uint8_t glossy_get_relay_cnt_first_rx(void) {
     return g.relay_cnt_first_rx;
 }
+
 
 /*********************** RF1A callback implementation ***********************/
 
