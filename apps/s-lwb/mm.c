@@ -8,14 +8,14 @@
 
 #include "s-lwb.h"
 
-                   
+               
 MEMBX(in_msg_queue, sizeof(message_t), N_BUFFERED_IN_MSG);
 MEMBX(out_msg_queue, sizeof(message_t), N_BUFFERED_OUT_MSG);
 
 static uint8_t stop_msg_rcvd = 0;
 static uint8_t stop_msg_sent = 0;
 
-               
+
 /**
  * @brief calculate a CRC16 checksum
  * @param data start address of the data
@@ -23,24 +23,24 @@ static uint8_t stop_msg_sent = 0;
  * @return the CRC checksum
  */
 uint16_t calc_crc16(const uint8_t* data, uint8_t num_bytes) {
-	uint16_t crc  = 0,
+    uint16_t crc  = 0,
              mask = 0xa001;
-	while (num_bytes) {
-		uint8_t ch = *data;
-		int8_t bit = 0;
-		while (bit < 8) {
+    while (num_bytes) {
+        uint8_t ch = *data;
+        int8_t bit = 0;
+        while (bit < 8) {
             if ((crc & 1) ^ (ch & 1)) {
                 crc = (crc >> 1) ^ mask;
             } else {
-				crc >>= 1;
-			}
-			ch >>= 1; 
-			bit += 1;
-		}
+                crc >>= 1;
+            }
+            ch >>= 1; 
+            bit += 1;
+        }
         data++;
-		num_bytes--;
-	}
-	return crc;    
+        num_bytes--;
+    }
+    return crc;    
     /*CRCINIRES = 0xffff;   // set seed (init value)
     while (num_bytes) {    
         CRCDI = *data;
@@ -94,6 +94,8 @@ void process_timestamp_request(void) {
  * @param buffer provide a data buffer that will be used by the function to load and process the messages
  */
 void mm_fill(uint8_t* buffer) {
+    
+#ifdef HAS_ASYNC_INT
     // check if new data is available on the asynchronous interface
     if (ASYNC_INT_DATA_AVAILABLE) {
         message_t* msg = (message_t*)buffer;
@@ -130,7 +132,7 @@ void mm_fill(uint8_t* buffer) {
             } else {
                 // write the message to the local external memory
                 next = membx_alloc(&out_msg_queue);
-                if (XMEM_INVALID_ADDR != next) {
+                if (MEMBX_INVALID_ADDR != next) {
                     fram_write(next, msg->header.len + MESSAGE_HEADER_SIZE, (uint8_t*)buffer);
                     //DEBUG_PRINT_VERBOSE("message buffered (l=%d ofs=%lu)", msg->header.len, next);
                 } else {
@@ -142,6 +144,7 @@ void mm_fill(uint8_t* buffer) {
         
         DEBUG_PRINT_INFO("%d message(s) read from ADI, %d buffered", count, out_msg_queue.n_alloc);
     }
+#endif /* HAS_ASYNC_INT */
 }
 
 
@@ -153,7 +156,7 @@ void mm_fill(uint8_t* buffer) {
 uint8_t mm_put(message_t* msg) {
     // store the packet in the local external memory
     uint32_t next = membx_alloc(&in_msg_queue);
-    if (XMEM_INVALID_ADDR != next) {
+    if (MEMBX_INVALID_ADDR != next) {
         if (msg->header.crc == 0 && msg->header.len != 0) {
             msg->header.crc = calc_crc16(msg->payload, msg->header.len);
         }
@@ -173,7 +176,7 @@ uint8_t mm_put(message_t* msg) {
 uint8_t mm_get(message_t* msg) {
     static uint16_t last_idx = 0;
     uint32_t next = membx_get_next(&out_msg_queue, last_idx);
-    if (XMEM_INVALID_ADDR != next && fram_read(next, MESSAGE_SIZE, (uint8_t*)msg)) {     // non-empty memory block found and read operation successful?
+    if (MEMBX_INVALID_ADDR != next && fram_read(next, MESSAGE_SIZE, (uint8_t*)msg)) {     // non-empty memory block found and read operation successful?
         membx_free(&out_msg_queue, next);
         //DEBUG_PRINT_VERBOSE("message loaded from memory %lu (l=%d)", next, msg->header.len);
         last_idx++;        
@@ -201,6 +204,8 @@ uint16_t mm_status(void) {
  * @param buffer a data buffer to be used by the function as temporary storage
  */
 void mm_flush(uint8_t* buffer) {
+#ifdef HAS_ASYNC_INT
+    
     message_t* msg = (message_t*)buffer;
     uint8_t count = 0;
     static uint16_t start_idx = 0;     // improves fairness
@@ -241,7 +246,7 @@ void mm_flush(uint8_t* buffer) {
     
     if (!stop_msg_rcvd) {    
         // go through all buffered messages
-        uint32_t addr = XMEM_INVALID_ADDR;
+        uint32_t addr = MEMBX_INVALID_ADDR;
         uint16_t i = start_idx;  
         uint8_t bit;
         do {        // loop through all data units in this memory block
@@ -278,6 +283,8 @@ void mm_flush(uint8_t* buffer) {
 #ifndef ASYNC_INT_TIMEREQ_POLLING
     ASYNC_INT_TIMEREQ_ENABLE;   // re-enable the timestamp request interrupt
 #endif
+
+#endif /* HAS_ASYNC_INT */
 }
 
         
@@ -288,12 +295,14 @@ void mm_init(void) {
     // initialize the FRAM if not already done
     fram_init();
     
+#ifdef HAS_ASYNC_INT
     // asynchronous data interface
-#ifndef ASYNC_INT_TIMEREQ_POLLING
+  #ifndef ASYNC_INT_TIMEREQ_POLLING
     async_int_init(process_timestamp_request);
-#else
+  #else
     async_int_init();
-#endif
+  #endif
+#endif /* HAS_ASYNC_INT */    
     
     // allocate memory for buffering messages
     membx_init(&in_msg_queue);
@@ -301,4 +310,3 @@ void mm_init(void) {
     stop_msg_rcvd = 0;
     stop_msg_sent = 0;
 }
-

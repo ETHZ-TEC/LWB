@@ -12,6 +12,8 @@
 
 
 #include "contiki.h"
+#include "platform.h"
+
 
 /**
  * @brief the start time of slot i relative to the t_start (offset)
@@ -32,6 +34,7 @@
 #define MAX(x, y)               ((x) > (y) ? (x) : (y))
 
 #define LWB_RTIMER_ID           RTIMER_TA0_0        // ID of the rtimer used for the LWB (must be of type rtimer_ta0_t)
+#define WAKEUP_RTIMER_ID        RTIMER_TA1_1        // ID of the rtimer used to trigger the wake-up
 #define RECIPIENT_BROADCAST     0xffff  // send the packet to all receivers
 #define RECIPIENT_LOCAL         0       // destined for this node
 
@@ -164,6 +167,7 @@ void stats_reset(void);
 #include "scheduler.h"
 #include "mm.h"
 #include "stream.h"
+#include "log.h"
 
 
 

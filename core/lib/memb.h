@@ -30,16 +30,6 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * --------------------------------------------------------------------------
- *
- * File modified by rdaforno, 2014
- * Changes:
- * - comments added, CONCAT() macros removed
- * - memory usage for meta data (block used/unused) reduced by a factor of 8
- * - data unit size (structure size) reduced to 8-bit, i.e. max. size is 255 bytes
- * - variable added to remember the most recently allocated slot within the memory block (speeds-up the search for an empty block)
- * - support for external memory added
- * - return type for memb_free changed to void
  */
 
 /**
@@ -47,9 +37,6 @@
  * @{
  */
 
- 
-#define XMEM_INVALID_ADDR    0xffffffff
- 
 
 /**
  * \defgroup memb Memory block management functions
@@ -79,7 +66,7 @@
 #include "sys/cc.h"
 
 /**
- * Declare a memory block (in RAM).
+ * Declare a memory block.
  *
  * This macro is used to statically declare a block of memory that can
  * be used by the block allocation functions. The macro statically
@@ -100,41 +87,17 @@ MEMB(connections, struct connection, 16);
  *
  */
 #define MEMB(name, structure, num) \
-        static char name##_memb_count[(num + 7) >> 3]; \
-        static structure name##_memb_mem[num]; \
-        static struct memb name = { sizeof(structure), 0, num, name##_memb_count, (void *)name##_memb_mem }
+        static char CC_CONCAT(name,_memb_count)[num]; \
+        static structure CC_CONCAT(name,_memb_mem)[num]; \
+        static struct memb name = {sizeof(structure), num, \
+                                          CC_CONCAT(name,_memb_count), \
+                                          (void *)CC_CONCAT(name,_memb_mem)}
 
-        
-/**
- * Declare a memory block (in external memory).
- *
- * @note 9 + (num_units + 7) / 8 bytes are required to store the meta data
- * @author rdaforno
- */
-#define MEMBX(name, elem_size, num) \
-        static char name##_memb_count[(num + 7) >> 3]; \
-        static struct membx name = { elem_size, 0, num, 0, name##_memb_count, 0 }
-
-                
-        
-        
-// structure for a memory block
 struct memb {
-  unsigned char size;   // size of one data unit
-  unsigned short last;  // last allocated data unit
-  unsigned short num;   // number of data units in this memory block
-  char *count;          // meta data: stores whether a block is used (allocated)
-  void *mem;            // pointer to the beginning of the data block
-};
-       
-// structure for a memory block
-struct membx {
-  unsigned char size;   // size of one data unit
-  unsigned short last;  // last allocated data unit
-  unsigned short num;   // number of data units in this memory block
-  unsigned short n_alloc;   // number of allocated data units
-  char *count;          // meta data: stores whether a block is used (allocated)
-  uint32_t mem;         // pointer to the beginning of the data block (do not dereference this address!)
+  unsigned short size;
+  unsigned short num;
+  char *count;
+  void *mem;
 };
 
 /**
@@ -142,8 +105,7 @@ struct membx {
  *
  * \param m A memory block previously declared with MEMB().
  */
-void memb_init(struct memb *m);
-void membx_init(struct membx *m);
+void  memb_init(struct memb *m);
 
 /**
  * Allocate a memory block from a block of memory declared with MEMB().
@@ -151,7 +113,6 @@ void membx_init(struct membx *m);
  * \param m A memory block previously declared with MEMB().
  */
 void *memb_alloc(struct memb *m);
-uint32_t membx_alloc(struct membx *m);
 
 /**
  * Deallocate a memory block from a memory block previously declared
@@ -165,19 +126,7 @@ uint32_t membx_alloc(struct membx *m);
  * if successfully deallocated) or -1 if the pointer "ptr" did not
  * point to a legal memory block.
  */
-void memb_free(struct memb *m, void *ptr);
-void membx_free(struct membx *m, uint32_t ptr);
-
-/**
- * Returns the address of the first non-empty block from a memory block previously declared
- * with MEMBX().
- *
- * \param m memory block previously declared with MEMBX().
- * \param start_idx search for a non-empty block will start at this index
- *
- * \return address of the found block, XMEM_INVALID_ADDR otherwise
- */
-uint32_t membx_get_next(struct membx *m, uint16_t start_idx);
+char  memb_free(struct memb *m, void *ptr);
 
 int memb_inmemb(struct memb *m, void *ptr);
 

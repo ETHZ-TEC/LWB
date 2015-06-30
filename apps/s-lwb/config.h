@@ -10,8 +10,8 @@
 #define CONFIG_H
 
 
-#define HOST_NODE                                     // uncomment if this is a host node
-//#define FLOCKLAB                                        // uncomment if you run the SW on FlockLAB
+#define HOST_NODE                                       // uncomment if this is a host node
+//#define FLOCKLAB                                      // uncomment if you run the SW on FlockLAB
 #define FLOCKLAB_HOST_ID    2
 
 
@@ -35,8 +35,9 @@
 #define N_DATA_PACKETS_MAX  10                          // max. number of data packets buffered on the host node
 #define N_STREAMS_MAX_SRC   10                          // max. number of streams that a source node may allocate (MUST NOT be higher than 32)
 // slot durations (in timer ticks)
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
   #define T_PREPROCESS      (RTIMER_SECOND / 50)        // how much time to do processing before a round starts
+  #define T_PREPROCESS_TA1  (RTIMER_SECOND_TA1 / 50)        // how much time to do processing before a round starts
 #endif
 #define T_REF_OFFSET        (RTIMER_SECOND / 800)       // constant time offset that is added to t_ref in each round (to align the glossy start pulses on host and source nodes)
 #define T_SCHED             (RTIMER_SECOND / 30)        // length of a schedule slot: approx. 33 ms 
@@ -77,31 +78,33 @@
 
 // select the used CC430 board
 //#define BOARD_EM430F5137RF900                         // currently used evaluation board for the CC430F5137
-#ifdef FLOCKLAB
+//#ifdef FLOCKLAB
   #define BOARD_MSP430CCRF                              // the red board (Olimex)
-#else 
-  #define BOARD_COMM_V1                                 // custom board v1.0
-#endif // FLOCKLAB
+//#else 
+//  #define BOARD_COMM_V1                                 // custom board v1.0
+//#endif // FLOCKLAB
 //#define ASYNC_INT_USE_DMA                             // uncomment to use DMA-driven data transfer from and to the asynchronous data interface
 //#define ASYNC_INT_TIMEREQ_POLLING                     // uncomment to use polling (and DMA) for the timestamp request instead of interrupts
 //#define FRAM_USE_DMA                                  // uncomment to use DMA-driven data transfer from and to the external FRAM
-#define MAX_CLOCK_DEV       500                         // the max. clock deviation (according to the specification of the crystal), in ACLK cycles per second (3.25 MHz)
+#define MAX_CLOCK_DEV       500                         // the max. clock deviation (according to the specification of the crystal), in SMCLK cycles per second (3.25 MHz)
 //#define SPI_FAST_READ                                 // in polling mode only: comment this line to disable fast read from SPI (i.e. transfer 2 bytes, then start reading -> there's a chance to miss a byte, should not be enabled for SPI speeds > MCLK / 2)
     
     
 // DEBUGING and STATISTICS
 
 #define USE_LEDS                                        // comment this line to disable all LEDs
-#define DEBUG_LEVEL                 DEBUG_LVL_INFO      // select the debug level, must be of type debug_level_t
+#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO  // select the debug level, must be of type debug_level_t
 #ifndef FLOCKLAB
-  #define DEBUG_PRINT_BUFFER_XMEM                       // uncomment to buffer the print messages on the external memory  
+  #define DEBUG_PRINT_CONF_USE_XMEM     1               // uncomment to buffer the print messages on the external memory  
   #define STORE_STATS_XMEM                              // uncomment to store the statistics in the external memory
-#endif
-#define DEBUG_PRINT_MAX_LENGTH      80                  // including the null-character if required
-#ifdef DEBUG_PRINT_BUFFER_XMEM
-  #define N_DEBUG_MSG               20                  // buffer size for debug prints (if more debug messages are generated per round, they will be dropped)
 #else
-  #define N_DEBUG_MSG               8                   // buffer size for debug prints (if more debug messages are generated per round, they will be dropped)
+  #define DEBUG_PRINT_CONF_USE_XMEM     0
+#endif
+#define DEBUG_PRINT_CONF_MAX_LENGTH     80              // including the null-character if required
+#if DEBUG_PRINT_CONF_USE_XMEM
+  #define DEBUG_PRINT_CONF_BUFFER_SIZE  20              // buffer size for debug prints (if more debug messages are generated per round, they will be dropped)
+#else
+  #define DEBUG_PRINT_CONF_BUFFER_SIZE  8               // buffer size for debug prints (if more debug messages are generated per round, they will be dropped)
 #endif
 
 

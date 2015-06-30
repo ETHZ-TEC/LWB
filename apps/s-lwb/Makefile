@@ -1,13 +1,22 @@
+#!/bin/sh
 
+# define the root of the Contiki source tree (relative to this directory), the application name 
+# and the system-wide Contiki makefile, which contains the definitions of the Contiki core system 
+# and points out to the specific Makefile of our target platform. Makefile.include must always be 
+# located at the top of the Contiki source tree.
+CONTIKI = ../..
 CONTIKI_PROJECT = s-lwb
 
-SRCS = s-lwb.c scheduler.c compress.c mm.c stream.c
+# specify the target platform (or pass this parameter by command line)
+#TARGET = cc430
+
+SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
+#$(info hello world = $(SRCS))
+#SRCS = s-lwb.c scheduler.c compress.c mm.c stream.c
 
 WITH_GLOSSY = 1
 
-CONTIKI = ../..
 include $(CONTIKI)/Makefile.include
-
 
 all: $(CONTIKI_PROJECT)
 

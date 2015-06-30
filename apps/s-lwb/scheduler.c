@@ -28,7 +28,7 @@ static uint8_t        pending_sack[4 * N_PENDING_SACK_MAX]; // note: 4 * ... bec
   LIST(streams_list);                                       // -> lists only work for data in RAM
   MEMB(streams_memb, stream_info_t, N_STREAMS_MAX);         // data structures to hold the stream info
 #else
-  static uint32_t     streams_list = XMEM_INVALID_ADDR;     // address of the first linked list element (head) in the external memory (note: do NOT dereference this pointer!)
+  static uint32_t     streams_list = MEMBX_INVALID_ADDR;     // address of the first linked list element (head) in the external memory (note: do NOT dereference this pointer!)
   MEMBX(streams_memb, sizeof(stream_info_t), N_STREAMS_MAX);// data structures to hold the stream info, starting at address 0 in the external memory
 #endif // SCHEDULER_USE_XMEM
 
@@ -58,7 +58,7 @@ static inline void sched_del_stream(stream_info_t* stream) {
  * @param[in] address (in the ext. mem.) of the stream to remove
  */
 void sched_del_stream(uint32_t stream_addr) {
-    if (stream_addr == XMEM_INVALID_ADDR || streams_list == XMEM_INVALID_ADDR) {        
+    if (stream_addr == MEMBX_INVALID_ADDR || streams_list == MEMBX_INVALID_ADDR) {        
         return;
     }    
     stream_info_t stream;
@@ -80,8 +80,8 @@ void sched_del_stream(uint32_t stream_addr) {
                 break;
             }
             prev_addr = stream.next;
-        } while (prev_addr != XMEM_INVALID_ADDR);
-        if (prev_addr == XMEM_INVALID_ADDR) {
+        } while (prev_addr != MEMBX_INVALID_ADDR);
+        if (prev_addr == MEMBX_INVALID_ADDR) {
             // not found!
             DEBUG_PRINT_WARNING("memory block not freed (invalid address)");
             return;
@@ -197,11 +197,11 @@ void sched_proc_srq(const stream_request_t * req) {
                 }
                 // go to the next address
                 stream_addr = stream.next;            
-            } while (stream_addr != XMEM_INVALID_ADDR);
+            } while (stream_addr != MEMBX_INVALID_ADDR);
         }                
         // does not exist: add the new stream
         stream_addr = membx_alloc(&streams_memb);
-        if (stream_addr == XMEM_INVALID_ADDR) {
+        if (stream_addr == MEMBX_INVALID_ADDR) {
             DEBUG_PRINT_WARNING("no memory available to store stream info");
             sched_stats.n_no_space++;    // no space for new streams
             return;
@@ -211,16 +211,16 @@ void sched_proc_srq(const stream_request_t * req) {
         new_stream.last_assigned   = ((int32_t)time + (int32_t)req->t_offset > 0) ? (time + req->t_offset) : time;     //(time > req->ipi) ? (time - req->ipi) : time;
         new_stream.stream_id       = req->stream_id;
         new_stream.n_cons_missed   = 0;
-        new_stream.next            = XMEM_INVALID_ADDR;
+        new_stream.next            = MEMBX_INVALID_ADDR;
         // insert the stream into the list, ordered by node id
-        if (streams_list == XMEM_INVALID_ADDR) {   // empty list?
+        if (streams_list == MEMBX_INVALID_ADDR) {   // empty list?
             streams_list = stream_addr;
         } else {
             prev_addr = streams_list;
             do {
                 fram_read(prev_addr, sizeof(stream_info_t), (uint8_t*)&stream);
                 // check the ID
-                if (req->node_id <= stream.node_id || stream.next == XMEM_INVALID_ADDR) { 
+                if (req->node_id <= stream.node_id || stream.next == MEMBX_INVALID_ADDR) { 
                     if (streams_list == prev_addr) { // the element is inserted at the head of the list
                         streams_list = stream_addr;
                         new_stream.next = prev_addr;
@@ -232,7 +232,7 @@ void sched_proc_srq(const stream_request_t * req) {
                     break;
                 }            
                 prev_addr = stream.next;    // go to the next address
-            } while (prev_addr != XMEM_INVALID_ADDR);            
+            } while (prev_addr != MEMBX_INVALID_ADDR);            
         }
         fram_write(stream_addr, sizeof(stream_info_t), (uint8_t*)&new_stream);
 
@@ -254,7 +254,7 @@ void sched_proc_srq(const stream_request_t * req) {
         sched_del_stream(stream);        
 #else
         stream_addr = streams_list;
-        while (stream_addr != XMEM_INVALID_ADDR) {
+        while (stream_addr != MEMBX_INVALID_ADDR) {
             fram_read(stream_addr, sizeof(stream_info_t), (uint8_t*)&stream);
             if (req->node_id == stream.node_id) {
                 break;
@@ -417,7 +417,7 @@ uint16_t sched_compute(schedule_t * const sched, const uint8_t * const streams_t
 #else
     uint32_t stream_addr = streams_list;
     stream_info_t curr_stream;
-    while (stream_addr != XMEM_INVALID_ADDR) {
+    while (stream_addr != MEMBX_INVALID_ADDR) {
     
         fram_read(stream_addr, sizeof(stream_info_t), (uint8_t*)&curr_stream);
 
@@ -525,16 +525,16 @@ uint16_t sched_compute(schedule_t * const sched, const uint8_t * const streams_t
 
 #else
 
-    if (streams_list == XMEM_INVALID_ADDR) {
+    if (streams_list == MEMBX_INVALID_ADDR) {
         DEBUG_PRINT_WARNING("unexpected invalid stream address");
         goto set_schedule;
     }
     stream_addr = streams_list;
     // make curr_stream point to the random initial position
-    for (i = 0; i < rand_init_pos && stream_addr != XMEM_INVALID_ADDR; i++) {
+    for (i = 0; i < rand_init_pos && stream_addr != MEMBX_INVALID_ADDR; i++) {
         fram_read(stream_addr, sizeof(stream_info_t), (uint8_t*)&curr_stream);
         stream_addr = curr_stream.next;
-        if (stream_addr == XMEM_INVALID_ADDR) {
+        if (stream_addr == MEMBX_INVALID_ADDR) {
             DEBUG_PRINT_WARNING("unexpected invalid stream address");
             stream_addr = streams_list;
             break;
@@ -550,7 +550,7 @@ uint16_t sched_compute(schedule_t * const sched, const uint8_t * const streams_t
         // the number of slots to assign to curr_stream
             uint16_t to_assign = (time - curr_stream.last_assigned) / curr_stream.ipi;  // elapsed time / period
             if (period == PERIOD_MIN) {     // if saturated 
-                if (curr_stream.next == init_stream || (curr_stream.next == XMEM_INVALID_ADDR && rand_init_pos == 0)) {
+                if (curr_stream.next == init_stream || (curr_stream.next == MEMBX_INVALID_ADDR && rand_init_pos == 0)) {
                     // last random stream: assign all possible slots
                 } else {
                     // ensure fairness among source nodes when the bandwidth saturates
@@ -579,7 +579,7 @@ uint16_t sched_compute(schedule_t * const sched, const uint8_t * const streams_t
 
         // go to the next stream in the list
         stream_addr = curr_stream.next;
-        if (stream_addr == XMEM_INVALID_ADDR) {
+        if (stream_addr == MEMBX_INVALID_ADDR) {
             // end of the list: start again from the head of the list
             stream_addr = streams_list;
             first_index = n_slots_assigned; 
@@ -636,7 +636,7 @@ uint16_t sched_init(schedule_t* sched) {
     list_init(streams_list);
 #else
     membx_init(&streams_memb);
-    streams_list = XMEM_INVALID_ADDR;
+    streams_list = MEMBX_INVALID_ADDR;
 #endif // SCHEDULER_USE_XMEM
 
     // initialize persistent variables

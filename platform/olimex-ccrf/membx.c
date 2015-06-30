@@ -39,72 +39,79 @@
 
  /**
  * \file
- * Memory block allocation routines.
- * \author Adam Dunkels <adam@sics.se>
+ * Memory block allocation routines for external memory (FRAM).
  */
-#include <string.h>
-
-#include "contiki.h"
-#include "lib/memb.h"
+#include "membx.h"
 
 /*---------------------------------------------------------------------------*/
 void
-memb_init(struct memb *m)
+membx_init(struct membx *m)
 {
-  memset(m->count, 0, m->num);
-  memset(m->mem, 0, m->size * m->num);
+  memset(m->count, 0, (m->num + 7) >> 3);
+  m->mem = fram_alloc(m->size * m->num);
+  if (FRAM_ALLOC_ERROR == m->mem) {
+    DEBUG_PRINT_ERROR("memory allocation failed!");
+  }
 }
-/*---------------------------------------------------------------------------*/
-void *
-memb_alloc(struct memb *m)
+/*---------------------------------------------------------------------------*/uint32_t
+membx_alloc(struct membx *m)
 {
-  int i;
-
-  for(i = 0; i < m->num; ++i) {
-    if(m->count[i] == 0) {
-      /* If this block was unused, we increase the reference count to
-	 indicate that it now is used and return a pointer to the
-	 memory block. */
-      ++(m->count[i]);
-      return (void *)((char *)m->mem + (i * m->size));
+  unsigned short i, limit;
+  uint8_t bit;
+ 
+  i = m->last;
+  limit = m->num;
+find_free:
+  for (; i < limit; i++) {      // loop through all data units in this memory block
+    bit = (1 << (i & 0x07));
+    if (0 == (m->count[i >> 3] & bit)) {     // bit set?
+      m->count[i >> 3] |= bit;    // set bit
+      m->last = i;
+      m->n_alloc++;
+      return m->mem + ((uint32_t)i * (uint32_t)m->size);    // return the address
     }
   }
-
-  /* No free block was found, so we return NULL to indicate failure to
+  if (m->last != 0 && i == m->num) {
+    i = 0;
+    limit = m->last;
+    goto find_free;
+  }  
+  /* No free block was found, so we return MEMBX_INVALID_ADDR to indicate failure to
      allocate block. */
-  return NULL;
+  m->last = 0;
+  return MEMBX_INVALID_ADDR;
 }
 /*---------------------------------------------------------------------------*/
-char
-memb_free(struct memb *m, void *ptr)
+void
+membx_free(struct membx *m, uint32_t ptr)
 {
-  int i;
-  char *ptr2;
-
-  /* Walk through the list of blocks and try to find the block to
-     which the pointer "ptr" points to. */
-  ptr2 = (char *)m->mem;
-  for(i = 0; i < m->num; ++i) {
-    
-    if(ptr2 == (char *)ptr) {
-      /* We've found to block to which "ptr" points so we decrease the
-	 reference count and return the new value of it. */
-      if(m->count[i] > 0) {
-	/* Make sure that we don't deallocate free memory. */
-	--(m->count[i]);
-      }
-      return m->count[i];
-    }
-    ptr2 += m->size;
+  unsigned short i = (ptr - m->mem) / m->size;
+  if ( (i < m->num) && (m->count[i >> 3] & (1 << (i & 0x07))) ) {
+    m->count[i >> 3] &= ~(1 << (i & 0x07));    // clear bit
+    m->n_alloc--;
   }
-  return -1;
 }
 /*---------------------------------------------------------------------------*/
-int
-memb_inmemb(struct memb *m, void *ptr)
+uint32_t
+membx_get_next(struct membx *m, uint16_t start_idx)      // returns the first non-empty block
 {
-  return (char *)ptr >= (char *)m->mem &&
-    (char *)ptr < (char *)m->mem + (m->num * m->size);
+  uint16_t i;
+  uint8_t bit;
+  if (start_idx >= m->num) {
+    start_idx = 0;
+  }
+  i = start_idx;
+  do {                         // loop through all data units in this memory block
+    bit = (1 << (i & 0x07));
+    if (m->count[i >> 3] & bit) {     // bit set?
+      return m->mem + ((uint32_t)i * (uint32_t)m->size);    // return the address
+    }
+    i++;
+    if (i == m->num) {
+        i = 0;
+    }
+  } while (i != start_idx);
+  return MEMBX_INVALID_ADDR;
 }
 /*---------------------------------------------------------------------------*/
 

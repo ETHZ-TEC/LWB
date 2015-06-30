@@ -29,6 +29,13 @@ typedef enum {
 } cmd_code_t;
 
 
+
+#define IS_CTRL_MSG(m)      ( ((message_t*)m)->header.stream_id & 0x80 )
+#define IS_DATA_MSG(m)      ( !(((message_t*)m)->header.stream_id & 0x80) )
+#define SET_CTRL_MSG(m)     ( ((message_t*)m)->header.stream_id |= 0x80 )
+
+
+
 #define MESSAGE_HEADER_SIZE     8
 /**
  * @brief packet format of messages sent to and read from the asynchronous data interface
@@ -59,7 +66,6 @@ typedef struct {
 } command_t;
 
 
-
 uint16_t calc_crc16(const uint8_t* data, uint8_t num_bytes);
 
 void mm_init(void);
@@ -68,8 +74,6 @@ uint8_t mm_get(message_t* msg);     // renamed from mm_out_queue_get
 uint8_t mm_put(message_t* msg);     // renamed from mm_in_queue_put
 void mm_flush(uint8_t* buffer);     // renamed from mm_in_queue_flush
 void mm_fill(uint8_t* buffer);      // renamed from mm_out_queue_fill
-
-
 
 
 #endif

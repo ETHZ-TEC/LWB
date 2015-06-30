@@ -75,7 +75,9 @@
  * - message manager added on host side
  * - timer removed from ADI driver (wait a fixed number of cycles for the ACK signal)
  * - reset stats command added
- * - nasty pointer misalignment bug fixed (memcpy() to copy node_id into pending_sack buffer)
+ * - nasty pointer misalignment bug fixed (memcpy() to copy node_id into pending_sack buffer) (revision 451)
+ * - clocks changed: SMCLK no feed by XT2 and ACLK by XT1
+ * - major modification to support and use XT1 on the Olimex board (revision 453)
  *
  * To-do:
  * - extended verification / test (sync state machine, scheduler, ext. memory usage...) -> think of a way to test it
@@ -171,6 +173,65 @@ static const char* sync_state_to_string[NUM_OF_SYNC_STATES] = { "BOOTSTRAP", "Q_
     PT_YIELD(&slwb_pt);\
     LWB_TASK_ACTIVE;\
 }
+
+
+/**
+ * @brief turn the 26 MHz high-frequency oscillator off and switch clock source to XT1
+ */
+#define BEFORE_SLEEP() \
+{\
+    fram_sleep();                                           /* this also disables SPI B0 */\
+    SPI_A0_DISABLE;\
+    TA0CTL  &= ~MC_3;                                       /* stop timer A0 */\
+    UCSCTL4  = SELA__XT1CLK | SELS__XT1CLK | SELM__XT1CLK;  /* change clock source */\
+    UCSCTL6 |= XT2OFF;                                      /* disable XT2 */\
+    P1SEL   &= ~(BIT2 | BIT3 | BIT4 | BIT5 | BIT6);         /* reconfigure GPIOs */\
+    P1DIR   |= BIT2 | BIT5;\
+}
+
+
+/**
+ * @brief turn the 26 MHz high-frequency oscillator on, wait until it has stabilized and use it as clock source for MCLK and SMCLK
+ */
+#define AFTER_SLEEP() \
+{\
+    PIN_SET_DIRECT(2, 6);\
+    SFRIE1  &= ~OFIE;\
+    UCSCTL6 &= ~XT2OFF;\
+    do {\
+        UCSCTL7 &= ~(XT2OFFG + DCOFFG);\
+        SFRIFG1 &= ~OFIFG;\
+    } while (SFRIFG1 & OFIFG);\
+    SFRIE1  |= OFIE;\
+    TA0CTL  |= MC_2;\
+    UCSCTL4  = SELA | SELS | SELM;\
+    P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | BIT6);\
+    P1DIR   &= ~(BIT2 | BIT5);\
+    PIN_CLEAR_DIRECT(2, 6);\
+}
+
+
+/**
+ * @brief suspends the lwb proto-thread until the rtimer reaches the specified timestamp time
+ */
+#define SLEEP_UNTIL2(time, thread) \
+{\
+    rtimer_schedule(WAKEUP_RTIMER_ID, time, 0, thread);\
+    LWB_TASK_SUSPENDED;\
+    PT_YIELD(&slwb_pt);\
+    LWB_TASK_ACTIVE;\
+}
+
+#define SLEEP_UNTIL(time, thread) \
+{\
+    rtimer_schedule(WAKEUP_RTIMER_ID, time, 0, thread);\
+    LWB_TASK_SUSPENDED;\
+    BEFORE_SLEEP();\
+    PT_YIELD(&slwb_pt);\
+    AFTER_SLEEP();\
+    LWB_TASK_ACTIVE;\
+}  
+    
     
 /**
  * @brief computes the new sync state and updates the guard time
@@ -198,16 +259,16 @@ void stats_load(void) {
     fram_init();
     stats_addr = fram_alloc(sizeof(statistics_t));
     if (FRAM_ALLOC_ERROR == stats_addr || !fram_read(stats_addr, sizeof(statistics_t), (uint8_t*)&stats)) {
-        DEBUG_PRINT_WARNING("failed to load stats");
+        DEBUG_PRINT_NOW("WARNING: failed to load stats\r\n");
     }
     crc = stats.crc;
     stats.crc = 0;
     if (calc_crc16((uint8_t*)&stats, sizeof(statistics_t)) != crc) {
-        DEBUG_PRINT_WARNING("stats corrupted, values reset");
+        DEBUG_PRINT_NOW("WARNING: stats corrupted, values reset\r\n");
         memset(&stats, 0, sizeof(statistics_t));
     }
     stats.reset_cnt++;
-    DEBUG_PRINT_INFO("stats loaded, reset count: %d", stats.reset_cnt);
+    DEBUG_PRINT_NOW("stats loaded, reset count: %d\r\n", stats.reset_cnt);
 }
 
 /**
@@ -238,7 +299,7 @@ PT_THREAD(slwb_thread_host(rtimer_t *rt)) {
     
     // all variables must be static (because this function may be interrupted at any of the WAIT_UNTIL statements)
     static schedule_t schedule;
-    static rtimer_clock_t t_start, t_now;
+    static rtimer_clock_t t_start, t_now, t_start_ta1;
     static uint8_t slot_idx;
     static glossy_payload_t glossy_payload;             // packet buffer, used to send and receive the packets
     static uint8_t streams_to_update[N_SLOTS_MAX];
@@ -251,9 +312,7 @@ PT_THREAD(slwb_thread_host(rtimer_t *rt)) {
     
     // initialization specific to the host node
     schedule_len = sched_init(&schedule);
-    
-    LED_ON(LED_STATUS);
-          
+              
     while (1) {
     
         // pre-processing
@@ -263,6 +322,7 @@ PT_THREAD(slwb_thread_host(rtimer_t *rt)) {
 #endif // T_PREPROCESS
         
         t_start = rt->time;
+        
         PREPARE_1ST_SCHED(schedule);            // prepare the schedule (update time, mark it as the first schedule)
         SEND_SCHEDULE(slwb_thread_host);        // send the previously computed schedule 
         
@@ -329,7 +389,7 @@ PT_THREAD(slwb_thread_host(rtimer_t *rt)) {
                                 DEBUG_PRINT_INFO("data received (s=%u.%u l=%u)", schedule.slot[i], glossy_payload.data_pkt.stream_id, glossy_get_payload_len());
                                 // put the received message into the async interface queue (blocking call)   TODO: think about the 'queue full' problem
                                 //ASYNC_INT_WRITE(glossy_payload.raw_data, len);
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
                                 mm_put((message_t*)glossy_payload.raw_data);  
 #endif // FLOCKLAB
                             }
@@ -374,24 +434,38 @@ PT_THREAD(slwb_thread_host(rtimer_t *rt)) {
 #ifndef T_PREPROCESS        
         mm_fill(glossy_payload.raw_data);     // process messages in ADI queue (if any)
 #endif // T_PREPROCESS
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
         mm_flush(glossy_payload.raw_data);    // send the buffered messages over the ADI (if enough credit avaiable)
 #endif
 
         // print out some stats
         DEBUG_PRINT_INFO("ts=%u td=%u dp=%u d=%lu p=%u r=%u", stats.t_sched_max, stats.t_proc_max, rcvd_data_pkts, stats.data_tot, stats.pck_cnt, stats.relay_cnt);
-
+        
 #ifdef STORE_STATS_XMEM
         stats_save();
 #endif
         fram_sleep();           // put the external memory into LPM
-        debug_process_poll();   // wake up the debug process 
-        // suspend this task and wait for the next round 
+        //debug_process_poll();   // wake up the debug process 
+        
+       /*       
 #ifdef T_PREPROCESS
         WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND - T_PREPROCESS, slwb_thread_host);
 #else
         WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND, slwb_thread_host);
 #endif // T_PREPROCESS
+     */
+       
+        // MODIFICATIONS
+                
+        // suspend this task and wait for the next round (disable HF crystal during this phase!)
+#ifdef T_PREPROCESS_TA1
+        SLEEP_UNTIL(t_start_ta1 + schedule.period * RTIMER_SECOND_TA1 - T_PREPROCESS_TA1, slwb_thread_host);
+#else
+        SLEEP_UNTIL(t_start_ta1 + schedule.period * RTIMER_SECOND_TA1, slwb_thread_host);
+#endif // T_PREPROCESS
+        
+        t_start_ta1 = rtimer_now_ta1();
+        rt->time = rtimer_now(); //t_start + schedule.period * RTIMER_SECOND;
     }
     
     PT_END(&slwb_pt);
@@ -509,7 +583,7 @@ PT_THREAD(slwb_thread_source(rtimer_t *rt)) {
                                 msg.payload[0] = CMD_CODE_SDEL;
                             } 
                             SET_CTRL_MSG(&msg);
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
                             mm_put(&msg);  
 #endif // FLOCKLAB
                         } 
@@ -529,13 +603,13 @@ PT_THREAD(slwb_thread_source(rtimer_t *rt)) {
                     if (schedule.slot[i] == node_id) {
                         // this is our data slot, send a data packet
                         RTIMER_CAPTURE;
-#ifdef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
+                        payload_len = mm_get((message_t*)glossy_payload.raw_data);    // fetch the next 'ready-to-send' packet
+#else
                         // generate some dummy data
                         glossy_payload.data_pkt.recipient = 0;
                         glossy_payload.data_pkt.stream_id = 0;
-                        payload_len = adc_get_data(glossy_payload.data_pkt.payload) + MESSAGE_HEADER_SIZE;
-#else
-                        payload_len = mm_get((message_t*)glossy_payload.raw_data);    // fetch the next 'ready-to-send' packet
+                        payload_len = 0; //adc_get_data(glossy_payload.data_pkt.payload) + MESSAGE_HEADER_SIZE;
 #endif // FLOCKLAB
                         if (payload_len) {
                             stats.t_prep_max = MAX(RTIMER_ELAPSED, stats.t_prep_max);
@@ -555,7 +629,7 @@ PT_THREAD(slwb_thread_source(rtimer_t *rt)) {
                             if (glossy_payload.data_pkt.recipient == node_id || 
                                 glossy_payload.data_pkt.recipient == RECIPIENT_BROADCAST) {
                                 DEBUG_PRINT_INFO("data received");
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
                                 mm_put((message_t*)glossy_payload.raw_data);
 #endif // FLOCKLAB
                             } else {
@@ -642,7 +716,7 @@ PT_THREAD(slwb_thread_source(rtimer_t *rt)) {
 #ifndef T_PREPROCESS        
         mm_fill(glossy_payload.raw_data);     // process messages in ADI queue (if any)
 #endif // T_PREPROCESS
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
         mm_flush(glossy_payload.raw_data);    // send the buffered messages over the ADI (if enough credit avaiable)
 #else
         /*if (!pending_requests && ((round_count & 7) == 0)) {        // allocate a new stream after x rounds (only if no request pending!)
@@ -690,20 +764,32 @@ PROCESS_THREAD(simple_lwb_process, ev, data) {
     PT_INIT(&slwb_pt);
                 
     // ----- INIT -----
-   
+
+    // board-specific optimal configuration of unused pins
+    PIN_SET_DIRECT(1,1);    // push-button, tied to 3V
+    PIN_SET_DIRECT(1,6);    // UART TX, set high if pin is in use
+    PIN_SET_DIRECT(1,7);    // SPI B0 STE (is tied to 3V)
+    PIN_SET_DIRECT(2,0);    // tied to 3V
+    PIN_SET_DIRECT(2,1);    // tied to 3V
+        
+    //PIN_MAP_AS_OUTPUT_DIRECT(2, 6, PM_MCLK);
+    
     debug_print_init();     // start the debug process (NOTE: no debug prints are accepted before this line of code, use DEBUG_PRINT_NOW() instead)
 #ifdef STORE_STATS_XMEM
     stats_load();           // load the stats from the external memory   
 #endif
-#ifndef FLOCKLAB
+#if !defined(FLOCKLAB) && defined(BOARD_COMM_V1)
     mm_init();              // message manager (only use it if not running on Flocklab)
 #else
-    adc_init();
+    //adc_init();
 #endif // FLOCKLAB
     
     //PIN_SET_AS_OUTPUT(DEBUG_PIN);
     //PIN_CLEAR(DEBUG_PIN);
     
+    //PIN_SET_AS_OUTPUT_DIRECT(3,7);
+    //PIN_SELECT_DIRECT(3,7);
+           
     // set glossy parameters (antenna gain, packet length and wireless channel)
     rf1a_set_tx_power(TX_POWER);
     rf1a_set_maximum_packet_length(PACKET_LEN_MAX);
@@ -718,6 +804,29 @@ PROCESS_THREAD(simple_lwb_process, ev, data) {
 
 }
  
+
+ISR(UNMI, unmi_interrupt) {
+    
+    //LED_ON(LED_0);      // error indication
+    switch (SYSUNIV) {
+        case SYSUNIV_NMIIFG:
+            break;
+        case SYSUNIV_OFIFG:
+            LED_ON(LED_0);
+            while(1);
+            do
+            {
+                UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG);     // Clear XT1 & DCO fault flags
+                SFRIFG1 &= ~OFIFG;                              // Clear OSC Fault flag
+                __delay_cycles(406250);
+            } while (SFRIFG1 & OFIFG);
+            break;
+            LED_OFF(LED_0);
+        default:
+            break;
+    }
+}
+
 
 #ifdef PUSH_BUTTON
 static volatile uint8_t push_count = 0;

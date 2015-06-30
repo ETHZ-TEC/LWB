@@ -1,3 +1,36 @@
+/*
+ * Copyright (c) 2004, Swedish Institute of Computer Science.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the Institute nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * This file is part of the Contiki operating system.
+ *
+ * Author: Adam Dunkels <adam@sics.se>
+ *
+ */
 #ifndef __CONTIKI_H__
 #define __CONTIKI_H__
 
@@ -5,42 +38,20 @@
 #define CONTIKI_VERSION_STRING "Contiki 2.7"
 #endif /* CONTIKI_VERSION_STRING */
 
-// the configuration
 #include "contiki-conf.h"
 
-// contiki libraries
 #include "sys/process.h"
 #include "sys/autostart.h"
-#include "sys/pt.h"
+
+#include "sys/timer.h"
 #include "sys/etimer.h"
+#include "sys/pt.h"
 #include "sys/energest.h"
 
-#include "lib/ringbuf.h"
-#include "lib/random.h"
-#include "lib/memb.h"
 #include "lib/list.h"
+#include "lib/memb.h"
+#include "lib/random.h"
 
 #include "dev/serial-line.h"
-#include "dev/debug-print.h"
-
-
-// platform specific files (CC430)
-#include "leds.h"
-#include "ports.h"
-#include "adc.h"
-#include "clock.h"
-#include "rtimer.h"
-#include "hal_pmm.h"
-#include "uart0.h"
-#include "spi.h"
-#include "rf1a.h"
-#include "nullmac.h"
-#include "glossy.h"
-#include "dma.h"
-#include "fram.h"      // provides an interface towards the external memory
-#include "async_int.h"
-
-
-extern volatile uint16_t node_id;
 
 #endif /* __CONTIKI_H__ */
