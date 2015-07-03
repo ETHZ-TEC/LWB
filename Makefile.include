@@ -13,7 +13,7 @@ endif
 ifndef TARGET
   MCU = cc430f5137
   CPU = cc430
-  PLATFORM = tec-board
+  PLATFORM = custom-cc430
 else
   ifeq ($(TARGET),olimex)
     MCU = cc430f5137
@@ -26,7 +26,7 @@ else
   else
     MCU = cc430f5137
     CPU = cc430
-    PLATFORM = tec-board
+    PLATFORM = custom-cc430
   endif
 endif
 

@@ -35,33 +35,36 @@
  * @addtogroup  Platform
  * @{
  *
- * @defgroup    adc ADC
+ * @defgroup    leds LEDs
  * @{
  *
  * @file
  * @author
  *              Reto Da Forno
  *
- * @brief configure the ADC to sample the battery voltage and temperature
+ * @brief access the LEDs
  */
 
-#ifndef __ADC_H__
-#define __ADC_H__
+#ifndef __LEDS_H__
+#define __LEDS_H__
 
-/**
- * @brief initialize the ADC12 module for battery voltage and on-chip
- * temperature sensing
- */
-void adc_init(void);
+#ifdef LEDS_ENABLE
+#define LED_ON(portandpin)      PIN_SET_DIRECT(portandpin)
+#define LED_OFF(portandpin)     PIN_CLEAR_DIRECT(portandpin)
+#define LED_TOGGLE(portandpin)  PIN_TOGGLE_DIRECT(portandpin)
+#else
+#define LED_ON(portandpin)
+#define LED_OFF(portandpin)
+#define LED_TOGGLE(portandpin)
+#endif
 
-/**
- * @brief get the battery voltage and temperature
- * @param[out] out_data the output buffer; the 1st byte will contain the
- * temperature, the 2nd the encoded voltage Venc (Vcc = Venc x 4 + 2000)
- */
-void adc_get_data(uint8_t *out_data);
+#define LEDS_ON                 { PIN_SET(LED_RED); }
+#define LEDS_OFF                { PIN_CLEAR(LED_RED); }
+#define LEDS_TOGGLE             { PIN_TOGGLE(LED_RED);  }
+#define LEDS_INIT               { PIN_CLEAR(LED_RED); \
+                                  PIN_SET_AS_OUTPUT(LED_RED); }
 
-#endif /* __ADC_H__ */
+#endif /* __LEDS_H__ */
 
 /**
  * @}

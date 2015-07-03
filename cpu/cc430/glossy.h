@@ -50,9 +50,6 @@
 #ifndef __GLOSSY_H__
 #define __GLOSSY_H__
 
-/* only include necessary files */
-
-
 /*
  * NOTE: The application should define the following two macros for better
  * performance (otherwise glossy will disable all active interrupts).
@@ -139,8 +136,9 @@ uint8_t glossy_is_t_ref_updated(void);
 /**
  * @brief       get the reference time (timestamp of the reception of the first
  *              byte)
+ * @return      64-bit timestamp (type rtimer_clock_t)
  */
-rtimer_clock_t glossy_get_t_ref(void);
+uint64_t glossy_get_t_ref(void);
 
 /**
  * @brief       get the relay count of the first received packet

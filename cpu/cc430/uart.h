@@ -39,29 +39,47 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
- *
- * @brief configure the ADC to sample the battery voltage and temperature
+ * @brief provides functionality to configure the USCI A0 module in UART mode
+ * @author rdaforno
  */
 
-#ifndef __ADC_H__
-#define __ADC_H__
+#ifndef __UART_H__
+#define __UART_H__
+
+
+#ifndef UART_CONF_BAUDRATE
+/* don't forget to adjust uart_init() if you change the baudrate here */
+#define UART_CONF_BAUDRATE  115200LU
+#endif /* UART_CONF_BAUDRATE */
+
+/* pin definitions */
+#define UART_A0_RX          PORT1, PIN5         /* input */
+#define UART_A0_TX          PORT1, PIN6         /* output */
 
 /**
- * @brief initialize the ADC12 module for battery voltage and on-chip
- * temperature sensing
+ * @brief check if the UART module is active / busy (same as USCI_A0_ACTIVE)
  */
-void adc_init(void);
+#define UART_ACTIVE         (UCA0STAT & UCBUSY)
 
 /**
- * @brief get the battery voltage and temperature
- * @param[out] out_data the output buffer; the 1st byte will contain the
- * temperature, the 2nd the encoded voltage Venc (Vcc = Venc x 4 + 2000)
+ * @brief set the input handler for the UART
+ * @param[in] input the function to be called from the UART ISR (RX interrupt)
  */
-void adc_get_data(uint8_t *out_data);
+void uart_set_input_handler(int (*input)(unsigned char c));
+/**
+ * @brief initialize the USCI_A0 module in UART mode (port RS232)
+ * @note set the desired baudrate in hal.h (UART0_BAUDRATE).
+ * @remark The UART module is driven by the SMCLK.
+ */
+void uart_init(void);
+/**
+ * @brief re-initialize the USCI_A0 module in UART mode (when it is configured
+ *in SPI mode)
+ * @remark The UART module is driven by the SMCLK.
+ */
+void uart_reinit(void);
 
-#endif /* __ADC_H__ */
+#endif /* __UART0_H__ */
 
 /**
  * @}

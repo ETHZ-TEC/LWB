@@ -35,91 +35,59 @@
  * @addtogroup  Platform
  * @{
  *
- * @defgroup    platform Platform
+ * @defgroup    usci USCI
  * @{
  *
  * @file
  * @author
  *              Reto Da Forno
  *
- * @brief platform includes and definitions
+ * @brief Universal Serial Communication Interface
+ * 
+ * There are two modules: A0 and B0.
+ * Both can be configured in SPI or UART mode.
  */
 
-#ifndef __PLATFORM_H__
-#define __PLATFORM_H__
+#ifndef __USCI_H__
+#define __USCI_H__
 
-/*
- * include application specific config
+
+#define USCI_A0             UCA0CTLW0  /* base address of the USCI A0 module */
+#define USCI_B0             UCB0CTLW0  /* base address of the USCI A0 module */
+
+/**
+ * @brief check if the USCI A0 module is active / busy (i.e. a transmission is
+ *ongoing)
  */
-#include "config.h"     /* application specific configuration */
+#define USCI_A0_ACTIVE      (UCA0STAT & UCBUSY)
 
-/*
- * configuration and definitions
+/**
+ * @brief check if the USCI A0 module is configured in SPI mode
  */
-#define FRAM_CONF_ON        1        
-#define BOLT_CONF_ON        1         /* this platform does not support bolt */
-#define BOLT_CONF_USE_DMA   1
+#define USCI_A0_IN_SPI_MODE (UCA0CTL0 & UCSYNC)
 
-#define MCU_TYPE            "CC430F5137"
-#define SRAM_SIZE           2048
-
-/*
- * pin mapping
+/**
+ * @brief disable the USCI A0 module
  */
-/* #define GLOSSY_RX_PIN       PORT3, PIN5      */
-/* #define GLOSSY_TX_PIN       PORT3, PIN4      */
-/* #define LWB_TASK_ACT_PIN    PORT3, PIN6      */
-#define LED_RED             PORT1, PIN0   /* Note: this board has only 1 LED */
-#define LED_0               LED_RED 
-#define LED_STATUS          LED_0
-#define DEBUG_TASK_ACT_PIN  PORT2, PIN6
-#define FLOCKLAB_LED1       PORT1, PIN0
-#define FLOCKLAB_LED2       PORT1, PIN1
-#define FLOCKLAB_LED3       
-#define FLOCKLAB_INT1       PORT3, PIN6
-#define FLOCKLAB_INT2       PORT3, PIN7
+#define USCI_A0_DISABLE          (UCA0CTL1 |= UCSWRST)
 
-/*
- * include standard libraries
+/**
+ * @brief disable the USCI B0 module
  */
-#include <stdio.h>
-/*#include <stdlib.h>*/
-#include <isr_compat.h>
-#include <string.h>
+#define USCI_B0_DISABLE          (UCB0CTL1 |= UCSWRST)
 
-/*
- * include MCU HAL
+/**
+ * @brief enable the USCI A0 module
  */
-#include <msp430.h>
+#define USCI_A0_ENABLE          (UCA0CTL1 &= ~UCSWRST)
 
-/*
- * include MCU specific drivers
+/**
+ * @brief enable the USCI B0 module
  */
-#include "adc.h"
-#include "clock.h"
-#include "dma.h"
-#include "flash.h"
-#include "glossy.h"
-#include "gpio.h"
-#include "hal-pmm.h"
-#include "leds.h"
-#include "rf1a.h"
-#include "rf1a-SmartRF-settings/868MHz-2GFSK-250kbps.h" /* RF1A config */
-#include "rtimer.h"
-#include "spi.h"
-#include "uart.h"
-#include "usci.h"
-#include "watchdog.h"
+#define USCI_B0_ENABLE          (UCB0CTL1 &= ~UCSWRST)
 
-/*
- * include plugins (PCB specific)
- */
-#include "bolt.h"
-#include "debug-print.h"
-#include "fram.h"    /* provides the interface towards the external memory */
-#include "membx.h"
 
-#endif /* __PLATFORM_H__ */
+#endif /* __USCI_H__ */
 
 /**
  * @}
