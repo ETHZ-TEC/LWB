@@ -92,10 +92,11 @@ print_info(void)
   } else {
     printf("Unknown");
   }
-  printf(")\r\n" MCU_TYPE " MCU (%d kB RAM, %d kB Flash, %u kB used)\r\n",
+  printf(")\r\nMCU: " MCU_TYPE " (%d kB RAM, %d kB Flash, %u kB used)\r\n",
          SRAM_SIZE >> 10,
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
+  printf("Compiler: " GCC_VS "\r\nDate: " COMPILE_DATE "\r\n");
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -156,9 +157,9 @@ main(int argc, char **argv)
 
   printf("\r\n" CONTIKI_VERSION_STRING " started. ");
   if(node_id > 0) {
-    printf("Node id is set to %u.\r\n", node_id);
+    printf("Node ID is set to %u.\r\n", node_id);
   } else {
-    printf("Node id is not set.\r\n");
+    printf("Node ID is not set.\r\n");
   }
   print_processes(autostart_processes);
 

@@ -46,7 +46,6 @@
 #ifndef __UART_H__
 #define __UART_H__
 
-
 #ifndef UART_CONF_BAUDRATE
 /* don't forget to adjust uart_init() if you change the baudrate here */
 #define UART_CONF_BAUDRATE  115200LU
@@ -66,12 +65,14 @@
  * @param[in] input the function to be called from the UART ISR (RX interrupt)
  */
 void uart_set_input_handler(int (*input)(unsigned char c));
+
 /**
  * @brief initialize the USCI_A0 module in UART mode (port RS232)
  * @note set the desired baudrate in hal.h (UART0_BAUDRATE).
  * @remark The UART module is driven by the SMCLK.
  */
 void uart_init(void);
+
 /**
  * @brief re-initialize the USCI_A0 module in UART mode (when it is configured
  *in SPI mode)

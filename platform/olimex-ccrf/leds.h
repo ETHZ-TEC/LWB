@@ -48,7 +48,7 @@
 #ifndef __LEDS_H__
 #define __LEDS_H__
 
-#ifdef LEDS_ENABLE
+#if LEDS_CONF_ON
 #define LED_ON(portandpin)      PIN_SET_DIRECT(portandpin)
 #define LED_OFF(portandpin)     PIN_CLEAR_DIRECT(portandpin)
 #define LED_TOGGLE(portandpin)  PIN_TOGGLE_DIRECT(portandpin)
@@ -63,7 +63,6 @@
 #define LEDS_TOGGLE             { PIN_TOGGLE(LED_RED);  }
 #define LEDS_INIT               { PIN_CLEAR(LED_RED); \
                                   PIN_SET_AS_OUTPUT(LED_RED); }
-
 #endif /* __LEDS_H__ */
 
 /**

@@ -69,22 +69,22 @@
 /**
  * @brief disable the USCI A0 module
  */
-#define USCI_A0_DISABLE          (UCA0CTL1 |= UCSWRST)
+#define USCI_A0_DISABLE     (UCA0CTL1 |= UCSWRST)
 
 /**
  * @brief disable the USCI B0 module
  */
-#define USCI_B0_DISABLE          (UCB0CTL1 |= UCSWRST)
+#define USCI_B0_DISABLE     (UCB0CTL1 |= UCSWRST)
 
 /**
  * @brief enable the USCI A0 module
  */
-#define USCI_A0_ENABLE          (UCA0CTL1 &= ~UCSWRST)
+#define USCI_A0_ENABLE      (UCA0CTL1 &= ~UCSWRST)
 
 /**
  * @brief enable the USCI B0 module
  */
-#define USCI_B0_ENABLE          (UCB0CTL1 &= ~UCSWRST)
+#define USCI_B0_ENABLE      (UCB0CTL1 &= ~UCSWRST)
 
 
 #endif /* __USCI_H__ */

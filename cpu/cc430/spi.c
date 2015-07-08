@@ -39,20 +39,15 @@ uint32_t spi_sck_div_a0 = 0;
 void
 spi_a0_init(uint32_t bit_clk_speed)
 {
-
   PIN_SET_AS_MODULE_FUNC(SPI_A0_SOMI);
   PIN_SET_AS_MODULE_FUNC(SPI_A0_SIMO);
   PIN_SET_AS_MODULE_FUNC(SPI_A0_CLK);
   PIN_SET_AS_INPUT(SPI_A0_SOMI);
   PIN_SET_AS_OUTPUT(SPI_A0_SIMO);
   PIN_SET_AS_OUTPUT(SPI_A0_CLK);
-  P1DS = 0;
+  /*P1DS = 0; port 1 drive strength */
 
-#ifdef MUX_SEL
-  PIN_SET_AS_OUTPUT(MUX_SEL);
-  PIN_CLEAR(MUX_SEL);
-#endif
-  while(SPI_A0_ACTIVE) ;            /* busy wait */
+  while(SPI_A0_ACTIVE);            /* busy wait */
 
   spi_sck_div_a0 = SMCLK_SPEED / bit_clk_speed;
 
@@ -71,7 +66,6 @@ spi_a0_init(uint32_t bit_clk_speed)
 void
 spi_b0_init(uint32_t bit_clk_speed)
 {
-
   /* GPIO configuration */
   PIN_SET_AS_MODULE_FUNC(SPI_B0_SOMI);
   PIN_SET_AS_MODULE_FUNC(SPI_B0_SIMO);
@@ -81,7 +75,7 @@ spi_b0_init(uint32_t bit_clk_speed)
   PIN_SET_AS_OUTPUT(SPI_B0_SIMO);
   PIN_SET_AS_OUTPUT(SPI_B0_CLK);
 
-  while(SPI_B0_ACTIVE) ;            /* busy wait */
+  while(SPI_B0_ACTIVE);            /* busy wait */
 
   uint32_t sck_div = SMCLK_SPEED / bit_clk_speed;
 
@@ -107,16 +101,14 @@ spi_b0_init(uint32_t bit_clk_speed)
 void
 spi_a0_reinit(void)
 {
-
-  while(SPI_A0_ACTIVE) ;
-#ifdef MUX_SEL
-  PIN_CLEAR(MUX_SEL);
-#endif
-  UCA0CTL1 |= UCSWRST;
-  UCA0CTL0 &= ~(UCCKPH + UCCKPL + UC7BIT + UCMODE_3);
-  UCA0BRW = spi_sck_div_a0;
-  UCA0CTL0 |=
-    (UCMSB + UCMST + UCSYNC + (SPI_A0_CPOL ? UCCKPL : 0) +
-     (SPI_A0_CPHA ? 0 : UCCKPH));
+  if(!USCI_A0_IN_SPI_MODE) {
+    while(SPI_A0_ACTIVE);
+    UCA0CTL1 |= UCSWRST;
+    UCA0CTL0 &= ~(UCCKPH + UCCKPL + UC7BIT + UCMODE_3);
+    UCA0BRW = spi_sck_div_a0;
+    UCA0CTL0 |=
+        (UCMSB + UCMST + UCSYNC + (SPI_A0_CPOL ? UCCKPL : 0) +
+        (SPI_A0_CPHA ? 0 : UCCKPH));
+  }
 }
 /*---------------------------------------------------------------------------*/

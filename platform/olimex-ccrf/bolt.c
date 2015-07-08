@@ -58,10 +58,6 @@ volatile bolt_state_t bolt_state = BOLT_STATE_IDLE;
 #if BOLT_CONF_TIMEREQ_ENABLE
 static rtimer_clock_t ta1_timestamp = 0;
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
-#if BOLT_CONF_USE_DMA
-static uint16_t bolt_rx_buffer = 0;
-static uint16_t bolt_tx_buffer = 0;
-#endif /* BOLT_CONF_TIMEREQ_ENABLE */
 /*---------------------------------------------------------------------------*/
 void
 bolt_init(void)
@@ -80,8 +76,10 @@ bolt_init(void)
   PIN_SET_AS_OUTPUT(BOLT_PIN_REQ);
   PIN_SET_AS_INPUT(BOLT_PIN_ACK);
   PIN_RESISTOR_EN(BOLT_PIN_ACK);
-  /* don't enable interrupts for this pin, use busy wait (polling) instead! */
-  /*PIN_CFG_PORT_INT(BOLT_PIN_ACK);*/
+#if BOLT_CONF_USE_DMA
+  PIN_CFG_PORT_INT(BOLT_PIN_ACK);
+  PIN_IES_FALLING(BOLT_PIN_ACK);
+#endif /* BOLT_CONF_USE_DMA */
 
   /* SPI */
   if(BOLT_CONF_SPI == SPI_B0_BASE) {
@@ -99,22 +97,10 @@ bolt_init(void)
      (do NOT enable interrupts!) */
   rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */
-  dma_init_timer((uint16_t)&ta0_sw_ext, (uint16_t)&ta1_timestamp);     
+  dma_config_timer(DMA_TRCSRC_TA1CCR0, (uint16_t)&ta0_sw_ext, 
+                   (uint16_t)&ta1_timestamp, 8);     
 #endif
 }
-/*---------------------------------------------------------------------------*/
-#if BOLT_CONF_USE_DMA
-void
-bolt_set_dma_buffers(uint16_t rx_buffer_addr, uint16_t tx_buffer_addr)
-{
-  if(0 == rx_buffer_addr || 0 == tx_buffer_addr) {
-    DEBUG_PRINT_WARNING("invalid parameters for bolt_init");
-  }
-  bolt_rx_buffer = rx_buffer_addr;
-  bolt_tx_buffer = tx_buffer_addr;
-  dma_init_spi(BOLT_CONF_SPI, rx_buffer_addr, tx_buffer_addr, bolt_release);
-}
-#endif
 /*---------------------------------------------------------------------------*/
 #if BOLT_CONF_TIMEREQ_ENABLE
 void
@@ -124,7 +110,8 @@ bolt_set_timereq_callback(void (*func)(void))
     /* remove the callback = switch to polling mode (utilize the DMA) */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
-    dma_init_timer((uint16_t)&ta0_sw_ext, (uint16_t)&ta1_timestamp);        
+    dma_config_timer(DMA_TRCSRC_TA1CCR0, (uint16_t)&ta0_sw_ext, 
+                     (uint16_t)&ta1_timestamp, 8);
   } else {      
     /* set the rtimer callback function */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, (rtimer_callback_t)func);
@@ -156,10 +143,7 @@ void
 bolt_release(void)
 {
   /* --- 1. stop DMA --- */
-#ifdef BOLT_USE_DMA
-  DMA_DISABLE_TX;
-  DMA_DISABLE_RX;
-#endif
+  /*-> this is done in the DMA lib */
   /* --- 2. wait for BUSY flag --- */
   SPI_WAIT_BUSY(BOLT_CONF_SPI);
   /* --- 3. set REQ = 0 --- */
@@ -167,13 +151,6 @@ bolt_release(void)
   /* --- 4. empty the RX buffer --- */
   SPI_CLEAR_RXBUF(BOLT_CONF_SPI);
   SPI_DISABLE(BOLT_CONF_SPI);      /* disable SPI (optional) */
-
-#ifdef BOLT_USE_DMA
-  if(BOLT_STATE_READ == bolt_state && 0 != bolt_rx_buffer) {
-    *(uint8_t *)(bolt_rx_buffer + BOLT_CONF_MAX_MSG_LEN - 1) = 0;
-    DEBUG_PRINT_INFO("message received: '%s'", (char *)bolt_rx_buffer);
-  }
-#endif /* BOLT_USE_DMA */
 
   /* --- 5. wait for ACK to go down --- */
   while(PIN_GET_INPUT_BIT(BOLT_PIN_ACK));
@@ -191,14 +168,7 @@ bolt_acquire(bolt_op_mode_t mode)
   if(BOLT_STATE_IDLE != bolt_state) {
     DEBUG_PRINT_ERROR("not in idle state, operation skipped");
     return 0;
-  }
-#if BOLT_CONF_USE_DMA
-  if (bolt_tx_buffer == 0 || bolt_rx_buffer == 0) {        
-    DEBUG_PRINT_ERROR("set the DMA RX and TX buffer first!");
-    return 0;
   }  
-#endif /* BOLT_CONF_USE_DMA */
-  
   /* make sure SPI is enabled */
   SPI_ENABLE(BOLT_CONF_SPI);
 
@@ -238,71 +208,58 @@ bolt_acquire(bolt_op_mode_t mode)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-bolt_start(uint8_t *data, uint16_t *num_bytes)
+bolt_start(uint8_t *data, uint16_t num_bytes)
 {
-  if(0 == num_bytes) {
-    return 0;
-  }
+#if !(BOLT_CONF_USE_DMA)
+  uint16_t count = 0;
+#endif /* BOLT_CONF_USE_DMA */
   DEBUG_PRINT_VERBOSE("starting data transfer... ");
 
   /* WRITE OPERATION */
   if(BOLT_STATE_WRITE == bolt_state) {
-    if(0 == *num_bytes) {
+    if(0 == num_bytes) {
       return 0;
     }
 #if BOLT_CONF_USE_DMA
-    DMA_ENABLEINTERRUPT_TX;
-    /* DMA_SETTXBUF_ADDR(bolt_tx_buffer); */
-    DMA_SETTRANSFERSIZE_TX(num_bytes - 1);
-    DMA_ENABLE_TX;
-    /* write the frist byte to trigger the DMA (TXE) */
-    SPI_WRITE_BYTE(BOLT_CONF_SPI, *(uint8_t *)bolt_tx_buffer);  
+    dma_config_spi(BOLT_CONF_SPI, bolt_release);
+    dma_start(0, (uint16_t)data, num_bytes);
 #else
-    uint16_t to_transmit = *num_bytes;
-    *num_bytes = 0;
-    while((*num_bytes) < to_transmit) {
+    while(count < num_bytes) {
       SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, *data);
       data++;
-      (*num_bytes)++;
-      if(!BOLT_ACK_STATUS) {
-        /* aborted */
-        DEBUG_PRINT_WARNING("transfer aborted by ADI!");
+      count++;
+      if(!BOLT_ACK_STATUS) {  /* aborted */
+        DEBUG_PRINT_ERROR("transfer aborted by BOLT");
         return 0;
       }
     }
-    DEBUG_PRINT_VERBOSE("message written to ADI (%d bytes)", to_transmit);
+    DEBUG_PRINT_INFO("%d bytes transmitted", count);
 #endif /* BOLT_CONF_USE_DMA */
+    return 1;
   /* READ OPERATION */
   } else if(BOLT_STATE_READ == bolt_state) {
 #if BOLT_CONF_USE_DMA
-    /* DMA_SETRXBUF_ADDR(bolt_rx_buffer); */
-    /* DMA_SETTRANSFERSIZE_RX(BOLT_CONF_MAX_MSG_LEN); */
-    DMA_DISABLEINTERRUPT_TX;
-    DMA_ENABLEINTERRUPT_RX;
-    DMA_SETTRANSFERSIZE_TX(BOLT_CONF_MAX_MSG_LEN - 1);
-    DMA_ENABLE_RX;
-    DMA_ENABLE_TX;
-    /* write the frist byte to trigger the DMA (TXE) */
-    SPI_WRITE_BYTE(BOLT_CONF_SPI, *(uint8_t *)bolt_tx_buffer);    
+    dma_config_spi(BOLT_CONF_SPI, bolt_release);
+    dma_start((uint16_t)data, 0, num_bytes);
 #else
-    *num_bytes = 0;
     /* first, clear the RX buffer */
     SPI_CLEAR_RXBUF(BOLT_CONF_SPI);
 #if SPI_CONF_FAST_READ
     /* transmit 1 byte ahead for faster read speed (fills RXBUF faster) */
     SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);                
 #endif
-    while((*num_bytes < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
+    while((count < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
       SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);          /* generate the clock */
       SPI_RECEIVE_BYTE(BOLT_CONF_SPI, *data);
       data++;
-      (*num_bytes)++;
+      count++;
     }
     /* how many bytes received? */
-    DEBUG_PRINT_VERBOSE("message read from ADI (%d bytes)", *num_bytes);
+    DEBUG_PRINT_INFO("%d bytes received", count);
 #endif /* BOLT_CONF_USE_DMA */
+    return 1;
   }
-  return 1;
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 ISR(PORT2, port2_interrupt)
@@ -314,27 +271,18 @@ ISR(PORT2, port2_interrupt)
     PIN_IES_TOGGLE(BOLT_PIN_IND);
     PIN_CLEAR_IFG(BOLT_PIN_IND);
   } else if(PIN_IFG(BOLT_PIN_ACK)) {
+    uint16_t rcvd_bytes = DMA_REMAINING_BYTES_RX;
     DEBUG_PRINT_VERBOSE("port 2 interrupt: ACK pin");
     PIN_CLEAR_IFG(BOLT_PIN_ACK);
-    if(BOLT_STATE_IDLE != bolt_state) {
-      PIN_IES_TOGGLE(BOLT_PIN_ACK);
 #if BOLT_CONF_USE_DMA
-      if(!PIN_GET_INPUT_BIT(BOLT_PIN_ACK)) {
-        /* this was the falling edge */
-        /* abort or transmission complete! */
-        if(BOLT_STATE_READ == bolt_state) {
-          uint16_t rcv_bytes;          
-          if (DMA_REMAINING_BYTES == (BOLT_CONF_MAX_MSG_LEN - 1)) {
-              rcv_bytes = BOLT_CONF_MAX_MSG_LEN;
-          } else {
-              rcv_bytes = (BOLT_CONF_MAX_MSG_LEN - DMA_REMAINING_BYTES);
-          }
-          bolt_release();
-          DEBUG_PRINT_VERBOSE(
-            "Async interface transfer complete (%d bytes received)",
-            rcv_bytes);
-        }
+    if(BOLT_STATE_READ == bolt_state) {
+      if (rcvd_bytes == (BOLT_CONF_MAX_MSG_LEN - 1)) {
+        rcvd_bytes = BOLT_CONF_MAX_MSG_LEN;
+      } else {
+        rcvd_bytes = (BOLT_CONF_MAX_MSG_LEN - rcvd_bytes);
       }
+      bolt_release();
+      DEBUG_PRINT_INFO("%d bytes received", rcvd_bytes);
 #endif /* BOLT_CONF_USE_DMA */
     } else {
       DEBUG_PRINT_VERBOSE("async interface not in IDLE state");

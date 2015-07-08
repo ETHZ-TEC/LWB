@@ -39,7 +39,7 @@
  * @{
  *
  * @brief provides functionality to configure the USCI A0 and B0 modules in SPI
- * mode
+ * mode (as master)
  *
  * @file
  * @author rdaforno
@@ -60,9 +60,9 @@
 #define SPI_CTL1_OFS            0x0000      /* ctrl reg 1 offset */
 #define SPI_BR_OFS              0x0006      /* baud-rate offset */
 #define SPI_TXBUF_OFS           0x000E      /* TX buffer offset */
-#define SPI_IE_OFS              0x001C      /* interrupt enable register offset */
-#define SPI_IFG_OFS             0x001D      /* interrupt flag register offset */
-#define SPI_STAT_OFS            0x000A      /* status register offset */
+#define SPI_IE_OFS              0x001C      /* interrupt enable reg offset */
+#define SPI_IFG_OFS             0x001D      /* interrupt flag reg offset */
+#define SPI_STAT_OFS            0x000A      /* status reg offset */
 #define SPI_RXBUF_OFS           0x000C
 
 /* pin definitions */
@@ -191,17 +191,6 @@
 #define SPI_CLEARIFG_RX(spi)        (REGVAL16(spi + UCB0IFG) &= ~UCRXIE)
 #define SPI_CLEARIFG_TX(spi)        (REGVAL16(spi + UCB0IFG) &= ~UCTXIE)
 
-/**
- * @brief reconfigures the USCI module in SPI mode and selects the output of
- * the MUX
- */
-#ifdef MUX_SEL
-#define SPI_SELECT(spi)         { if(spi == SPI_A0 && !USCI_A0_IN_SPI_MODE) {\
-                                    spi_a0_reinit(); } }
-#else
-#define SPI_SELECT(spi)         
-#endif
- 
 /**
  * @brief initialize the SPI A0 module
  * @param[in]  bit_clk_speed the desired serial clock frequency in Hz

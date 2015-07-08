@@ -69,11 +69,7 @@ uart_init(void)
   PIN_MAP_AS_INPUT(UART_A0_RX, PM_UCA0RXD);   /* map UART RX input to port
                                                  1.5   (same as SPI A0 SOMI) */
   PIN_MAP_AS_OUTPUT(UART_A0_TX, PM_UCA0TXD);  /* map UART TX output to port
-                                                 1.6  (same as SPI A0 SIMO) */
-#ifdef MUX_SEL
-  PIN_SET_AS_OUTPUT(MUX_SEL);
-  PIN_SET(MUX_SEL);
-#endif
+                                                 1.6  (same as SPI A0 SIMO)  */
 
   UCA0CTL1 |= UCSWRST;                     /* Hold peripheral in reset state */
   UCA0CTL1 &= ~UCSSEL_3;
@@ -104,15 +100,10 @@ uart_init(void)
 void
 uart_reinit(void)
 {
-  while(UART_ACTIVE) ;      /* wait until all ongoing transmissions have
-                               terminated */
-#ifdef MUX_SEL
-  PIN_SET(MUX_SEL);
-#endif
+  while(UART_ACTIVE);        /* wait until all transmissions have terminated */
   UCA0CTL1 |= UCSWRST;
   UCA0CTL0 &= ~(UCMSB + UCSPB + UCPEN + UCSYNC + UC7BIT + UCMODE_3);
   UCA0BRW = (uint16_t)prescaler;
-  /* UCA0MCTL = (uint8_t)mod << 1;   // modulation control register */
   UCA0CTL0 |= UCMODE_0;
   UCA0CTL1 &= ~UCSWRST;
 }

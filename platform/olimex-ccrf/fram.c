@@ -50,60 +50,17 @@
 #define FRAM_OPCODE_SLEEP   0xb9            /* enter sleep mode */
 #define FRAM_OPCODE_RDID    0x9f            /* read ID */
 /*---------------------------------------------------------------------------*/
-/**
- * @brief access the FRAM by pulling the control pin low
- * @note  This macro returns zero in case the control pin is already low (not
- *in idle state).
- */
-#define FRAM_ACQUIRE \
+#ifdef MUX_SEL
+#define FRAM_RECONFIG_SPI \
   { \
-    if(PIN_GET_INPUT_BIT(FRAM_CTRL_PIN)) { \
-      SPI_SELECT(FRAM_CONF_SPI);     /* make sure the module is in SPI mode */ \
-      SPI_ENABLE(FRAM_CONF_SPI);     /* make sure the SPI is enabled */ \
-      /* clock must be low before pulling the select line low */ \
-      while((FRAM_CONF_SPI == USCI_B0) ? PIN_GET_INPUT_BIT(SPI_B0_CLK) : \
-            PIN_GET_INPUT_BIT(SPI_A0_CLK));\
-      PIN_CLEAR(FRAM_CTRL_PIN);     /* pull select line low */ \
-      if(fram_sleeps) {     /* in LPM? -> wait ~0.5ms */ \
-        __delay_cycles(MCLK_SPEED / 2000); \
-        fram_sleeps = 0; \
-      } \
-    } else { \
-      return 0; \
+    if(FRAM_CONF_SPI == USCI_A0) { \
+      PIN_CLEAR(MUX_SEL); \
+      spi_a0_reinit(FRAM_CONF_SPI); \
     } \
-  }
-
-#if FRAM_CONF_USE_DMA
-/**
- * @brief release the external memory chip, i.e. set the control/select pin
- *(FRAM_CTRL_PIN) high and disable the SPI
- */
-#define FRAM_RELEASE \
-  { \
-    if(!PIN_GET_INPUT_BIT(FRAM_CTRL_PIN)) { \
-      DMA_DISABLE_TX; \
-      DMA_DISABLE_RX; \
-      SPI_WAIT_BUSY(FRAM_CONF_SPI); \
-      SPI_CLEAR_RXBUF(FRAM_CONF_SPI); \
-      PIN_SET(FRAM_CTRL_PIN); \
-      SPI_DISABLE(FRAM_CONF_SPI); \
-    } \
-  }
-#else /* FRAM_USE_DMA */
-/**
- * @brief release the external memory chip, i.e. set the control/select pin
- *(FRAM_CTRL_PIN) high and disable the SPI
- */
-#define FRAM_RELEASE \
-  { \
-    if(!PIN_GET_INPUT_BIT(FRAM_CTRL_PIN)) { \
-      SPI_WAIT_BUSY(FRAM_CONF_SPI); \
-      SPI_CLEAR_RXBUF(FRAM_CONF_SPI); \
-      PIN_SET(FRAM_CTRL_PIN); \
-      SPI_DISABLE(FRAM_CONF_SPI); \
-    } \
-  }
-#endif /* FRAM_USE_DMA */
+  }  
+#else /* MUX_SEL */
+#define FRAM_RECONFIG_SPI
+#endif /* MUX_SEL */
 /*---------------------------------------------------------------------------*/
 static volatile uint8_t fram_sleeps = 0;
 static uint16_t fram_num_alloc_blocks = 0;
@@ -111,24 +68,67 @@ static uint32_t fram_curr_offset = 0;
 static volatile uint8_t fram_fill_value = 0;
 static uint8_t fram_initialized = 0;
 /*---------------------------------------------------------------------------*/
+/**
+ * @brief release the external memory chip, i.e. set the control/select pin
+ *(FRAM_CTRL_PIN) high and disable the SPI
+ */
+void 
+fram_release(void)
+{
+  if(!PIN_GET_INPUT_BIT(FRAM_CTRL_PIN)) { 
+    SPI_WAIT_BUSY(FRAM_CONF_SPI); 
+    SPI_CLEAR_RXBUF(FRAM_CONF_SPI); 
+    PIN_SET(FRAM_CTRL_PIN); 
+    SPI_DISABLE(FRAM_CONF_SPI); 
+  }
+}
+/*---------------------------------------------------------------------------*/
+/**
+ * @brief access the FRAM by pulling the control pin low
+ * @return 1 if successful, 0 otherwise
+ * @note  This macro returns zero in case the control pin is already low (not
+ *in idle state).
+ */
+uint8_t
+fram_acquire(void) 
+{
+  if(PIN_GET_INPUT_BIT(FRAM_CTRL_PIN)) {
+    /* make sure the module is in SPI mode */
+    FRAM_RECONFIG_SPI;
+    SPI_ENABLE(FRAM_CONF_SPI);     /* make sure the SPI is enabled */
+    /* clock must be low before pulling the select line low */
+    while((FRAM_CONF_SPI == USCI_B0) ? PIN_GET_INPUT_BIT(SPI_B0_CLK) :
+        PIN_GET_INPUT_BIT(SPI_A0_CLK));
+    PIN_CLEAR(FRAM_CTRL_PIN);     /* pull select line low */
+    if(fram_sleeps) {     /* in LPM? -> wait ~0.5ms */
+      __delay_cycles(MCLK_SPEED / 2000);
+      fram_sleeps = 0;
+    } 
+    return 1;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 uint8_t
 fram_init(void)
 {
-
   char dev_id[32];
   uint8_t c = 0;
 
   if(!fram_initialized) {
+#ifdef MUX_SEL
+    PIN_SET_AS_OUTPUT(MUX_SEL);
+    PIN_CLEAR(MUX_SEL);
+#endif
     PIN_SET(FRAM_CTRL_PIN);
     PIN_SET_AS_OUTPUT(FRAM_CTRL_PIN);
-
     if(FRAM_CONF_SPI == USCI_B0) {
       spi_b0_init(FRAM_CONF_SCLK_SPEED);
     } else {
       spi_a0_init(FRAM_CONF_SCLK_SPEED);
     }
 #if FRAM_CONF_USE_DMA
-    dma_init(0, 0);
+    dma_config_spi(FRAM_CONF_SPI, fram_release);
 #endif /* FRAM_CONF_USE_DMA */
     fram_num_alloc_blocks = 0;
     fram_curr_offset = 0;
@@ -157,11 +157,12 @@ fram_init(void)
 const char *
 fram_get_id(char *const out_buffer, uint8_t formatted)
 {
-
   static uint8_t count = 0;
   static uint8_t rcv_buffer[9];
 
-  FRAM_ACQUIRE;
+  if(!fram_acquire()) {
+    return 0;
+  }
 
   /* send opcode */
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, FRAM_OPCODE_RDID);
@@ -170,11 +171,12 @@ fram_get_id(char *const out_buffer, uint8_t formatted)
   /* receive the ID */
   count = 0;
   while(count < 9) {
-    SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, 0x00); /* dummy write to generate the clock */
+    /* dummy write to generate the clock */
+    SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, 0x00); 
     SPI_RECEIVE_BYTE(FRAM_CONF_SPI, rcv_buffer[count]);
     count++;
   }
-  FRAM_RELEASE;
+  fram_release();
 
   if(formatted) {
     sprintf(out_buffer,
@@ -198,11 +200,13 @@ uint8_t
 fram_sleep(void)
 {
   if(fram_sleeps) {
+    return 1;
+  }
+  if(!fram_acquire()) {
     return 0;
   }
-  FRAM_ACQUIRE;
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, FRAM_OPCODE_SLEEP);      /* send opcode */
-  FRAM_RELEASE;
+  fram_release();
   fram_sleeps = 1;
   return 1;
 }
@@ -211,10 +215,12 @@ uint8_t
 fram_wakeup(void)
 {
   if(!fram_sleeps) {
+    return 1;
+  }
+  if(!fram_acquire()) {
     return 0;
   }
-  FRAM_ACQUIRE;
-  FRAM_RELEASE;
+  fram_release();
   fram_sleeps = 0;
   return 1;
 }
@@ -222,12 +228,13 @@ fram_wakeup(void)
 uint8_t
 fram_read(uint32_t start_addr, uint16_t num_bytes, uint8_t *out_data)
 {
-
   /* validate the start address */
   if(FRAM_END < start_addr) {
     return 0;
   }
-  FRAM_ACQUIRE;
+  if(!fram_acquire()) {
+    return 0;
+  }
 
   /* send opcode */
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, FRAM_OPCODE_READ);
@@ -239,25 +246,26 @@ fram_read(uint32_t start_addr, uint16_t num_bytes, uint8_t *out_data)
   SPI_WAIT_BUSY(FRAM_CONF_SPI);
   SPI_CLEAR_RXBUF(FRAM_CONF_SPI);
 
-#if FRAM_CONF_USE_DMA
-  dma_mode = DMA_OPMODE_FRAM;      /* set DMA mode */
-  DMA_START_RCV(out_data, num_bytes);
-#else
   /* receive data */
-#if SPI_CONF_FAST_READ
+#if FRAM_CONF_USE_DMA
+  /* set up a DMA transfer */
+  dma_config_spi(FRAM_CONF_SPI, fram_release);
+  dma_start(out_data, 0, num_bytes);
+#else /* FRAM_CONF_USE_DMA */
+ #if SPI_CONF_FAST_READ
   /* transmit 1 byte ahead to reach faster read speed!
    * note that 1 excess byte will be transmitted/read */
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, 0x00);            
-#endif /* SPI_CONF_FAST_READ */
+ #endif /* SPI_CONF_FAST_READ */
   while(num_bytes) {
-    SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, 0x00);          /* dummy write to generate the
+    SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, 0x00);     /* dummy write to generate the
                                                    clock */
-    SPI_RECEIVE_BYTE(FRAM_CONF_SPI, *out_data);      /* blocking call, waits until
+    SPI_RECEIVE_BYTE(FRAM_CONF_SPI, *out_data); /* blocking call, waits until
                                                    RX buffer is not empty */
     out_data++;
     num_bytes--;
   }
-  FRAM_RELEASE;
+  fram_release();
 #endif /* FRAM_CONF_USE_DMA */
 
   return 1;
@@ -266,12 +274,13 @@ fram_read(uint32_t start_addr, uint16_t num_bytes, uint8_t *out_data)
 uint8_t
 fram_write(uint32_t start_address, uint16_t num_bytes, const uint8_t *data)
 {
-
   /* validate the start address */
   if(FRAM_END < start_address) {
     return 0;
   }
-  FRAM_ACQUIRE;
+  if(!fram_acquire()) {
+    return 0;
+  }
 
   /* disable the write protection feature */
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, FRAM_OPCODE_WREN);
@@ -292,7 +301,8 @@ fram_write(uint32_t start_address, uint16_t num_bytes, const uint8_t *data)
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, start_address & 0xff);
 
 #if FRAM_CONF_USE_DMA
-  DMA_START_SEND(data, num_bytes);
+  dma_config_spi(FRAM_CONF_SPI, fram_release);
+  dma_start(0, data, num_bytes);
 #else
   /* transmit data */
   while(num_bytes) {
@@ -300,7 +310,7 @@ fram_write(uint32_t start_address, uint16_t num_bytes, const uint8_t *data)
     data++;
     num_bytes--;
   }
-  FRAM_RELEASE;
+  fram_release();
   /* Note: the write protection feature is now enabled again! */
 #endif /* FRAM_CONF_USE_DMA */
   return 1;
@@ -313,7 +323,9 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   if(FRAM_END < start_address) {
     return 0;
   }
-  FRAM_ACQUIRE;
+  if(!fram_acquire()) {
+    return 0;
+  }
 
   /* disable the write protection feature */
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, FRAM_OPCODE_WREN);
@@ -334,15 +346,16 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, start_address & 0xff);
 
 #if FRAM_CONF_USE_DMA
-  fram_fill_value = fill_value;
-  DMA_START_SEND(&fram_fill_value, num_bytes);
+  dma_set_dummy_byte_value(fill_value);
+  dma_config_spi(FRAM_CONF_SPI, fram_release);
+  dma_start(0, data, num_bytes);
 #else
   /* transmit data */
   while(num_bytes) {
     SPI_TRANSMIT_BYTE(FRAM_CONF_SPI, fill_value);
     num_bytes--;
   }
-  FRAM_RELEASE;
+  fram_release();
   /* Note: the write protection feature is now enabled again! */
 #endif /* FRAM_CONF_USE_DMA */
 

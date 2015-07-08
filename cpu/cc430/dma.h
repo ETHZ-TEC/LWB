@@ -42,135 +42,32 @@
  * @author
  *              Reto Da Forno
  *
- * @brief Provides a setup function for the DMA (CH 0 and 1, to be used for the
- * SPI)
- * @note  the SPI must be configured in master mode
+ * @brief Provides a setup function for the DMA (CH0 and CH1, to be used for
+ * the SPI and CH2 for the timer CI). 
+ * @note  this library only works if the device is SPI master
  */
 
 #ifndef __DMA_H__
 #define __DMA_H__
 
-/**
- * @brief disables DMA channel 0 (used for SPI data reception)
- */
-#define DMA_DISABLE_RX                  (DMA0CTL &= ~(DMAEN))
-/**
- * @brief enables DMA channel 0 (used for SPI data reception)
- */
-#define DMA_ENABLE_RX                   (DMA0CTL |= DMAEN)
-/**
- * @brief disables DMA channel 1 (used for SPI data transmission)
- */
-#define DMA_DISABLE_TX                  (DMA1CTL &= ~(DMAEN))
-/**
- * @brief enables DMA channel 1 (used for SPI data transmission)
- */
-#define DMA_ENABLE_TX                   (DMA1CTL |= DMAEN)
-
-#define DMA_ENABLEINTERRUPT_RX          (DMA0CTL |= DMAIE)
-#define DMA_ENABLEINTERRUPT_TX          (DMA1CTL |= DMAIE)
-
-#define DMA_DISABLEINTERRUPT_RX         (DMA0CTL &= ~DMAIE)
-#define DMA_DISABLEINTERRUPT_TX         (DMA1CTL &= ~DMAIE)
-
-/**
- * @brief checks if an interrupt is pending for DMA channel 0
- */
-#define DMA_INTERRUPTACTIVE_RX          (DMA0CTL & DMAIFG)
-/**
- * @brief checks if an interrupt is pending for DMA channel 1
- */
-#define DMA_INTERRUPTACTIVE_TX          (DMA1CTL & DMAIFG)
-
-/**
- * @brief enable source address incrementation for DMA channel 1
- */
-#define DMA_ENABLESRCADDRINC_TX         (DMA1CTL |= DMASRCINCR_3)
-/**
- * @brief disable source address incrementation for DMA channel 1 (the same
- * byte will be transmitted over and over)
- */
-#define DMA_DISABLESRCADDRINC_TX        ( DMA1CTL = (DMA1CTL & ~(DMASRCINCR_3))\
-                                                    | DMASRCINCR_0 )
-
-/**
- * @brief set the transfer size for DMA channel 0 (number of bytes to be
- * received)
- */
-#define DMA_SETTRANSFERSIZE_RX(size)    (DMA0SZ = (uint16_t)(size))
-/**
- * @brief set the transfer size for DMA channel 1 (number of bytes to be
- * transmitted)
- */
-#define DMA_SETTRANSFERSIZE_TX(size)    (DMA1SZ = (uint16_t)(size))
-
+#define DMA_NUM_CHANNELS                3
 
 /**
  * @brief returns the number of remaining (not yet received) bytes for DMA
  * channel 0
  */
-#define DMA_REMAINING_BYTES             (DMA0SZ)
+#define DMA_REMAINING_BYTES_RX          (DMA0SZ)
 
 
 /**
- * @brief set up and start a DMA transfer (RX)
- *
- * This macro configures the DMA for the data reception over the SPI.
- *
- * @remark One DMA channel is used to generate the clock (send dummy bytes) and
- * a second channel is used to copy the received data bytes into the
- *destination
- * buffer.
- * @param dest_addr the address of the destination data buffer
- * @param size      the number of bytes to receive
- */
-#define DMA_START_RCV(dest_addr, size) { \
-    DMA_SETTRANSFERSIZE_RX(size); \
-    DMA_SETTRANSFERSIZE_TX(size - 1); \
-    DMA_SETRXBUF_ADDR((uint16_t)dest_addr); \
-    DMA_SETTXBUF_ADDR((uint16_t)&dummy_byte); \
-    DMA_DISABLESRCADDRINC_TX; \
-    DMA_DISABLEINTERRUPT_TX; \
-    DMA_ENABLEINTERRUPT_RX; \
-    DMA_ENABLE_RX; \
-    DMA_ENABLE_TX; \
-    SPI_WRITE_BYTE(dummy_byte); /* write the frist byte to trigger the DMA\
-                                   (TXE) */ \
-}
-
-/**
- * @brief set up and start a DMA transfer (TX)
- *
- * This macro configures the DMA for the data transmission over the SPI.
- *
- * @param src_addr the address of the source data buffer
- * @param size     the number of bytes to transmit
- * @param src_inc  specifies whether the source address shall be increased
- * after the transmission of each byte (zero means the same byte will be sent
- * [size] times)
- */
-#define DMA_START_SEND(src_addr, size, src_inc) { \
-    src_inc ? DMA_ENABLESRCADDRINC_TX : DMA_DISABLESRCADDRINC_TX; \
-    DMA_SETTRANSFERSIZE_TX(size - 1); \
-    DMA_SETTXBUF_ADDR(src_inc ? ((uint16_t)src_addr + 1) : src_addr); \
-    DMA_DISABLEINTERRUPT_RX; \
-    DMA_ENABLEINTERRUPT_TX; \
-    DMA_ENABLE_TX; \
-    SPI_WRITE_BYTE(*(uint8_t *)src_addr);  /* write the frist byte to trigger\
-                                              the DMA (TXE) */ \
-}
-
-/**
- * @brief operating modes for the DMA
- *
- * There are two predefined operating modes for the DMA, i.e. it is either
- * configured to operate with the FRAM or the asynchronous interface.
+ * @brief DMA trigger sources for the dma_init_timer function (DMA_CH2)
  */
 typedef enum {
-  DMA_OPMODE_FRAM = 0,
-  DMA_OPMODE_ASYNCINT,
-  NUM_OF_SPI_MODES
-} dma_mode_t;
+  DMA_TRGSRC_TA0CCR0 = 1,
+  DMA_TRCSRC_TA0CCR2,
+  DMA_TRCSRC_TA1CCR0,
+  DMA_TRGSRC_TA1CCR2,
+} dma_triggersrc_t;
 
 /**
  * @brief callback function declaration for the DMA TC interrupt
@@ -179,35 +76,47 @@ typedef void (*dma_callback_t)(void);
 
 /**
  * @brief configure the DMA CH0 and CH1 for SPI A0 or SPI B0 (RX and TX)
- * @param[in] rx_buffer_addr address of the reception buffer (pass zero if you
- * want to set this later by using DMA_SETRXBUF_ADDR)
- * @param[in] tx_buffer_addr address of the transmission buffer (pass zero if
- * you want to set this later by using DMA_SETTXBUF_ADDR)
+ * @param[in] spi_addr base address of the USCI module (USCI_A0 or USCI_B0)
  * @param[in] callback_func the callback function for the DMA TC interrupt
- * @note Call DMA_CFGFOR_SPIA0 after dma_init() to configure the DMA for
- * SPI A0.
  * @remark The DMA is configured in single transfer, byte-to-byte mode.
  */
-void dma_init_spi(uint16_t spi_addr,
-                  uint16_t rx_buffer_addr, 
-                  uint16_t tx_buffer_addr,
-                  dma_callback_t callback_func);
+void dma_config_spi(uint16_t spi_addr,
+                    dma_callback_t callback_func);
 
 /**
- * @brief configure the DMA CH2 for timer TA0 or TA1
- * @param[in] rx_buffer_addr address of the reception buffer (pass zero if you
+ * @brief configure the DMA CH2 for timer TA0 or TA1 to copy num_bytes bytes
+ * from src_addr to dest_addr upon input capture
+ * @param[in] trigger_src the trigger source for the DMA transfer (e.g. 
+ * DMA_TRGSRC_TA1CCR0)
+ * @param[in] src_addr address of the reception buffer (pass zero if you
  * want to set this later by using DMA_SETRXBUF_ADDR)
- * @param[in] tx_buffer_addr address of the transmission buffer (pass zero if
+ * @param[in] dest_addr address of the transmission buffer (pass zero if
  * you want to set this later by using DMA_SETTXBUF_ADDR)
- * @param[in] callback_func the callback function for the DMA TC interrupt
- * @note Call DMA_CFGFOR_SPIA0 after dma_init() to configure the DMA for
- * SPI A0.
+ * @param[in] num_bytes transfer size (must be at least 2 bytes)
  * @remark The DMA is configured in single transfer, byte-to-byte mode.
  */
-void dma_init_timer(uint16_t src_addr, uint16_t dest_addr);
+void dma_config_timer(dma_triggersrc_t trigger_src, 
+                      uint16_t src_addr, uint16_t dest_addr, uint8_t num_bytes);
 
-extern dma_mode_t dma_mode;
-extern uint8_t dummy_byte;
+/**
+ * @brief start a data transfer on CH0 and CH1 (SPI RX and TX)
+ * @param[in] rx_buf_addr address of the reception buffer (set this to zero if
+ * the received data is not of interest)
+ * @param[in] tx_buf_addr address of the transmission buffer (set this to zero 
+ * if the sent data is not of interest)
+ * @param[in] num_bytes the number of bytes to transfer from/to SPI RX/TXBuffer
+ * @return 1 if successful, 0 otherwise
+ */
+uint8_t dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes);
+
+/**
+ * @brief if the user wishes a different 'dummy byte' value for transmission
+ * without src address increase
+ * @param value the byte value of choice for the 'dummy writes'
+ * @note default value is 0x00
+ */
+void dma_set_dummy_byte_value(uint8_t value);
+
 
 #endif /* __DMA_H__ */
 

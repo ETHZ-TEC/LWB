@@ -77,9 +77,9 @@ find_free:
 }
 /*---------------------------------------------------------------------------*/
 void
-membx_free(struct membx *m, uint32_t ptr)
+membx_free(struct membx *m, uint32_t addr)
 {
-  unsigned short i = (ptr - m->mem) / m->size;
+  unsigned short i = (addr - m->mem) / m->size;
   if((i < m->num) && (m->count[i >> 3] & (1 << (i & 0x07)))) {
     m->count[i >> 3] &= ~(1 << (i & 0x07));    /* clear bit */
     m->n_alloc--;

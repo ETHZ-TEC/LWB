@@ -57,10 +57,12 @@
  * configuration and definitions
  */
 #define FRAM_CONF_ON        1        
-#define BOLT_CONF_ON        1         /* this platform does not support bolt */
-#define BOLT_CONF_USE_DMA   1
+#define BOLT_CONF_ON        0         /* this platform does not support bolt */
 
 #define MCU_TYPE            "CC430F5137"
+#define COMPILE_DATE        __DATE__
+#define GCC_VS              __VERSION__  
+                            /* __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__ */
 #define SRAM_SIZE           2048
 
 /*

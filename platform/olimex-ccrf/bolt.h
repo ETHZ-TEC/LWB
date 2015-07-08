@@ -102,7 +102,7 @@
 #define BOLT_WRITE(in_data, num_bytes) \
   { \
     if(bolt_acquire(BOLT_OP_WRITE)) { \
-      bolt_start(in_data, &num_bytes); \
+      bolt_start(in_data, num_bytes); \
       bolt_release(); \
     } \
   }
@@ -113,7 +113,7 @@
 #define BOLT_READ(out_data, num_rcvd_bytes) \
   { \
     if(bolt_acquire(BOLT_OP_READ)) { \
-      bolt_start(out_data, &num_rcvd_bytes); \
+      num_rcvd_bytes = bolt_start(out_data, 0); \
       bolt_release(); \
     } \
   }
@@ -155,23 +155,12 @@ uint8_t bolt_acquire(bolt_op_mode_t mode);
  * @brief start an operation on the asynchronous data interface
  * @param[in,out] data A pointer to the data buffer (an input in write mode and
  * an output in read mode). Set this parameter to 0 if DMA mode is used.
- * @param[in,out] num_bytes The number of bytes to transmit (in write mode);
- * the number of transmitted bytes will be stored in num_bytes.
- * @return 1 if the data transfer was successful, 0 otherwise
+ * @param[in,out] num_bytes The number of bytes to transmit (in write mode). 
+ * Pass 0 in read mode.
+ * @return 1 or the number of received bytes if successful, 0 otherwise
  * @note this is a blocking call
  */
-uint8_t bolt_start(uint8_t *data, uint16_t *num_bytes);
-
-#if BOLT_CONF_USE_DMA
-/**
- * @brief set the buffers for the DMA driven data transfer
- * @param[in] rx_buffer_addr address of the reception buffer
- * @param[in] tx_buffer_addr address of the transmit buffer
- * @remark this is an optional call, buffer addresses can also be passed to the
- * interface with the bolt_start_op() call
- */
-void bolt_set_dma_buffers(uint16_t rx_buffer_addr, uint16_t tx_buffer_addr);
-#endif
+uint8_t bolt_start(uint8_t *data, uint16_t num_bytes);
 
 #if BOLT_CONF_TIMEREQ_ENABLE
 /**
