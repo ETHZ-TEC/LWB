@@ -27,39 +27,65 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+#ifndef __LOG_H__
+#define __LOG_H__
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
 
-#include "contiki-conf.h"
+#define LOG_MSG_SIZE    16      /* size in bytes */
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
+/* leave the option to define the resolution of the timestamp, e.g. seconds, milliseconds or something else, maybe even the 'real' time */
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
 
-#include "dev/serial-line.h"
+// message severity levels
+enum {
+    LOG_MSG_INFO = 0,  
+    LOG_MSG_WARNING = 1,
+    LOG_MSG_ERROR = 2,
+    LOG_MSG_CRITICAL = 3,
+    LOG_MSG_DISASTER = 4,
+    NUM_OF_LOG_MSG_LEVELS
+} log_msg_level_t;
 
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
 
-#endif /* __CONTIKI_H__ */
+
+/* 
+ * 16-bit error code, first 3 bit determine the message level
+ * TODO
+ */
+#define LOG_MSG_BATTERY         0x0001
+
+#define LOG_MSG_LWB_NO_COMM     0x2001
+
+
+// 1 message is 16 bytes
+#define LOG_MSG_HEADER_SIZE     8       /* size in bytes */
+typedef struct log_msg {
+    uint16_t code;
+    uint16_t crc;
+    uint32_t timestamp;
+    char     data[LOG_MSG_SIZE - LOG_MSG_HEADER_SIZE];  /* buffer for additional info */
+} log_msg_t;
+
+
+void log_init(void);
+void log_add(uint16_t code, char* data);
+
+/*
+ * @brief       get the last error message
+ * @param[out]  msg a pointer to a valid memory block where the message will be stored
+ */
+void log_get_last(log_msg_t* msg);  
+void log_remove_last(void);
+
+/*
+ * @brief       output all log messages over UART
+ */
+void log_print_uart(void);
+
+
+#endif /* __LOG_H__ */

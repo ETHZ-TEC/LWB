@@ -27,39 +27,35 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
 
-#include "contiki-conf.h"
+//#define FLOCKLAB
+#define HOST_ID    2
+#define NODE_ID    2                                  
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
+#ifdef FLOCKLAB
+  #define RF1A_CONF_TX_POWER    RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
+  #define RF1A_CONF_TX_CHANNEL  5                           // set the wireless channel
+  #define FRAM_CONF_ON          0                           // make sure external FRAM is disabled when using FlockLAB
+#endif // FLOCKLAB
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
+#define N_BUFFERED_IN_MSG       10                      // max. number of buffered input messages (in the external memory)
+#define N_BUFFERED_OUT_MSG      10                      // max. number of buffered output messages (in the external memory)
 
-#include "dev/serial-line.h"
 
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
+// MISC
 
-#endif /* __CONTIKI_H__ */
+#ifdef FLOCKLAB
+#endif /* FLOCKLAB */
+
+#define DEBUG_PRINT_CONF_LEVEL  DEBUG_PRINT_LVL_VERBOSE  // select the debug level, must be of type debug_level_t
+
+
+#endif /* __CONFIG_H__ */

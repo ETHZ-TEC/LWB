@@ -27,39 +27,24 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+/**
+ * @defgroup LWB
+ * @file
+ * @ingroup  LWB
+ * @brief    the low-power wireless bus (LWB)
+ * @author   rdaforno
+ */
+ 
+#ifndef __LWB_TEST_H__
+#define __LWB_TEST_H__
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
+#include "contiki.h"
+#include "platform.h"
 
-#include "contiki-conf.h"
+#include "log.h"
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
-
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
-
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
-
-#include "dev/serial-line.h"
-
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
-
-#endif /* __CONTIKI_H__ */
+#endif /* __LWB_TEST_H__ */

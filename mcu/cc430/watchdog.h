@@ -27,39 +27,59 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+/**
+ * @addtogroup  Platform
+ * @{
+ *
+ * @defgroup    watchdog Watchdog
+ * @{
+ *
+ * @file
+ * @author
+ *              Reto Da Forno
+ *
+ * @brief configure the watchdog timer
+ */
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
+#ifndef __WATCHDOG_H__
+#define __WATCHDOG_H__
 
-#include "contiki-conf.h"
+/**
+ * @brief sets the clock source (ACLK) and devider 
+ * @note divider: WDTIS_3 = 512k, WDTIS_4 = 32k
+ */
+static inline void
+watchdog_init(void)
+{
+  WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
+}
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
+static inline void
+watchdog_stop(void)
+{
+  WDTCTL = WDTPW + WDTHOLD;
+}
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
+static inline void
+watchdog_start(void)
+{
+  WDTCTL = (WDTCTL_L & ~(WDTHOLD)) + WDTPW;
+}
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
+static inline void
+watchdog_trigger_reset(void)
+{
+  /* trigger a reset with a password violation error */
+  WDTCTL &= ~WDTHOLD;
+}
 
-#include "dev/serial-line.h"
+#endif /* __WATCHDOG_H__ */
 
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
-
-#endif /* __CONTIKI_H__ */
+/**
+ * @}
+ * @}
+ */

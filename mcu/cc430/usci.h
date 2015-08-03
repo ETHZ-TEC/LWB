@@ -27,39 +27,75 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+/**
+ * @addtogroup  Platform
+ * @{
+ *
+ * @defgroup    usci USCI
+ * @{
+ *
+ * @file
+ * @author
+ *              Reto Da Forno
+ *
+ * @brief Universal Serial Communication Interface
+ * 
+ * There are two modules: A0 and B0.
+ * Both can be configured in SPI or UART mode.
+ */
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
+#ifndef __USCI_H__
+#define __USCI_H__
 
-#include "contiki-conf.h"
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
+#define USCI_A0             UCA0CTLW0_ /* base address of the USCI A0 module */
+#define USCI_B0             UCB0CTLW0_ /* base address of the USCI B0 module */
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
+/* check the value of the SPI addresses (it happens that the wrong include 
+ * file is used by the compiler, which results in wrong hardware addresses) */
+#if (USCI_A0 != 0x05c0 || USCI_B0 != 0x05e0)
+#error USCI module has an invalid address! (wrong msp430 include file?)
+#endif 
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
+/**
+ * @brief check if the USCI A0 module is active / busy (i.e. a transmission is
+ *ongoing)
+ */
+#define USCI_A0_ACTIVE      (UCA0STAT & UCBUSY)
 
-#include "dev/serial-line.h"
+/**
+ * @brief check if the USCI A0 module is configured in SPI mode
+ */
+#define USCI_A0_IN_SPI_MODE (UCA0CTL0 & UCSYNC)
 
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
+/**
+ * @brief disable the USCI A0 module
+ */
+#define USCI_A0_DISABLE     (UCA0CTL1 |= UCSWRST)
 
-#endif /* __CONTIKI_H__ */
+/**
+ * @brief disable the USCI B0 module
+ */
+#define USCI_B0_DISABLE     (UCB0CTL1 |= UCSWRST)
+
+/**
+ * @brief enable the USCI A0 module
+ */
+#define USCI_A0_ENABLE      (UCA0CTL1 &= ~UCSWRST)
+
+/**
+ * @brief enable the USCI B0 module
+ */
+#define USCI_B0_ENABLE      (UCB0CTL1 &= ~UCSWRST)
+
+
+#endif /* __USCI_H__ */
+
+/**
+ * @}
+ * @}
+ */

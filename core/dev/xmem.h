@@ -27,39 +27,67 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+/**
+ * \addtogroup platform
+ * @{
+ *
+ * \defgroup dev xmem
+ *
+ * @brief external memory access (interface definitions only)
+ *
+ * @{
+ *
+ * \file
+ *         Access to an external memory module.
+ *
+ */
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
 
-#include "contiki-conf.h"
+#ifndef __XMEM_H__
+#define __XMEM_H__
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
+#define XMEM_ALLOC_ERROR        0xffffffff  /* this address indicates a memory
+                                               allocation error */
+                                               
+/**
+ * @brief prototype for the device init function, must be implemented in a
+ *  file in the platform directory
+ */
+inline uint8_t xmem_init(void);
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
+/**
+ * @brief prototype for the read function, must be implemented in a file
+ * in the platform directory
+ */
+inline uint8_t xmem_read(uint32_t start_address, uint16_t num_bytes,
+                         uint8_t *out_data);
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
+/**
+ * @brief prototype for the write function, must be implemented in a file
+ * in the platform directory
+ */
+inline uint8_t xmem_write(uint32_t start_address, uint16_t num_bytes,
+                          const uint8_t *data);
 
-#include "dev/serial-line.h"
+/**
+ * @brief prototype for the memory allocation routine, must be implemented 
+ * in a file in the platform directory
+ */
+inline uint32_t xmem_alloc(uint32_t size);
 
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
 
-#endif /* __CONTIKI_H__ */
+inline uint8_t xmem_sleep(void);
+inline uint8_t xmem_wakeup(void);
+
+
+
+#endif /* __XMEM_H__ */
+
+/**
+ * @}
+ * @} 
+ */

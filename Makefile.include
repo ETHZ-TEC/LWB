@@ -40,7 +40,8 @@ COREDIR = $(CONTIKI)/core
 SYSDIR  = $(COREDIR)/sys
 DEVDIR  = $(COREDIR)/dev
 LIBDIR  = $(COREDIR)/lib
-CPUDIR = $(CONTIKI)/cpu/$(CPU)
+NETDIR  = $(COREDIR)/net
+CPUDIR  = $(CONTIKI)/mcu/$(CPU)
 PLATDIR = $(CONTIKI)/platform/$(PLATFORM)
 TOOLSDIR= $(CONTIKI)/tools
 OBJDIR  = ./obj
@@ -53,7 +54,11 @@ LD = msp430-gcc
 CFLAGS  = -mmcu=$(MCU) -Os -Wall -ffunction-sections -fdata-sections -ggdb
 LDFLAGS = -mmcu=$(MCU) -Wl,--gc-sections -ggdb
 
-CORESRCS = process.c autostart.c timer.c etimer.c energest.c ringbuf.c serial-line.c random.c memb.c list.c debug-print.c
+CORESRCS = ${shell find $(SYSDIR) -type f -name "*.[c]" -printf "%f "}
+CORESRCS += ${shell find $(LIBDIR) -type f -name "*.[c]" -printf "%f "}
+CORESRCS += ${shell find $(DEVDIR) -type f -name "*.[c]" -printf "%f "}
+CORESRCS += ${shell find $(NETDIR) -type f -name "*.[c]" -printf "%f "}
+#process.c autostart.c timer.c etimer.c energest.c ringbuf.c serial-line.c random.c memb.c list.c debug-print.c
 PLATSRCS = ${shell find $(PLATDIR) -type f -name "*.[c]" -printf "%f "}
 PLATSRCS += ${shell find $(CPUDIR) -type f -name "*.[c]" -printf "%f "}
 #hal_pmm.c rtimer.c clock.c uart0.c contiki-cc430-main.c spi.c fram.c async_int.c dma.c adc.c
@@ -76,7 +81,7 @@ endif
 
 OBJS = ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.o) $(PLATSRCS:.c=.o) $(SRCS:.c=.o)}
 
-SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI) $(CPUDIR)
+SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI) $(CPUDIR) $(NETDIR)
 vpath %.c $(SOURCEDIRS)
 CFLAGS += ${addprefix -I,$(SOURCEDIRS)}
 

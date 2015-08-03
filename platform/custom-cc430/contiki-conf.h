@@ -27,39 +27,30 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+#ifndef __CONTIKI_CONF_H__
+#define __CONTIKI_CONF_H__
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
+/*
+ * contiki configuration
+ */
+ 
+/* standard libraries */
+#include <isr_compat.h>
+#include <string.h>
 
-#include "contiki-conf.h"
+#define CLIF
+#define CCIF
 
-/* Unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
+#ifndef ENERGEST_CONF_ON
+#define ENERGEST_CONF_ON 0
+#endif /* ENERGEST_CONF_ON */
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
 
-#include "dev/serial-line.h"
+extern volatile uint16_t node_id;
 
-/* Custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
 
-#endif /* __CONTIKI_H__ */
+#endif /* __CONTIKI_CONF_H__ */

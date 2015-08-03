@@ -123,21 +123,22 @@ main(int argc, char **argv)
   PORT_CLR_I(J);
     
   /* board-specific optimal configuration of unused pins */
-  PIN_SET_I(1, 1);    /* push-button, tied to 3V */
-  PIN_SET_I(1, 6);    /* UART TX, set high if pin is in use */
-  PIN_SET_I(1, 7);    /* SPI B0 STE (is tied to 3V) */
-  /*PIN_SET_I(2, 0);*/    /* tied to 3V -> 0R resistor not mounted */
-  /*PIN_SET_I(2, 1);*/    /* tied to 3V -> 0R resistor not mounted */
+  // TODO
 
   LEDS_INIT;
   LEDS_ON;
+#ifdef PUSH_BUTTON
+  PIN_UNSEL(PUSH_BUTTON);
+  PIN_CFG_IN(PUSH_BUTTON);
+  PIN_CFG_INT(PUSH_BUTTON);
+#endif
 #if defined(RF_GDO2_PIN) && defined(USE_LEDS)
   PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFGDO2);
 #endif
-#ifdef PUSH_BUTTON
-  PIN_UNSEL(PUSH_BUTTON);
-  PIN_CFG_INT(PUSH_BUTTON);
-#endif
+  
+  /* this board has a multiplexer (set it to UART) */
+  PIN_CFG_OUT(MUX_SEL_PIN);
+  PIN_SET(MUX_SEL_PIN);
 
   clock_init();
   rtimer_init();

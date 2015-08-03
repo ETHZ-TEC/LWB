@@ -49,9 +49,9 @@
 #define __LEDS_H__
 
 #if LEDS_CONF_ON
-#define LED_ON(portandpin)      PIN_SET_DIRECT(portandpin)
-#define LED_OFF(portandpin)     PIN_CLEAR_DIRECT(portandpin)
-#define LED_TOGGLE(portandpin)  PIN_TOGGLE_DIRECT(portandpin)
+#define LED_ON(portandpin)      PIN_SET_I(portandpin)
+#define LED_OFF(portandpin)     PIN_CLR_I(portandpin)
+#define LED_TOGGLE(portandpin)  PIN_XOR_I(portandpin)
 #else
 #define LED_ON(portandpin)
 #define LED_OFF(portandpin)
@@ -59,10 +59,10 @@
 #endif
 
 #define LEDS_ON                 { PIN_SET(LED_RED); }
-#define LEDS_OFF                { PIN_CLEAR(LED_RED); }
-#define LEDS_TOGGLE             { PIN_TOGGLE(LED_RED);  }
-#define LEDS_INIT               { PIN_CLEAR(LED_RED); \
-                                  PIN_SET_AS_OUTPUT(LED_RED); }
+#define LEDS_OFF                { PIN_CLR(LED_RED); }
+#define LEDS_TOGGLE             { PIN_XOR(LED_RED);  }
+#define LEDS_INIT               { PIN_CLR(LED_RED); \
+                                  PIN_CFG_OUT(LED_RED); }
 #endif /* __LEDS_H__ */
 
 /**
