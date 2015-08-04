@@ -158,13 +158,13 @@ fram_init(void)
     /* read and verify the device ID (this implicitly checks if the external
        FRAM is available and working) */
     if(!fram_get_id(dev_id, 0)) {
-        DEBUG_PRINT_MSG_NOW("ERROR: fram_get_id failed\r\n");
+        DEBUG_PRINT_MSG_NOW("ERROR: fram_get_id failed");
         return 0;
     }
 
     while(c < 6) {
       if(0x7f != dev_id[c]) {
-        DEBUG_PRINT_MSG_NOW("ERROR: fram_init failed (disconnected?)\r\n");
+        DEBUG_PRINT_MSG_NOW("ERROR: fram_init failed (disconnected?)");
         return 0;
       }
       c++;

@@ -131,6 +131,7 @@ main(int argc, char **argv)
 
   LEDS_INIT;
   LEDS_ON;
+  
 #if defined(RF_GDO2_PIN) && defined(USE_LEDS)
   PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFGDO2);
 #endif
@@ -153,8 +154,14 @@ main(int argc, char **argv)
   rf1a_set_maximum_packet_length(RF1A_CONF_MAX_PKT_LEN);
 #endif /* WITH_RADIO */
 
-  LEDS_OFF;
-
+#if FRAM_CONF_ON
+  fram_init();
+#endif
+  
+#if BOLT_CONF_ON
+  bolt_init();
+#endif /* BOLT_CONF_ON */
+  
   /* set the node ID */
 #ifdef NODE_ID
   node_id = NODE_ID;
@@ -188,6 +195,8 @@ main(int argc, char **argv)
   watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
 
+  LEDS_OFF;     /* init done */
+  
   __eint();
   autostart_start(autostart_processes);
 

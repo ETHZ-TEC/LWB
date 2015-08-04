@@ -213,6 +213,7 @@ rtimer_clock_t
 rtimer_now(void)
 {
   /* disable all interrupts */
+  uint16_t interrupt_enabled = __get_interrupt_state() & GIE; // __get_SR_register()  //READ_SR & GIE;
   __dint();
   __nop();
 
@@ -229,8 +230,12 @@ rtimer_now(void)
   /* shift the SW extension to the left and append the HW timer */
   rtimer_clock_t time = (sw << 16) | hw;
 
-  __eint();
-  __nop();
+  /* only enable interrupts if the GIE bit was set before! otherwise interrupt
+   * nesting will be enabled if rtimer_now() is called from an ISR! */
+  if(interrupt_enabled) {
+    __eint();
+    __nop();
+  }
 
   return time;
 }
@@ -252,6 +257,7 @@ rtimer_clock_t
 rtimer_now_ta1(void)
 {
   /* disable all interrupts */
+  uint16_t interrupt_enabled = __get_interrupt_state() & GIE; //READ_SR & GIE;
   __dint();
   __nop();
 
@@ -268,8 +274,12 @@ rtimer_now_ta1(void)
   /* shift the SW extension to the left and append the HW timer */
   rtimer_clock_t time = (sw << 16) | hw;
 
-  __eint();
-  __nop();
+  /* only enable interrupts if the GIE bit was set before! otherwise interrupt
+   * nesting will be enabled if rtimer_now() is called from an ISR! */
+  if(interrupt_enabled) {
+    __eint();
+    __nop();
+  }
 
   return time;
 }

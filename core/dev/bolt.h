@@ -67,7 +67,7 @@
 #define BOLT_CONF_IND_PIN               PORT2, PIN3
 #define BOLT_CONF_ACK_PIN               PORT2, PIN4
 #define BOLT_CONF_MODE_PIN              PORT2, PIN5
-#define BOLT_CONF_PWRSEL_PIN            PORT2, PIN6
+#define BOLT_CONF_IND_OUT_PIN           PORT2, PIN6
 #endif /* BOLT_CONF_REQ_PIN */
 
 #ifndef BOLT_CONF_TIMEREQ_TIMERID
@@ -100,10 +100,10 @@
  * @brief writes one message (num_bytes bytes of the buffer data) to the
  * asynchronous interface
  */
-#define BOLT_WRITE(in_data, num_bytes) \
+#define BOLT_WRITE(data, num_bytes) \
   { \
     if(bolt_acquire(BOLT_OP_WRITE)) { \
-      bolt_start(in_data, num_bytes); \
+      bolt_start(data, num_bytes); \
       bolt_release(); \
     } \
   }

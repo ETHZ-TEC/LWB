@@ -105,6 +105,8 @@
 #define PORT_SEL_I(port)                P##port##SEL = 0xff
 #define PORT_UNSEL_I(port)              P##port##SEL = 0x00
 #define PORT_RES_EN_I(port)             P##port##REN = 0xff
+#define PIN_PULLUP_EN_I(port, pin)      { PIN_RES_EN_I(port, pin); PIN_SET_I(port, pin); }
+#define PIN_PULLDOWN_EN_I(port, pin)    { PIN_RES_EN_I(port, pin); PIN_CLR_I(port, pin); }
 #define PORT_CLR_IFG_I(port)            P##port##IFG = 0x00
 #define PORT_CFG_OUT_I(port)            P##port##DIR = 0xff
 #define PORT_CFG_IN_I(port)             P##port##DIR = 0x00
@@ -185,7 +187,8 @@
  * @brief enable the resistor for the specified (port, pin), only if configured
  * as input!
  */
-#define PIN_RES_EN(p)                   PIN_RES_EN_I(p)
+#define PIN_PULLUP_EN(p)                PIN_PULLUP_EN_I(p) 
+#define PIN_PULLDOWN_EN(p)              PIN_PULLDOWN_EN_I(p)
 /**
  * @brief select the rising edge as interrupt edge for the specified (port,
  * pin)

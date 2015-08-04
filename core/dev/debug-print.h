@@ -28,12 +28,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Author:      Reto Da Forno
  */
 
 #ifndef __DEBUG_PRINT_H__
 #define __DEBUG_PRINT_H__
 
-/* CONFIG */
 
 #ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG        8     /* number of messages to store */
@@ -50,6 +50,10 @@
 #ifndef DEBUG_PRINT_CONF_USE_XMEM
 #define DEBUG_PRINT_CONF_USE_XMEM       0
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+
+#ifndef DEBUG_PRINT_CONF_PRINT_DIRECT         /* print directly, no queuing */
+#define DEBUG_PRINT_CONF_PRINT_DIRECT   1
+#endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
 
 /**
  * @brief set DEBUG_PRINT_DISABLE_UART to 1 to disable UART after each print
@@ -86,7 +90,7 @@
     DEBUG_PRINT_MSG(0, DEBUG_PRINT_LVL_VERBOSE, __VA_ARGS__); }
         
 /* always enabled: highest severity level errors that require a reset */
-#define DEBUG_PRINT_PANIC(...) {\
+#define DEBUG_PRINT_FATAL(...) {\
   DEBUG_PRINT_NOW(__VA_ARGS__); \
   DEBUG_PRINT_ERROR_LED_ON; watchdog_start(); \
   while(1); \
@@ -94,15 +98,21 @@
     
 
 #if DEBUG_PRINT_CONF_ON
-#define DEBUG_PRINT_MSG(t, p, ...) \
-  snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__);\
-  debug_print_msg(t, p, __FILE__, content)  
-#define DEBUG_PRINT_MSG_NOW(...) \
-  snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__);\
-  debug_print_msg_now(content)
-#else
-#define DEBUG_PRINT_MSG(t, p, ...)
-#define DEBUG_PRINT_MSG_NOW(...) 
+  #if DEBUG_PRINT_CONF_PRINT_DIRECT
+    #define DEBUG_PRINT_MSG(t, p, ...) \
+      snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+      debug_print_msg_now(__FILE__, content)
+  #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
+    #define DEBUG_PRINT_MSG(t, p, ...) \
+      snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+      debug_print_msg(t, p, __FILE__, content)  
+  #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
+  #define DEBUG_PRINT_MSG_NOW(...) \
+    snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+    debug_print_msg_now(__FILE__, content)
+#else /* DEBUG_PRINT_CONF_ON */
+  #define DEBUG_PRINT_MSG(t, p, ...)
+  #define DEBUG_PRINT_MSG_NOW(...) 
 #endif /* DEBUG_PRINT_CONF_ON */
 
 #define DEBUG_PRINT_STACK_ADDRESS { \
@@ -135,25 +145,25 @@
 
 
 /* debug levels (severity level) */
-typedef enum {
-  DEBUG_PRINT_LVL_EMERGENCY = 0,// CRITICAL, PANIC
-  DEBUG_PRINT_LVL_ERROR = 1,    // ALERT
-  DEBUG_PRINT_LVL_WARNING = 2,
-  DEBUG_PRINT_LVL_INFO = 3,
-  DEBUG_PRINT_LVL_VERBOSE = 4,  // DEBUG
+typedef enum {  
+  DEBUG_PRINT_LVL_EMERGENCY = 0, /* critical, requires immediate action */
+  DEBUG_PRINT_LVL_ERROR = 1,     /* alert, something went wrong */
+  DEBUG_PRINT_LVL_WARNING = 2,   /* something unexpected happend */
+  DEBUG_PRINT_LVL_INFO = 3,      /* status message */
+  DEBUG_PRINT_LVL_VERBOSE = 4,   /* debug output */
   NUM_OF_DEBUG_PRINT_LEVELS
 } debug_level_t;
 
 /* +1 for the trailing \0 character */
 extern char content[DEBUG_PRINT_CONF_MAX_LEN + 1];   
 
-#define DEBUG_PRINT_MODULE_INFO_LEN  9
+#define DEBUG_PRINT_MODULE_INFO_LEN  11
 typedef struct debug_print_t {
   struct debug_print_t *next;
   rtimer_clock_t time;
   uint8_t level;
-  char module[DEBUG_PRINT_MODULE_INFO_LEN + 1]; /* generator of the message */
-  char content[DEBUG_PRINT_CONF_MAX_LEN];   /* no need to store the '\0' */
+  char module[DEBUG_PRINT_MODULE_INFO_LEN + 1]; /* src module of the message */
+  char content[DEBUG_PRINT_CONF_MAX_LEN + 1];
 } debug_print_t;
 
 void debug_print_init(void);
@@ -162,6 +172,6 @@ void debug_print_msg(rtimer_clock_t *time,
                      char level, 
                      char *module, 
                      char *content);
-inline void debug_print_msg_now(char *content);
+inline void debug_print_msg_now(char *module, char *content);
 
 #endif /* __DEBUG_PRINT_H__ */

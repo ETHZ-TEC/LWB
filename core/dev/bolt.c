@@ -64,8 +64,8 @@ bolt_init(void)
 {
   /* control signals */
   PIN_CFG_IN(BOLT_CONF_IND_PIN);
-  PIN_RES_EN(BOLT_CONF_IND_PIN);         /* enable resistor to prevent floating
-                                           input */
+  /* enable resistor to prevent floating input */
+  PIN_PULLDOWN_EN(BOLT_CONF_IND_PIN);
   /* don't enable the port interrupt for this pin */
   /*PIN_CFG_PORT_INT(BOLT_CONF_IND_PIN);*/
   PIN_UNSEL(BOLT_CONF_MODE_PIN);
@@ -75,7 +75,9 @@ bolt_init(void)
   PIN_CLR(BOLT_CONF_REQ_PIN);
   PIN_CFG_OUT(BOLT_CONF_REQ_PIN);
   PIN_CFG_IN(BOLT_CONF_ACK_PIN);
-  PIN_RES_EN(BOLT_CONF_ACK_PIN);
+  PIN_PULLDOWN_EN(BOLT_CONF_ACK_PIN);
+  PIN_CFG_IN(BOLT_CONF_IND_OUT_PIN);
+  PIN_PULLDOWN_EN(BOLT_CONF_IND_OUT_PIN);
 #if BOLT_CONF_USE_DMA
   PIN_CFG_PORT_INT(BOLT_CONF_ACK_PIN);
   PIN_IES_FALLING(BOLT_CONF_ACK_PIN);
@@ -112,7 +114,7 @@ bolt_set_timereq_callback(void (*func)(void))
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
     dma_config_timer(DMA_TRCSRC_TA1CCR0, (uint16_t)&ta0_sw_ext, 
                      (uint16_t)&ta1_timestamp, 8);
-  } else {      
+  } else {
     /* set the rtimer callback function */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, (rtimer_callback_t)func);
   }
@@ -160,7 +162,7 @@ bolt_release(void)
 /*---------------------------------------------------------------------------*/
 uint8_t
 bolt_acquire(bolt_op_mode_t mode)
-{
+{  
   if(PIN_GET(BOLT_CONF_REQ_PIN) || 
      PIN_GET(BOLT_CONF_ACK_PIN)) {
     DEBUG_PRINT_ERROR("request failed (REQ or ACK still high)");
@@ -169,7 +171,8 @@ bolt_acquire(bolt_op_mode_t mode)
   if(BOLT_STATE_IDLE != bolt_state) {
     DEBUG_PRINT_ERROR("not in idle state, operation skipped");
     return 0;
-  }  
+  } 
+  
   /* make sure SPI is enabled */
   SPI_ENABLE(BOLT_CONF_SPI);
 
@@ -200,7 +203,7 @@ bolt_acquire(bolt_op_mode_t mode)
     /* ack is still low -> failed */
     bolt_state = BOLT_STATE_IDLE;
     PIN_CLR(BOLT_CONF_REQ_PIN);
-    DEBUG_PRINT_ERROR("BOLT access not granted");
+    DEBUG_PRINT_ERROR("access denied");
     return 0;
   }
   bolt_state = (mode == BOLT_OP_READ) ? BOLT_STATE_READ : BOLT_STATE_WRITE;
@@ -215,6 +218,10 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
   uint16_t count = 0;
 #endif /* BOLT_CONF_USE_DMA */
   DEBUG_PRINT_VERBOSE("starting data transfer... ");
+  
+  if(!data) {
+      return 0;
+  }
 
   /* WRITE OPERATION */
   if(BOLT_STATE_WRITE == bolt_state) {
@@ -241,7 +248,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
   } else if(BOLT_STATE_READ == bolt_state) {
 #if BOLT_CONF_USE_DMA
     dma_config_spi(BOLT_CONF_SPI, bolt_release);
-    dma_start((uint16_t)data, 0, num_bytes);
+    dma_start((uint16_t)data, 0, BOLT_MAX_MSG_LEN);
 #else
     /* first, clear the RX buffer */
     SPI_CLR_RXBUF(BOLT_CONF_SPI);
@@ -258,7 +265,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
     /* how many bytes received? */
     DEBUG_PRINT_INFO("%d bytes received", count);
 #endif /* BOLT_CONF_USE_DMA */
-    return 1;
+    return count;
   }
   return 0;
 }

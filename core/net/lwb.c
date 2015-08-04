@@ -229,16 +229,16 @@ void lwb_stats_load(void) {
     uint16_t crc;
     stats_addr = xmem_alloc(sizeof(lwb_statistics_t));
     if (XMEM_ALLOC_ERROR == stats_addr || !xmem_read(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
-        DEBUG_PRINT_MSG_NOW("WARNING: failed to load stats\r\n");
+        DEBUG_PRINT_MSG_NOW("WARNING: failed to load stats");
     }
     crc = stats.crc;
     stats.crc = 0;
     if (calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t)) != crc) {
-        DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset\r\n");
+        DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset");
         memset(&stats, 0, sizeof(lwb_statistics_t));
     }
     stats.reset_cnt++;
-    DEBUG_PRINT_MSG_NOW("stats loaded, reset count: %d\r\n", stats.reset_cnt);
+    DEBUG_PRINT_MSG_NOW("stats loaded, reset count: %d", stats.reset_cnt);
 }
 /*---------------------------------------------------------------------------*/
 void lwb_stats_save(void) {
@@ -565,12 +565,11 @@ PT_THREAD(lwb_thread_source(rtimer_t *rt)) {
             do {
                 RCV_SCHEDULE(lwb_thread_source);
                 if (rt->time - t_ref > LWB_T_SILENT) {
-                    //DEBUG_PRINT_MSG_NOW("no communication for %ds, enabling fail-over policy..\n", LWB_T_SILENT);
+                    //DEBUG_PRINT_MSG_NOW("no communication for %ds, enabling fail-over policy..", LWB_T_SILENT);
                     // TODO: implement host fail-over
                 }
             } while (!glossy_is_t_ref_updated() || !LWB_SCHED_IS_1ST(&schedule));
             // schedule received!
-            DEBUG_PRINT_MSG_NOW("\r\n");
         } else {
             RCV_SCHEDULE(lwb_thread_source);    
         }

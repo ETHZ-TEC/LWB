@@ -80,7 +80,7 @@ PROCESS_THREAD(app_process, ev, data)
   
   while (1) {
     __delay_cycles(MCLK_SPEED);
-    DEBUG_PRINT_MSG_NOW("test\r\n");
+    DEBUG_PRINT_MSG_NOW("test");
     LEDS_TOGGLE;
     //DEBUG_PRINT_STACK_ADDRESS;
     //DEBUG_PRINT_STACK_SIZE;
@@ -94,7 +94,7 @@ PROCESS_THREAD(app_process, ev, data)
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);      
     
-    DEBUG_PRINT_MSG_NOW("application task runs now...\r\n");
+    DEBUG_PRINT_MSG_NOW("application task runs now...");
         
     //PROCESS_PAUSE();
   }
@@ -128,23 +128,29 @@ ISR(UNMI, unmi_interrupt)
 ISR(PORT1, port1_interrupt) 
 {    
     static volatile uint8_t push_count = 0;
-    
+            
     if (PIN_IFG(PUSH_BUTTON)) {
+        PIN_CLR_IFG(PUSH_BUTTON);
+        
         if (push_count > 4) {
             WDTCTL &= ~WDTHOLD; /* trigger a watchdog password violation */
         } else if (push_count > 3) {
-            DEBUG_PRINT_MSG_NOW("1..\r\n");
+            DEBUG_PRINT_MSG_NOW("1..");
         } else if (push_count > 2) {
-            DEBUG_PRINT_MSG_NOW("2..\r\n");
+            DEBUG_PRINT_MSG_NOW("2..");
         } else if (push_count > 1) {
-            DEBUG_PRINT_MSG_NOW("3..\r\n");
+            DEBUG_PRINT_MSG_NOW("3..");
         } else if (push_count > 0) {
-            DEBUG_PRINT_MSG_NOW("4..\r\n");
+            DEBUG_PRINT_MSG_NOW("4..");
         } else {
-            DEBUG_PRINT_MSG_NOW("Reset in 5..\r\n");
+            DEBUG_PRINT_MSG_NOW("Reset in 5..");
         }
         push_count++;
-        PIN_CLR_IFG(PUSH_BUTTON);
+                
+        char msg_buffer[BOLT_CONF_MAX_MSG_LEN];
+        sprintf(msg_buffer, "hallo welt");
+        BOLT_WRITE((uint8_t*)msg_buffer, strlen(msg_buffer));
+        DEBUG_PRINT_MSG_NOW("message sent to BOLT");
     } 
 }
 #endif // PUSH_BUTTON
