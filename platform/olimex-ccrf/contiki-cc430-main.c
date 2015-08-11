@@ -197,8 +197,12 @@ main(int argc, char **argv)
 
   LEDS_OFF;     /* init done */
   
+  /* start processes */
+  debug_print_init();
+  
   __eint();
   autostart_start(autostart_processes);
+    
 
   while(1) {
     int r;

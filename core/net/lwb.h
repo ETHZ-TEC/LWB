@@ -12,6 +12,9 @@
 
 #include "platform.h"   // TODO: make LWB independent of platform!
 
+#ifndef LWB_USE_XMEM
+#define LWB_USE_XMEM            0                           // use the external memory to store the message queues and statistics
+#endif /* LWB_USE_XMEM */
 
 #ifndef LWB_T_REF_OFS
 #define LWB_T_REF_OFS           (RTIMER_SECOND / 800)       // constant time offset that is added to t_ref in each round (to align the glossy start pulses on host and source nodes)
@@ -46,15 +49,15 @@
 #endif /* LWB_T_GUARD_3 */
 
 #ifndef LWB_IN_BUFFER_SIZE         
-#define LWB_IN_BUFFER_SIZE      10        /* size (#elements) of the internal data buffer/queue for incoming messages */
+#define LWB_IN_BUFFER_SIZE      1        /* size (#elements) of the internal data buffer/queue for incoming messages */
 #endif /* LWB_IN_BUFFER_SIZE */
 
 #ifndef LWB_OUT_BUFFER_SIZE         
-#define LWB_OUT_BUFFER_SIZE     10        /* size (#elements) of the internal data buffer/queue for outgoing messages */
+#define LWB_OUT_BUFFER_SIZE     1        /* size (#elements) of the internal data buffer/queue for outgoing messages */
 #endif /* LWB_IN_BUFFER_SIZE */
 
-#ifndef LWB_STATS_NVMEM
-#define LWB_STATS_NVMEM         1         /* keep stats in non-volatile memory? */ // TODO: use this define in the code, implement Flash/FRAM/SRAM stats logging
+#ifndef LWB_STATS_NVMEM                         // TODO: use this define in the code, implement Flash/FRAM/SRAM stats logging
+#define LWB_STATS_NVMEM         1         /* keep stats in non-volatile memory? */ 
 #endif /* LWB_STATS_NVMEM */
 
 #ifndef LWB_MAX_PACKET_LEN
@@ -114,14 +117,6 @@
 #ifndef LWB_WAKEUP_RTIMER_ID
 #define LWB_WAKEUP_RTIMER_ID    RTIMER_TA1_1    // ID of the rtimer used to trigger the wake-up
 #endif /* LWB_WAKEUP_RTIMER_ID */
-
-#ifndef LWB_T_PREPROCESS        
-#define LWB_T_PREPROCESS        0       /* (RTIMER_SECOND / 50)  -> how much time to do processing before a round starts, 0 = disabled */
-#endif /* LWB_T_PREPROCESS */
-
-#ifndef LWB_T_PREPROCESS_TA1
-#define LWB_T_PREPROCESS_TA1    0       /* (RTIMER_SECOND_TA1 / 50)  -> how much time to do processing before a round starts, 0 = disabled */
-#endif /* LWB_T_PREPROCESS_TA1 */
 
 #ifndef LWB_MAX_STREAM_CNT_PER_NODE
 #define LWB_MAX_STREAM_CNT_PER_NODE     32
@@ -201,7 +196,10 @@ lwb_conn_state_t lwb_get_state(void);
  * @param len the length of the data packet (must be less or equal 
  * LWB_MAX_PACKET_LEN)
  */
-uint8_t lwb_send_data(uint8_t stream_id, const uint8_t * const data, uint8_t len);
+uint8_t lwb_send_data(uint16_t recipient, 
+                      uint8_t stream_id, 
+                      const uint8_t * const data, 
+                      uint8_t len);
 
 /**
  * @brief receive a data packet that have been received during the previous LWB

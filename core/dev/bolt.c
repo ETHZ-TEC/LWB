@@ -125,8 +125,8 @@ bolt_handle_timereq(uint8_t *out_buffer)
 {
   if(DMA2CTL & DMAIFG || TA1CCTL0 & CCIFG) {        /* interrupt flag set? */
     ta1_timestamp = (ta1_timestamp << 16) | TA1CCR0;
-    DEBUG_PRINT_INFO("timestamp: %llu (now: %llu)", ta1_timestamp,
-                     rtimer_now());
+    DEBUG_PRINT_VERBOSE("timestamp: %llu (now: %llu)", ta1_timestamp,
+                        rtimer_now());
     TA1CCTL0 &= ~(CCIFG + COV);
     DMA2CTL &= ~DMAIFG;
     DMA2CTL |= DMAEN;           /* re-enable the DMA */
@@ -241,7 +241,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
         return 0;
       }
     }
-    DEBUG_PRINT_INFO("%d bytes transmitted", count);
+    DEBUG_PRINT_VERBOSE("%d bytes transmitted", count);
 #endif /* BOLT_CONF_USE_DMA */
     return 1;
   /* READ OPERATION */
@@ -263,7 +263,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
       count++;
     }
     /* how many bytes received? */
-    DEBUG_PRINT_INFO("%d bytes received", count);
+    DEBUG_PRINT_VERBOSE("%d bytes received", count);
 #endif /* BOLT_CONF_USE_DMA */
     return count;
   }
@@ -288,7 +288,7 @@ ISR(PORT2, port2_interrupt)
         rcvd_bytes = (BOLT_CONF_MAX_MSG_LEN - rcvd_bytes);
       }
       bolt_release();
-      DEBUG_PRINT_INFO("%d bytes received", rcvd_bytes);
+      DEBUG_PRINT_VERBOSE("%d bytes received", rcvd_bytes);
     }
 #endif /* BOLT_CONF_USE_DMA */
     PIN_CLR_IFG(BOLT_CONF_ACK_PIN);

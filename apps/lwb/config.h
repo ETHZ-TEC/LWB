@@ -34,6 +34,9 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+/*
+ * application specific config file to override default settings
+ */
 
 //#define FLOCKLAB
 #define HOST_ID    2
@@ -41,21 +44,18 @@
 
 
 #ifdef FLOCKLAB
-  #define RF1A_CONF_TX_POWER    RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
-  #define RF1A_CONF_TX_CHANNEL  5                           // set the wireless channel
-  #define FRAM_CONF_ON          0                           // make sure external FRAM is disabled when using FlockLAB
+  #define RF1A_CONF_TX_POWER            RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
+  #define RF1A_CONF_TX_CHANNEL          5                           // set the wireless channel
+  #define FRAM_CONF_ON                  0                           // make sure external FRAM is disabled when using FlockLAB
 #endif // FLOCKLAB
 
-#define N_BUFFERED_IN_MSG       10                      // max. number of buffered input messages (in the external memory)
-#define N_BUFFERED_OUT_MSG      10                      // max. number of buffered output messages (in the external memory)
+#define N_BUFFERED_IN_MSG               10                      // max. number of buffered input messages (in the external memory)
+#define N_BUFFERED_OUT_MSG              10                      // max. number of buffered output messages (in the external memory)
 
 
-// MISC
-
-#ifdef FLOCKLAB
-#endif /* FLOCKLAB */
-
-#define DEBUG_PRINT_CONF_LEVEL  DEBUG_PRINT_LVL_VERBOSE  // select the debug level, must be of type debug_level_t
+#define FRAM_CONF_ON                    0
+#define DEBUG_PRINT_CONF_NUM_MSG        5
+#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO  // select the debug level, must be of type debug_level_t
 
 
 #endif /* __CONFIG_H__ */

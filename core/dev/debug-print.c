@@ -45,8 +45,8 @@
 /*---------------------------------------------------------------------------*/
 const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS] = { \
   "CRITICAL", "ERROR", "WARNING", "INFO", "VERBOSE" };
-char content[DEBUG_PRINT_CONF_MAX_LEN + 1];   /* global buffer, required to
-                                                 compose the messages */
+/* global buffer, required to compose the messages */
+char debug_print_buffer[DEBUG_PRINT_CONF_MAX_LEN + 1];   
 #if DEBUG_PRINT_CONF_USE_XMEM
 static uint8_t n_buffered_msg = 0;
 static uint32_t start_addr_msg = MEMBX_INVALID_ADDR;
@@ -57,24 +57,25 @@ LIST(debug_print_list);
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 /*---------------------------------------------------------------------------*/
 PROCESS(debug_print_process, "Debug Print Task");
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(debug_print_process, ev, data) {
   PROCESS_BEGIN();
 
 #if DEBUG_PRINT_CONF_USE_XMEM
+  while (1);
   static uint32_t next_msg = MEMBX_INVALID_ADDR;
   n_buffered_msg = 0;
   start_addr_msg = MEMBX_INVALID_ADDR;     /* this line is necessary! */
   if (!xmem_init()) {          /* init if not already done */
-    printf("DEBUG-PRINT ERROR: failed to initialize FRAM");
+    DEBUG_PRINT_FATAL("DEBUG-PRINT ERROR: failed to initialize FRAM");
   }
   start_addr_msg =
     xmem_alloc(DEBUG_PRINT_CONF_NUM_MSG * sizeof(debug_print_t));
+  msg.content[DEBUG_PRINT_CONF_MAX_LEN] = 0; /* enforce a proper string */
 #else  /* DEBUG_PRINT_CONF_USE_XMEM */
   memb_init(&debug_print_memb);
   list_init(debug_print_list);
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
-
-  msg.content[DEBUG_PRINT_CONF_MAX_LEN] = 0; /* enforce a proper string */
   
   while(1) {
     DEBUG_PRINT_TASK_SUSPENDED;
@@ -129,7 +130,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       UART_ENABLE;
   #endif /* DEBUG_PRINT_DISABLE_UART */
       printf("%3u %7llu %s %s: %s\r\n", node_id, RTIMER_TO_MS(
-             msg->time), msg.module, debug_print_lvl_to_string[msg.level],
+             msg->time), msg->module, debug_print_lvl_to_string[msg->level],
              msg->content);
   #ifdef DEBUG_PRINT_DISABLE_UART
       UART_DISABLE;
@@ -148,27 +149,39 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-char* 
-debug_print_format_mod_string(char* module)
+char*
+debug_print_format_mod_string(const char* module, char* out_buffer)
 {
   uint8_t i = 0;  
   char* res = strrchr(module, '/');
+  
+#if !DEBUG_PRINT_CONF_USE_XMEM
+  static char buffer[DEBUG_PRINT_MODULE_INFO_LEN + 1];
+  if(!out_buffer) {
+    out_buffer = buffer;
+  }  
+#else
+  if(!out_buffer) {
+    out_buffer = msg.module;
+  }
+#endif
+
   if(res) {
     module = res + 1;
   }
   while((i < DEBUG_PRINT_MODULE_INFO_LEN) && 
         (*module != 0) && (*module != '.')) {
-    msg.module[i++] = *module;
+    out_buffer[i++] = *module;
     module++;
   }
-  msg.module[i] = 0;  /* close the string */
-  return msg.module;
+  out_buffer[i] = 0;  /* close the string */
+  return out_buffer;
 }
 /*---------------------------------------------------------------------------*/
 void
 debug_print_init(void)
 {
-  DEBUG_PRINT_MSG_NOW("Starting '%s'", debug_print_process.name);
+  printf("Starting '%s'\r\n", debug_print_process.name);
   process_start(&debug_print_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -179,7 +192,7 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(rtimer_clock_t *time, char level, char *module, char * content)
+debug_print_msg(rtimer_clock_t *time, char level, char *module, char *data)
 {  
 #if DEBUG_PRINT_CONF_USE_XMEM
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
@@ -191,8 +204,8 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char * content)
       msg.time = *time;
     }
     msg.level = level;
-    debug_print_format_mod_string(module);
-    memcpy(msg.content, content, DEBUG_PRINT_CONF_MAX_LEN);
+    debug_print_format_mod_string(module, msg.module);
+    memcpy(msg.content, data, DEBUG_PRINT_CONF_MAX_LEN);
     /* write to external memory */
     xmem_write(start_addr_msg + n_buffered_msg * sizeof(debug_print_t),
                sizeof(debug_print_t), (uint8_t *)&msg);
@@ -208,9 +221,9 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char * content)
     } else {
       msg->time = *time;
     }
-    msg.level = level;    
-    debug_print_format_mod_string(module);
-    memcpy(msg->content, content, DEBUG_PRINT_CONF_MAX_LEN);
+    msg->level = level;    
+    debug_print_format_mod_string(module, msg->module);
+    memcpy(msg->content, data, DEBUG_PRINT_CONF_MAX_LEN);
     /* add it to the list of messages ready to print */
     list_add(debug_print_list, msg);
     /* poll the debug print process */
@@ -220,12 +233,12 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char * content)
 }
 /*---------------------------------------------------------------------------*/
 inline void
-debug_print_msg_now(char *module, char *content)
+debug_print_msg_now(char *module, char *data)
 {
   UART_ENABLE;
-  printf(debug_print_format_mod_string(module));
-  printf(": ");
-  printf(content);
+  printf(debug_print_format_mod_string(module, 0));
+  putchar(' ');
+  printf(data);
   printf("\r\n");
   UART_DISABLE;
 }

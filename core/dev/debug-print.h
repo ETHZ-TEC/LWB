@@ -52,7 +52,7 @@
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 
 #ifndef DEBUG_PRINT_CONF_PRINT_DIRECT         /* print directly, no queuing */
-#define DEBUG_PRINT_CONF_PRINT_DIRECT   1
+#define DEBUG_PRINT_CONF_PRINT_DIRECT   0
 #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
 
 /**
@@ -91,7 +91,7 @@
         
 /* always enabled: highest severity level errors that require a reset */
 #define DEBUG_PRINT_FATAL(...) {\
-  DEBUG_PRINT_NOW(__VA_ARGS__); \
+  DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \
   DEBUG_PRINT_ERROR_LED_ON; watchdog_start(); \
   while(1); \
 }
@@ -100,16 +100,16 @@
 #if DEBUG_PRINT_CONF_ON
   #if DEBUG_PRINT_CONF_PRINT_DIRECT
     #define DEBUG_PRINT_MSG(t, p, ...) \
-      snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
-      debug_print_msg_now(__FILE__, content)
+      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+      debug_print_msg_now(__FILE__, debug_print_buffer)
   #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
     #define DEBUG_PRINT_MSG(t, p, ...) \
-      snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
-      debug_print_msg(t, p, __FILE__, content)  
+      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+      debug_print_msg(t, p, __FILE__, debug_print_buffer)  
   #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
   #define DEBUG_PRINT_MSG_NOW(...) \
-    snprintf(content, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
-    debug_print_msg_now(__FILE__, content)
+    snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+    debug_print_msg_now(__FILE__, debug_print_buffer)
 #else /* DEBUG_PRINT_CONF_ON */
   #define DEBUG_PRINT_MSG(t, p, ...)
   #define DEBUG_PRINT_MSG_NOW(...) 
@@ -155,7 +155,7 @@ typedef enum {
 } debug_level_t;
 
 /* +1 for the trailing \0 character */
-extern char content[DEBUG_PRINT_CONF_MAX_LEN + 1];   
+extern char debug_print_buffer[DEBUG_PRINT_CONF_MAX_LEN + 1];   
 
 #define DEBUG_PRINT_MODULE_INFO_LEN  11
 typedef struct debug_print_t {
@@ -171,7 +171,7 @@ void debug_print_poll(void);
 void debug_print_msg(rtimer_clock_t *time, 
                      char level, 
                      char *module, 
-                     char *content);
-inline void debug_print_msg_now(char *module, char *content);
+                     char *data);
+inline void debug_print_msg_now(char *module, char *data);
 
 #endif /* __DEBUG_PRINT_H__ */

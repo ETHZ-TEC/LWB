@@ -55,22 +55,23 @@
  * @param num number of data elements in this memory block
  * @note It is the users responsibility to allocate a memory block of the
  * size 'elem_size * num' starting at the address 'start_addr'. The FIFO
- * itself takes 12 bytes.
+ * itself uses 14 bytes.
  */
 #define FIFO(name, elem_size, num) \
-  static struct fifo name = { 0, elem_size, num - 1, 0, 0 }// better to save the last index than the number of elements
+  static struct fifo name = { 0, elem_size, num - 1, 0, 0, 0 }     // better to save the last index than the number of elements
   
 struct fifo {
   uint32_t start;     /* start address of the array */
   uint16_t size;      /* size of one data unit */
-  uint16_t last;      /* number of data units in this memory block */
+  uint16_t last;      /* number of data units in this memory block -1 (= index of last block) */
+  uint16_t count;     /* number of occupied queue spaces */
   uint16_t read;      /* the read pointer */
   uint16_t write;     /* the write pointer */
 };
 
 #define FIFO_RESET(f)                   ( (f)->read = (f)->write = 0 )
-#define FIFO_EMPTY(f)                   ( (f)->read == (f)->write )
-#define FIFO_FULL(f)                    ( ((f)->write < (f)->read) ? ( ((f)->write + 1) == (f)->read ) : ((f)->read == 0 && (f)->write == (f)->last) )
+#define FIFO_EMPTY(f)                   ( ((f)->read == (f)->write) && ((f)->count == 0) )
+#define FIFO_FULL(f)                    ( ((f)->read == (f)->write) && ((f)->count != 0) )
 #define FIFO_READ_ADDR(f)               ( (f)->start + ((uint32_t)(f)->read * (uint32_t)(f)->size) )
 #define FIFO_WRITE_ADDR(f)              ( (f)->start + ((uint32_t)(f)->write * (uint32_t)(f)->size) )
 #define FIFO_INCR_READ(f)               ( (f)->read = (((f)->read == (f)->last) ? 0 : ((f)->read + 1) ) )     /* increment the read index */
@@ -94,6 +95,7 @@ fifo_get(struct fifo * const f)
   if(FIFO_EMPTY(f)) { return FIFO_ERROR; }
   uint32_t next_read = FIFO_READ_ADDR(f);
   FIFO_INCR_READ(f);
+  f->count--;
   return next_read;
 }
 
@@ -108,6 +110,7 @@ fifo_put(struct fifo * const f)
   if(FIFO_FULL(f)) { return FIFO_ERROR; }
   uint32_t next_write = FIFO_WRITE_ADDR(f);
   FIFO_INCR_WRITE(f);
+  f->count++;
   return next_write;
 }
 

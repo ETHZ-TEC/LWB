@@ -31,6 +31,8 @@
  * Author:  Reto Da Forno
  */
 
+#if FRAM_CONF_ON
+
 #include "contiki.h"
 //#include "platform.h"
 
@@ -74,34 +76,34 @@ fram_release(void)
 /*---------------------------------------------------------------------------*/
 inline uint8_t xmem_init(void)
 {
-    return fram_init();
+  return fram_init();
 }
 /*---------------------------------------------------------------------------*/
 inline uint8_t xmem_sleep(void)
 {
-    return fram_sleep();
+  return fram_sleep();
 }
 /*---------------------------------------------------------------------------*/
 inline uint8_t xmem_wakeup(void)
 {
-    return fram_wakeup();
+  return fram_wakeup();
 }
 /*---------------------------------------------------------------------------*/
 inline uint32_t xmem_alloc(uint32_t size)
 {
-    return fram_alloc(size);
+  return fram_alloc(size);
 }
 /*---------------------------------------------------------------------------*/
 inline uint8_t xmem_read(uint32_t start_address, uint16_t num_bytes, 
                          uint8_t *out_data) 
 { 
-    return fram_read(start_address, num_bytes, out_data); 
+  return fram_read(start_address, num_bytes, out_data); 
 }
 /*---------------------------------------------------------------------------*/
 inline uint8_t xmem_write(uint32_t start_address, uint16_t num_bytes,
                           const uint8_t *data) 
 {
-    return fram_write(start_address, num_bytes, data);
+  return fram_write(start_address, num_bytes, data);
 }
 /*---------------------------------------------------------------------------*/
 /**
@@ -400,3 +402,5 @@ fram_alloc(uint16_t size)
   return addr;
 }
 /*---------------------------------------------------------------------------*/
+
+#endif

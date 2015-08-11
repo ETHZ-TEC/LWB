@@ -67,6 +67,7 @@
 #define FRAM_CONF_CTRL_PIN          PORT1, PIN7
 #ifndef DEBUG_PRINT_CONF_USE_XMEM
 #define DEBUG_PRINT_CONF_USE_XMEM   1
+#define LWB_USE_XMEM                1
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 #ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG    20

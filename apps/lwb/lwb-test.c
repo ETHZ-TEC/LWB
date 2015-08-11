@@ -54,9 +54,15 @@
  * Remark: Protothreads are stackless threads optimized for event-driven OSs.
  * They are basically a function.
  * A process can react to events. 
+ * 
+ * @remarks
+ * compilation: .bss region goes into RAM (max. size 4 kB - (max_stack_size))
  */
 
-#include "lwb-test.h"
+
+#include "contiki.h"
+#include "platform.h"
+#include "log.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -69,23 +75,12 @@ PROCESS_THREAD(app_process, ev, data)
   
   // ----- INIT -----
     
-  debug_print_init();     // start the debug process (NOTE: no debug prints are accepted before this line of code, use DEBUG_PRINT_NOW() instead)
-  
-  LEDS_ON;
 #if BOLT_CONF_ON
   //mm_init();              // message manager (only use it if not running on Flocklab)
 #else
   //adc_init();
 #endif // FLOCKLAB
   
-  while (1) {
-    __delay_cycles(MCLK_SPEED);
-    DEBUG_PRINT_MSG_NOW("test");
-    LEDS_TOGGLE;
-    //DEBUG_PRINT_STACK_ADDRESS;
-    //DEBUG_PRINT_STACK_SIZE;
-  }
-
   // ----- start the S-LWB thread -----
   lwb_start(&app_process);
 
@@ -94,8 +89,8 @@ PROCESS_THREAD(app_process, ev, data)
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);      
     
-    DEBUG_PRINT_MSG_NOW("application task runs now...");
-        
+    DEBUG_PRINT_INFO("application task runs now...");
+    __delay_cycles(MCLK_SPEED);
     //PROCESS_PAUSE();
   }
 
