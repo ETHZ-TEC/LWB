@@ -99,6 +99,18 @@
 /* corresponds to roughly 1.008246 seconds (HF timer overflows ~50x/sec.) */
 #define CLOCK_SECOND    50
 
+#define OSC_FAULT_WAIT  do \
+{ \
+    UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
+    SFRIFG1 &= ~OFIFG; \
+    __delay_cycles(406250); \
+} while (SFRIFG1 & OFIFG)
+
+/* busy wait (delay loop) */
+#define WAIT_MS(ms)     __delay_cycles(MCLK_SPEED / 1000 * ms)
+#define DELAY(ms)       __delay_cycles(MCLK_SPEED / 1000 * ms)
+
+
 typedef uint32_t clock_time_t;
 
 /* initialize the clock system */

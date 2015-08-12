@@ -55,19 +55,22 @@ typedef enum {
 #define BOLT_WAIT_TILL_COMPLETED        while(BOLT_STATE_IDLE != bolt_state)
 /*---------------------------------------------------------------------------*/
 static volatile bolt_state_t bolt_state = BOLT_STATE_IDLE;
+static bolt_callback_t bolt_ind_callback = 0;
 #if BOLT_CONF_TIMEREQ_ENABLE
 static rtimer_clock_t ta1_timestamp = 0;
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 /*---------------------------------------------------------------------------*/
 void
-bolt_init(void)
+bolt_init(bolt_callback_t IND_line_callback)
 {
   /* control signals */
   PIN_CFG_IN(BOLT_CONF_IND_PIN);
+  if(IND_line_callback) {
+    PIN_CFG_INT(BOLT_CONF_IND_PIN);
+    bolt_ind_callback = IND_line_callback;
+  }
   /* enable resistor to prevent floating input */
   PIN_PULLDOWN_EN(BOLT_CONF_IND_PIN);
-  /* don't enable the port interrupt for this pin */
-  /*PIN_CFG_PORT_INT(BOLT_CONF_IND_PIN);*/
   PIN_UNSEL(BOLT_CONF_MODE_PIN);
   PIN_CLR(BOLT_CONF_MODE_PIN);
   PIN_CFG_OUT(BOLT_CONF_MODE_PIN);
@@ -102,6 +105,8 @@ bolt_init(void)
   dma_config_timer(DMA_TRCSRC_TA1CCR0, (uint16_t)&ta0_sw_ext, 
                    (uint16_t)&ta1_timestamp, 8);     
 #endif
+  
+  bolt_state = BOLT_STATE_IDLE;
 }
 /*---------------------------------------------------------------------------*/
 #if BOLT_CONF_TIMEREQ_ENABLE
@@ -254,7 +259,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
     SPI_CLR_RXBUF(BOLT_CONF_SPI);
 #if SPI_CONF_FAST_READ
     /* transmit 1 byte ahead for faster read speed (fills RXBUF faster) */
-    SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);                
+    SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);
 #endif
     while((count < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
       SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);          /* generate the clock */
@@ -270,19 +275,22 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-ISR(PORT2, port2_interrupt)
+void 
+bolt_handle_irq(void) 
 {
-  ENERGEST_ON(ENERGEST_TYPE_CPU);
-
   if(PIN_IFG(BOLT_CONF_IND_PIN)) {
-    DEBUG_PRINT_VERBOSE("port 2 interrupt: IND pin");
     PIN_IES_TOGGLE(BOLT_CONF_IND_PIN);
     PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+    DEBUG_PRINT_VERBOSE("BOLT IND pin interrupt");
+    if(bolt_ind_callback) {
+      bolt_ind_callback(); 
+    }
   } else if(PIN_IFG(BOLT_CONF_ACK_PIN)) {
+    PIN_CLR_IFG(BOLT_CONF_ACK_PIN);
 #if BOLT_CONF_USE_DMA
     uint16_t rcvd_bytes = DMA_REMAINING_BYTES_RX;
     if(BOLT_STATE_READ == bolt_state) {
-      if (rcvd_bytes == (BOLT_CONF_MAX_MSG_LEN - 1)) {
+      if(rcvd_bytes == (BOLT_CONF_MAX_MSG_LEN - 1)) {
         rcvd_bytes = BOLT_CONF_MAX_MSG_LEN;
       } else {
         rcvd_bytes = (BOLT_CONF_MAX_MSG_LEN - rcvd_bytes);
@@ -291,11 +299,8 @@ ISR(PORT2, port2_interrupt)
       DEBUG_PRINT_VERBOSE("%d bytes received", rcvd_bytes);
     }
 #endif /* BOLT_CONF_USE_DMA */
-    PIN_CLR_IFG(BOLT_CONF_ACK_PIN);
     DEBUG_PRINT_VERBOSE("port 2 interrupt: ACK pin");
-  }
-
-  ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  }    
 }
 /*---------------------------------------------------------------------------*/
 

@@ -284,6 +284,17 @@ rtimer_now_ta1(void)
   return time;
 }
 /*---------------------------------------------------------------------------*/
+clock_time_t
+clock_time(void)
+{
+  clock_time_t t1, t2;
+  do {
+    t1 = count;
+    t2 = count;
+  } while(t1 != t2);
+  return t1;
+}
+/*---------------------------------------------------------------------------*/
 /* Timer A0, CCR0 interrupt service routine */
 ISR(TIMER0_A0, timer0_a0_interrupt) 
 {
@@ -366,16 +377,5 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
-}
-/*---------------------------------------------------------------------------*/
-clock_time_t
-clock_time(void)
-{
-  clock_time_t t1, t2;
-  do {
-    t1 = count;
-    t2 = count;
-  } while(t1 != t2);
-  return t1;
 }
 /*---------------------------------------------------------------------------*/

@@ -132,12 +132,28 @@ main(int argc, char **argv)
   LEDS_INIT;
   LEDS_ON;
   
-#if defined(RF_GDO2_PIN) && defined(USE_LEDS)
+#ifdef DEBUG_SWITCH
+  PIN_CFG_INT(DEBUG_SWITCH);
+#endif
+  
+  /* pin mappings */
+#if defined(RF_GDO1_PIN)
+  PIN_MAP_AS_OUTPUT(RF_GDO1_PIN, PM_RFGDO1);
+#endif
+#if defined(RF_GDO2_PIN)
   PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFGDO2);
 #endif
-#ifdef PUSH_BUTTON
-  PIN_UNSEL(PUSH_BUTTON);
-  PIN_CFG_INT(PUSH_BUTTON);
+#if defined(RF_SMCLK_PIN)
+  PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_SMCLK);
+#endif
+#if defined(RF_SMCLK_PIN)
+  PIN_MAP_AS_OUTPUT(MCLK_PIN, PM_MCLK);
+#endif
+#if defined(RF_SMCLK_PIN)
+  PIN_MAP_AS_OUTPUT(SMCLK_PIN, PM_SMCLK);
+#endif
+#if defined(RF_SMCLK_PIN)
+  PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
 
   clock_init();
@@ -157,11 +173,7 @@ main(int argc, char **argv)
 #if FRAM_CONF_ON
   fram_init();
 #endif
-  
-#if BOLT_CONF_ON
-  bolt_init();
-#endif /* BOLT_CONF_ON */
-  
+    
   /* set the node ID */
 #ifdef NODE_ID
   node_id = NODE_ID;
@@ -202,7 +214,6 @@ main(int argc, char **argv)
   
   __eint();
   autostart_start(autostart_processes);
-    
 
   while(1) {
     int r;

@@ -168,19 +168,28 @@
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
 #define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
-#define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
-#define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
-#define GLOSSY_STOPPED      PIN_CLEAR(GLOSSY_START_PIN)
-#define GLOSSY_RX_STOPPED   PIN_CLEAR(GLOSSY_RX_PIN)
-#define GLOSSY_TX_STOPPED   PIN_CLEAR(GLOSSY_TX_PIN)
+#define GLOSSY_STOPPED      PIN_CLR(GLOSSY_START_PIN)
 #else
 #define GLOSSY_STARTED
-#define GLOSSY_RX_STARTED
-#define GLOSSY_TX_STARTED
 #define GLOSSY_STOPPED
+#endif
+
+#ifdef GLOSSY_RX_STARTED 
+#define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
+#define GLOSSY_RX_STOPPED   PIN_CLEAR(GLOSSY_RX_PIN)
+#else
+#define GLOSSY_RX_STARTED
 #define GLOSSY_RX_STOPPED
+#endif
+
+#ifdef GLOSSY_TX_STARTED
+#define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
+#define GLOSSY_TX_STOPPED   PIN_CLEAR(GLOSSY_TX_PIN)
+#else
+#define GLOSSY_TX_STARTED
 #define GLOSSY_TX_STOPPED
-#endif /* GLOSSY_START_PIN */
+#endif
+
 /*---------------------------------------------------------------------------*/
 enum {
   SUCCESS = 0,
@@ -348,7 +357,6 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   DEBUG_PRINT_VERBOSE("Glossy started: in=%u, pl=%u, n=%u, s=%u", initiator_id,
                       payload_len, n_tx_max, sync);
 
-  return;
   /* disable undesired interrupts */
   GLOSSY_DISABLE_INTERRUPTS;
 

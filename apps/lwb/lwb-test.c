@@ -74,79 +74,83 @@ PROCESS_THREAD(app_process, ev, data)
   PROCESS_BEGIN();
   
   // ----- INIT -----
-    
-#if BOLT_CONF_ON
-  //mm_init();              // message manager (only use it if not running on Flocklab)
-#else
-  //adc_init();
-#endif // FLOCKLAB
-  
-  // ----- start the S-LWB thread -----
-  lwb_start(&app_process);
 
-  while (1) {
+#if BOLT_CONF_ON
+  bolt_init(0);
+#endif /* BOLT_CONF_ON */
+  
+  lwb_start(&app_process);   /* start the S-LWB thread */
+
+  while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);      
-    
     DEBUG_PRINT_INFO("application task runs now...");
-    __delay_cycles(MCLK_SPEED);
+    DELAY(1000);
     //PROCESS_PAUSE();
   }
 
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-ISR(UNMI, unmi_interrupt) 
+ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
 {    
-    //LED_ON(LED_0);      // error indication
-    switch (SYSUNIV) {
-        case SYSUNIV_NMIIFG:
-            break;
-        case SYSUNIV_OFIFG:
-            LED_ON(LED_0);
-            while(1);
-            do
-            {
-                UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG);     // Clear XT1 & DCO fault flags
-                SFRIFG1 &= ~OFIFG;                              // Clear OSC Fault flag
-                __delay_cycles(406250);
-            } while (SFRIFG1 & OFIFG);
-            break;
-            LED_OFF(LED_0);
-        default:
-            break;
-    }
+  PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
+  switch (SYSUNIV) {
+    case SYSUNIV_NMIIFG:
+      break;
+    case SYSUNIV_OFIFG:         /* oscillator fault */
+      OSC_FAULT_WAIT;
+      break;            
+    default:
+      break;
+  }
+  PIN_CLR(LED_ERROR);
 }
 /*---------------------------------------------------------------------------*/
-#ifdef PUSH_BUTTON
 ISR(PORT1, port1_interrupt) 
 {    
+  ENERGEST_ON(ENERGEST_TYPE_CPU);
+  
+#ifdef DEBUG_SWITCH
+  if(PIN_IFG(DEBUG_SWITCH)) {
+    PIN_CLR_IFG(DEBUG_SWITCH);
+#if BOLT_CONF_ON
+    char msg_buffer[BOLT_CONF_MAX_MSG_LEN];
+    strcpy(msg_buffer, "hallo welt");
+    BOLT_WRITE((uint8_t*)msg_buffer, strlen(msg_buffer));
+    DEBUG_PRINT_MSG_NOW("message sent to BOLT");
+#else /* BOLT_CONF_ON */
     static volatile uint8_t push_count = 0;
-            
-    if (PIN_IFG(PUSH_BUTTON)) {
-        PIN_CLR_IFG(PUSH_BUTTON);
-        
-        if (push_count > 4) {
-            WDTCTL &= ~WDTHOLD; /* trigger a watchdog password violation */
-        } else if (push_count > 3) {
-            DEBUG_PRINT_MSG_NOW("1..");
-        } else if (push_count > 2) {
-            DEBUG_PRINT_MSG_NOW("2..");
-        } else if (push_count > 1) {
-            DEBUG_PRINT_MSG_NOW("3..");
-        } else if (push_count > 0) {
-            DEBUG_PRINT_MSG_NOW("4..");
-        } else {
-            DEBUG_PRINT_MSG_NOW("Reset in 5..");
-        }
-        push_count++;
-                
-        char msg_buffer[BOLT_CONF_MAX_MSG_LEN];
-        sprintf(msg_buffer, "hallo welt");
-        BOLT_WRITE((uint8_t*)msg_buffer, strlen(msg_buffer));
-        DEBUG_PRINT_MSG_NOW("message sent to BOLT");
-    } 
+    if(push_count > 4) {
+      WDTCTL &= ~WDTHOLD; /* trigger a watchdog password violation */
+    } else if(push_count > 3) {
+      DEBUG_PRINT_MSG_NOW("1..");
+    } else if(push_count > 2) {
+      DEBUG_PRINT_MSG_NOW("2..");
+    } else if(push_count > 1) {
+      DEBUG_PRINT_MSG_NOW("3..");
+    } else if(push_count > 0) {
+      DEBUG_PRINT_MSG_NOW("4..");
+    } else {
+      DEBUG_PRINT_MSG_NOW("Reset in 5..");
+    }
+    push_count++;         
+#endif /* BOLT_CONF_ON */
+  } 
+#endif /* DEBUG_SWITCH */
+
+  ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
-#endif // PUSH_BUTTON
+/*---------------------------------------------------------------------------*/
+ISR(PORT2, port2_interrupt)
+{
+  ENERGEST_ON(ENERGEST_TYPE_CPU);
+
+#if BOLT_CONF_ON
+  bolt_handle_irq();
+#endif
+  
+  ENERGEST_OFF(ENERGEST_TYPE_CPU);
+}
 /*---------------------------------------------------------------------------*/

@@ -108,14 +108,22 @@
 /* #define LWB_TASK_ACT_PIN         PORT3, PIN6      */
 #define LED_RED                     PORT1, PIN0
 #define LED_0                       LED_RED 
-#define LED_STATUS                  LED_0
-#define PUSH_BUTTON                 PORT1, PIN1
+#define LED_STATUS                  LED_RED
+#define LED_ERROR                   LED_RED
+#define DEBUG_SWITCH                PORT1, PIN1  /* user push-button */
 #define DEBUG_TASK_ACT_PIN          PORT2, PIN6
 #define FLOCKLAB_LED1               PORT1, PIN0
 #define FLOCKLAB_LED2               PORT1, PIN1
 #define FLOCKLAB_LED3       
 #define FLOCKLAB_INT1               PORT3, PIN6
 #define FLOCKLAB_INT2               PORT3, PIN7
+
+#define GLOSSY_START_PIN            LED_RED    /* let LED flash when glossy starts */
+#define RF_GDO1_PIN                 PORT3, PIN6
+#define RF_GDO2_PIN                 PORT1, PIN1
+#define MCLK_PIN                    PORT3, PIN7
+#define SMCLK_PIN                   PORT3, PIN7
+#define ACLK_PIN                    PORT3, PIN7
 
 /*
  * include standard libraries

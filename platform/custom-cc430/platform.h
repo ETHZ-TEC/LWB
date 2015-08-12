@@ -103,12 +103,13 @@
 /* #define GLOSSY_RX_PIN            PORT3, PIN5      */
 /* #define GLOSSY_TX_PIN            PORT3, PIN4      */
 /* #define LWB_TASK_ACT_PIN         PORT3, PIN6      */
-#define LED_STATUS                  LED_0
 #define LED_0                       PORT3, PIN0     // all LEDs are green
 #define LED_1                       PORT3, PIN1
 #define LED_2                       PORT3, PIN2
 #define LED_3                       PORT3, PIN3
-#define PUSH_BUTTON                 PORT1, PIN0
+#define LED_STATUS                  LED_0
+#define LED_ERROR                   LED_3
+#define DEBUG_SWITCH                PORT1, PIN0  /* user push-button */
 #define DEBUG_TASK_ACT_PIN          PORT2, PIN6
 #define FLOCKLAB_LED1               PORT3, PIN3
 #define FLOCKLAB_LED2               PORT3, PIN4

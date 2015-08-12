@@ -127,13 +127,17 @@ main(int argc, char **argv)
 
   LEDS_INIT;
   LEDS_ON;
-#ifdef PUSH_BUTTON
-  PIN_UNSEL(PUSH_BUTTON);
-  PIN_CFG_IN(PUSH_BUTTON);
-  PIN_CFG_INT(PUSH_BUTTON);
+#ifdef DEBUG_SWITCH
+  PIN_CFG_INT(DEBUG_SWITCH);
 #endif
-#if defined(RF_GDO2_PIN) && defined(USE_LEDS)
+#if defined(RF_GDO1_PIN)
+  PIN_MAP_AS_OUTPUT(RF_GDO1_PIN, PM_RFGDO1);
+#endif
+#if defined(RF_GDO2_PIN)
   PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFGDO2);
+#endif
+#if defined(RF_SMCLK_PIN)
+  PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFSMCLK);
 #endif
   
   /* this board has a multiplexer (set it to UART) */
@@ -158,10 +162,6 @@ main(int argc, char **argv)
   fram_init();
 #endif
   
-#if BOLT_CONF_ON
-  bolt_init();
-#endif /* BOLT_CONF_ON */
-
   /* set the node ID */
 #ifdef NODE_ID
   node_id = NODE_ID;
@@ -196,6 +196,9 @@ main(int argc, char **argv)
 #endif /* WATCHDOG_CONF_ON */
 
   LEDS_OFF;     /* init done */
+  
+  /* start processes */
+  debug_print_init();
   
   __eint();
   autostart_start(autostart_processes);

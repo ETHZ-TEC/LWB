@@ -130,15 +130,20 @@ typedef enum {
 } bolt_op_mode_t;
 
 
+typedef void (*bolt_callback_t)(void);
+
+
 /**
  * @brief initializes all required GPIO pins and peripherals to use the
  * asynchronous data interface
+ * @param IND_line_callback address of a callback function for interrupts
+ * on the IND line (pass 0 to disable the interrupt)
  *
  * Configures the GPIO pins AI_CTRL_IND, AI_CTRL_MODE, AI_CTRL_REQ and
  * AI_CTRL_ACK as well as the peripheral modules BOLT_CONF_SPI and the DMA (if
  * BOLT_USE_DMA is defined).
  */
-void bolt_init(void);
+void bolt_init(void (*IND_line_callback)(void));
 
 /**
  * @brief requests an operation on the asynchronous data interface
@@ -177,6 +182,12 @@ void bolt_set_timereq_callback(void (*func)(void));
  */
 uint8_t bolt_handle_timereq(uint8_t *out_buffer);
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
+
+/**
+ * @brief handles IRQs if there are pending interrupts
+ * call this function from the appropriate port ISR (e.g. Port 2 ISR)
+ */
+void bolt_handle_irq(void);
 
 /**
  * @brief release the asynchronous data interface and clean up

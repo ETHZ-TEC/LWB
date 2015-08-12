@@ -47,16 +47,6 @@
 #include "rf1a-core.h"
 #include "rtimer.h"
 
-/* default pin mapping */
-#ifndef RF_GDO1
-#define RF_GDO1         PORT3, PIN6
-#endif
-#ifndef RF_SMCLK
-#define RF_SMCLK        PORT3, PIN7
-#endif
-#ifndef RF_GDO2
-#define RF_GDO2         PORT1, PIN1
-#endif
 
 /* reception started callback */
 extern void rf1a_cb_rx_started(rtimer_clock_t *timestamp);
