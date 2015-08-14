@@ -28,12 +28,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Author:      Reto Da Forno
+ * Author:  Reto Da Forno
+ *          Federico Ferrari
  */
 
 #ifndef __DEBUG_PRINT_H__
 #define __DEBUG_PRINT_H__
 
+/* enabled by default */
+#ifndef DEBUG_PRINT_CONF_ON
+#define DEBUG_PRINT_CONF_ON         1
+#endif /* DEBUG_PRINT_CONF_ON */
 
 #ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG        8     /* number of messages to store */
@@ -55,12 +60,17 @@
 #define DEBUG_PRINT_CONF_PRINT_DIRECT   0
 #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
 
+/* poll the debug task every time a message is schedule for print-out? */
+#ifndef DEBUG_PRINT_CONF_POLL
+#define DEBUG_PRINT_CONF_POLL           0    
+#endif /* DEBUG_PRINT_CONF_POLL */
+
 /**
- * @brief set DEBUG_PRINT_DISABLE_UART to 1 to disable UART after each print
- * out (& enable it before each print out)
+ * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each print
+ * out (& re-enable it before each print out)
  */
-#ifndef DEBUG_PRINT_DISABLE_UART
-#define DEBUG_PRINT_DISABLE_UART        1
+#ifndef DEBUG_PRINT_CONF_DISABLE_UART
+#define DEBUG_PRINT_CONF_DISABLE_UART   1
 #endif /* DEBUG_PRINT_DISABLE_UART */
 
 #ifdef LED_ERROR
@@ -105,7 +115,7 @@
   #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
     #define DEBUG_PRINT_MSG(t, p, ...) \
       snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
-      debug_print_msg(t, p, __FILE__, debug_print_buffer)  
+      debug_print_msg(RTIMER_TO_MS(rtimer_now()), p, __FILE__, debug_print_buffer)  
   #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
   #define DEBUG_PRINT_MSG_NOW(...) \
     snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
@@ -118,7 +128,7 @@
 #define DEBUG_PRINT_STACK_ADDRESS { \
   UART_ENABLE; \
   uint8_t pos = 16; \
-  uint16_t addr = (uint16_t)&pos; \
+  uint16_t addr = (uint16_t)&pos; /* or use: READ_SP */\
   while (pos) { \
       pos = pos - 4; \
       uint8_t c = ((addr >> pos) & 0x000f); \
@@ -132,7 +142,7 @@
 #define DEBUG_PRINT_STACK_SIZE { \
   UART_ENABLE; \
   uint16_t div = 1000; \
-  uint16_t addr = 0x2c00 - (uint16_t)&div; \
+  uint16_t addr = 0x2c00 - (uint16_t)&div; /* or use: READ_SP */ \
   while (div) { \
       uint8_t c = addr/div; \
       putchar('0' + c); \
@@ -168,10 +178,12 @@ typedef struct debug_print_t {
 
 void debug_print_init(void);
 void debug_print_poll(void);
-void debug_print_msg(rtimer_clock_t *time, 
+void debug_print_msg(uint64_t time, 
                      char level, 
                      char *module, 
                      char *data);
 inline void debug_print_msg_now(char *module, char *data);
+void debug_print_device_info(void);
+void debug_print_processes(struct process *const processes[]);
 
 #endif /* __DEBUG_PRINT_H__ */

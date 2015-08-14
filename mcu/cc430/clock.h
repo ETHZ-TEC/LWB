@@ -29,6 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Federico Ferrari
  */
 
 /**
@@ -48,7 +49,13 @@
 
 /* FLL is only required if one of the following clock sources is used: DCOCLK,
    DCOCLKDIV, FLLREFCLK */
-#define CLOCK_USE_FLL   0
+#ifndef CLOCK_CONF_FLL_ON
+#define CLOCK_CONF_FLL_ON   0
+#endif /* CLOCK_CONF_FLL_ON */
+
+#ifndef CLOCK_CONF_XT1_ON
+#define CLOCK_CONF_XT1_ON    1
+#endif /* CLOCK_CONF_XT1_ON */
 
 /* speed of XT1 (low-frequency crystal) */
 #define XT1CLK_SPEED    32768
@@ -62,7 +69,11 @@
 #define MCLK_SPEED      (XT2CLK_SPEED / 2)      /* 13 MHz */
 
 /* source and speed of the Auxiliary Clock ACLK */
+#if CLOCK_CONF_XT1_ON
 #define SELA            SELA__XT1CLK
+#else /* CLOCK_CONF_XT1_ON */
+#define SELA            SELA__REFOCLK           /* ~32.8kHz */
+#endif /* CLOCK_CONF_XT1_ON */
 #define DIVA            DIVA__1
 #define ACLK_SPEED      (XT1CLK_SPEED / 1)      /* 32768 Hz */
 
@@ -72,7 +83,7 @@
 #define SMCLK_SPEED     (XT2CLK_SPEED / 8)      /* 3.25 MHz */
 
 /* check whether the high-frequency crystal XT2 is permanently enabled */
-#define IS_XT2_ENABLED() (~(UCSCTL6 & XT2OFF))
+#define IS_XT2_ENABLED() (!(UCSCTL6 & XT2OFF))
 
 /* permanently enable the high-frequency crystal XT2 (i.e., even if the radio 
  * is in SLEEP mode) */
@@ -113,10 +124,10 @@
 
 typedef uint32_t clock_time_t;
 
+
 /* initialize the clock system */
 void clock_init(void);
 
-clock_time_t clock_time(void);
 
 #endif /* __CLOCK_H__ */
 

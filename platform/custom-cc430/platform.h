@@ -57,9 +57,6 @@
  * configuration and definitions (default values, may be overwritten
  * in config.h)
  */
-#ifndef DEBUG_PRINT_CONF_ON
-#define DEBUG_PRINT_CONF_ON         1
-#endif /* DEBUG_PRINT_CONF_ON */
 
 #ifndef FRAM_CONF_ON
 #define FRAM_CONF_ON                1
@@ -67,6 +64,7 @@
 #define FRAM_CONF_CTRL_PIN          PORT2, PIN0
 #ifndef DEBUG_PRINT_CONF_USE_XMEM
 #define DEBUG_PRINT_CONF_USE_XMEM   1
+#define LWB_USE_XMEM                1
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 #ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG    20
@@ -91,6 +89,9 @@
 #define LEDS_CONF_ON                1
 #endif /* LEDS_CONF_ON */
 
+/* this board does not have a crystal oscillator installed at XT1 */
+#define CLOCK_CONF_XT1_ON           0           
+
 #define MCU_TYPE                    "CC430F5137"
 #define COMPILER_INFO               "GCC " __VERSION__
 #define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
@@ -111,11 +112,12 @@
 #define LED_ERROR                   LED_3
 #define DEBUG_SWITCH                PORT1, PIN0  /* user push-button */
 #define DEBUG_TASK_ACT_PIN          PORT2, PIN6
-#define FLOCKLAB_LED1               PORT3, PIN3
+//#define ACLK_PIN                    PORT2, PIN2
+/*#define FLOCKLAB_LED1               PORT3, PIN3
 #define FLOCKLAB_LED2               PORT3, PIN4
 #define FLOCKLAB_LED3               PORT3, PIN5 
 #define FLOCKLAB_INT1               PORT3, PIN6
-#define FLOCKLAB_INT2               PORT3, PIN7
+#define FLOCKLAB_INT2               PORT3, PIN7*/
 
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7     
@@ -136,6 +138,7 @@
  * include standard libraries
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /*

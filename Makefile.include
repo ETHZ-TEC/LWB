@@ -41,7 +41,9 @@ SYSDIR  = $(COREDIR)/sys
 DEVDIR  = $(COREDIR)/dev
 LIBDIR  = $(COREDIR)/lib
 NETDIR  = $(COREDIR)/net
+SCHEDDIR = $(COREDIR)/net/scheduler
 CPUDIR  = $(CONTIKI)/mcu/$(CPU)
+MCUDIR  = $(CONTIKI)/mcu
 PLATDIR = $(CONTIKI)/platform/$(PLATFORM)
 TOOLSDIR= $(CONTIKI)/tools
 OBJDIR  = ./obj
@@ -58,6 +60,7 @@ CORESRCS = ${shell find $(SYSDIR) -type f -name "*.[c]" -printf "%f "}
 CORESRCS += ${shell find $(LIBDIR) -type f -name "*.[c]" -printf "%f "}
 CORESRCS += ${shell find $(DEVDIR) -type f -name "*.[c]" -printf "%f "}
 CORESRCS += ${shell find $(NETDIR) -type f -name "*.[c]" -printf "%f "}
+#$(info core = $(CORESRCS))
 #process.c autostart.c timer.c etimer.c energest.c ringbuf.c serial-line.c random.c memb.c list.c debug-print.c
 PLATSRCS = ${shell find $(PLATDIR) -type f -name "*.[c]" -printf "%f "}
 PLATSRCS += ${shell find $(CPUDIR) -type f -name "*.[c]" -printf "%f "}
@@ -81,7 +84,7 @@ endif
 
 OBJS = ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.o) $(PLATSRCS:.c=.o) $(SRCS:.c=.o)}
 
-SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI) $(CPUDIR) $(NETDIR)
+SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI) $(CPUDIR) $(NETDIR) $(SCHEDDIR) $(MCUDIR)
 vpath %.c $(SOURCEDIRS)
 CFLAGS += ${addprefix -I,$(SOURCEDIRS)}
 

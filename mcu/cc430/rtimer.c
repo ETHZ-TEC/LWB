@@ -28,6 +28,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Author:  Federico Ferrari
+ *          Reto Da Forno
  */
 
 #include "contiki.h"
@@ -84,7 +86,7 @@ update_rtimer_state(uint16_t timer)
   }
 
 #define RTIMER_TA1_CALLBACK(timer) \
-  if((rtimer_now_ta1() >= rt[timer].time) && \
+  if((rtimer_now_lf() >= rt[timer].time) && \
      (rt[timer].state == RTIMER_SCHEDULED)) { \
     /* the timer has expired! */ \
     rt[timer].state = RTIMER_JUST_EXPIRED; \
@@ -241,7 +243,7 @@ rtimer_now(void)
 }
 /*---------------------------------------------------------------------------*/
 uint16_t
-rtimer_now_ta1_hw(void)
+rtimer_now_lf_hw(void)
 {
   uint16_t hw1, hw2;
   do {
@@ -254,7 +256,7 @@ rtimer_now_ta1_hw(void)
 }
 /*---------------------------------------------------------------------------*/
 rtimer_clock_t
-rtimer_now_ta1(void)
+rtimer_now_lf(void)
 {
   /* disable all interrupts */
   uint16_t interrupt_enabled = __get_interrupt_state() & GIE; //READ_SR & GIE;
@@ -263,13 +265,13 @@ rtimer_now_ta1(void)
 
   /* take a snapshot of both the HW timer and the SW extension */
   rtimer_clock_t sw = ta1_sw_ext;
-  uint16_t hw = rtimer_now_ta1_hw();
+  uint16_t hw = rtimer_now_lf_hw();
   if(TA1CTL & TAIFG) {
     /* in the meantime there has been an overflow of the HW timer: */
     /* manually increment the SW extension */
     sw++;
     /* and take a new snapshot of the HW timer */
-    hw = rtimer_now_ta1_hw();
+    hw = rtimer_now_lf_hw();
   }
   /* shift the SW extension to the left and append the HW timer */
   rtimer_clock_t time = (sw << 16) | hw;

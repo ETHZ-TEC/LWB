@@ -40,6 +40,17 @@ static int (*uart0_input_handler)(unsigned char c);
 static uint32_t prescaler = 0;
 static uint32_t mod = 0;
 /*---------------------------------------------------------------------------*/
+/* pin definitions */
+#ifndef UART_RXD
+#define UART_RXD        PORT1, PIN5     /* input (receive line) */
+#endif /* UART_RXD */
+#ifndef UART_TXD
+#define UART_TXD        PORT1, PIN6     /* output (transmit line) */
+#endif /* UART_TXD */
+#define UART_ACTIVE     (UCA0STAT & UCBUSY)
+#define UART_ENABLE     (UCA0CTL1 &= ~UCSWRST)
+#define UART_DISABLE    (UCA0CTL1 |= UCSWRST)
+/*---------------------------------------------------------------------------*/
 /* this function must be defined (referenced from std lib printf.c) */
 int
 putchar(int c)
@@ -112,6 +123,19 @@ uart_reinit(void)
     UCA0CTL0 |= UCMODE_0;
     /*UCA0CTL1 &= ~UCSWRST;*/
   }
+}
+/*---------------------------------------------------------------------------*/
+void
+uart_enable(uint8_t enable)
+{
+  if(enable) {
+    UART_BEFORE_ENABLE; 
+    UART_ENABLE;
+  } else {
+    while(UART_ACTIVE);
+    UART_DISABLE;
+    UART_AFTER_DISABLE;
+  }    
 }
 /*---------------------------------------------------------------------------*/
 ISR(USCI_A0, uart0_rx_interrupt) 

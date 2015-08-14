@@ -38,7 +38,7 @@
 
 #include "contiki-conf.h"
 
-/* Unchanged Contiki files: */
+/* unchanged Contiki files: */
 #include "sys/process.h"
 #include "sys/autostart.h"
 
@@ -53,7 +53,7 @@
 
 #include "dev/serial-line.h"
 
-/* Custom files: */
+/* custom files: */
 #include "lib/membx.h"
 #include "lib/fifo.h"
 #include "net/lwb.h"

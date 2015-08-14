@@ -39,8 +39,6 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
  * @brief Provides a setup function for the DMA (CH0 and CH1, to be used for
  * the SPI and CH2 for the timer CI). 

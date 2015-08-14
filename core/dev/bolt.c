@@ -79,8 +79,10 @@ bolt_init(bolt_callback_t IND_line_callback)
   PIN_CFG_OUT(BOLT_CONF_REQ_PIN);
   PIN_CFG_IN(BOLT_CONF_ACK_PIN);
   PIN_PULLDOWN_EN(BOLT_CONF_ACK_PIN);
+#ifdef BOLT_CONF_IND_OUT_PIN
   PIN_CFG_IN(BOLT_CONF_IND_OUT_PIN);
   PIN_PULLDOWN_EN(BOLT_CONF_IND_OUT_PIN);
+#endif /* BOLT_CONF_IND_OUT_PIN */
 #if BOLT_CONF_USE_DMA
   PIN_CFG_PORT_INT(BOLT_CONF_ACK_PIN);
   PIN_IES_FALLING(BOLT_CONF_ACK_PIN);
@@ -107,6 +109,8 @@ bolt_init(bolt_callback_t IND_line_callback)
 #endif
   
   bolt_state = BOLT_STATE_IDLE;
+  
+  DEBUG_PRINT_INFO("BOLT initialized");
 }
 /*---------------------------------------------------------------------------*/
 #if BOLT_CONF_TIMEREQ_ENABLE

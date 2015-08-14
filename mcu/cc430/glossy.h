@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Authors: Federico Ferrari
+ * Author:  Federico Ferrari
  *          Reto Da Forno
  */
 
@@ -41,10 +41,6 @@
  *
  * @file
  *              Wireless Communication Protocol 'Glossy'
- *
- * @author
- *              Federico Ferrari
- *              Reto Da Forno
  */
 
 #ifndef __GLOSSY_H__

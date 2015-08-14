@@ -29,6 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Marco Zimmerling
  */
  
 /**
@@ -55,8 +56,12 @@
  * They are basically a function.
  * A process can react to events. 
  * 
- * @remarks
- * compilation: .bss region goes into RAM (max. size 4 kB - (max_stack_size))
+ * @remarks 
+ * - use "msp430-objdump -h <filename>" to print out all linker sections, their location and size; besides, gcc outputs the size of the RO (.text) and RAM (.bss + .data) sections
+ * - make sure the unused RAM space for the stack is at least 100 B (check .bss section) -> 4 kB - .bss region - heap (should be 0) = max_stack_size
+ * - the max. period may be much longer than 30s, test showed that even 30min are feasible (note though that the period is a uint8 variable with the last bit reserved)
+ * - sprintf is very inefficient (~2000 cycles to copy a string) -> use memcpy instead
+ * - structs always cause problems: misalignments due to "compiler optimizations", use uintx_t types instead of enum and union instead of conversion to a pointer to a struct
  */
 
 
@@ -79,8 +84,8 @@ PROCESS_THREAD(app_process, ev, data)
   bolt_init(0);
 #endif /* BOLT_CONF_ON */
   
-  lwb_start(&app_process);   /* start the S-LWB thread */
-
+  lwb_start(0, &app_process);   /* start the LWB thread */
+  
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */

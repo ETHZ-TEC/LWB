@@ -34,12 +34,17 @@
 #define __CONTIKI_CONF_H__
 
 /*
- * contiki configuration
+ * contiki configuration, architecture specific
  */
  
 /* standard libraries */
+#include <stdio.h>
+#include <stdlib.h>
 #include <isr_compat.h>
 #include <string.h>
+
+/* application specific config */
+#include "config.h"
 
 #define CLIF
 #define CCIF
@@ -49,6 +54,9 @@
 #define ENERGEST_CONF_ON 0
 #endif /* ENERGEST_CONF_ON */
 
+typedef uint32_t clock_time_t;
+
+clock_time_t clock_time(void);
 
 extern volatile uint16_t node_id;
 

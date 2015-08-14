@@ -46,7 +46,7 @@
 
 #include "contiki-conf.h"
 
-#include "clock.h"
+//#include "clock.h"
 #include "sys/etimer.h"
 #include "sys/process.h"
 #include "leds.h"

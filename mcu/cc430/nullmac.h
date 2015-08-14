@@ -28,33 +28,23 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Author:  Federico Ferrari
+ *          Marco Zimmerling
  */
 
-#ifndef __CONTIKI_CONF_H__
-#define __CONTIKI_CONF_H__
-
-/*
- * contiki configuration
- */
- 
-/* standard libraries */
-#include <stdlib.h>
-#include <isr_compat.h>
-#include <string.h>
-
-/* application specific config */
-#include "config.h"
-
-#define CLIF
-#define CCIF
+#ifndef __NULLMAC_H__
+#define __NULLMAC_H__
 
 
-#ifndef ENERGEST_CONF_ON
-#define ENERGEST_CONF_ON 0
-#endif /* ENERGEST_CONF_ON */
+typedef uint16_t addr_t;
 
 
-extern volatile uint16_t node_id;
+void nullmac_init(void);
 
+void unicast_send(void *payload, uint8_t payload_len, addr_t destination);
+void broadcast_send(void *payload, uint8_t payload_len);
 
-#endif /* __CONTIKI_CONF_H__ */
+extern void unicast_received(rtimer_clock_t *timestamp, void *payload, uint8_t payload_len, addr_t source);
+extern void broadcast_received(rtimer_clock_t *timestamp, void *payload, uint8_t payload_len, addr_t source);
+
+#endif /* __NULLMAC_H__ */

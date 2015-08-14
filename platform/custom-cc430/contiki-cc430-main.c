@@ -37,38 +37,28 @@
 uint16_t TOS_NODE_ID = 0x1122;
 volatile uint16_t node_id;
 /*---------------------------------------------------------------------------*/
-static void
-print_processes(struct process *const processes[])
-{
-  printf("Starting");
-  while(*processes != NULL) {
-    printf(" '%s'", (*processes)->name);
-    processes++;
-  }
-  printf("\r\n");
-}
-/*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
-print_info(void)
+debug_print_device_info(void)
 {
-  static uint32_t rst_flag;         /* flag is automatically cleared by reading
-                                       it, therefore store its value */
-  rst_flag = SYSRSTIV;
-
+  /* 
+   * note: this device does not offer an LPMx.5 mode, therefore there's no
+   * corresponding reset source
+   */
+  static uint32_t rst_flag;         
+  rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
+  
   printf("\r\n\r\nReset Source: ");
   /* when the PMM causes a reset, a value is generated in the system reset
      interrupt vector generator register (SYSRSTIV), corresponding to the
      source of the reset */
-  if(SYSRSTIV_BOR == rst_flag) {         /* do not use switch .. case due to
-                                            contiki! */
+  /* note: do not use switch .. case construct due to contiki! */
+  if(SYSRSTIV_BOR == rst_flag) {         
     printf("BOR");        /* brownout reset (BOR) */
   } else if(SYSRSTIV_RSTNMI == rst_flag) {
     printf("Reset Pin");
   } else if(SYSRSTIV_DOBOR == rst_flag) {
     printf("Software BOR");
-  } else if(SYSRSTIV_LPM5WU == rst_flag) {
-    printf("Wake-up from LPMx.5");
   } else if(SYSRSTIV_SECYV == rst_flag) {
     printf("Security violation");
   } else if(SYSRSTIV_SVSL == rst_flag || SYSRSTIV_SVSH == rst_flag) {
@@ -97,6 +87,7 @@ print_info(void)
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
   printf("Compiler: " COMPILER_INFO "\r\nDate: " COMPILE_DATE "\r\n");
+  // don't disable UART module
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -127,17 +118,26 @@ main(int argc, char **argv)
 
   LEDS_INIT;
   LEDS_ON;
+  
 #ifdef DEBUG_SWITCH
   PIN_CFG_INT(DEBUG_SWITCH);
 #endif
+
+  /* pin mappings */
 #if defined(RF_GDO1_PIN)
   PIN_MAP_AS_OUTPUT(RF_GDO1_PIN, PM_RFGDO1);
 #endif
 #if defined(RF_GDO2_PIN)
   PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFGDO2);
 #endif
-#if defined(RF_SMCLK_PIN)
-  PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFSMCLK);
+#if defined(MCLK_PIN)
+  PIN_MAP_AS_OUTPUT(MCLK_PIN, PM_MCLK);
+#endif
+#if defined(SMCLK_PIN)
+  PIN_MAP_AS_OUTPUT(SMCLK_PIN, PM_SMCLK);
+#endif
+#if defined(ACLK_PIN)
+  PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
   
   /* this board has a multiplexer (set it to UART) */
@@ -147,15 +147,17 @@ main(int argc, char **argv)
   clock_init();
   rtimer_init();
   uart_init();
-  UART_ENABLE;
+  uart_enable(1);
   uart_set_input_handler(serial_line_input_byte);
-  print_info();
+    
+  debug_print_device_info();
 
 #ifdef WITH_RADIO
   rf1a_init();
   rf1a_set_tx_power(RF1A_CONF_TX_POWER);
   rf1a_set_channel(RF1A_CONF_TX_CHANNEL);
   rf1a_set_maximum_packet_length(RF1A_CONF_MAX_PKT_LEN);
+  printf("Radio configured (gain: %u, channel: %u, packet len: %u B)\r\n", RF1A_CONF_TX_POWER, RF1A_CONF_TX_CHANNEL, RF1A_CONF_MAX_PKT_LEN);
 #endif /* WITH_RADIO */
 
 #if FRAM_CONF_ON
@@ -175,7 +177,6 @@ main(int argc, char **argv)
   } else {
     printf("Node ID is not set.\r\n");
   }
-  print_processes(autostart_processes);
 
   process_init();
   process_start(&etimer_process, NULL);
@@ -201,6 +202,7 @@ main(int argc, char **argv)
   debug_print_init();
   
   __eint();
+  debug_print_processes(autostart_processes);
   autostart_start(autostart_processes);
 
   while(1) {
@@ -216,7 +218,7 @@ main(int argc, char **argv)
     /* disable interrupts */
     __dint();
     __nop();
-    if(process_nevents() != 0 || UART_ACTIVE) {
+    if(process_nevents() != 0) { /* || UART_ACTIVE) {*/
       /* re-enable interrupts */
       __eint();
       __nop();

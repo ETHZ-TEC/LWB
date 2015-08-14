@@ -1,10 +1,42 @@
+/*
+ * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
+ *          Federico Ferrari
+ *          Marco Zimmerling
+ */
 
 /**
  * @file 
  * @ingroup LWB
  * @brief   compress / uncompress routines for the schedule
- * @author  fe
- * @author  rdaforno
  *
  * @remarks
  * - minor modifications made and comments added by rdaforno (2014-08-20)
@@ -14,17 +46,19 @@
  */
  
 #include "lwb.h"
- 
+
+ /*---------------------------------------------------------------------------*/
 // the number of bits for depth and length are stored in the thirds slot
 #define GET_D_BITS()       (compressed_data[2] >> 3)    // 5 bits are reserved to store the number of bits needed for the depth (i.e. 0 to 31 bits)
 #define GET_L_BITS()       (compressed_data[2] & 0x07)  // 3 bits are reserved to store the number of bits needed for the length (i.e. 0 to 7 bits)
 #define SET_D_L_BITS(d, l) (compressed_data[2] = (d << 3) | (l & 0x07))
 #define COMPR_SLOT(a)      (compressed_data[3 + a])
-
-static uint16_t slots_buffer[LWB_MAX_DATA_SLOTS];
-
-
-static inline uint8_t get_min_bits(uint16_t a) {
+/*---------------------------------------------------------------------------*/
+static uint16_t slots_buffer[LWB_CONF_MAX_DATA_SLOTS];
+/*---------------------------------------------------------------------------*/
+static inline uint8_t 
+get_min_bits(uint16_t a) 
+{
     uint8_t i;
     for (i = 15; i > 0; i--) {
         if (a & (1 << i)) {
@@ -33,21 +67,22 @@ static inline uint8_t get_min_bits(uint16_t a) {
     }
     return i + 1;
 }
-
+/*---------------------------------------------------------------------------*/
 /**
  * @brief compress the schedule
  * @param [in,out] compressed_data the uncompressed schedule will be read from and the compressed schedule will be written to this i/o buffer
  * @param [in] n_slots the number of slots of this schedule
  * @return the size of the compressed schedule
  */
-uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots) {
-    
+uint16_t 
+lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots) 
+{    
     if (n_slots < 2) {  // don't do anything in case there is only 0 or 1 slot
         return n_slots * 2;
     }
         
     memcpy(slots_buffer, compressed_data, n_slots * 2);     // copy the input data into a buffer
-    memset(compressed_data + 2, 0, LWB_MAX_DATA_SLOTS * 2 - 2);    // clear the output data buffer (except for the first slot!)
+    memset(compressed_data + 2, 0, LWB_CONF_MAX_DATA_SLOTS * 2 - 2);    // clear the output data buffer (except for the first slot!)
 
     // Note: the first slot holds the first node ID
     
@@ -103,16 +138,16 @@ uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots) {
         
     return 3 + ((((uint16_t)n_runs * run_bits) + 7) >> 3);      // return the size of the compressed schedule
 }
-
-
+/*---------------------------------------------------------------------------*/
 /**
  * @brief uncompress the schedule
  * @param [in,out] compressed_data the compressed schedule will be read from and the uncompressed schedule will be written to this i/o buffer
  * @param [in] n_slots the number of slots of this schedule
  * @return 1 if successful, 0 otherwise
  */
-uint8_t lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots) {
-
+uint8_t
+lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots) 
+{
     if (n_slots < 2) {  // don't do anything in case there is only 0 or 1 slot
         return 0;
     }
@@ -148,3 +183,4 @@ uint8_t lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots) {
     
     return 1;
 }
+/*---------------------------------------------------------------------------*/

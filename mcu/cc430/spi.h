@@ -42,7 +42,6 @@
  * mode (as master)
  *
  * @file
- * @author rdaforno
  */
 
 #ifndef __SPI_H__

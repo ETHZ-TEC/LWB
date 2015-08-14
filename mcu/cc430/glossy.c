@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Authors: Federico Ferrari
+ * Author:  Federico Ferrari
  *          Reto Da Forno
  */
 
@@ -94,21 +94,21 @@
     g.enabled_interrupts |= (TA1CTL & TAIE) ? (1 << 7) : 0;\
     TA0CTL &= ~TAIE;\
     TA1CTL &= ~TAIE;\
-    g.enabled_interrupts |= (TA0CCTL0 & CCIE) ? (1 << 8) : 0;\
+    /*g.enabled_interrupts |= (TA0CCTL0 & CCIE) ? (1 << 8) : 0;*/\
     g.enabled_interrupts |= (TA0CCTL1 & CCIE) ? (1 << 9) : 0;\
     g.enabled_interrupts |= (TA0CCTL2 & CCIE) ? (1 << 10) : 0;\
-    /*g.enabled_interrupts |= (TA0CCTL3 & CCIE) ? (1 << 11) : 0; */\
+    g.enabled_interrupts |= (TA0CCTL3 & CCIE) ? (1 << 11) : 0; */\
     /*g.enabled_interrupts |= (TA0CCTL4 & CCIE) ? (1 << 12) : 0; */\
-    TA0CCTL0 &= ~CCIE;\
+    /*TA0CCTL0 &= ~CCIE;*/\
     TA0CCTL1 &= ~CCIE;\
     TA0CCTL2 &= ~CCIE;\
-    /*TA0CCTL3 &= ~CCIE; -> required for lwb */\
+    TA0CCTL3 &= ~CCIE;\
     /*TA0CCTL4 &= ~CCIE; -> required for radio */\
     g.enabled_interrupts |= (TA1CCTL0 & CCIE) ? (1 << 13) : 0;\
-    g.enabled_interrupts |= (TA1CCTL1 & CCIE) ? (1 << 14) : 0;\
+    /*g.enabled_interrupts |= (TA1CCTL1 & CCIE) ? (1 << 14) : 0;*/\
     g.enabled_interrupts |= (TA1CCTL2 & CCIE) ? (1 << 15) : 0;\
     TA1CCTL0 &= ~CCIE;\
-    TA1CCTL1 &= ~CCIE;\
+    /*TA1CCTL1 &= ~CCIE;*/\
     TA1CCTL2 &= ~CCIE;\
     g.enabled_interrupts |= (DMA0CTL & DMAIE) ? (1 << 16) : 0;\
     g.enabled_interrupts |= (DMA1CTL & DMAIE) ? (1 << 17) : 0;\

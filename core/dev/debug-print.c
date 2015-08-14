@@ -28,6 +28,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Author:  Reto Da Forno
+ *          Federico Ferrari
  */
 
 #include "contiki.h"
@@ -90,13 +92,12 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       /* load the message from the external memory */
       xmem_read(next_msg, sizeof(debug_print_t), (uint8_t *)&msg);
   #ifdef DEBUG_PRINT_DISABLE_UART
-      UART_ENABLE;
+      uart_enable(true);
   #endif /* DEBUG_PRINT_DISABLE_UART */
-      printf("%3u %7llu %s %s: %s\r\n", node_id, RTIMER_TO_MS(
-             msg.time), msg.module, debug_print_lvl_to_string[msg.level],
-             msg.content);
+      printf("%3u %7llu %s %s: %s\r\n", node_id, msg.time), msg.module, 
+             debug_print_lvl_to_string[msg.level], msg.content);
   #ifdef DEBUG_PRINT_DISABLE_UART
-      UART_DISABLE;
+      uart_enable(false);
   #endif /* DEBUG_PRINT_DISABLE_UART */
       next_msg += sizeof(debug_print_t);
       n_buffered_msg--;
@@ -108,43 +109,39 @@ PROCESS_THREAD(debug_print_process, ev, data) {
     
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
     
-    while(list_length(debug_print_list) > 0) {
-      DEBUG_PRINT_TASK_SUSPENDED;
-  #ifdef WITH_RADIO
-    #ifdef WITH_GLOSSY
-      /* do not try to print anything over the UART while Glossy is active */
-      while(glossy_is_active()) {
-        PROCESS_PAUSE();
-      }
-    #else
-      /* do not try to print anything over the UART while the radio is busy */
-      while(rf1a_is_busy()) {
-        PROCESS_PAUSE();
-      }
-    #endif /* WITH_GLOSSY */
-  #endif /* WITH_RADIO */
+    while(list_length(debug_print_list) > 0) {      
+      /* debug task should not run anyway if LWB/Glossy is active! */
+//  #ifdef WITH_RADIO
+//    #ifdef WITH_GLOSSY
+//      /* do not try to print anything over the UART while Glossy is active */
+//      while(glossy_is_active()) {
+//        PROCESS_PAUSE();
+//      }
+//    #else
+//      /* do not try to print anything over the UART while the radio is busy */
+//      while(rf1a_is_busy()) {
+//        PROCESS_PAUSE();
+//      }
+//    #endif /* WITH_GLOSSY */
+//  #endif /* WITH_RADIO */
       DEBUG_PRINT_TASK_ACTIVE;
       /* print the first message in the queue */
       debug_print_t *msg = list_head(debug_print_list);
   #ifdef DEBUG_PRINT_DISABLE_UART
-      UART_ENABLE;
+      uart_enable(true);
   #endif /* DEBUG_PRINT_DISABLE_UART */
-      printf("%3u %7llu %s %s: %s\r\n", node_id, RTIMER_TO_MS(
-             msg->time), msg->module, debug_print_lvl_to_string[msg->level],
-             msg->content);
+      printf("%3u %7llu %s %s: %s\r\n", node_id, msg->time, msg->module, 
+             debug_print_lvl_to_string[msg->level], msg->content);
   #ifdef DEBUG_PRINT_DISABLE_UART
-      UART_DISABLE;
+      uart_enable(false);
   #endif /* DEBUG_PRINT_DISABLE_UART */
       /* remove it from the queue */
       list_remove(debug_print_list, msg);
       memb_free(&debug_print_memb, msg);
       DEBUG_PRINT_TASK_SUSPENDED;
       PROCESS_PAUSE();
-      DEBUG_PRINT_TASK_ACTIVE;
-    }
-    
+    }    
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
-
   }
   PROCESS_END();
 }
@@ -192,17 +189,13 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(rtimer_clock_t *time, char level, char *module, char *data)
+debug_print_msg(uint64_t time, char level, char *module, char *data)
 {  
 #if DEBUG_PRINT_CONF_USE_XMEM
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
      MEMBX_INVALID_ADDR != start_addr_msg) {
-    /* construct the message struct */
-    if(time == NULL) {
-      msg.time = rtimer_now();
-    } else {
-      msg.time = *time;
-    }
+    /* compose the message struct */
+    msg->time = time;
     msg.level = level;
     debug_print_format_mod_string(module, msg.module);
     memcpy(msg.content, data, DEBUG_PRINT_CONF_MAX_LEN);
@@ -215,19 +208,17 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char *data)
 #else
   debug_print_t *msg = memb_alloc(&debug_print_memb);
   if(msg != NULL) {
-    /* construct the message struct */
-    if(time == NULL) {
-      msg->time = rtimer_now();
-    } else {
-      msg->time = *time;
-    }
+    /* compose the message struct */
+    msg->time = time;
     msg->level = level;    
     debug_print_format_mod_string(module, msg->module);
     memcpy(msg->content, data, DEBUG_PRINT_CONF_MAX_LEN);
     /* add it to the list of messages ready to print */
     list_add(debug_print_list, msg);
     /* poll the debug print process */
+#if DEBUG_PRINT_CONF_POLL
     process_poll(&debug_print_process);
+#endif /* DEBUG_PRINT_CONF_POLL */
   }
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 }
@@ -235,12 +226,31 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char *data)
 inline void
 debug_print_msg_now(char *module, char *data)
 {
-  UART_ENABLE;
-  printf(debug_print_format_mod_string(module, 0));
-  putchar(' ');
-  printf(data);
+  if(data) {
+#ifdef DEBUG_PRINT_DISABLE_UART
+    uart_enable(true);
+#endif
+    if(module) {
+        printf(debug_print_format_mod_string(module, 0));
+        putchar(' ');
+    }
+    printf(data);
+    printf("\r\n");
+#ifdef DEBUG_PRINT_DISABLE_UART
+    uart_enable(false);
+#endif
+  }
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_processes(struct process *const processes[])
+{
+  printf("Starting");
+  while(*processes != NULL) {
+    printf(" '%s'", (*processes)->name);
+    processes++;
+  }
   printf("\r\n");
-  UART_DISABLE;
 }
 /*---------------------------------------------------------------------------*/
 #else /* DEBUG_PRINT_CONF_ON */
@@ -257,6 +267,16 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char *content)
 /*---------------------------------------------------------------------------*/
 void
 debug_print_msg_now(char *content)
+{
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_device_info(void)
+{
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_processes(struct process *const processes[])
 {
 }
 /*---------------------------------------------------------------------------*/

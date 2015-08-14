@@ -40,24 +40,16 @@
  *
  * @file
  * @brief provides functionality to configure the USCI A0 module in UART mode
- * @author rdaforno
  */
 
 #ifndef __UART_H__
 #define __UART_H__
 
+
 #ifndef UART_CONF_BAUDRATE
 /* don't forget to adjust uart_init() if you change the baudrate here */
 #define UART_CONF_BAUDRATE  115200LU
 #endif /* UART_CONF_BAUDRATE */
-
-/* pin definitions (not configurable, thus without _CONF) */
-#ifndef UART_RXD
-#define UART_RXD            PORT1, PIN5     /* input (receive line) */
-#endif /* UART_RXD */
-#ifndef UART_TXD
-#define UART_TXD            PORT1, PIN6     /* output (transmit line) */
-#endif /* UART_TXD */
 
 /** 
  * @brief this macro can be defined in a platform specific file
@@ -76,21 +68,6 @@
 #endif /* UART_AFTER_DISABLE */
 
 /**
- * @brief check if the UART module is active / busy
- */
-#define UART_ACTIVE         (UCA0STAT & UCBUSY)
-
-/**
- * @brief enable the USCI_A0 module
- */
-#define UART_ENABLE         { UART_BEFORE_ENABLE; UCA0CTL1 &= ~UCSWRST; }
-
-/**
- * @brief disable the USCI_A0 module
- */
-#define UART_DISABLE        { while(UART_ACTIVE); UCA0CTL1 |= UCSWRST; UART_AFTER_DISABLE; }
-
-/**
  * @brief set the input handler for the UART
  * @param[in] input the function to be called from the UART ISR (RX interrupt)
  */
@@ -105,10 +82,16 @@ void uart_init(void);
 
 /**
  * @brief re-initialize the USCI_A0 module in UART mode (when it is configured
- *in SPI mode)
+ * in SPI mode)
  * @remark The UART module is driven by the SMCLK.
  */
 void uart_reinit(void);
+
+/**
+ * @brief enable or disable the UART module
+ */
+void uart_enable(uint8_t enable);
+
 
 #endif /* __UART0_H__ */
 

@@ -28,8 +28,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Authors      Federico Ferrari
- *              Reto Da Forno
+ * Author:  Federico Ferrari
+ *          Reto Da Forno
  */
 
 /**
@@ -40,15 +40,16 @@
  * @{
  *
  * @file
- * @author      
- *              Federico Ferrari
- *              Reto Da Forno
  * 
  * @brief configure TA0 and TA1 to be used to schedule tasks with high accuracy
+ * 
+ * TA0 is a high-frequency timer (SMCLK_SPEED)
+ * TA1 is a low-frequency (LF) timer (ACLK_SPEED)
  */
 
 #ifndef __RTIMER_H__
 #define __RTIMER_H__
+
 
 /**
  * @brief the number of usable rtimers of module TA0
@@ -65,8 +66,10 @@
  * @brief the number of timer ticks that (approx.) correspond to 1s
  * @note the timer modules are clock by SMCLK at 3.25 MHz
  */
-#define RTIMER_SECOND           ((rtimer_clock_t)SMCLK_SPEED)  /* for TA0 */
-#define RTIMER_SECOND_TA1       (ACLK_SPEED)                   /* for TA1 */
+#define RTIMER_SECOND               ((rtimer_clock_t)SMCLK_SPEED)  /* for HF timer */
+#define RTIMER_SECOND_LF            (ACLK_SPEED)                   /* for LF timer */
+
+#define RTIMER_HF_LF_RATIO          (RTIMER_SECOND / RTIMER_SECOND_LF)
 
 /**
  * @brief enable the update (overflow) interrupt of the timer TA0
@@ -79,8 +82,8 @@
 /**
  * @brief checks if the update (overflow) interrupt of the timer TA0 is enabled
  */
-#define RTIMER_IS_UPDATE_ENABLED    ((TA0CTL & TAIE) > 0)
-#define RTIMER_TA1_IS_UPDATE_EN     ((TA1CTL & TAIE) > 0)
+#define RTIMER_UPDATE_ENABLED       ((TA0CTL & TAIE) > 0)
+#define RTIMER_LF_UPDATE_ENABLED    ((TA1CTL & TAIE) > 0)
 
 /**
  * @brief the rtimer IDs for timer module TA0 (number of IDs corresponds to the
@@ -112,14 +115,14 @@ typedef enum {
 } rtimer_state_t;
 
 typedef uint64_t rtimer_clock_t;
-typedef struct rtimer_t rtimer_t;
+typedef struct rtimer rtimer_t;
  /* prototype of a rtimer callback function */
 typedef char (*rtimer_callback_t)(rtimer_t *rt);
 
 /**
  * @brief state and parameters of an rtimer
  */
-typedef struct rtimer_t {
+typedef struct rtimer {
   rtimer_callback_t func; /* callback function to execute when the rtimer
                              expires */
   rtimer_state_t state;   /* internal state of the rtimer */
@@ -182,22 +185,22 @@ rtimer_clock_t rtimer_now(void);
  * @brief get the current timer value of TA1
  * @return timer value in timer clock ticks (timestamp)
  */
-rtimer_clock_t rtimer_now_ta1(void);
+rtimer_clock_t rtimer_now_lf(void);
 
 /* convert rtimer time values from clock ticks to milliseconds */
-#define RTIMER_TO_MS(t) ((t) / (RTIMER_SECOND / 1000))
+#define RTIMER_TO_MS(t)         ((t) / (RTIMER_SECOND / 1000))
 
 /* get the current rtimer time (macro used in several Contiki core files) */
-#define RTIMER_NOW    (rtimer_now())
+#define RTIMER_NOW              (rtimer_now())
 
 /* get the current rtimer time in milliseconds */
-#define RTIMER_NOW_MS() (RTIMER_TO_MS(rtimer_now()))
+#define RTIMER_NOW_MS()         (RTIMER_TO_MS(rtimer_now()))
 
-#define NS_TO_RTIMER_TICKS(ns) (((rtimer_clock_t)(ns) * \
-                                 (rtimer_clock_t)RTIMER_SECOND) / \
-                                (rtimer_clock_t)1000000000)
+#define NS_TO_RTIMER_TICKS(ns)  (((rtimer_clock_t)(ns) * \
+                                  (rtimer_clock_t)RTIMER_SECOND) / \
+                                 (rtimer_clock_t)1000000000)
 
-extern volatile rtimer_clock_t ta0_sw_ext;
+//extern volatile rtimer_clock_t ta0_sw_ext;
 
 #endif /* __RTIMER_H__ */
 

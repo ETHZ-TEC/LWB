@@ -39,8 +39,6 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
  * @brief platform includes and definitions
  */
@@ -57,9 +55,6 @@
  * configuration and definitions (default values, may be overwritten
  * in config.h)
  */
-#ifndef DEBUG_PRINT_CONF_ON
-#define DEBUG_PRINT_CONF_ON         1
-#endif /* DEBUG_PRINT_CONF_ON */
 
 #ifndef FRAM_CONF_ON
 #define FRAM_CONF_ON                1
@@ -119,11 +114,11 @@
 #define FLOCKLAB_INT2               PORT3, PIN7
 
 #define GLOSSY_START_PIN            LED_RED    /* let LED flash when glossy starts */
-#define RF_GDO1_PIN                 PORT3, PIN6
-#define RF_GDO2_PIN                 PORT1, PIN1
-#define MCLK_PIN                    PORT3, PIN7
-#define SMCLK_PIN                   PORT3, PIN7
-#define ACLK_PIN                    PORT3, PIN7
+#define RF_GDO1_PIN                 PORT3, PIN0
+//#define RF_GDO2_PIN                 PORT3, PIN1
+//#define MCLK_PIN                    PORT3, PIN0
+//#define SMCLK_PIN                   PORT3, PIN1
+//#define ACLK_PIN                    PORT3, PIN2
 
 /*
  * include standard libraries

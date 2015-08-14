@@ -45,17 +45,19 @@
 
 #ifdef FLOCKLAB
   #define RF1A_CONF_TX_POWER            RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
-  #define RF1A_CONF_TX_CHANNEL          5                           // set the wireless channel
   #define FRAM_CONF_ON                  0                           // make sure external FRAM is disabled when using FlockLAB
+  #define BOLT_CONF_ON                  0
 #endif // FLOCKLAB
 
-#define N_BUFFERED_IN_MSG               10                      // max. number of buffered input messages (in the external memory)
-#define N_BUFFERED_OUT_MSG              10                      // max. number of buffered output messages (in the external memory)
+// LWB
+#define LWB_SCHED_MIN_ENERGY
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN  1                       // length in bytes of the additional stream information
 
-
+#define BOLT_CONF_ON                    0
 #define FRAM_CONF_ON                    0
 #define DEBUG_PRINT_CONF_NUM_MSG        5
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO  // select the debug level, must be of type debug_level_t
 
+//#define DEBUG_PRINT_CONF_ON             0       // uncomment to disable debug print-outs
 
 #endif /* __CONFIG_H__ */
