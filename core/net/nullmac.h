@@ -35,15 +35,15 @@
 #ifndef __NULLMAC_H__
 #define __NULLMAC_H__
 
+#include "platform.h"
+
 #ifndef NULLMAC_CONF_ON
 #define NULLMAC_CONF_ON         0
 #endif /* NULLMAC_CONF_ON */
 
 #if NULLMAC_CONF_ON
 
-
 typedef uint16_t addr_t;
-
 
 void nullmac_init(void);
 

@@ -40,7 +40,7 @@
  *
  * @file
  *
- * @brief access the LEDs
+ * @brief control the LEDs
  */
 
 #ifndef __LEDS_H__
@@ -56,9 +56,9 @@
 #define LED_TOGGLE(portandpin)
 #endif
 
-#define LEDS_ON                 { PIN_SET(LED_RED); }
-#define LEDS_OFF                { PIN_CLR(LED_RED); }
-#define LEDS_TOGGLE             { PIN_XOR(LED_RED);  }
+#define LEDS_ON                 { LED_ON(LED_RED); }
+#define LEDS_OFF                { LED_OFF(LED_RED); }
+#define LEDS_TOGGLE             { LED_TOGGLE(LED_RED);  }
 #define LEDS_INIT               { PIN_CLR(LED_RED); \
                                   PIN_CFG_OUT(LED_RED); }
 #endif /* __LEDS_H__ */

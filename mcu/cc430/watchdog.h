@@ -39,8 +39,6 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
  * @brief configure the watchdog timer
  */
@@ -58,22 +56,40 @@ watchdog_init(void)
   WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
 }
 
+/**
+ * @brief hold the watchdog timer
+ */
 static inline void
 watchdog_stop(void)
 {
   WDTCTL = WDTPW + WDTHOLD;
 }
 
+/**
+ * @brief start the watchdog timer
+ */
 static inline void
 watchdog_start(void)
 {
   WDTCTL = (WDTCTL_L & ~(WDTHOLD)) + WDTPW;
 }
 
+/**
+ * @brief reset the watchdog timer count to 0
+ */
+static inline void
+watchdog_reset(void)
+{
+  /* set counter clear bit */
+  WDTCTL = (WDTCTL_L | WDTCNTCL) + WDTPW;
+}
+
+/**
+ * @brief trigger a reset with a password violation error
+ */
 static inline void
 watchdog_trigger_reset(void)
 {
-  /* trigger a reset with a password violation error */
   WDTCTL &= ~WDTHOLD;
 }
 

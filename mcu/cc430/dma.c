@@ -31,10 +31,16 @@
  * Author:  Reto Da Forno
  */
 
+/* TODO:
+ * - test this DMA driver
+ * - verify that spi_write_byte() won't block! waiting for the TXE flag while SPI 
+ *   is disabled might not be the best idea
+ */
+
 #include "contiki.h"
 #include "platform.h"
 
-/*- helper macros -----------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
 #define DMA_DISABLE_RX                  (DMA0CTL &= ~(DMAEN))
 #define DMA_ENABLE_RX                   (DMA0CTL |= DMAEN)
 #define DMA_DISABLE_TX                  (DMA1CTL &= ~(DMAEN))
@@ -81,12 +87,12 @@ dma_config_spi(uint16_t spi_addr,
   DMA1SZ  = 0;
   /* set source address */
   if (spi_addr == USCI_A0) {
-    DMA0SA = UCA0RXBUF; //SPI_A0_RXBUF;      
-    DMA1DA = UCA0TXBUF;
+    DMA0SA = UCA0RXBUF_;        /* address of the RX buffer */ 
+    DMA1DA = UCA0TXBUF_;        /* address of the TX buffer */ 
     DMACTL0 = (DMA_TRIGGERSRC_A0TX << 8) | DMA_TRIGGERSRC_A0RX;
   } else {
-    DMA0SA = UCB0RXBUF; //SPI_B0_RXBUF;
-    DMA1DA = UCB0TXBUF;
+    DMA0SA = UCB0RXBUF_;
+    DMA1DA = UCB0TXBUF_;
     DMACTL0 = (DMA_TRIGGERSRC_B0TX << 8) | DMA_TRIGGERSRC_B0RX;
   }
   /* set destination address */
@@ -141,20 +147,21 @@ dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
     DMA_ENABLE_RX_INTERRUPT;
     DMA_ENABLE_RX;
     DMA_ENABLE_TX;
-    if (tx_buf_addr) {
+    if(tx_buf_addr) {
       /* the transmitted data matters */  
       DMA_SET_TX_BUFADDR(tx_buf_addr); 
       DMA_ENABLE_TX_SRCADDRINC;
-      SPI_WRITE_BYTE(dma_spi_addr, *((uint8_t*)tx_buf_addr)); 
+      /* write the frist byte to trigger the DMA (TXE) */
+      spi_write_byte(dma_spi_addr, *((uint8_t*)tx_buf_addr)); 
     } else {
       /* transmit dummy data (all zero's) */  
       DMA_SET_TX_BUFADDR((uint16_t)&dma_dummy_byte); 
       DMA_DISABLE_TX_SRCADDRINC;
-      SPI_WRITE_BYTE(dma_spi_addr, dma_dummy_byte); 
+      /* write the frist byte to trigger the DMA (TXE) */
+      spi_write_byte(dma_spi_addr, dma_dummy_byte); 
     }  
-    /* write the frist byte to trigger the DMA (TXE) */
   } else {
-    if (!tx_buf_addr) {
+    if(!tx_buf_addr) {
       DEBUG_PRINT_ERROR("DMA: invalid rx/tx buffer address");
       return 0;         /* error */
     }
@@ -167,15 +174,9 @@ dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
     DMA_DISABLE_RX;
     DMA_ENABLE_TX;      /* TX only */
     /* write the frist byte to trigger the DMA (TXE) */
-    SPI_WRITE_BYTE(dma_spi_addr, *(uint8_t*)tx_buf_addr);
+    spi_write_byte(dma_spi_addr, *(uint8_t*)tx_buf_addr);
   }
   return 1;
-}
-/*---------------------------------------------------------------------------*/
-void
-dma_set_dummy_byte_value(uint8_t value)
-{
-    dma_dummy_byte = value;
 }
 /*---------------------------------------------------------------------------*/
 ISR(DMA, dma_interrupt)

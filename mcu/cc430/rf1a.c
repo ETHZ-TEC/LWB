@@ -33,15 +33,16 @@
  */
 
 
-#include "contiki.h"
+#include "contiki.h" 
 #include "platform.h"
 
 #if RF_CONF_ON
 
 /*---------------------------------------------------------------------------*/
 
-const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = { "-30", "-12", "-6", "0", "10", "MAX" };
-
+const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = { 
+    "-30", "-12", "-6", "0", "10", "MAX" 
+};
 /* number of bytes to read from the RX FIFO (or to write to the TX FIFO) */
 /* after crossing a FIFO threshold */
 /* must be between 3 and 63, in steps of 4 (e.g., 3, 7, 11, ...) */
@@ -152,7 +153,7 @@ rf1a_init(void)
   rf1a_configure_gdo_signal(2, 6, 0);
   
   /* output the serial clock on GDO1 */
-  rf1a_configure_gdo_signal(1, 0x0B, 0);
+  /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
   
   /* timer 4: capture input CCI4B, which corresponds to GDO2, i.e., to the sync
      word signal */
@@ -160,7 +161,6 @@ rf1a_init(void)
   /* NOTE: as a result timer 4 is not available for being used as a rtimer */
   TA0CCTL4 = CM_3 | CCIS_1 | CAP | SCS;
   
-
   /* interrupt when the number of bytes in the RX FIFO is greater than the
      threshold */
   ENABLE_INTERRUPTS(BIT3, 1);

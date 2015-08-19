@@ -34,7 +34,9 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-
+#define ADC_TEMP_CAL1   0x1a1c   /* calibration data, located in info memory */
+#define ADC_TEMP_CAL2   0x1a1a
+/*---------------------------------------------------------------------------*/
 static int32_t slope;    /* needed to transform the sampled values (ADC) */
 /*---------------------------------------------------------------------------*/
 void
@@ -63,7 +65,7 @@ adc_init(void)
 
   /* use calibration data stored in info memory */
   slope = ((int32_t)(85 - 30) << 16) /
-    (int32_t)(*((int16_t *)0x1a1c) - *((int16_t *)0x1a1a));
+    (int32_t)(*((int16_t *)ADC_TEMP_CAL1) - *((int16_t *)ADC_TEMP_CAL2));
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -76,11 +78,11 @@ adc_get_data(uint8_t *out_data)
   ADC12CTL0 &= ~(ADC12ENC + ADC12SC);       /* stop ADC */
 
   /* read out and convert the sampled value */
-  out_data[0] =
-    (uint8_t)((int32_t)(((int32_t)ADC12MEM0 - (int32_t)*((int16_t *)0x1a1a)) *
-                        slope) >> 16) + 30;
-  out_data[1] =
-    (uint8_t)(((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2000) >> 2);
+  out_data[0] = (uint8_t)((int32_t)(
+                 ((int32_t)ADC12MEM0 - (int32_t)*((int16_t *)ADC_TEMP_CAL2)) *
+                 slope) >> 16) + 30;
+  out_data[1] = (uint8_t)(
+                ((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2000) >> 2);
   /* another way to encode the voltage as percentage:
      (uint8_t)LIMIT(((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2200) / 8, 0,
      100) */

@@ -39,8 +39,6 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
  * This library provides functionality to configure and use the asynchronous
  * data interface.
@@ -55,10 +53,13 @@
 #ifndef __BOLT_H__
 #define __BOLT_H__
 
+/* necessary include to enable overwriting of default settings in platform.h */
+#include "platform.h"
+
 #if BOLT_CONF_ON
 
-#ifndef BOLT_CONF_SPI
-#define BOLT_CONF_SPI                   USCI_B0   /* USCI module (SPI_A0_BASE) */
+#ifndef BOLT_CONF_SPI                   /* must be of type spi_module_t */
+#define BOLT_CONF_SPI                   SPI_1   
 #endif /* BOLT_CONF_SPI */
 
 #ifndef BOLT_CONF_REQ_PIN

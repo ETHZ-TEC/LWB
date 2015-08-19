@@ -57,6 +57,8 @@
 #include "lib/membx.h"
 #include "lib/fifo.h"
 #include "net/lwb.h"
+#include "net/glossy.h"
+#include "net/nullmac.h"
 #include "dev/xmem.h"
 #include "dev/debug-print.h"
 #include "dev/bolt.h"

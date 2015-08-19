@@ -214,8 +214,7 @@ main(int argc, char **argv)
     int r;
     do {
 #if WATCHDOG_CONF_ON
-      /* reset the watchdog */
-      watchdog_periodic();
+      watchdog_reset();
 #endif /* WATCHDOG_CONF_ON */
       r = process_run();
     } while(r > 0);

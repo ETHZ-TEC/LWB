@@ -39,8 +39,6 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
  * @brief platform includes and definitions
  * 
@@ -62,10 +60,9 @@
  * in config.h)
  */
 
-#ifndef FRAM_CONF_ON
-#define FRAM_CONF_ON                1
+//#define FRAM_CONF_ON                1
+#if FRAM_CONF_ON
 #define FRAM_CONF_SPI               USCI_A0
-#define FRAM_CONF_CTRL_PIN          PORT2, PIN0
 #ifndef DEBUG_PRINT_CONF_USE_XMEM
 #define DEBUG_PRINT_CONF_USE_XMEM   1
 #define LWB_USE_XMEM                1
@@ -75,8 +72,8 @@
 #endif /* DEBUG_PRINT_CONF_NUM_MSG */
 #endif /* FRAM_CONF_ON */
 
-#ifndef BOLT_CONF_ON
-#define BOLT_CONF_ON                1
+//#define BOLT_CONF_ON                1
+#if BOLT_CONF_ON
 #define BOLT_CONF_SPI               USCI_B0
 #define BOLT_CONF_TIMEREQ_PIN       PORT2, PIN1
 #define BOLT_CONF_REQ_PIN           PORT2, PIN2
@@ -123,6 +120,7 @@
 #define LED_STATUS                  LED_0
 #define LED_ERROR                   LED_3
 #define DEBUG_SWITCH                PORT1, PIN0  /* user push-button */
+#define FRAM_CONF_CTRL_PIN          PORT2, PIN0
 
 #define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
 #define LWB_CONF_TASK_ACT_PIN       PORT2, PIN1
@@ -171,7 +169,6 @@
 #include "clock.h"
 #include "dma.h"
 #include "flash.h"
-#include "glossy.h"
 #include "gpio.h"
 #include "pmm.h"
 #include "leds.h"

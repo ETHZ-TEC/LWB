@@ -63,13 +63,8 @@ clock_init(void)
   UCSCTL3 = SELREF__REFOCLK | FLLREFDIV_0;
   UCSCTL4 = SELA__DCOCLKDIV | SELS__REFOCLK | SELM__DCOCLKDIV;
   /* wait until XT1, XT2, and DCO stabilize */
-  do {
-    /* clear XT1, XT2, and DCO fault flags */
-    UCSCTL7 &= ~(XT1LFOFFG + XT2OFFG + DCOFFG);
-    /* clear oscillator fault flag */
-    SFRIFG1 &= ~OFIFG;
-  } while(SFRIFG1 & OFIFG);
-
+  WAIT_FOR_OSC();
+  
   /* enable oscillator fault interrupt (NMI) */
   SFRIE1 = OFIE;
 
@@ -90,9 +85,8 @@ clock_init(void)
   UCSCTL0 = 0;
   /* select the suitable DCO frequency range */
   UCSCTL1 = DCORSEL_6;
-  /* set the FLL loop divider to 2 and */
-  /* set the FLL loop multiplier N such that (N + 1) * f_FLLREF = f_DCO --> N =
-     396 */
+  /* set the FLL loop divider to 2 and
+   * the multiplier N such that (N + 1) * f_FLLREF = f_DCO --> N = 396 */
   UCSCTL2 = FLLD_0 + 396;
   /* enable the FLL control loop */
   ENABLE_FLL();

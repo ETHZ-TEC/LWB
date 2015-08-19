@@ -61,14 +61,25 @@
 
 /**
  * @brief check if the USCI A0 module is active / busy (i.e. a transmission is
- *ongoing)
+ * ongoing)
  */
 #define USCI_A0_ACTIVE      (UCA0STAT & UCBUSY)
 
 /**
- * @brief check if the USCI A0 module is configured in SPI mode
+ * @brief check if the USCI B0 module is active / busy (i.e. a transmission is
+ * ongoing)
+ */
+#define USCI_B0_ACTIVE      (UCB0STAT & UCBUSY)
+
+/**
+ * @brief check if the USCI A0 module is configured in synchronous mode (SPI)
  */
 #define USCI_A0_IN_SPI_MODE (UCA0CTL0 & UCSYNC)
+
+/**
+ * @brief check if the USCI B0 module is configured in synchronous mode (SPI)
+ */
+#define USCI_B0_IN_SPI_MODE (UCB0CTL0 & UCSYNC)
 
 /**
  * @brief disable the USCI A0 module

@@ -64,15 +64,9 @@
  * - structs always cause problems: misalignments due to "compiler optimizations", use uintx_t types instead of enum and union instead of conversion to a pointer to a struct
  */
 
-/**
- * TODO: check
- * - ACLK is clock source for the WOR timer, not the integrated CC1101 R/C oscillator.
- */
-
 
 #include "contiki.h"
 #include "platform.h"
-#include "log.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -165,7 +159,7 @@ ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
     case SYSUNIV_NMIIFG:        /* non-maskable interrupt */
       break;
     case SYSUNIV_OFIFG:         /* oscillator fault */
-      OSC_FAULT_WAIT;
+      WAIT_FOR_OSC();           /* try to clear the fault flag */
       break;
     case SYSUNIV_ACCVIFG:       /* Access Violation */
       break;

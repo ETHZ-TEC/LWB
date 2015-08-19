@@ -35,11 +35,13 @@
  * @addtogroup  Platform
  * @{
  *
- * @defgroup    adc ADC
+ * @defgroup    uart UART
  * @{
  *
  * @file
- * @brief provides functionality to configure the USCI A0 module in UART mode
+ * @brief interface defintion for UART
+ * these functions must be implemented in 'uart.c' in the architecture
+ * specific folder
  */
 
 #ifndef __UART_H__
@@ -70,20 +72,22 @@
 /**
  * @brief set the input handler for the UART
  * @param[in] input the function to be called from the UART ISR (RX interrupt)
+ * @note this will enable the RX interrupt
  */
 void uart_set_input_handler(int (*input)(unsigned char c));
 
 /**
- * @brief initialize the USCI_A0 module in UART mode (port RS232)
+ * @brief initialize the UART module (port RS232)
  * @note this does not enable the module
- * @remark The UART module is driven by the SMCLK.
  */
 void uart_init(void);
 
 /**
- * @brief re-initialize the USCI_A0 module in UART mode (when it is configured
- * in SPI mode)
+ * @brief re-initialize the UART module 
  * @remark The UART module is driven by the SMCLK.
+ * 
+ * This function does only a minimal reconfig, which is useful e.g. when using
+ * the same USCI module for SPI and UART for switching between the two modes.
  */
 void uart_reinit(void);
 
@@ -93,7 +97,7 @@ void uart_reinit(void);
 void uart_enable(uint8_t enable);
 
 
-#endif /* __UART0_H__ */
+#endif /* __UART_H__ */
 
 /**
  * @}

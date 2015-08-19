@@ -33,7 +33,6 @@
  */
 
 #include "contiki.h"
-#include "platform.h"
 
 #if NULLMAC_CONF_ON
 

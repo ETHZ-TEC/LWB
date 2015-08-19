@@ -100,7 +100,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   #ifdef DEBUG_PRINT_DISABLE_UART
       uart_enable(true);
   #endif /* DEBUG_PRINT_DISABLE_UART */
-      printf("%3u %7llu %s %s: %s\r\n", node_id, msg.time), msg.module, 
+      printf("%3u %7llu %s %s: %s\r\n", node_id, msg.time, msg.module, 
              debug_print_lvl_to_string[msg.level], msg.content);
   #ifdef DEBUG_PRINT_DISABLE_UART
       uart_enable(false);
@@ -209,7 +209,7 @@ debug_print_msg(uint64_t time, char level, char *module, char *data)
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
      MEMBX_INVALID_ADDR != start_addr_msg) {
     /* compose the message struct */
-    msg->time = time;
+    msg.time = time;
     msg.level = level;
     debug_print_format_mod_string(module, msg.module);
     memcpy(msg.content, data, DEBUG_PRINT_CONF_MSG_LEN);

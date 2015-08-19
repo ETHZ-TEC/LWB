@@ -34,8 +34,14 @@
  */
 
 /**
- * @file
- * @ingroup LWB
+ * @addtogroup  net
+ * @{
+ *
+ * @defgroup    stream LWB streams
+ * @{
+ *
+ * @file 
+ * 
  * @brief   manages the streams on the source node
  * 
  * Keeps track of the stream state.
@@ -69,11 +75,10 @@ typedef enum {
 
 /**
  * @brief struct to store information about the active streams on a source node
- * the 'min' structure only contains the necessary fields
  */
 #define LWB_STREAM_INFO_HEADER_LEN      4
 typedef struct {
-    lwb_stream_state_t  state;          // state of this stream
+    lwb_stream_state_t  state;
     uint8_t             id;
     uint16_t            ipi;
     uint8_t             extra_data[LWB_CONF_STREAM_EXTRA_DATA_LEN];
@@ -89,14 +94,15 @@ extern volatile uint8_t  lwb_joined_streams_cnt;
 void lwb_stream_init(void);
 
 /**
- * @brief update the state of a stream (call this function when an S-ACK was received)
+ * @brief update the state of a stream (call this function when an S-ACK was 
+ * received)
  * @return one if stream is in the list and still active, zero otherwise
  */
 uint8_t lwb_stream_update_state(uint8_t stream_id);
 
 /**
  * @brief add/update a stream to/in the stream list
- * @param[in] stream_info_data the stream info data structure, must be of type lwb_stream_info_t
+ * @param[in] stream_info data structure containing the stream info
  * @return 1 if successful, 0 otherwise
  * 
  * The application can call this function to add (and request) a stream.
@@ -112,12 +118,19 @@ void lwb_stream_rejoin(void);
 
 /**
  * @brief prepare a stream request
- * @param[out] out_srq_pkt the output buffer for the generated stream request packet
+ * @param[out] out_srq_pkt the output buffer for the generated stream request
+ * packet
  * @param stream_id optional parameter, set this to LWB_INVALID_STREAM_ID if 
  * the function shall deside which stream request to send
  * @return 1 if successful, 0 otherwise
  */
-uint8_t lwb_stream_prepare_req(lwb_stream_req_t* const out_srq_pkt, uint8_t stream_id);
+uint8_t 
+lwb_stream_prepare_req(lwb_stream_req_t* const out_srq_pkt, uint8_t stream_id);
 
 
 #endif /* __STREAM_H__ */
+
+/**
+ * @}
+ * @}
+ */

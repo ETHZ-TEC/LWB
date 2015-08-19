@@ -37,6 +37,9 @@
  * 
  * TA0 is a high-frequency (HF) timer with 5 CCRs (SMCLK_SPEED)
  * TA1 is a low-frequency (LF) timer with 3 CCRs (ACLK_SPEED)
+ * 
+ * TA0 runs at 3.25 MHz
+ * TA1 runs at 32768 Hz
  */
 
 #include "contiki.h"
@@ -216,9 +219,9 @@ rtimer_clock_t
 rtimer_now_hf(void)
 {
   /* disable all interrupts */
-  uint16_t interrupt_enabled = __get_interrupt_state() & GIE; // __get_SR_register()  //READ_SR & GIE;
-  __dint();
-  __nop();
+  uint16_t interrupt_enabled = __get_interrupt_state() & GIE;
+  /* or use: __get_SR_register()  or  (READ_SR & GIE) */
+  __dint(); __nop();
 
   /* take a snapshot of both the HW timer and the SW extension */
   rtimer_clock_t sw = ta0_sw_ext;
@@ -236,8 +239,7 @@ rtimer_now_hf(void)
   /* only enable interrupts if the GIE bit was set before! otherwise interrupt
    * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
   if(interrupt_enabled) {
-    __eint();
-    __nop();
+    __eint(); __nop();
   }
 
   return time;
@@ -261,8 +263,7 @@ rtimer_now_lf(void)
 {
   /* disable all interrupts */
   uint16_t interrupt_enabled = __get_interrupt_state() & GIE; //READ_SR & GIE;
-  __dint();
-  __nop();
+  __dint(); __nop();
 
   /* take a snapshot of both the HW timer and the SW extension */
   rtimer_clock_t sw = ta1_sw_ext;
@@ -280,8 +281,7 @@ rtimer_now_lf(void)
   /* only enable interrupts if the GIE bit was set before! otherwise interrupt
    * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
   if(interrupt_enabled) {
-    __eint();
-    __nop();
+    __eint(); __nop();
   }
 
   return time;

@@ -107,14 +107,6 @@ void dma_config_timer(dma_triggersrc_t trigger_src,
  */
 uint8_t dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes);
 
-/**
- * @brief if the user wishes a different 'dummy byte' value for transmission
- * without src address increase
- * @param value the byte value of choice for the 'dummy writes'
- * @note default value is 0x00
- */
-void dma_set_dummy_byte_value(uint8_t value);
-
 
 #endif /* __DMA_H__ */
 

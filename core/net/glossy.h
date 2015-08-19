@@ -41,7 +41,8 @@
  * @{
  *
  * @file
- *              Wireless Communication Protocol 'Glossy'
+ * 
+ * @brief Wireless Communication Protocol 'Glossy'
  */
 
 #ifndef __GLOSSY_H__
@@ -82,8 +83,8 @@ typedef enum {
  * @param[in]   sync synchronization mode
  * @note        n_tx_max must be at most 15!
  *
- * start Glossy, i.e. initiate a flood (if this node is the initiator) or switch
- * to RX mode (receive/relay packets)
+ * start Glossy, i.e. initiate a flood (if node is initiator) or switch to RX
+ * mode (receive/relay packets)
  */
 void glossy_start(uint16_t initiator_id,
                   uint8_t *payload,
@@ -93,48 +94,48 @@ void glossy_start(uint16_t initiator_id,
                   glossy_rf_cal_t rf_cal);
 
 /**
- * @brief       stop glossy
+ * @brief stop glossy
  */
 uint8_t glossy_stop(void);
 
 /**
- * @brief       query activity of glossy
- * @return      the number of received bytes since glossy_start was called
+ * @brief query activity of glossy
+ * @return the number of received bytes since glossy_start was called
  */
 uint8_t glossy_is_active(void);
 
 /**
- * @brief       get the number of received bytes
+ * @brief get the number of received bytes
  */
 uint8_t glossy_get_n_rx(void);
 
 /**
- * @brief       get the number of transmitted bytes
+ * @brief get the number of transmitted bytes
  */
 uint8_t glossy_get_n_tx(void);
 
 /**
- * @brief       get the length of the payload of the received/transmitted packet
+ * @brief get the length of the payload of the received/transmitted packet
  */
 uint8_t glossy_get_payload_len(void);
 
 /**
- * @brief       checks whether the reference time has been updated in the last
- *              glossy flood
+ * @brief checks whether the reference time has been updated in the last
+ * glossy flood
  */
 uint8_t glossy_is_t_ref_updated(void);
 
 /**
- * @brief       get the reference time (timestamp of the reception of the first
- *              byte)
- * @return      64-bit timestamp (type rtimer_clock_t)
+ * @brief get the reference time (timestamp of the reception of the first byte)
+ * @return 64-bit timestamp (type rtimer_clock_t)
  */
 uint64_t glossy_get_t_ref(void);
 
 /**
- * @brief       get the relay count of the first received packet
+ * @brief get the relay count of the first received packet
  */
 uint8_t glossy_get_relay_cnt_first_rx(void);
+
 
 #endif /* __GLOSSY_H__ */
 

@@ -39,10 +39,9 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
- * This lib provides the interface towards external serial memory.
+ * This lib provides access towards the external serial memory and implements
+ * the xmem interface.
  * 
  * @note This library is intended to be used with the 2 Mbit FRAM chip from
  * Cypress (tested with the FM25V20)
@@ -55,27 +54,32 @@
 #ifndef __FRAM_H__
 #define __FRAM_H__
 
+/* necessary to enable overwriting the default settings in platform.h */
+#include "platform.h"   
+
 #if FRAM_CONF_ON
 
-/* base address of the SPI module used to communicate with the external
- * memory (FRAM) */
-#ifndef FRAM_CONF_SPI            
-#define FRAM_CONF_SPI           USCI_B0     /* SPI_B0_BASE */
+#ifndef FRAM_CONF_CTRL_PIN
+#error "FRAM_CONF_CTRL_PIN not defined!"
+#endif /* FRAM_CONF_CTRL_PIN */
+
+#ifndef FRAM_CONF_SPI           /* must be of type spi_module_t */
+#define FRAM_CONF_SPI           SPI_1
 #endif /* FRAM_CONF_SPI */
 
 #ifndef FRAM_CONF_CTRL_PIN
-#define FRAM_CONF_CTRL_PIN      PORT1, PIN7 /* control line for the external
-                                             FRAM (SPI chip select / enable
-                                             line) */
-#endif
+/* control line for the external FRAM (SPI chip select/enable line) */
+#define FRAM_CONF_CTRL_PIN      PORT1, PIN7 
+#endif /* FRAM_CONF_CTRL_PIN */
 
-#ifndef FRAM_CONF_SCLK_SPEED                /* serial clock speed */
+#ifndef FRAM_CONF_SCLK_SPEED    /* serial clock speed */
 #define FRAM_CONF_SCLK_SPEED    SMCLK_SPEED
 #endif /* FRAM_CONF_SCLK_SPEED */
 
 #ifndef FRAM_CONF_USE_DMA
 #define FRAM_CONF_USE_DMA       0
 #endif /* FRAM_CONF_USE_DMA */
+
 
 #define FRAM_ALLOC_ERROR        0xffffffff  /* this address indicates a memory
                                                allocation error */
@@ -94,7 +98,7 @@
 /**
  * @brief initializes the external memory
  * @note      Due to an added safety delay, it takes more than 1ms for this
- *function to complete.
+ * function to complete.
  * @return    zero if an error occurred, one otherwise
  * @remark    This function checks the external memory by reading and verifying
  * the device ID (all device IDs start with the manufacturer ID). Therefore, a

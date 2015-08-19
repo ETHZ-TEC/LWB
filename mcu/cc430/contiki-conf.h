@@ -51,7 +51,7 @@
 
 
 #ifndef ENERGEST_CONF_ON
-#define ENERGEST_CONF_ON 0
+#define ENERGEST_CONF_ON        0
 #endif /* ENERGEST_CONF_ON */
 
 extern volatile uint16_t node_id;

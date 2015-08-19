@@ -35,11 +35,6 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-static int (*uart0_input_handler)(unsigned char c);
-/* static volatile uint8_t transmitting; */
-static uint32_t prescaler = 0;
-static uint32_t mod = 0;
-/*---------------------------------------------------------------------------*/
 /* pin definitions */
 #ifndef UART_RXD
 #define UART_RXD        PORT1, PIN5     /* input (receive line) */
@@ -50,6 +45,10 @@ static uint32_t mod = 0;
 #define UART_ACTIVE     (UCA0STAT & UCBUSY)
 #define UART_ENABLE     (UCA0CTL1 &= ~UCSWRST)
 #define UART_DISABLE    (UCA0CTL1 |= UCSWRST)
+/*---------------------------------------------------------------------------*/
+static int (*uart0_input_handler)(unsigned char c);
+static uint32_t prescaler = 0;
+static uint32_t mod = 0;
 /*---------------------------------------------------------------------------*/
 /* this function must be defined (referenced from std lib printf.c) */
 int
@@ -71,44 +70,36 @@ void
 uart_set_input_handler(int (*input)(unsigned char c))
 {
   uart0_input_handler = input;
+  UCA0IFG &= ~UCRXIFG;      /* clear pending interrupts */
+  UCA0IE |= UCRXIE;         /* enable the RX interrupt */
 }
 /*---------------------------------------------------------------------------*/
 void
 uart_init(void)
 {
-  /*PIN_MAP_AS_INPUT(UART_A0_RX, PM_UCA0RXD);*/   /* map UART RX input to port
-                                                   1.5 (same as SPI A0 SOMI) */
-  /*PIN_MAP_AS_OUTPUT(UART_A0_TX, PM_UCA0TXD);*/ /* map UART TX output to port
-                                                   1.6 (same as SPI A0 SIMO) */
   PIN_CFG_OUT(UART_TXD);
   PIN_CFG_IN(UART_RXD);
   PIN_SEL(UART_TXD);
   PIN_SEL(UART_RXD);
 
-  UART_DISABLE;                            /* Hold peripheral in reset state */
+  UART_DISABLE;          /* hold peripheral in reset state for configuration */
   UCA0CTL1 &= ~UCSSEL_3;
   UCA0CTL1 |= UCSSEL__SMCLK;                   /* clock source select: SMCLK */
   /* LSB first is 0, one stop bit is 0, no parity is 0 > just clear the bits */
-  UCA0CTL0 &= ~(UCMSB + UCSPB + UCPEN + UCSYNC + UC7BIT + UCMODE_3);     
-
+  UCA0CTL0 &= ~(UCMSB + UCSPB + UCPEN + UCSYNC + UC7BIT + UCMODE_3);
   uint32_t f = XT2CLK_SPEED / SMCLK_SPEED;
   uint32_t ratio = (SMCLK_SPEED * 100) / UART_CONF_BAUDRATE;
   prescaler = ratio / 100;
-  /* note: factor of 8 results from 26 MHz / SMCLK_SPEED */
-  mod = ((ratio - prescaler * 100) * f + 50) / 100;  
+  mod = ((ratio - prescaler * 100) * f + 50) / 100;
+  UCA0BRW = (uint16_t)prescaler;         /* write the 16-bit clock prescaler */
+  UCA0MCTL = (uint8_t)mod << 1;               /* modulation control register */
+  UCA0CTL0 |= UCMODE_0;                                  /* select UART mode */
+  UCA0IFG &= ~(UCRXIFG + UCTXIFG);               /* clear pending interrupts */
 
-  UCA0BRW = (uint16_t)prescaler;    /* write the 16-bit clock prescaler */
-  UCA0MCTL = (uint8_t)mod << 1;     /* modulation control register */
-
-  /* select UART mode */
-  UCA0CTL0 |= UCMODE_0;     /* default mode */
-
-  UCA0IFG &= ~(UCRXIFG + UCTXIFG);        /* clear pending interrupts */
-  /* initialize USCI state machine **before** enabling interrupts */
-  /*UCA0CTL1 &= ~UCSWRST;*/
-  /* note: DO NOT enable interrupts, they can mess up the timing due to higher
-     priority */
-  /* UCA0IE |= UCRXIE; */
+  /* don't enable UART right now */
+  
+  /* note: do NOT enable interrupts by default, they can mess up the timing 
+   * due to higher interrupt priority */
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -121,7 +112,7 @@ uart_reinit(void)
     UCA0CTL0 &= ~(UCMSB + UCSPB + UCPEN + UCSYNC + UC7BIT + UCMODE_3);
     UCA0BRW   = (uint16_t)prescaler;
     UCA0CTL0 |= UCMODE_0;
-    /*UCA0CTL1 &= ~UCSWRST;*/
+    /* do not re-enable UART here */
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -129,21 +120,23 @@ void
 uart_enable(uint8_t enable)
 {
   if(enable) {
-    UART_BEFORE_ENABLE; 
+    /* do whatever the application requires to do before UART is enabled */
+    UART_BEFORE_ENABLE;         
     UART_ENABLE;
   } else {
     while(UART_ACTIVE);
     UART_DISABLE;
+    /* do whatever the application requires to do after UART was disabled */
     UART_AFTER_DISABLE;
   }    
 }
 /*---------------------------------------------------------------------------*/
+/* the interrupt handler could also be defined elsewhere... */
 ISR(USCI_A0, uart0_rx_interrupt) 
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   uint8_t c;
-
   if(UCA0IV == 2) {
     if(UCA0STAT & UCRXERR) {
       c = UCA0RXBUF;   /* Clear error flags by forcing a dummy read. */

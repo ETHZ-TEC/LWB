@@ -29,7 +29,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Federico Ferrari
- *          Reto Da Forno
  */
 
 /**
@@ -169,11 +168,11 @@ void rf1a_set_calibration_mode(rf1a_calibration_modes_t mode);
 /* clear any pending interrupts */
 void rf1a_clear_pending_interrupts(void);
 
-#endif /* __RF1A_H__ */
+#endif /* RF_CONF_ON */
 
 /**
  * @}
  * @}
  */
 
-#endif /* RF_CONF_ON */
+#endif /* __RF1A_H__ */

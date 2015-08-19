@@ -39,8 +39,6 @@
  * @{
  *
  * @file
- * @author
- *              Reto Da Forno
  *
  * @brief configure the ADC to sample the battery voltage and temperature
  */

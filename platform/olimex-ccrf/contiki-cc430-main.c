@@ -36,17 +36,15 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-uint16_t TOS_NODE_ID = 0x1122;
+uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
 volatile uint16_t node_id;
 /*---------------------------------------------------------------------------*/
-/* prints some info about the system (e.g. MCU and reset source) */
+/* prints some info about the system */
 void
 debug_print_device_info(void)
 {
-  /* 
-   * note: this device does not offer an LPMx.5 mode, therefore there's no
-   * corresponding reset source
-   */
+  /* note: this device does not offer an LPMx.5 mode, therefore there's no
+   * corresponding reset source */
   static uint32_t rst_flag;         
   rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
   
@@ -89,7 +87,7 @@ debug_print_device_info(void)
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
   printf("Compiler: " COMPILER_INFO "\r\nDate: " COMPILE_DATE "\r\n");
-  // don't disable UART module
+  /* don't disable UART module here */
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -119,8 +117,6 @@ main(int argc, char **argv)
   PIN_SET_I(1, 1);    /* push-button, tied to 3V */
   PIN_SET_I(1, 6);    /* UART TX, set high if pin is in use */
   PIN_SET_I(1, 7);    /* SPI B0 STE (is tied to 3V) */
-  /*PIN_SET_I(2, 0);*/    /* tied to 3V -> 0R resistor not mounted */
-  /*PIN_SET_I(2, 1);*/    /* tied to 3V -> 0R resistor not mounted */
 
   LEDS_INIT;
   LEDS_ON;
@@ -213,8 +209,7 @@ main(int argc, char **argv)
     int r;
     do {
 #if WATCHDOG_CONF_ON
-      /* reset the watchdog */
-      watchdog_periodic();
+      watchdog_reset();
 #endif /* WATCHDOG_CONF_ON */
       r = process_run();
     } while(r > 0);

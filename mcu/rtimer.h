@@ -41,8 +41,8 @@
  *
  * @file
  * 
- * @brief interface definition for high-speed/frequency (HF) and low-speed/frequency
- * (LF) timers
+ * @brief interface definition for high-speed/frequency (HF) and 
+ * low-speed/frequency (LF) timers
  * 
  * supports up to 8 HF and 8 LF timers
  */
@@ -50,16 +50,16 @@
 #ifndef __RTIMER_H__
 #define __RTIMER_H__
 
-#include "contiki-conf.h"       /* required for the rtimer_clock_t declaration */
+#include "contiki-conf.h"     /* required for the rtimer_clock_t declaration */
 
 /* override these default values in platform.h or config.h */
 
 #ifndef RTIMER_CONF_NUM_HF       /* number of (usable) high-frequency timers */
-#error "RTIMER_CONF_NUM_HF not defined; the number of high-frequency timers must be specified!"
+#error "RTIMER_CONF_NUM_HF not defined!"
 #endif /* RTIMER_CONF_NUM_HF */
 
-#ifndef RTIMER_CONF_NUM_LF       /* number of (usable) low-frequency timers */
-#error "RTIMER_CONF_NUM_LF not defined; the number of low-frequency timers must be specified!"
+#ifndef RTIMER_CONF_NUM_LF        /* number of (usable) low-frequency timers */
+#error "RTIMER_CONF_NUM_LF not defined!"
 #endif /* RTIMER_CONF_NUM_LF */
 
 #ifndef RTIMER_CONF_HF_CLKSPEED
@@ -78,7 +78,8 @@
 #define RTIMER_HF_LF_RATIO          (RTIMER_SECOND_HF / RTIMER_SECOND_LF)
 
 /**
- * @brief convert rtimer time values from clock ticks to milliseconds 
+ * @brief convert rtimer values from clock ticks to milliseconds and
+ * nanoseconds to rtimer ticks
  */
 #define RTIMER_HF_TO_MS(t)          ((t) / (RTIMER_SECOND_HF / 1000))
 #define RTIMER_LF_TO_MS(t)          ((t) / (RTIMER_SECOND_LF / 1000))
@@ -87,14 +88,10 @@
                                      (rtimer_clock_t)1000000000)
 
 /**
- * @brief the rtimer IDs for timer module TA0 (number of IDs corresponds to the
- * number of CCRs)
- * 
- * TA0_x are high-speed timers (3.25 MHz)
- * TA1_x timers run at 32768 Hz
+ * @brief the rtimer IDs
  */
 typedef enum {
-  RTIMER_HF_0 = 0,      /* TA0 CCR0 */
+  RTIMER_HF_0 = 0,
   RTIMER_HF_1,
 #if RTIMER_CONF_NUM_HF > 2
   RTIMER_HF_2,
@@ -137,7 +134,7 @@ typedef enum {
   NUM_OF_RTIMERS
 } rtimer_id_t;
 
-/* this is necessary for the following prototype declaration */
+/* this is necessary for the rtimer_callback_t prototype declaration */
 typedef struct rtimer rtimer_t;
 
 /* prototype of a rtimer callback function */

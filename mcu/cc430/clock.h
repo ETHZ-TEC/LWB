@@ -50,7 +50,7 @@
 /* FLL is only required if one of the following clock sources is used: DCOCLK,
    DCOCLKDIV, FLLREFCLK */
 #ifndef CLOCK_CONF_FLL_ON
-#define CLOCK_CONF_FLL_ON   0
+#define CLOCK_CONF_FLL_ON    0
 #endif /* CLOCK_CONF_FLL_ON */
 
 #ifndef CLOCK_CONF_XT1_ON
@@ -110,22 +110,26 @@
 /* corresponds to roughly 1.008246 seconds (HF timer overflows ~50x/sec.) */
 #define CLOCK_SECOND    50
 
-#define OSC_FAULT_WAIT  do \
+/**
+ * @brief wait for the oscillator fault flag to clear
+ */
+#define WAIT_FOR_OSC()  do \
 { \
     UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
     SFRIFG1 &= ~OFIFG; \
-    __delay_cycles(406250); \
+    /*__delay_cycles(406250);*/ \
 } while (SFRIFG1 & OFIFG)
 
-/* busy wait (delay loop) */
+/**
+ * @brief busy wait for ms milliseconds (delay loop) 
+ */
 #define WAIT_MS(ms)     __delay_cycles(MCLK_SPEED / 1000 * ms)
 #define DELAY(ms)       __delay_cycles(MCLK_SPEED / 1000 * ms)
 
 
-typedef uint32_t clock_time_t;
-
-
-/* initialize the clock system */
+/**
+ * @brief initialize the clock system 
+ */
 void clock_init(void);
 
 

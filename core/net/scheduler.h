@@ -34,8 +34,14 @@
  */
 
 /**
- * @file
- * @ingroup LWB
+ * @addtogroup  net
+ * @{
+ *
+ * @defgroup    scheduler LWB scheduler
+ * @{
+ *
+ * @file 
+ * 
  * @brief   scheduler/stream manager for the LWB, runs on the host node only
  * 
  * This is a generic template of scheduler implementations for the LWB.
@@ -195,3 +201,8 @@ uint8_t  lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots);
 
 
 #endif /* __SCHEDULER_H__ */
+
+/**
+ * @}
+ * @}
+ */

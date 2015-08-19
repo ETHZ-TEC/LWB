@@ -32,7 +32,6 @@
  */
 
 #include "contiki.h"
-//#include "platform.h"
 
 #if BOLT_CONF_ON
 /*---------------------------------------------------------------------------*/
@@ -88,12 +87,8 @@ bolt_init(bolt_callback_t IND_line_callback)
   PIN_IES_FALLING(BOLT_CONF_ACK_PIN);
 #endif /* BOLT_CONF_USE_DMA */
 
-  /* SPI */
-  if(BOLT_CONF_SPI == SPI_B0_BASE) {
-    spi_b0_init(BOLT_CONF_SCLK_SPEED);
-  } else {
-    spi_a0_init(BOLT_CONF_SCLK_SPEED);
-  }
+  /* configure SPI */
+  spi_init(BOLT_CONF_SPI, BOLT_CONF_SCLK_SPEED);
 
 #if BOLT_CONF_TIMEREQ_ENABLE
   PIN_SEL(BOLT_CONF_TIMEREQ_PIN);
@@ -155,13 +150,12 @@ bolt_release(void)
 {
   /* --- 1. stop DMA --- */
   /*-> this is done in the DMA lib */
-  /* --- 2. wait for BUSY flag --- */
-  SPI_WAIT_BUSY(BOLT_CONF_SPI);
+  /* --- 2. wait for BUSY flag and disable SPI --- */
+  spi_enable(BOLT_CONF_SPI, 0);
   /* --- 3. set REQ = 0 --- */
   PIN_CLR(BOLT_CONF_REQ_PIN);
   /* --- 4. empty the RX buffer --- */
-  SPI_CLR_RXBUF(BOLT_CONF_SPI);
-  SPI_DISABLE(BOLT_CONF_SPI);      /* disable SPI (optional) */
+  spi_read_byte(BOLT_CONF_SPI, 0);
 
   /* --- 5. wait for ACK to go down --- */
   while(PIN_GET(BOLT_CONF_ACK_PIN));
@@ -183,7 +177,7 @@ bolt_acquire(bolt_op_mode_t mode)
   } 
   
   /* make sure SPI is enabled */
-  SPI_ENABLE(BOLT_CONF_SPI);
+  spi_enable(BOLT_CONF_SPI, 1);
 
   /* --- MODE --- */
   /* READ */
@@ -242,7 +236,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
     dma_start(0, (uint16_t)data, num_bytes);
 #else
     while(count < num_bytes) {
-      SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, *data);
+      spi_write_byte(BOLT_CONF_SPI, *data);
       data++;
       count++;
       if(!BOLT_ACK_STATUS) {  /* aborted */
@@ -260,14 +254,14 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
     dma_start((uint16_t)data, 0, BOLT_MAX_MSG_LEN);
 #else
     /* first, clear the RX buffer */
-    SPI_CLR_RXBUF(BOLT_CONF_SPI);
+    spi_read_byte(BOLT_CONF_SPI, 0);
 #if SPI_CONF_FAST_READ
     /* transmit 1 byte ahead for faster read speed (fills RXBUF faster) */
-    SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);
+    spi_write_byte(BOLT_CONF_SPI, 0x00);
 #endif
     while((count < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
-      SPI_TRANSMIT_BYTE(BOLT_CONF_SPI, 0x00);          /* generate the clock */
-      SPI_RECEIVE_BYTE(BOLT_CONF_SPI, *data);
+      spi_write_byte(BOLT_CONF_SPI, 0x00);          /* generate the clock */
+      *data = spi_read_byte(BOLT_CONF_SPI, 1);
       data++;
       count++;
     }
