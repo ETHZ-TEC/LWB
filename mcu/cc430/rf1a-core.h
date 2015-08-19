@@ -81,7 +81,10 @@ typedef enum {
   RF1A_TX_POWER_0_dBm = 0x3,
   RF1A_TX_POWER_PLUS_10_dBm = 0x4,
   RF1A_TX_POWER_MAX = 0x5,
+  N_TX_POWER_LEVELS
 } rf1a_tx_powers_t;
+
+extern const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS];
 
 /* possible calibration modes */
 typedef enum {

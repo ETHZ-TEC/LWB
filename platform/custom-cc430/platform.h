@@ -43,6 +43,10 @@
  *              Reto Da Forno
  *
  * @brief platform includes and definitions
+ * 
+ * @note generally, if one of the platform files is needed platform.h
+ * should be included instead of the specific file to preserve the 
+ * include order and prevent compiler warnings
  */
 
 #ifndef __PLATFORM_H__
@@ -98,12 +102,20 @@
 #define COMPILE_DATE                __DATE__
 #define SRAM_SIZE                   4096
 
+#ifndef RF_CONF_TX_CH
+#define RF_CONF_TX_CH               10
+#endif /* RF_CONF_TX_CH */
+
+/*
+ * The application should define the following two macros for better
+ * performance (otherwise glossy will disable all active interrupts).
+ */
+#define GLOSSY_DISABLE_INTERRUPTS
+#define GLOSSY_ENABLE_INTERRUPTS
+
 /*
  * pin mapping
  */
-/* #define GLOSSY_RX_PIN            PORT3, PIN5      */
-/* #define GLOSSY_TX_PIN            PORT3, PIN4      */
-/* #define LWB_TASK_ACT_PIN         PORT3, PIN6      */
 #define LED_0                       PORT3, PIN0     // all LEDs are green
 #define LED_1                       PORT3, PIN1
 #define LED_2                       PORT3, PIN2
@@ -111,13 +123,18 @@
 #define LED_STATUS                  LED_0
 #define LED_ERROR                   LED_3
 #define DEBUG_SWITCH                PORT1, PIN0  /* user push-button */
-#define DEBUG_TASK_ACT_PIN          PORT2, PIN6
-//#define ACLK_PIN                    PORT2, PIN2
-/*#define FLOCKLAB_LED1               PORT3, PIN3
-#define FLOCKLAB_LED2               PORT3, PIN4
-#define FLOCKLAB_LED3               PORT3, PIN5 
-#define FLOCKLAB_INT1               PORT3, PIN6
-#define FLOCKLAB_INT2               PORT3, PIN7*/
+
+#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
+#define LWB_CONF_TASK_ACT_PIN       PORT2, PIN1
+#define GLOSSY_START_PIN            LED_1    /* let LED flash when glossy starts */
+#define GLOSSY_RX_PIN               PORT2, PIN3
+#define GLOSSY_TX_PIN               PORT2, PIN4
+#define RF_GDO0_PIN                 PORT1, PIN2
+#define RF_GDO1_PIN                 PORT1, PIN3
+#define RF_GDO2_PIN                 PORT1, PIN4
+#define MCLK_PIN                    PORT2, PIN5
+//#define ACLK_PIN                    PORT3, PIN3
+//#define SMCLK_PIN                   PORT3, PIN1
 
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7     
@@ -130,8 +147,8 @@
 
 /* specify what needs to be done every time before SPI is enabled */
 #define SPI_BEFORE_ENABLE(spi) {\
-  if(spi == USCI_A0) { spi_a0_reinit(); }\
   PIN_CLR(MUX_SEL_PIN); \
+  if(spi == USCI_A0) { spi_a0_reinit(); }\
 }
 
 /*
@@ -149,6 +166,7 @@
 /*
  * include MCU specific drivers
  */
+#include "rf1a-SmartRF-settings/868MHz-2GFSK-250kbps.h" /* RF1A config, must be included BEFORE rf1a.h */
 #include "adc.h"
 #include "clock.h"
 #include "dma.h"
@@ -158,7 +176,6 @@
 #include "pmm.h"
 #include "leds.h"
 #include "rf1a.h"
-#include "rf1a-SmartRF-settings/868MHz-2GFSK-250kbps.h" /* RF1A config */
 #include "rtimer.h"
 #include "spi.h"
 #include "uart.h"

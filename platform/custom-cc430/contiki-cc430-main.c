@@ -124,19 +124,22 @@ main(int argc, char **argv)
 #endif
 
   /* pin mappings */
-#if defined(RF_GDO1_PIN)
+#ifdef RF_GDO0_PIN
+  PIN_MAP_AS_OUTPUT(RF_GDO0_PIN, PM_RFGDO0);
+#endif
+#ifdef RF_GDO1_PIN
   PIN_MAP_AS_OUTPUT(RF_GDO1_PIN, PM_RFGDO1);
 #endif
-#if defined(RF_GDO2_PIN)
+#ifdef RF_GDO2_PIN
   PIN_MAP_AS_OUTPUT(RF_GDO2_PIN, PM_RFGDO2);
 #endif
-#if defined(MCLK_PIN)
+#ifdef MCLK_PIN
   PIN_MAP_AS_OUTPUT(MCLK_PIN, PM_MCLK);
 #endif
-#if defined(SMCLK_PIN)
+#ifdef SMCLK_PIN
   PIN_MAP_AS_OUTPUT(SMCLK_PIN, PM_SMCLK);
 #endif
-#if defined(ACLK_PIN)
+#ifdef ACLK_PIN
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
   
@@ -152,13 +155,14 @@ main(int argc, char **argv)
     
   debug_print_device_info();
 
-#ifdef WITH_RADIO
+#if RF_CONF_ON
+  /* init the radio module and set the parameters */
   rf1a_init();
-  rf1a_set_tx_power(RF1A_CONF_TX_POWER);
-  rf1a_set_channel(RF1A_CONF_TX_CHANNEL);
-  rf1a_set_maximum_packet_length(RF1A_CONF_MAX_PKT_LEN);
-  printf("Radio configured (gain: %u, channel: %u, packet len: %u B)\r\n", RF1A_CONF_TX_POWER, RF1A_CONF_TX_CHANNEL, RF1A_CONF_MAX_PKT_LEN);
-#endif /* WITH_RADIO */
+  rf1a_set_tx_power(RF_CONF_TX_POWER);
+  rf1a_set_channel(RF_CONF_TX_CH);
+  rf1a_set_maximum_packet_length(RF_CONF_MAX_PKT_LEN);
+  printf("RF module configured (gain: %sdB, channel: %u, packet len: %u B)\r\n", rf1a_tx_powers_to_string[RF_CONF_TX_POWER], RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
+#endif /* RF_CONF_ON */
 
 #if FRAM_CONF_ON
   fram_init();
@@ -188,23 +192,24 @@ main(int argc, char **argv)
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
-#ifdef WITH_NULLMAC
+#if NULLMAC_CONF_ON
   nullmac_init();
-#endif /* WITH_NULLMAC */
+#endif /* NULLMAC_CONF_ON */
 
 #if WATCHDOG_CONF_ON
   watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
 
   LEDS_OFF;     /* init done */
+  __eint();
   
   /* start processes */
-  debug_print_init();
-  
-  __eint();
+  debug_print_init();  
   debug_print_processes(autostart_processes);
   autostart_start(autostart_processes);
 
+  LED_ON(LED_STATUS);
+  
   while(1) {
     int r;
     do {

@@ -111,6 +111,8 @@
 #define PORT_CLR_IFG_I(port)            P##port##IFG = 0x00
 #define PORT_CFG_OUT_I(port)            P##port##DIR = 0xff
 #define PORT_CFG_IN_I(port)             P##port##DIR = 0x00
+
+/* do NOT call this macro from within an ISR */
 #define PIN_MAP_AS_OUTPUT_I(port, pin, map)  { \
     /* disable interrupts */ \
     __dint(); __nop(); \
@@ -126,6 +128,7 @@
     /* enable interrupts */ \
     __eint(); __nop(); \
 }
+/* do NOT call this macro from within an ISR */
 #define PIN_MAP_AS_INPUT_I(port, pin, map)   { \
     /* disable interrupts */ \
     __dint(); __nop(); \
@@ -174,10 +177,12 @@
 #define PIN_CFG_IN(p)                   PIN_CFG_IN_I(p)
 /**
  * @brief map a (port, pin) as output
+ * do NOT call this macro from within an ISR
  */
 #define PIN_MAP_AS_OUTPUT(p, map)       PIN_MAP_AS_OUTPUT_I(p, map)
 /**
  * @brief map a (port, pin) as input
+ * do NOT call this macro from within an ISR
  */
 #define PIN_MAP_AS_INPUT(p, map)        PIN_MAP_AS_INPUT_I(p, map)
 /**

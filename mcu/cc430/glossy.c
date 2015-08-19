@@ -174,17 +174,17 @@
 #define GLOSSY_STOPPED
 #endif
 
-#ifdef GLOSSY_RX_STARTED 
+#ifdef GLOSSY_RX_PIN 
 #define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
-#define GLOSSY_RX_STOPPED   PIN_CLEAR(GLOSSY_RX_PIN)
+#define GLOSSY_RX_STOPPED   PIN_CLR(GLOSSY_RX_PIN)
 #else
 #define GLOSSY_RX_STARTED
 #define GLOSSY_RX_STOPPED
 #endif
 
-#ifdef GLOSSY_TX_STARTED
+#ifdef GLOSSY_TX_PIN
 #define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
-#define GLOSSY_TX_STOPPED   PIN_CLEAR(GLOSSY_TX_PIN)
+#define GLOSSY_TX_STOPPED   PIN_CLR(GLOSSY_TX_PIN)
 #else
 #define GLOSSY_TX_STARTED
 #define GLOSSY_TX_STOPPED
@@ -293,7 +293,7 @@ static inline rtimer_clock_t
 estimate_T_slot(uint8_t pkt_len)
 {
   rtimer_clock_t T_tx_estim = T_TX_BYTE * (pkt_len + 3) + T_TX_OFFSET;
-  return NS_TO_RTIMER_TICKS(T_tx_estim + T2R - TAU1);
+  return NS_TO_RTIMER_HF(T_tx_estim + T2R - TAU1);
 }
 /*---------------------------------------------------------------------------*/
 static inline char
@@ -400,7 +400,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
       glossy_stop();
     } else {
       /* start the first transmission */
-      g.t_timeout = rtimer_now() + TIMEOUT_EXTRA_TICKS;
+      g.t_timeout = rtimer_now_hf() + TIMEOUT_EXTRA_TICKS;
       rf1a_start_tx();
       rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                             GLOSSY_HEADER_LEN(g.header.pkt_type),
@@ -508,7 +508,7 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
   DEBUG_PRINT_VERBOSE("Glossy RX started");
 
   /* disable timer overflow / update interrupt (required before every RX!) */
-  RTIMER_UPDATE_DISABLE;
+  rtimer_update_enable(0);
 
   g.t_rx_start = *timestamp;
   g.header_ok = 0;
@@ -552,7 +552,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
 {
   GLOSSY_RX_STOPPED;
   /* enable timer overflow / update interrupt */
-  RTIMER_UPDATE_ENABLE;
+  rtimer_update_enable(1);
   g.t_rx_stop = *timestamp;
 
   if((process_glossy_header(pkt, pkt_len, 1) == SUCCESS)) {
@@ -597,7 +597,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
 
       if(g.t_ref_updated == 0) {
         /* t_ref has not been updated yet: update it */
-        update_t_ref(g.t_rx_start - NS_TO_RTIMER_TICKS(TAU1),
+        update_t_ref(g.t_rx_start - NS_TO_RTIMER_HF(TAU1),
                      g.header.relay_cnt - 1);
       }
 
@@ -606,7 +606,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
         /* this reception immediately followed a transmission: measure
          * T_slot */
         add_T_slot_measurement(g.t_rx_start - g.t_tx_start -
-                               NS_TO_RTIMER_TICKS(TAU1));
+                               NS_TO_RTIMER_HF(TAU1));
       }
     }
 
@@ -641,7 +641,7 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
     if((g.relay_cnt_last_tx == g.relay_cnt_last_rx + 1) && (g.n_rx > 0)) {
       /* this transmission immediately followed a reception: measure T_slot */
       add_T_slot_measurement(g.t_tx_start - g.t_rx_start +
-                             NS_TO_RTIMER_TICKS(TAU1));
+                             NS_TO_RTIMER_HF(TAU1));
     }
   }
 
@@ -670,7 +670,7 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
    * attempt */
   DEBUG_PRINT_WARNING("Glossy RX failed, corrupted packet received");
 
-  RTIMER_UPDATE_ENABLE;
+  rtimer_update_enable(1);
   rf1a_flush_rx_fifo();
   rf1a_start_rx();
 }
@@ -683,7 +683,7 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
   /* notify about the error */
   DEBUG_PRINT_WARNING("Glossy RX/TX error (interference?)");
 
-  RTIMER_UPDATE_ENABLE;
+  rtimer_update_enable(1);
 
   if(g.active) {
     /* if Glossy is still active, flush both RX FIFO and TX FIFO and start a

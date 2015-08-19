@@ -32,6 +32,13 @@
  *          Reto Da Forno
  */
 
+/**
+ * @brief rtimer implementation
+ * 
+ * TA0 is a high-frequency (HF) timer with 5 CCRs (SMCLK_SPEED)
+ * TA1 is a low-frequency (LF) timer with 3 CCRs (ACLK_SPEED)
+ */
+
 #include "contiki.h"
 #include "platform.h"
 
@@ -51,16 +58,16 @@ update_rtimer_state(uint16_t timer)
     if(rt[timer].period > 0) {
       /* if it is periodic, schedule the new expiration */
       rt[timer].time += rt[timer].period;
-      if(timer >= RTIMER_TA1_0) {
-        *(&TA1CCR0 + (timer - RTIMER_TA1_0)) += (uint16_t)(rt[timer].period);
+      if(timer >= RTIMER_LF_0) {
+        *(&TA1CCR0 + (timer - RTIMER_LF_0)) += (uint16_t)(rt[timer].period);
       } else {
         *(&TA0CCR0 + timer) += (uint16_t)(rt[timer].period);
       }
       rt[timer].state = RTIMER_SCHEDULED;
     } else {
-      if(timer >= RTIMER_TA1_0) {
+      if(timer >= RTIMER_LF_0) {
         /* otherwise, just stop it */
-        *(&TA1CCTL0 + (timer - RTIMER_TA1_0)) = 0;
+        *(&TA1CCTL0 + (timer - RTIMER_LF_0)) = 0;
       } else {
         *(&TA0CCTL0 + timer) = 0;
       }
@@ -69,8 +76,8 @@ update_rtimer_state(uint16_t timer)
   }
 }
 /*---------------------------------------------------------------------------*/
-#define RTIMER_CALLBACK(timer) \
-  if((rtimer_now() >= rt[timer].time) && \
+#define RTIMER_HF_CALLBACK(timer) \
+  if((rtimer_now_hf() >= rt[timer].time) && \
      (rt[timer].state == RTIMER_SCHEDULED)) { \
     /* the timer has expired! */ \
     rt[timer].state = RTIMER_JUST_EXPIRED; \
@@ -85,7 +92,7 @@ update_rtimer_state(uint16_t timer)
     rt[timer].func(&rt[timer]); \
   }
 
-#define RTIMER_TA1_CALLBACK(timer) \
+#define RTIMER_LF_CALLBACK(timer) \
   if((rtimer_now_lf() >= rt[timer].time) && \
      (rt[timer].state == RTIMER_SCHEDULED)) { \
     /* the timer has expired! */ \
@@ -127,23 +134,21 @@ rtimer_schedule(rtimer_id_t timer,
                 rtimer_clock_t period,
                 rtimer_callback_t func)
 {
+  // TODO: if RF_CONF_ON, then add +1 to LF timer IDs!
   if((timer < NUM_OF_RTIMERS) && (rt[timer].state != RTIMER_SCHEDULED)) {
     rt[timer].func = func;
     rt[timer].period = period;
     rt[timer].time = start + period;
     rt[timer].state = RTIMER_SCHEDULED;
-    if(timer >= RTIMER_TA1_0) {
-      *(&TA1CCR0 + (timer - RTIMER_TA1_0)) = (uint16_t)(start + period);
-      *(&TA1CCTL0 + (timer - RTIMER_TA1_0)) = CCIE | OUTMOD_4;
-    } else if(timer < N_RTIMERS) {
+    if(timer >= RTIMER_LF_0) {
+      *(&TA1CCR0 + (timer - RTIMER_LF_0)) = (uint16_t)(start + period);
+      *(&TA1CCTL0 + (timer - RTIMER_LF_0)) = CCIE | OUTMOD_4;
+    } else {
       *(&TA0CCR0 + timer) = (uint16_t)(start + period);
       *(&TA0CCTL0 + timer) = CCIE | OUTMOD_4;            /* enable interrupt */
-    } else {
-      /* this timer ID may not be used! */
-      rt[timer].state = RTIMER_INACTIVE;
     }
   } else {
-    DEBUG_PRINT_VERBOSE("invalid rtimer ID");
+    DEBUG_PRINT_ERROR("invalid rtimer ID %u", timer);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -154,25 +159,22 @@ rtimer_wait_for_event(rtimer_id_t timer, rtimer_callback_t func)
   if((timer < NUM_OF_RTIMERS) && (rt[timer].state != RTIMER_SCHEDULED)) {
     rt[timer].func = func;
     rt[timer].state = RTIMER_WFE;
-    if(timer >= RTIMER_TA1_0) {
+    if(timer >= RTIMER_LF_0) {
       /* set the timer to capture mode */
       /* rising edge, synchronize the capture with the next timer clock to
        * prevent race conditions, capture input select */
-      *(&TA1CCTL0 + timer - RTIMER_TA1_0) = CAP | CM_1 | SCS; 
+      *(&TA1CCTL0 + timer - RTIMER_LF_0) = CAP | CM_1 | SCS; 
       /* only enable interrupts when a callback function is provided */
       if (func) {       
-        *(&TA1CCTL0 + timer - RTIMER_TA1_0) |= CCIE;
+        *(&TA1CCTL0 + timer - RTIMER_LF_0) |= CCIE;
       }
-    } else if(timer < N_RTIMERS) {
+    } else {
       /* set the timer to capture mode */
       *(&TA0CCTL0 + timer) = CAP | CM_1 | SCS; 
       /* only enable interrupts when a callback function is provided */
       if (func) {       
         *(&TA0CCTL0 + timer) |= CCIE;
       }
-    } else {
-      /* this timer ID may not be used! */
-      rt[timer].state = RTIMER_INACTIVE;
     }
   } 
 }
@@ -181,8 +183,8 @@ void
 rtimer_stop(rtimer_id_t timer)
 {
   if(timer < NUM_OF_RTIMERS) {
-    if(timer >= RTIMER_TA1_0) {
-      *(&TA1CCTL0 + timer - RTIMER_TA1_0) = 0;
+    if(timer >= RTIMER_LF_0) {
+      *(&TA1CCTL0 + timer - RTIMER_LF_0) = 0;
       rt[timer].state = RTIMER_INACTIVE;
     } else {
       *(&TA0CCTL0 + timer) = 0;
@@ -191,28 +193,27 @@ rtimer_stop(rtimer_id_t timer)
   }
 }
 /*---------------------------------------------------------------------------*/
-rtimer_clock_t
-rtimer_get_period(rtimer_id_t timer)
+inline void
+rtimer_update_enable(uint8_t enable)
 {
-  if((timer < N_RTIMERS) && (rt[timer].state != RTIMER_INACTIVE)) {
-    return rt[timer].period;
+  if(enable) {
+    TA0CTL |= TAIE; 
+    TA1CTL |= TAIE;
   } else {
-    return 0;
+    TA0CTL &= ~TAIE; 
+    TA1CTL &= ~TAIE;      
   }
 }
 /*---------------------------------------------------------------------------*/
-rtimer_clock_t
-rtimer_get_expiration_time(rtimer_id_t timer)
+inline uint8_t 
+rtimer_update_enabled(void)
 {
-  if((timer < N_RTIMERS) && (rt[timer].state != RTIMER_INACTIVE)) {
-    return rt[timer].time;
-  } else {
-    return 0;
-  }
+  return ((TA0CTL & TAIE) > 0);
+  // ((TA1CTL & TAIE) > 0)
 }
 /*---------------------------------------------------------------------------*/
 rtimer_clock_t
-rtimer_now(void)
+rtimer_now_hf(void)
 {
   /* disable all interrupts */
   uint16_t interrupt_enabled = __get_interrupt_state() & GIE; // __get_SR_register()  //READ_SR & GIE;
@@ -233,7 +234,7 @@ rtimer_now(void)
   rtimer_clock_t time = (sw << 16) | hw;
 
   /* only enable interrupts if the GIE bit was set before! otherwise interrupt
-   * nesting will be enabled if rtimer_now() is called from an ISR! */
+   * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
   if(interrupt_enabled) {
     __eint();
     __nop();
@@ -242,7 +243,7 @@ rtimer_now(void)
   return time;
 }
 /*---------------------------------------------------------------------------*/
-uint16_t
+static uint16_t
 rtimer_now_lf_hw(void)
 {
   uint16_t hw1, hw2;
@@ -277,7 +278,7 @@ rtimer_now_lf(void)
   rtimer_clock_t time = (sw << 16) | hw;
 
   /* only enable interrupts if the GIE bit was set before! otherwise interrupt
-   * nesting will be enabled if rtimer_now() is called from an ISR! */
+   * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
   if(interrupt_enabled) {
     __eint();
     __nop();
@@ -302,7 +303,7 @@ ISR(TIMER0_A0, timer0_a0_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
-  RTIMER_CALLBACK(RTIMER_TA0_0);
+  RTIMER_HF_CALLBACK(RTIMER_HF_0);
   if(process_nevents() > 0) {
     LPM4_EXIT;
   }
@@ -317,19 +318,19 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
 
   switch(TA0IV) {
   case TA0IV_TA0CCR1:
-    RTIMER_CALLBACK(RTIMER_TA0_1);
+    RTIMER_HF_CALLBACK(RTIMER_HF_1);
     break;
   case TA0IV_TA0CCR2:
-    RTIMER_CALLBACK(RTIMER_TA0_2);
+    RTIMER_HF_CALLBACK(RTIMER_HF_2);
     break;
   case TA0IV_TA0CCR3:
-    RTIMER_CALLBACK(RTIMER_TA0_3);
+    RTIMER_HF_CALLBACK(RTIMER_HF_3);
     break;
-#ifndef WITH_RADIO
+#if !RF_CONF_ON
   case TA0IV_TA0CCR4:
-    RTIMER_CALLBACK(RTIMER_TA0_4);
+    RTIMER_HF_CALLBACK(RTIMER_HF_4);
     break;
-#endif /* WITH_RADIO */
+#endif /* RF_CONF_ON */
   case TA0IV_TA0IFG:
     /* overflow of timer A0: increment its software extension */
     ta0_sw_ext++;
@@ -354,7 +355,7 @@ ISR(TIMER1_A0, timer1_a0_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
-  RTIMER_TA1_CALLBACK(RTIMER_TA1_0);
+  RTIMER_LF_CALLBACK(RTIMER_LF_0);
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
@@ -366,10 +367,10 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
 
   switch(TA1IV) {
   case TA1IV_TA1CCR1:
-    RTIMER_TA1_CALLBACK(RTIMER_TA1_1);
+    RTIMER_LF_CALLBACK(RTIMER_LF_1);
     break;
   case TA1IV_TA1CCR2:
-    RTIMER_TA1_CALLBACK(RTIMER_TA1_2);
+    RTIMER_LF_CALLBACK(RTIMER_LF_2);
     break;
   case TA1IV_TA1IFG:
     /* overflow of timer A1: increment its software extension */

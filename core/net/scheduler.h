@@ -56,7 +56,7 @@
 /* --- defines for the HOST --- */
 
 #ifndef LWB_CONF_SCHED_SACK_BUFFER_SIZE
-#define LWB_CONF_SCHED_SACK_BUFFER_SIZE      5       /* max. number of accepted stream acks per round. Any further requests will be ignored. Memory usage: 4x N_PENDING_SACK_MAX bytes */
+#define LWB_CONF_SCHED_SACK_BUFFER_SIZE      5       /* max. number of processed stream requests per round. Any further requests will be ignored. Memory usage: 4x LWB_CONF_SCHED_SACK_BUFFER_SIZE bytes */
 #endif /* LWB_CONF_SCHED_SACK_BUFFER_SIZE */
 
 #ifndef LWB_CONF_SCHED_USE_XMEM
@@ -66,19 +66,19 @@
 // SCHEDULER
 
 #ifndef LWB_CONF_SCHED_PERIOD_MAX
-#define LWB_CONF_SCHED_PERIOD_MAX            30      // max. assignable round period in seconds, must not exceed 127 seconds!
+#define LWB_CONF_SCHED_PERIOD_MAX            30      /* max. assignable round period in seconds, must not exceed 127 seconds! */
 #endif /* LWB_CONF_SCHED_PERIOD_MAX */
 
 #ifndef LWB_CONF_SCHED_PERIOD_MIN
-#define LWB_CONF_SCHED_PERIOD_MIN            2       // minimum round period, must be higher than T_ROUND_MAX
-#endif /* LWB_CONF_SCHED_PERIOD_MIN */
+#define LWB_CONF_SCHED_PERIOD_MIN            2       /* minimum round period, must be higher than T_ROUND_MAX */
+#endif /* LWB_CONF_SCHED_PERIOD_MIN */ 
 
 #ifndef LWB_CONF_SCHED_PERIOD_IDLE
-#define LWB_CONF_SCHED_PERIOD_IDLE           10      // default period (when no nodes are in the network)
+#define LWB_CONF_SCHED_PERIOD_IDLE           10      /* default period (when no nodes are in the network, or the period for a static scheduler) */
 #endif /* LWB_CONF_SCHED_PERIOD_IDLE */
 
 #ifndef LWB_CONF_SCHED_STREAM_REMOVAL_THRES
-#define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  10      // threshold for the stream removal (max. number of 'misses')
+#define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  10      /* threshold for the stream removal (max. number of 'misses') */
 #endif /* LWB_CONF_SCHED_STREAM_REMOVAL_THRES */
 
                                 
@@ -115,16 +115,6 @@ typedef struct {                    // stream acknowledgement
     uint8_t  extra[LWB_CONF_MAX_PACKET_LEN - LWB_SACK_MIN_PKT_LEN];  // additional sack's
 } lwb_stream_ack_t;
 
-/**
- * @brief statistics for the scheduler (on host node)
- */
-typedef struct {
-    uint16_t n_added;
-    uint16_t n_deleted;
-    uint16_t n_no_space;
-    uint32_t t_last_req;        // timestamp of the last stream request
-    uint32_t t_last_cont;       // timestamp of the last contention slot in a schedule
-} lwb_sched_stats_t;
 
 
 /**

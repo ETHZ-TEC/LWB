@@ -85,7 +85,7 @@ uart_init(void)
   PIN_SEL(UART_TXD);
   PIN_SEL(UART_RXD);
 
-  UCA0CTL1 |= UCSWRST;                     /* Hold peripheral in reset state */
+  UART_DISABLE;                            /* Hold peripheral in reset state */
   UCA0CTL1 &= ~UCSSEL_3;
   UCA0CTL1 |= UCSSEL__SMCLK;                   /* clock source select: SMCLK */
   /* LSB first is 0, one stop bit is 0, no parity is 0 > just clear the bits */
@@ -117,7 +117,7 @@ uart_reinit(void)
   if (USCI_A0_IN_SPI_MODE)      /* only reconfigure if module is in SPI mode */
   {
     while(UART_ACTIVE);      /* wait until all transmissions have terminated */
-    UCA0CTL1 |= UCSWRST;
+    UART_DISABLE;
     UCA0CTL0 &= ~(UCMSB + UCSPB + UCPEN + UCSYNC + UC7BIT + UCMODE_3);
     UCA0BRW   = (uint16_t)prescaler;
     UCA0CTL0 |= UCMODE_0;

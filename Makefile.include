@@ -67,20 +67,20 @@ PLATSRCS += ${shell find $(CPUDIR) -type f -name "*.[c]" -printf "%f "}
 #hal_pmm.c rtimer.c clock.c uart0.c contiki-cc430-main.c spi.c fram.c async_int.c dma.c adc.c
 
 
-ifdef WITH_GLOSSY
-  WITH_RADIO = 1
-  PLATSRCS += glossy.c
-  CFLAGS += -DWITH_GLOSSY
-endif
-ifdef WITH_NULLMAC
-  WITH_RADIO = 1
-  PLATSRCS += nullmac.c
-  CFLAGS += -DWITH_NULLMAC
-endif
-ifdef WITH_RADIO
-  PLATSRCS += rf1a.c
-  CFLAGS += -DWITH_RADIO
-endif
+#ifdef WITH_GLOSSY
+#  WITH_RADIO = 1
+#  PLATSRCS += glossy.c
+#  CFLAGS += -DWITH_GLOSSY
+#endif
+#ifdef WITH_NULLMAC
+#  WITH_RADIO = 1
+#  PLATSRCS += nullmac.c
+#  CFLAGS += -DWITH_NULLMAC
+#endif
+#ifdef WITH_RADIO
+#  PLATSRCS += rf1a.c
+#  CFLAGS += -DWITH_RADIO
+#endif
 
 OBJS = ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.o) $(PLATSRCS:.c=.o) $(SRCS:.c=.o)}
 

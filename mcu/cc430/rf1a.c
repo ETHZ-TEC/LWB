@@ -29,15 +29,18 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Federico Ferrari
+ *          Reto Da Forno
  */
+
 
 #include "contiki.h"
 #include "platform.h"
 
+#if RF_CONF_ON
+
 /*---------------------------------------------------------------------------*/
-/* number of TX power levels */
-/* {-30, -12, -6, 0, 10, max} dBm */
-#define N_TX_POWER_LEVELS     (RF1A_TX_POWER_MAX + 1)
+
+const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = { "-30", "-12", "-6", "0", "10", "MAX" };
 
 /* number of bytes to read from the RX FIFO (or to write to the TX FIFO) */
 /* after crossing a FIFO threshold */
@@ -147,11 +150,16 @@ rf1a_init(void)
   /* map the sync word signal to GDO2 (corresponding to GDO2_CFG = 0x06, see
      Table 25-21) */
   rf1a_configure_gdo_signal(2, 6, 0);
+  
+  /* output the serial clock on GDO1 */
+  rf1a_configure_gdo_signal(1, 0x0B, 0);
+  
   /* timer 4: capture input CCI4B, which corresponds to GDO2, i.e., to the sync
      word signal */
   /* synchronous capture on both edges */
   /* NOTE: as a result timer 4 is not available for being used as a rtimer */
   TA0CCTL4 = CM_3 | CCIS_1 | CAP | SCS;
+  
 
   /* interrupt when the number of bytes in the RX FIFO is greater than the
      threshold */
@@ -494,7 +502,7 @@ ISR(CC1101, radio_interrupt)
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   /* take a timestamp */
-  timestamp = rtimer_now();
+  timestamp = rtimer_now_hf();
 
   switch(RF1AIV) {
 
@@ -619,3 +627,5 @@ ISR(CC1101, radio_interrupt)
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
 /*---------------------------------------------------------------------------*/
+
+#endif /* RF_CONF_ON */

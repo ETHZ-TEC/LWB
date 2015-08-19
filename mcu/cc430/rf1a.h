@@ -29,6 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Federico Ferrari
+ *          Reto Da Forno
  */
 
 /**
@@ -44,6 +45,13 @@
 
 #ifndef __RF1A_H__
 #define __RF1A_H__
+
+#ifndef RF_CONF_ON
+#define RF_CONF_ON              1       /* RF module enabled by default */
+#endif /* RF_CONF_ON */
+
+#if RF_CONF_ON
+
 
 #include "rf1a-core.h"
 #include "rtimer.h"
@@ -167,3 +175,5 @@ void rf1a_clear_pending_interrupts(void);
  * @}
  * @}
  */
+
+#endif /* RF_CONF_ON */

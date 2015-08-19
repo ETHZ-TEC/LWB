@@ -35,7 +35,7 @@
 #include "contiki.h"
 #include "platform.h"
 
-#ifdef WITH_NULLMAC
+#if NULLMAC_CONF_ON
 
 #define DEBUG_NULLMAC 1
 
@@ -155,4 +155,4 @@ void rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp) {
 	rf1a_start_rx();
 }
 
-#endif /* WITH_NULLMAC */
+#endif /* NULLMAC_CONF_ON */

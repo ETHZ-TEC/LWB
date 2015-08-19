@@ -14,7 +14,7 @@ SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
 #$(info hello world = $(SRCS))
 #SRCS = lwb.c scheduler.c compress.c mm.c stream.c
 
-WITH_GLOSSY = 1
+#WITH_GLOSSY = 1  -> no need to define this
 
 include $(CONTIKI)/Makefile.include
 

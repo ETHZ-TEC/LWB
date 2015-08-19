@@ -44,14 +44,17 @@
 
 
 #ifdef FLOCKLAB
-  #define RF1A_CONF_TX_POWER            RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
   #define FRAM_CONF_ON                  0                           // make sure external FRAM is disabled when using FlockLAB
   #define BOLT_CONF_ON                  0
 #endif // FLOCKLAB
 
 // LWB
-#define LWB_SCHED_MIN_ENERGY
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  1                       // length in bytes of the additional stream information
+#define LWB_SCHED_STATIC                                            // use the static scheduler
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0                           // set the length (in bytes) of the additional stream information
+
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_PLUS_10_dBm
+#define RF_CONF_TX_CH                   5               // select the channel that is best suited for the test/deployment environment
 
 #define BOLT_CONF_ON                    0
 #define FRAM_CONF_ON                    0

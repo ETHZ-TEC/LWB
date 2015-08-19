@@ -37,16 +37,20 @@
 
 /* enabled by default */
 #ifndef DEBUG_PRINT_CONF_ON
-#define DEBUG_PRINT_CONF_ON         1
+#define DEBUG_PRINT_CONF_ON             1
 #endif /* DEBUG_PRINT_CONF_ON */
 
 #ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG        8     /* number of messages to store */
 #endif /* DEBUG_PRINT_CONF_NUM_MSG */
 
-#ifndef DEBUG_PRINT_CONF_MAX_LEN
-#define DEBUG_PRINT_CONF_MAX_LEN        80    /* number of chars per message */
-#endif /* DEBUG_PRINT_CONF_MAX_LEN */
+#ifndef DEBUG_PRINT_CONF_MSG_LEN
+#define DEBUG_PRINT_CONF_MSG_LEN        80    /* max. number of chars per message */
+#endif /* DEBUG_PRINT_CONF_MSG_LEN */
+
+#ifndef DEBUG_PRINT_MODULE_INFO_LEN
+#define DEBUG_PRINT_MODULE_INFO_LEN     12    /* num. chars for the module designator */
+#endif /* DEBUG_PRINT_MODULE_INFO_LEN */
 
 #ifndef DEBUG_PRINT_CONF_LEVEL
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
@@ -73,9 +77,8 @@
 #define DEBUG_PRINT_CONF_DISABLE_UART   1
 #endif /* DEBUG_PRINT_DISABLE_UART */
 
-#ifdef LED_ERROR
-#define DEBUG_PRINT_ERROR_LED_ON        PIN_SET(LED_ERROR)
-                                        /* don't use LED_ON */
+#ifdef LED_ERROR                        /* don't use LED_ON */
+#define DEBUG_PRINT_ERROR_LED_ON        PIN_SET(LED_ERROR)                                        
 #else
 #define DEBUG_PRINT_ERROR_LED_ON
 #endif
@@ -110,15 +113,15 @@
 #if DEBUG_PRINT_CONF_ON
   #if DEBUG_PRINT_CONF_PRINT_DIRECT
     #define DEBUG_PRINT_MSG(t, p, ...) \
-      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
       debug_print_msg_now(__FILE__, debug_print_buffer)
   #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
     #define DEBUG_PRINT_MSG(t, p, ...) \
-      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
-      debug_print_msg(RTIMER_TO_MS(rtimer_now()), p, __FILE__, debug_print_buffer)  
+      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
+      debug_print_msg(RTIMER_LF_TO_MS(rtimer_now_lf()), p, __FILE__, debug_print_buffer)  
   #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
   #define DEBUG_PRINT_MSG_NOW(...) \
-    snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MAX_LEN + 1, __VA_ARGS__); \
+    snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
     debug_print_msg_now(__FILE__, debug_print_buffer)
 #else /* DEBUG_PRINT_CONF_ON */
   #define DEBUG_PRINT_MSG(t, p, ...)
@@ -165,15 +168,14 @@ typedef enum {
 } debug_level_t;
 
 /* +1 for the trailing \0 character */
-extern char debug_print_buffer[DEBUG_PRINT_CONF_MAX_LEN + 1];   
+extern char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1];   
 
-#define DEBUG_PRINT_MODULE_INFO_LEN  11
 typedef struct debug_print_t {
   struct debug_print_t *next;
   rtimer_clock_t time;
   uint8_t level;
   char module[DEBUG_PRINT_MODULE_INFO_LEN + 1]; /* src module of the message */
-  char content[DEBUG_PRINT_CONF_MAX_LEN + 1];
+  char content[DEBUG_PRINT_CONF_MSG_LEN + 1];
 } debug_print_t;
 
 void debug_print_init(void);

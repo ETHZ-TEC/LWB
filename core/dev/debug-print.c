@@ -38,8 +38,8 @@
 #if DEBUG_PRINT_CONF_ON
 /*---------------------------------------------------------------------------*/
 #ifdef DEBUG_PRINT_TASK_ACT_PIN
-#define DEBUG_PRINT_TASK_ACTIVE       LED_ON(DEBUG_PRINT_TASK_ACT_PIN)
-#define DEBUG_PRINT_TASK_SUSPENDED    LED_OFF(DEBUG_PRINT_TASK_ACT_PIN)
+#define DEBUG_PRINT_TASK_ACTIVE       PIN_SET(DEBUG_PRINT_TASK_ACT_PIN)
+#define DEBUG_PRINT_TASK_SUSPENDED    PIN_CLR(DEBUG_PRINT_TASK_ACT_PIN)
 #else
 #define DEBUG_PRINT_TASK_ACTIVE
 #define DEBUG_PRINT_TASK_SUSPENDED
@@ -48,7 +48,8 @@
 const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS] = { \
   "CRITICAL", "ERROR", "WARNING", "INFO", "VERBOSE" };
 /* global buffer, required to compose the messages */
-char debug_print_buffer[DEBUG_PRINT_CONF_MAX_LEN + 1];   
+char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1]; 
+static uint8_t buffer_full = 0;  
 #if DEBUG_PRINT_CONF_USE_XMEM
 static uint8_t n_buffered_msg = 0;
 static uint32_t start_addr_msg = MEMBX_INVALID_ADDR;
@@ -62,9 +63,13 @@ PROCESS(debug_print_process, "Debug Print Task");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(debug_print_process, ev, data) {
   PROCESS_BEGIN();
-
+  
+#ifdef DEBUG_PRINT_TASK_ACT_PIN
+  PIN_CFG_OUT(DEBUG_PRINT_TASK_ACT_PIN);
+  PIN_CLR(DEBUG_PRINT_TASK_ACT_PIN);
+#endif
+  
 #if DEBUG_PRINT_CONF_USE_XMEM
-  while (1);
   static uint32_t next_msg = MEMBX_INVALID_ADDR;
   n_buffered_msg = 0;
   start_addr_msg = MEMBX_INVALID_ADDR;     /* this line is necessary! */
@@ -73,11 +78,12 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   }
   start_addr_msg =
     xmem_alloc(DEBUG_PRINT_CONF_NUM_MSG * sizeof(debug_print_t));
-  msg.content[DEBUG_PRINT_CONF_MAX_LEN] = 0; /* enforce a proper string */
+  msg.content[DEBUG_PRINT_CONF_MSG_LEN] = 0; /* enforce a proper string */
 #else  /* DEBUG_PRINT_CONF_USE_XMEM */
   memb_init(&debug_print_memb);
   list_init(debug_print_list);
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+  printf("Debug print task initialized (buffer size: %u)\r\n", DEBUG_PRINT_CONF_NUM_MSG);
   
   while(1) {
     DEBUG_PRINT_TASK_SUSPENDED;
@@ -105,7 +111,11 @@ PROCESS_THREAD(debug_print_process, ev, data) {
          buffer / list data structure will be necessary!) */
       /* only let this task run when no other work is to do */
     }
-    xmem_sleep();
+    if (buffer_full) {
+      printf("WARNING: Debug messages dropped (buffer full)!\r\n");
+      buffer_full = 0;
+    }
+    xmem_sleep();       // must be AFTER all the printf() statements
     
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
     
@@ -140,7 +150,11 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       memb_free(&debug_print_memb, msg);
       DEBUG_PRINT_TASK_SUSPENDED;
       PROCESS_PAUSE();
-    }    
+    }  
+    if (buffer_full) {
+      printf("WARNING: Debug messages dropped (buffer full)!\r\n");
+      buffer_full = 0;
+    }
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
   }
   PROCESS_END();
@@ -198,12 +212,14 @@ debug_print_msg(uint64_t time, char level, char *module, char *data)
     msg->time = time;
     msg.level = level;
     debug_print_format_mod_string(module, msg.module);
-    memcpy(msg.content, data, DEBUG_PRINT_CONF_MAX_LEN);
+    memcpy(msg.content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* write to external memory */
     xmem_write(start_addr_msg + n_buffered_msg * sizeof(debug_print_t),
                sizeof(debug_print_t), (uint8_t *)&msg);
     n_buffered_msg++;
     /* do NOT poll the debug print process here! */
+  } else {
+    buffer_full = 1;
   }
 #else
   debug_print_t *msg = memb_alloc(&debug_print_memb);
@@ -212,13 +228,15 @@ debug_print_msg(uint64_t time, char level, char *module, char *data)
     msg->time = time;
     msg->level = level;    
     debug_print_format_mod_string(module, msg->module);
-    memcpy(msg->content, data, DEBUG_PRINT_CONF_MAX_LEN);
+    memcpy(msg->content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* add it to the list of messages ready to print */
     list_add(debug_print_list, msg);
     /* poll the debug print process */
 #if DEBUG_PRINT_CONF_POLL
     process_poll(&debug_print_process);
 #endif /* DEBUG_PRINT_CONF_POLL */
+  } else {
+    buffer_full = 1;
   }
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 }
@@ -231,8 +249,8 @@ debug_print_msg_now(char *module, char *data)
     uart_enable(true);
 #endif
     if(module) {
-        printf(debug_print_format_mod_string(module, 0));
-        putchar(' ');
+      printf(debug_print_format_mod_string(module, 0));
+      putchar(' ');
     }
     printf(data);
     printf("\r\n");

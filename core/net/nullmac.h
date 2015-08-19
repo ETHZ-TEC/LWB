@@ -35,6 +35,12 @@
 #ifndef __NULLMAC_H__
 #define __NULLMAC_H__
 
+#ifndef NULLMAC_CONF_ON
+#define NULLMAC_CONF_ON         0
+#endif /* NULLMAC_CONF_ON */
+
+#if NULLMAC_CONF_ON
+
 
 typedef uint16_t addr_t;
 
@@ -46,5 +52,7 @@ void broadcast_send(void *payload, uint8_t payload_len);
 
 extern void unicast_received(rtimer_clock_t *timestamp, void *payload, uint8_t payload_len, addr_t source);
 extern void broadcast_received(rtimer_clock_t *timestamp, void *payload, uint8_t payload_len, addr_t source);
+
+#endif /* NULLMAC_CONF_ON */
 
 #endif /* __NULLMAC_H__ */

@@ -30,6 +30,7 @@
  *
  * Author:  Federico Ferrari
  *          Reto Da Forno
+ *          Marco Zimmerling
  */
 
 /**
@@ -46,12 +47,6 @@
 #ifndef __GLOSSY_H__
 #define __GLOSSY_H__
 
-/*
- * NOTE: The application should define the following two macros for better
- * performance (otherwise glossy will disable all active interrupts).
- */
-#define GLOSSY_DISABLE_INTERRUPTS
-#define GLOSSY_ENABLE_INTERRUPTS
 
 enum {
   GLOSSY_UNKNOWN_INITIATOR = 0

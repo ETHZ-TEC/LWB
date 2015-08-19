@@ -45,7 +45,7 @@
 
 
 #include "contiki.h"
-#include "clock.h"
+#include "platform.h"   // necessary for SMCLK_SPEED in clock.h
 
 
 #ifndef LWB_CONF_SCHEDULER
@@ -66,39 +66,39 @@
 #endif /* LWB_CONF_USE_XMEM */
 
 #ifndef LWB_CONF_USE_LF_FOR_WAKEUP   // use the low-frequency timer to schedule the wake-up from LPM for the LWB round? this enables the application to disable the HF clock during periods of inactivity
-#define LWB_CONF_USE_LF_FOR_WAKEUP   1
+#define LWB_CONF_USE_LF_FOR_WAKEUP   0
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
 #ifndef LWB_CONF_T_REF_OFS
-#define LWB_CONF_T_REF_OFS           (RTIMER_SECOND / 800)           // constant time offset that is added to t_ref in each round (to align the glossy start pulses on host and source nodes)
+#define LWB_CONF_T_REF_OFS           (RTIMER_SECOND_HF / 800)           // constant time offset that is added to t_ref in each round (to align the glossy start pulses on host and source nodes)
 #endif /* LWB_CONF_T_REF_OFS */
 
 #ifndef LWB_CONF_T_SCHED
-#define LWB_CONF_T_SCHED             MAX(LWB_T_SLOT_SCHED_MIN, RTIMER_SECOND / 40)    // length of a schedule slot: approx. 25 ms 
+#define LWB_CONF_T_SCHED             MAX(LWB_T_SLOT_SCHED_MIN, RTIMER_SECOND_HF / 40)    // length of a schedule slot: approx. 25 ms 
 #endif /* LWB_CONF_T_SCHED */
 
 #ifndef LWB_CONF_T_DATA
-#define LWB_CONF_T_DATA              MAX(LWB_T_SLOT_DATA_MIN, RTIMER_SECOND / 100)    // length of a data slot: 10 ms (make them long enough to allow 3 - 5 floods per node and 5 - 6 hops through the network)
+#define LWB_CONF_T_DATA              MAX(LWB_T_SLOT_DATA_MIN, RTIMER_SECOND_HF / 100)    // length of a data slot: 10 ms (make them long enough to allow 3 - 5 floods per node and 5 - 6 hops through the network)
 #endif /* LWB_CONF_T_DATA */
 
 #ifndef LWB_CONF_T_GAP
-#define LWB_CONF_T_GAP               (RTIMER_SECOND / 250)       // gap between two consecutive slots: 4 ms, must be high enough to finish all local computations between the slots
+#define LWB_CONF_T_GAP               (RTIMER_SECOND_HF / 250)       // gap between two consecutive slots: 4 ms, must be high enough to finish all local computations between the slots
 #endif /* LWB_CONF_T_GAP */
 
 #ifndef LWB_CONF_T_GUARD
-#define LWB_CONF_T_GUARD             (RTIMER_SECOND / 2000)      // initial guard time, (RTIMER_SECOND / 2000) = 0.5 ms, guard times are needed to account for clock drifts
+#define LWB_CONF_T_GUARD             (RTIMER_SECOND_HF / 2000)      // initial guard time, (RTIMER_SECOND_HF / 2000) = 0.5 ms, guard times are needed to account for clock drifts
 #endif /* LWB_CONF_T_GUARD */
 
 #ifndef LWB_CONF_T_GUARD_1
-#define LWB_CONF_T_GUARD_1           (RTIMER_SECOND / 1000)      //   1 ms (must not be higher than 1 ms, otherwise T_GAP is too short!)
+#define LWB_CONF_T_GUARD_1           (RTIMER_SECOND_HF / 1000)      //   1 ms (must not be higher than 1 ms, otherwise T_GAP is too short!)
 #endif /* LWB_CONF_T_GUARD_1 */
 
 #ifndef LWB_CONF_T_GUARD_2
-#define LWB_CONF_T_GUARD_2           (RTIMER_SECOND / 200)       //   5 ms
+#define LWB_CONF_T_GUARD_2           (RTIMER_SECOND_HF / 200)       //   5 ms
 #endif /* LWB_CONF_T_GUARD_2 */
 
 #ifndef LWB_CONF_T_GUARD_3
-#define LWB_CONF_T_GUARD_3           (RTIMER_SECOND / 50)        //  20 ms
+#define LWB_CONF_T_GUARD_3           (RTIMER_SECOND_HF / 50)        //  20 ms
 #endif /* LWB_CONF_T_GUARD_3 */
 
 #ifndef LWB_CONF_IN_BUFFER_SIZE         
@@ -135,28 +135,28 @@
 
 //#define LWB_CONF_N_DATA_PACKETS_MAX  10            // max. number of data packets buffered on the host node
 
-#ifndef LWB_CONF_T_SILENT
-#define LWB_CONF_T_SILENT            (LWB_CONF_SCHED_PERIOD_MAX * 4 * RTIMER_SECOND)    // threshold for the host fail-over policy (if no communication within this time, we assume the host has failed and thus, a new host must be selected)
+#ifndef LWB_CONF_T_SILENT               // set to 0 to disable this feature
+#define LWB_CONF_T_SILENT            0  //(LWB_CONF_SCHED_PERIOD_MAX * 4 * RTIMER_SECOND_HF)    // threshold for the host fail-over policy (if no communication within this time, we assume the host has failed and thus, a new host must be selected)
 #endif /* LWB_CONF_T_SILENT */
 
-#ifndef RF1A_CONF_TX_POWER        
-#define RF1A_CONF_TX_POWER           RF1A_TX_POWER_MINUS_12_dBm   // set the antenna gain
-#endif /* RF1A_TX_POWER */
+#ifndef RF_CONF_TX_POWER        
+#define RF_CONF_TX_POWER             RF1A_TX_POWER_0_dBm   // set the antenna gain
+#endif /* RF_CONF_TX_POWER */
 
-#ifndef RF1A_CONF_TX_BITRATE
-#define RF1A_CONF_TX_BITRATE         250000          // radio transmission bitrate, do not change
-#endif /* RF1A_TX_BITRATE */
+#ifndef RF_CONF_TX_BITRATE
+#define RF_CONF_TX_BITRATE           250000          // radio transmission bitrate, do not change
+#else /* RF_CONF_TX_BITRATE */
+#error "RF_CONF_TX_BITRATE already defined, should be set to 250000"
+#endif /* RF_CONF_TX_BITRATE */
 
-#ifndef RF1A_CONF_TX_CHANNEL
-#define RF1A_CONF_TX_CHANNEL         10              // set the wireless channel
-#endif /* RF1A_TX_CHANNEL */
-
-#ifndef RF1A_CONF_MAX_PKT_LEN
-#define RF1A_CONF_MAX_PKT_LEN        LWB_CONF_MAX_PACKET_LEN
-#endif /* RF1A_CONF_MAX_PKT_LEN */
+#ifndef RF_CONF_MAX_PKT_LEN
+#define RF_CONF_MAX_PKT_LEN          LWB_CONF_MAX_PACKET_LEN
+#else /* RF_CONF_MAX_PKT_LEN */
+#error "RF_CONF_MAX_PKT_LEN already defined, should be set to LWB_CONF_MAX_PACKET_LEN"
+#endif /* RF_CONF_MAX_PKT_LEN */
 
 #ifndef LWB_CONF_T_SCHED2_START
-#define LWB_CONF_T_SCHED2_START      MAX(LWB_T_ROUND_MAX, RTIMER_SECOND) // start point (offset) of the second schedule at the end of a round
+#define LWB_CONF_T_SCHED2_START      MAX(LWB_T_ROUND_MAX, RTIMER_SECOND_HF) // start point (offset) of the second schedule at the end of a round
 #endif /* LWB_CONF_T_SCHED2_START */
 
 #ifndef LWB_CONF_T_PREPROCESS        // in LF clock ticks, set this to 0 to disable preprocessing before a LWB round
@@ -168,7 +168,7 @@
 #endif /* LWB_CONF_MAX_CLOCK_DEV */
 
 #ifndef LWB_CONF_RTIMER_ID
-#define LWB_CONF_RTIMER_ID           RTIMER_TA0_0    // ID of the rtimer used for the LWB (must be of type rtimer_ta0_t, use TA0_0 for highest priority)
+#define LWB_CONF_RTIMER_ID           RTIMER_HF_0     // ID of the rtimer used for the LWB (must be of type rtimer_ta0_t, use TA0_0 for highest priority)
 #endif /* LWB_CONF_RTIMER_ID */
 
 #ifndef LWB_CONF_WAKEUP_RTIMER_ID
@@ -185,8 +185,8 @@
 
 /* important values */
 #define LWB_T_ROUND_MAX                 ( (LWB_CONF_MAX_DATA_SLOTS + 2) * (LWB_CONF_T_DATA + LWB_CONF_T_GAP) + LWB_CONF_T_SCHED * 2 + LWB_CONF_T_GAP * 2 )
-#define LWB_T_HOP_DATA                  ( (RTIMER_SECOND * (3 + 24 + 192 + 192 + (1000000 * LWB_CONF_MAX_DATA_PKT_LEN * 8 / RF1A_CONF_TX_BITRATE) )) / 1000000 )   // min. duration of 1 packet transmission with glossy (approx. values, taken from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b packets just over 2ms
-#define LWB_T_HOP_SCHED                 ( (RTIMER_SECOND * (3 + 24 + 192 + 192 + (1000000 * LWB_CONF_MAX_PACKET_LEN * 8 / RF1A_CONF_TX_BITRATE) )) / 1000000 )   // min. duration of 1 packet transmission with glossy (approx. values, taken from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b packets just over 2ms
+#define LWB_T_HOP_DATA                  ( (RTIMER_SECOND_HF * (3 + 24 + 192 + 192 + (1000000 * LWB_CONF_MAX_DATA_PKT_LEN * 8 / RF_CONF_TX_BITRATE) )) / 1000000 )   // min. duration of 1 packet transmission with glossy (approx. values, taken from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b packets just over 2ms
+#define LWB_T_HOP_SCHED                 ( (RTIMER_SECOND_HF * (3 + 24 + 192 + 192 + (1000000 * LWB_CONF_MAX_PACKET_LEN * 8 / RF_CONF_TX_BITRATE) )) / 1000000 )   // min. duration of 1 packet transmission with glossy (approx. values, taken from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b packets just over 2ms
 #define LWB_T_SLOT_DATA_MIN             ( (LWB_CONF_MAX_HOPS + 2 * LWB_CONF_TX_CNT_DATA - 2) * LWB_T_HOP_DATA )      // minimum duration of a data slot according to "Energy-efficient Real-time Communication in Multi-hop Low-power Wireless Networks" (Zimmerling et al.), Appendix I. For 127b packets ~22.5ms, for 50b packets just over 10ms
 #define LWB_T_SLOT_SCHED_MIN            ( (LWB_CONF_MAX_HOPS + 2 * LWB_CONF_TX_CNT_DATA - 2) * LWB_T_HOP_SCHED )     // minimum duration of a data slot according to "Energy-efficient Real-time Communication in Multi-hop Low-power Wireless Networks" (Zimmerling et al.), Appendix I. For 127b packets ~22.5ms, for 50b packets just over 10ms
 #define MAX(x, y)                       ((x) > (y) ? (x) : (y))

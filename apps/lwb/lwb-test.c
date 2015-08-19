@@ -64,6 +64,11 @@
  * - structs always cause problems: misalignments due to "compiler optimizations", use uintx_t types instead of enum and union instead of conversion to a pointer to a struct
  */
 
+/**
+ * TODO: check
+ * - ACLK is clock source for the WOR timer, not the integrated CC1101 R/C oscillator.
+ */
+
 
 #include "contiki.h"
 #include "platform.h"
@@ -91,26 +96,20 @@ PROCESS_THREAD(app_process, ev, data)
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);      
     DEBUG_PRINT_INFO("application task runs now...");
-    DELAY(1000);
+        
+    //rf1a_get_rssi();
+    //rf1a_get_last_packet_rssi();
+    /*if (RF1AIFCTL1 & RFERRIFG)
+    {
+        DEBUG_PRINT_MSG_NOW("error flag set!");
+    } else {
+        DEBUG_PRINT_MSG_NOW("no error");
+    }*/
+    DELAY(100);
     //PROCESS_PAUSE();
   }
 
   PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
-ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
-{    
-  PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
-  switch (SYSUNIV) {
-    case SYSUNIV_NMIIFG:
-      break;
-    case SYSUNIV_OFIFG:         /* oscillator fault */
-      OSC_FAULT_WAIT;
-      break;            
-    default:
-      break;
-  }
-  PIN_CLR(LED_ERROR);
 }
 /*---------------------------------------------------------------------------*/
 ISR(PORT1, port1_interrupt) 
@@ -157,5 +156,24 @@ ISR(PORT2, port2_interrupt)
 #endif
   
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+}
+/*---------------------------------------------------------------------------*/
+ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
+{    
+  PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
+  switch (SYSUNIV) {
+    case SYSUNIV_NMIIFG:        /* non-maskable interrupt */
+      break;
+    case SYSUNIV_OFIFG:         /* oscillator fault */
+      OSC_FAULT_WAIT;
+      break;
+    case SYSUNIV_ACCVIFG:       /* Access Violation */
+      break;
+    case SYSUNIV_SYSBERRIV:
+      break;                    /* Bus Error */
+    default:
+      break;
+  }
+  PIN_CLR(LED_ERROR);
 }
 /*---------------------------------------------------------------------------*/

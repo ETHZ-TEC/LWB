@@ -41,7 +41,7 @@
 #define __ENERGEST_H__
 
 #include "contiki-conf.h"
-#include "rtimer.h"
+//#include "rtimer.h"
 
 typedef struct {
   /*  unsigned long cumulative[2];*/

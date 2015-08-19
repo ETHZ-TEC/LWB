@@ -41,49 +41,50 @@
  *
  * @file
  * 
- * @brief configure TA0 and TA1 to be used to schedule tasks with high accuracy
+ * @brief interface definition for high-speed/frequency (HF) and low-speed/frequency
+ * (LF) timers
  * 
- * TA0 is a high-frequency timer (SMCLK_SPEED)
- * TA1 is a low-frequency (LF) timer (ACLK_SPEED)
+ * supports up to 8 HF and 8 LF timers
  */
 
 #ifndef __RTIMER_H__
 #define __RTIMER_H__
 
+#include "contiki-conf.h"       /* required for the rtimer_clock_t declaration */
 
-/**
- * @brief the number of usable rtimers of module TA0
- * @note if the radio module is used, one CCR is reserved for it and cannot be
- * used otherwise
- */
-#ifdef WITH_RADIO
-#define N_RTIMERS       4
-#else
-#define N_RTIMERS       5
-#endif /* WITH_RADIO */
+/* override these default values in platform.h or config.h */
+
+#ifndef RTIMER_CONF_NUM_HF       /* number of (usable) high-frequency timers */
+#error "RTIMER_CONF_NUM_HF not defined; the number of high-frequency timers must be specified!"
+#endif /* RTIMER_CONF_NUM_HF */
+
+#ifndef RTIMER_CONF_NUM_LF       /* number of (usable) low-frequency timers */
+#error "RTIMER_CONF_NUM_LF not defined; the number of low-frequency timers must be specified!"
+#endif /* RTIMER_CONF_NUM_LF */
+
+#ifndef RTIMER_CONF_HF_CLKSPEED
+#define RTIMER_CONF_HF_CLKSPEED     SMCLK_SPEED
+#endif /* RTIMER_CONF_HF_CLKSRC */
+
+#ifndef RTIMER_CONF_LF_CLKSPEED
+#define RTIMER_CONF_LF_CLKSPEED     ACLK_SPEED
+#endif /* RTIMER_CONF_HF_CLKSRC */
 
 /**
  * @brief the number of timer ticks that (approx.) correspond to 1s
- * @note the timer modules are clock by SMCLK at 3.25 MHz
  */
-#define RTIMER_SECOND               ((rtimer_clock_t)SMCLK_SPEED)  /* for HF timer */
-#define RTIMER_SECOND_LF            (ACLK_SPEED)                   /* for LF timer */
-
-#define RTIMER_HF_LF_RATIO          (RTIMER_SECOND / RTIMER_SECOND_LF)
+#define RTIMER_SECOND_HF            ((rtimer_clock_t)RTIMER_CONF_HF_CLKSPEED)
+#define RTIMER_SECOND_LF            (RTIMER_CONF_LF_CLKSPEED) 
+#define RTIMER_HF_LF_RATIO          (RTIMER_SECOND_HF / RTIMER_SECOND_LF)
 
 /**
- * @brief enable the update (overflow) interrupt of the timer TA0
+ * @brief convert rtimer time values from clock ticks to milliseconds 
  */
-#define RTIMER_UPDATE_ENABLE        { TA0CTL |= TAIE; TA1CTL |= TAIE; }
-/**
- * @brief disable the update (overflow) interrupt of the timer TA0
- */
-#define RTIMER_UPDATE_DISABLE       { TA0CTL &= ~TAIE; TA1CTL &= ~TAIE; }
-/**
- * @brief checks if the update (overflow) interrupt of the timer TA0 is enabled
- */
-#define RTIMER_UPDATE_ENABLED       ((TA0CTL & TAIE) > 0)
-#define RTIMER_LF_UPDATE_ENABLED    ((TA1CTL & TAIE) > 0)
+#define RTIMER_HF_TO_MS(t)          ((t) / (RTIMER_SECOND_HF / 1000))
+#define RTIMER_LF_TO_MS(t)          ((t) / (RTIMER_SECOND_LF / 1000))
+#define NS_TO_RTIMER_HF(ns)         (((rtimer_clock_t)(ns) * \
+                                      (rtimer_clock_t)RTIMER_SECOND_HF) / \
+                                     (rtimer_clock_t)1000000000)
 
 /**
  * @brief the rtimer IDs for timer module TA0 (number of IDs corresponds to the
@@ -93,20 +94,55 @@
  * TA1_x timers run at 32768 Hz
  */
 typedef enum {
-  RTIMER_TA0_0 = 0,      /* TA0 CCR0 */
-  RTIMER_TA0_1,
-  RTIMER_TA0_2,
-  RTIMER_TA0_3,
-  RTIMER_TA0_4,
-  RTIMER_TA1_0,          /* TA1 CCR0 */
-  RTIMER_TA1_1,
-  RTIMER_TA1_2,
+  RTIMER_HF_0 = 0,      /* TA0 CCR0 */
+  RTIMER_HF_1,
+#if RTIMER_CONF_NUM_HF > 2
+  RTIMER_HF_2,
+#endif
+#if RTIMER_CONF_NUM_HF > 3
+  RTIMER_HF_3,
+#endif
+#if RTIMER_CONF_NUM_HF > 4
+  RTIMER_HF_4,
+#endif
+#if RTIMER_CONF_NUM_HF > 5
+  RTIMER_HF_5,
+#endif 
+#if RTIMER_CONF_NUM_HF > 6
+  RTIMER_HF_6,
+#endif 
+#if RTIMER_CONF_NUM_HF > 7
+  RTIMER_HF_7,
+#endif 
+  RTIMER_LF_0,
+  RTIMER_LF_1,
+#if RTIMER_CONF_NUM_LF > 2
+  RTIMER_LF_2,
+#endif
+#if RTIMER_CONF_NUM_LF > 3
+  RTIMER_LF_3,
+#endif
+#if RTIMER_CONF_NUM_LF > 4
+  RTIMER_LF_4,
+#endif
+#if RTIMER_CONF_NUM_LF > 5
+  RTIMER_LF_5,
+#endif
+#if RTIMER_CONF_NUM_LF > 6
+  RTIMER_LF_6,
+#endif
+#if RTIMER_CONF_NUM_LF > 7
+  RTIMER_LF_7,
+#endif
   NUM_OF_RTIMERS
 } rtimer_id_t;
 
-/**
- * @brief the rtimer states
- */
+/* this is necessary for the following prototype declaration */
+typedef struct rtimer rtimer_t;
+
+/* prototype of a rtimer callback function */
+typedef char (*rtimer_callback_t)(rtimer_t *rt);
+
 typedef enum {
   RTIMER_INACTIVE = 0,
   RTIMER_SCHEDULED = 1,
@@ -114,23 +150,20 @@ typedef enum {
   RTIMER_WFE = 3,      /* wait for event */
 } rtimer_state_t;
 
-typedef uint64_t rtimer_clock_t;
-typedef struct rtimer rtimer_t;
- /* prototype of a rtimer callback function */
-typedef char (*rtimer_callback_t)(rtimer_t *rt);
-
 /**
  * @brief state and parameters of an rtimer
  */
 typedef struct rtimer {
+  rtimer_clock_t time;    /* if state = RTIMER_SCHEDULED: next expiration time;
+                             otherwise: last expiration time */
+  rtimer_clock_t period;  /* if period = 0: one-shot timer; otherwise: timer
+                             period in clock ticks */
   rtimer_callback_t func; /* callback function to execute when the rtimer
                              expires */
   rtimer_state_t state;   /* internal state of the rtimer */
-  rtimer_clock_t period;  /* if period = 0: one-shot timer; otherwise: timer
-                             period in clock ticks */
-  rtimer_clock_t time;    /* if state = RTIMER_SCHEDULED: next expiration time;
-                             otherwise: last expiration time */
 } rtimer_t;
+
+
 
 /**
  * @brief initialize the timers TA0 and TA1
@@ -163,23 +196,22 @@ void rtimer_wait_for_event(rtimer_id_t timer, rtimer_callback_t func);
 void rtimer_stop(rtimer_id_t timer);
 
 /**
- * @brief get the period of the specified rtimer
- * @param[in] timer the ID of the rtimer, must by of type rtimer_id_t
+ * @brief enable or disable the overflow/update interrupts for both
+ * the LF and HF timer
  */
-rtimer_clock_t rtimer_get_period(rtimer_id_t timer);
+inline void rtimer_update_enable(uint8_t enable);
 
 /**
- * @brief get the expiration time of the specified rtimer
- * @param[in] timer the ID of the rtimer, must by of type rtimer_id_t
- * @return expiration time in timer clock ticks (timestamp)
+ * @brief check whether the overflow/update interrupt (of the HF timer) is 
+ * enabled
  */
-rtimer_clock_t rtimer_get_expiration_time(rtimer_id_t timer);
+inline uint8_t rtimer_update_enabled();
 
 /**
  * @brief get the current timer value of TA0
  * @return timer value in timer clock ticks (timestamp)
  */
-rtimer_clock_t rtimer_now(void);
+rtimer_clock_t rtimer_now_hf(void);
 
 /**
  * @brief get the current timer value of TA1
@@ -187,20 +219,6 @@ rtimer_clock_t rtimer_now(void);
  */
 rtimer_clock_t rtimer_now_lf(void);
 
-/* convert rtimer time values from clock ticks to milliseconds */
-#define RTIMER_TO_MS(t)         ((t) / (RTIMER_SECOND / 1000))
-
-/* get the current rtimer time (macro used in several Contiki core files) */
-#define RTIMER_NOW              (rtimer_now())
-
-/* get the current rtimer time in milliseconds */
-#define RTIMER_NOW_MS()         (RTIMER_TO_MS(rtimer_now()))
-
-#define NS_TO_RTIMER_TICKS(ns)  (((rtimer_clock_t)(ns) * \
-                                  (rtimer_clock_t)RTIMER_SECOND) / \
-                                 (rtimer_clock_t)1000000000)
-
-//extern volatile rtimer_clock_t ta0_sw_ext;
 
 #endif /* __RTIMER_H__ */
 

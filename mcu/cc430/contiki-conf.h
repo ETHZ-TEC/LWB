@@ -54,11 +54,14 @@
 #define ENERGEST_CONF_ON 0
 #endif /* ENERGEST_CONF_ON */
 
-typedef uint32_t clock_time_t;
-
-clock_time_t clock_time(void);
-
 extern volatile uint16_t node_id;
 
+
+/* Contiki requires the definition of the following data types: */
+typedef uint32_t clock_time_t;
+typedef uint64_t rtimer_clock_t;
+
+
+clock_time_t clock_time(void);
 
 #endif /* __CONTIKI_CONF_H__ */
