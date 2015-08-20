@@ -52,7 +52,8 @@
 
 
 #ifndef LWB_CONF_SCHED_T_NO_REQ
-#define LWB_CONF_SCHED_T_NO_REQ              LWB_CONF_SCHED_PERIOD_MIN * 2          /* how long no stream request until period is adjusted accordingly */
+/* how long no stream request until period is adjusted accordingly */
+#define LWB_CONF_SCHED_T_NO_REQ              LWB_CONF_SCHED_PERIOD_MIN * 2
 #endif /* LWB_CONF_SCHED_T_NO_REQ */
 
 #ifndef LWB_CONF_SCHED_COMPRESS
@@ -62,29 +63,38 @@
 /* --- defines for the HOST --- */
 
 #ifndef LWB_CONF_SCHED_SACK_BUFFER_SIZE
-#define LWB_CONF_SCHED_SACK_BUFFER_SIZE      5       /* max. number of processed stream requests per round. Any further requests will be ignored. Memory usage: 4x LWB_CONF_SCHED_SACK_BUFFER_SIZE bytes */
+/* max. number of processed stream requests per round. Any further requests 
+ * will be ignored. Memory usage: 4x LWB_CONF_SCHED_SACK_BUFFER_SIZE bytes */
+#define LWB_CONF_SCHED_SACK_BUFFER_SIZE      5       
 #endif /* LWB_CONF_SCHED_SACK_BUFFER_SIZE */
 
 #ifndef LWB_CONF_SCHED_USE_XMEM
-#define LWB_CONF_SCHED_USE_XMEM              0       /* use the external memory (FRAM) to store the stream information? (enable this option if SRAM is too small) */
+/* use the external memory (FRAM) to store the stream information? (enable this
+ * option if SRAM is too small) */
+#define LWB_CONF_SCHED_USE_XMEM              0       
 #endif /* LWB_CONF_SCHED_USE_XMEM */
 
 // SCHEDULER
 
 #ifndef LWB_CONF_SCHED_PERIOD_MAX
-#define LWB_CONF_SCHED_PERIOD_MAX            30      /* max. assignable round period in seconds, must not exceed 127 seconds! */
+/* max. assignable round period in seconds, must not exceed 127 seconds! */
+#define LWB_CONF_SCHED_PERIOD_MAX            30      
 #endif /* LWB_CONF_SCHED_PERIOD_MAX */
 
 #ifndef LWB_CONF_SCHED_PERIOD_MIN
-#define LWB_CONF_SCHED_PERIOD_MIN            2       /* minimum round period, must be higher than T_ROUND_MAX */
+/* minimum round period, must be higher than T_ROUND_MAX */
+#define LWB_CONF_SCHED_PERIOD_MIN            2       
 #endif /* LWB_CONF_SCHED_PERIOD_MIN */ 
 
 #ifndef LWB_CONF_SCHED_PERIOD_IDLE
-#define LWB_CONF_SCHED_PERIOD_IDLE           10      /* default period (when no nodes are in the network, or the period for a static scheduler) */
+/* default period (when no nodes are in the network, or the period for a 
+ * static scheduler) */
+#define LWB_CONF_SCHED_PERIOD_IDLE           10      
 #endif /* LWB_CONF_SCHED_PERIOD_IDLE */
 
 #ifndef LWB_CONF_SCHED_STREAM_REMOVAL_THRES
-#define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  10      /* threshold for the stream removal (max. number of 'misses') */
+/* threshold for the stream removal (max. number of 'misses') */
+#define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  10      
 #endif /* LWB_CONF_SCHED_STREAM_REMOVAL_THRES */
 
                                 
@@ -96,88 +106,94 @@ typedef struct {
     uint32_t time;
     uint16_t host_id;
     uint16_t period;
-    uint8_t  n_slots;       // store num. of data slots and last two bits to indicate whether there is a contention or an s-ack slot in this round
+     /* store num. of data slots and last two bits to indicate whether there is
+      * a contention or an s-ack slot in this round */
+    uint8_t  n_slots;      
     uint16_t slot[LWB_CONF_MAX_DATA_SLOTS];
 } lwb_schedule_t;
 
 /**
  * @brief minimal meta data required for each stream request
- * @note the stream_info must be the same as the stream_info in the struct lwb_stream_min_t
+ * @note the stream_info must be the same as the stream_info in the struct 
+ * lwb_stream_min_t
  */
 #define LWB_STREAM_REQ_HEADER_LEN  5
-#define LWB_STREAM_REQ_PKT_LEN     (LWB_STREAM_REQ_HEADER_LEN + LWB_CONF_STREAM_EXTRA_DATA_LEN)
+#define LWB_STREAM_REQ_PKT_LEN     (LWB_STREAM_REQ_HEADER_LEN + \
+                                    LWB_CONF_STREAM_EXTRA_DATA_LEN)
 typedef struct {
-    uint16_t node_id;       // ID of this node
-    uint8_t  stream_id;     // stream ID (chosen by the source node)
+    uint16_t node_id;       /* ID of this node */
+    uint8_t  stream_id;     /* stream ID (chosen by the source node) */
     uint16_t ipi;
     uint8_t  extra_data[LWB_CONF_STREAM_EXTRA_DATA_LEN];
 } lwb_stream_req_t;
 
 #define LWB_SACK_MIN_PKT_LEN       4
-typedef struct {                    // stream acknowledgement
+typedef struct {                    
     uint16_t node_id;              
     uint8_t  stream_id;            
-    uint8_t  n_extra;               // number of additional sack's in this packet
-    uint8_t  extra[LWB_CONF_MAX_PACKET_LEN - LWB_SACK_MIN_PKT_LEN];  // additional sack's
-} lwb_stream_ack_t;
+    uint8_t  n_extra;   /* number of additional sack's in this packet */
+    /* additional sack's */
+    uint8_t  extra[LWB_CONF_MAX_PACKET_LEN - LWB_SACK_MIN_PKT_LEN];  
+} lwb_stream_ack_t;     /* stream acknowledgement */
 
 
 
 /**
- * @brief marks the schedule s as the 1st schedule (at the beginning of a round)
+ * @brief marks the schedule as the 1st schedule
  */
 #define LWB_SCHED_SET_AS_1ST(s)     ((s)->period |= 0x8000)
 /**
- * @brief marks the schedule s as the 2nd schedule (at the end of a round)
+ * @brief marks the schedule s as the 2nd schedule 
  */
 #define LWB_SCHED_SET_AS_2ND(s)     ((s)->period &= ~0x8000)
 /**
- * @brief checks whether schedule s is the 1st schedule (at the beginning of a round)
+ * @brief checks whether schedule is the 1st schedule
  */
 #define LWB_SCHED_IS_1ST(s)         (((s)->period & 0x8000) > 0)
 /**
- * @brief checks whether schedule s is the 2nd schedule (at the end of a round)
+ * @brief checks whether schedule is the 2nd schedule
  */
 #define LWB_SCHED_IS_2ND(s)         (((s)->period & 0x8000) == 0)
 /**
- * @brief returns the number of data slots from schedule s
+ * @brief returns the number of data slots from schedule
  */
 #define LWB_SCHED_N_SLOTS(s)          ((s)->n_slots & 0x3f)
 /**
- * @brief checks whether schedule s has data slots
+ * @brief checks whether schedule has data slots
  */
 #define LWB_SCHED_HAS_DATA_SLOT(s)    (((s)->n_slots & 0x3f) > 0)
 /**
- * @brief checks whether schedule s has a contention slot
+ * @brief checks whether schedule has a contention slot
  */
 #define LWB_SCHED_HAS_CONT_SLOT(s)    (((s)->n_slots & 0x40) > 0)
 /**
- * @brief checks whether schedule s has an S-ACK slot
+ * @brief checks whether schedule has an S-ACK slot
  */
 #define LWB_SCHED_HAS_SACK_SLOT(s)    (((s)->n_slots & 0x80) > 0)
 /**
- * @brief marks schedule s to have a contention slot
+ * @brief marks schedule to have a contention slot
  */
 #define LWB_SCHED_SET_CONT_SLOT(s)    ((s)->n_slots |= 0x40)
 /**
- * @brief marks schedule s to have an S-ACK slot
+ * @brief marks schedule to have an S-ACK slot
  */
 #define LWB_SCHED_SET_SACK_SLOT(s)    ((s)->n_slots |= 0x80)
 
 
 /**
- * @brief   prepare a stream acknowledgement (S-ACK) packet
+ * @brief prepare a stream acknowledgement (S-ACK) packet
  * @param[out] payload output buffer
- * @return  the packet size or zero if there is no S-ACK pending
+ * @return the packet size or zero if there is no S-ACK pending
  */
-uint8_t  lwb_sched_prepare_sack(void *payload);
+uint8_t lwb_sched_prepare_sack(void *payload);
 
 /**
- * @brief  processes a stream request
- * adds new streams to the stream list, updates stream information for existing streams or removes streams with an invalid IPI
+ * @brief processes a stream request
+ * adds new streams to the stream list, updates stream information for existing
+ * streams or removes streams with an invalid IPI
  * @param[in] req the stream request to process
  */
-void     lwb_sched_proc_srq(const lwb_stream_req_t* req);
+void lwb_sched_proc_srq(const lwb_stream_req_t* req);
 
 /**
  * @brief initializes the schedule
@@ -189,15 +205,20 @@ uint16_t lwb_sched_init(lwb_schedule_t* sched);
 
 /**
  * @brief compute (and compress) the new schedule
- * @param[in,out] sched the old schedule and the output buffer for the new schedule
+ * @param[in,out] sched the old schedule and the output buffer for the new 
+ * schedule
  * @param[in] streams_to_update the list of streams of the last round 
- * @param[in] reserve_slot_host set this parameter to one to reserve the first slot of the next schedule for the host
+ * @param[in] reserve_slot_host set this parameter to one to reserve the first
+ * slot of the next schedule for the host
  * @return the size of the new (compressed) schedule
  */
-uint16_t lwb_sched_compute(lwb_schedule_t * const sched, const uint8_t * const streams_to_update, uint8_t n_slot_host);
+uint16_t lwb_sched_compute(lwb_schedule_t * const sched, 
+                           const uint8_t * const streams_to_update, 
+                           uint8_t n_slot_host);
 
 
-uint8_t  lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots);
+uint8_t lwb_sched_uncompress(uint8_t* compressed_data, 
+                             uint8_t n_slots);
 
 
 #endif /* __SCHEDULER_H__ */

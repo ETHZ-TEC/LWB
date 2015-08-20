@@ -35,21 +35,24 @@
 #ifndef __DEBUG_PRINT_H__
 #define __DEBUG_PRINT_H__
 
+/* necessary to override the default settings in platform.h */
+#include "platform.h"   
+
 /* enabled by default */
 #ifndef DEBUG_PRINT_CONF_ON
 #define DEBUG_PRINT_CONF_ON             1
 #endif /* DEBUG_PRINT_CONF_ON */
 
-#ifndef DEBUG_PRINT_CONF_NUM_MSG
-#define DEBUG_PRINT_CONF_NUM_MSG        8     /* number of messages to store */
+#ifndef DEBUG_PRINT_CONF_NUM_MSG        /* number of messages to store */
+#define DEBUG_PRINT_CONF_NUM_MSG        8     
 #endif /* DEBUG_PRINT_CONF_NUM_MSG */
 
-#ifndef DEBUG_PRINT_CONF_MSG_LEN
-#define DEBUG_PRINT_CONF_MSG_LEN        80    /* max. number of chars per message */
+#ifndef DEBUG_PRINT_CONF_MSG_LEN        /* max. num of chars per msg */
+#define DEBUG_PRINT_CONF_MSG_LEN        80    
 #endif /* DEBUG_PRINT_CONF_MSG_LEN */
 
-#ifndef DEBUG_PRINT_MODULE_INFO_LEN
-#define DEBUG_PRINT_MODULE_INFO_LEN     12    /* num. chars for the module designator */
+#ifndef DEBUG_PRINT_MODULE_INFO_LEN     /* num chars for module designator */
+#define DEBUG_PRINT_MODULE_INFO_LEN     12    
 #endif /* DEBUG_PRINT_MODULE_INFO_LEN */
 
 #ifndef DEBUG_PRINT_CONF_LEVEL
@@ -60,7 +63,7 @@
 #define DEBUG_PRINT_CONF_USE_XMEM       0
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 
-#ifndef DEBUG_PRINT_CONF_PRINT_DIRECT         /* print directly, no queuing */
+#ifndef DEBUG_PRINT_CONF_PRINT_DIRECT   /* print directly, no queuing */
 #define DEBUG_PRINT_CONF_PRINT_DIRECT   0
 #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
 
@@ -70,8 +73,8 @@
 #endif /* DEBUG_PRINT_CONF_POLL */
 
 /**
- * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each print
- * out (& re-enable it before each print out)
+ * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each
+ * print out (& re-enable it before each print out)
  */
 #ifndef DEBUG_PRINT_CONF_DISABLE_UART
 #define DEBUG_PRINT_CONF_DISABLE_UART   1
@@ -113,12 +116,13 @@
 #if DEBUG_PRINT_CONF_ON
   #if DEBUG_PRINT_CONF_PRINT_DIRECT
     #define DEBUG_PRINT_MSG(t, p, ...) \
-      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
+      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
       debug_print_msg_now(__FILE__, debug_print_buffer)
   #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
     #define DEBUG_PRINT_MSG(t, p, ...) \
-      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
-      debug_print_msg(RTIMER_LF_TO_MS(rtimer_now_lf()), p, __FILE__, debug_print_buffer)  
+      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
+      debug_print_msg(RTIMER_LF_TO_MS(rtimer_now_lf()), p, __FILE__, \
+                      debug_print_buffer)  
   #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
   #define DEBUG_PRINT_MSG_NOW(...) \
     snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
@@ -178,14 +182,28 @@ typedef struct debug_print_t {
   char content[DEBUG_PRINT_CONF_MSG_LEN + 1];
 } debug_print_t;
 
+/**
+ * @brief start the debug print process 
+ */
 void debug_print_init(void);
+
+/**
+ * @brief poll the debug print process
+ */
 void debug_print_poll(void);
+
+/**
+ * @brief schedule a message for print out over UART
+ */
 void debug_print_msg(uint64_t time, 
                      char level, 
                      char *module, 
                      char *data);
-inline void debug_print_msg_now(char *module, char *data);
-void debug_print_device_info(void);
-void debug_print_processes(struct process *const processes[]);
+
+/**
+ * @brief print out a message immediately over UART (blocking call)
+ */
+void debug_print_msg_now(char *module, char *data);
+
 
 #endif /* __DEBUG_PRINT_H__ */

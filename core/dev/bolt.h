@@ -43,11 +43,11 @@
  * This library provides functionality to configure and use the asynchronous
  * data interface.
  * Set BOLT_CONF_ON to 1 to use this library. By default, DMA usage is disabled
- * and the max. message length is 32 bytes. To adjust the max. message length, 
+ * and the max. message length is 48 bytes. To adjust the max. message length, 
  * define BOLT_CONF_MAX_MSG_LEN in your configuration file.
  * @note The data transfer over the SPI can either be synchronous (blocking,
  * polling/busy wait) or asynchronous (interrupt/DMA-driven).
- * @remark This lib does not require a timer to work.
+ * @remark This lib does not require any peripherals other than an SPI module.
  */
 
 #ifndef __BOLT_H__

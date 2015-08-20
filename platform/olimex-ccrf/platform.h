@@ -75,7 +75,8 @@
  */
 //#define FRAM_CONF_ON                1
 #if FRAM_CONF_ON
-  #define FRAM_CONF_SPI               USCI_B0
+  #define FRAM_CONF_SIZE              0x40000
+  #define FRAM_CONF_SPI               SPI_1
   #ifndef DEBUG_PRINT_CONF_USE_XMEM
   #define DEBUG_PRINT_CONF_USE_XMEM   1
   #define LWB_USE_XMEM                1
@@ -87,7 +88,7 @@
 
 //#define BOLT_CONF_ON                1
 #if BOLT_CONF_ON
-  #define BOLT_CONF_SPI               USCI_B0
+  #define BOLT_CONF_SPI               SPI_1
   #define BOLT_CONF_IND_PIN           PORT2, PIN0
   #define BOLT_CONF_MODE_PIN          PORT2, PIN1
   #define BOLT_CONF_REQ_PIN           PORT2, PIN2

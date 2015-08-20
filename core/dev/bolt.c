@@ -112,7 +112,7 @@ bolt_init(bolt_callback_t IND_line_callback)
 void
 bolt_set_timereq_callback(void (*func)(void))
 {
-  if (!func) {
+  if(!func) {
     /* remove the callback = switch to polling mode (utilize the DMA) */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
@@ -200,9 +200,9 @@ bolt_acquire(bolt_op_mode_t mode)
   do {
       __delay_cycles(MCLK_SPEED / 100000);       /* wait 10 us */
       cnt++;
-  } while (!BOLT_ACK_STATUS && cnt < 10);
+  } while(!BOLT_ACK_STATUS && cnt < 10);
   
-  if (!BOLT_ACK_STATUS) {
+  if(!BOLT_ACK_STATUS) {
     /* ack is still low -> failed */
     bolt_state = BOLT_STATE_IDLE;
     PIN_CLR(BOLT_CONF_REQ_PIN);

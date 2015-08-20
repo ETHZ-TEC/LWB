@@ -33,7 +33,6 @@
  */
 
 #include "contiki.h"
-//#include "platform.h"
 
 #if DEBUG_PRINT_CONF_ON
 /*---------------------------------------------------------------------------*/
@@ -51,12 +50,12 @@ const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS] = { \
 char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1]; 
 static uint8_t buffer_full = 0;  
 #if DEBUG_PRINT_CONF_USE_XMEM
-static uint8_t n_buffered_msg = 0;
-static uint32_t start_addr_msg = MEMBX_INVALID_ADDR;
-static debug_print_t msg;
-#else
-MEMB(debug_print_memb, debug_print_t, DEBUG_PRINT_CONF_NUM_MSG);
-LIST(debug_print_list);
+  static uint8_t n_buffered_msg = 0;
+  static uint32_t start_addr_msg = MEMBX_INVALID_ADDR;
+  static debug_print_t msg;
+#else /* DEBUG_PRINT_CONF_USE_XMEM */
+  MEMB(debug_print_memb, debug_print_t, DEBUG_PRINT_CONF_NUM_MSG);
+  LIST(debug_print_list);
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 /*---------------------------------------------------------------------------*/
 PROCESS(debug_print_process, "Debug Print Task");
@@ -74,7 +73,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   n_buffered_msg = 0;
   start_addr_msg = MEMBX_INVALID_ADDR;     /* this line is necessary! */
   if (!xmem_init()) {          /* init if not already done */
-    DEBUG_PRINT_FATAL("DEBUG-PRINT ERROR: failed to initialize FRAM");
+    DEBUG_PRINT_FATAL("ERROR: fram init failed");
   }
   start_addr_msg =
     xmem_alloc(DEBUG_PRINT_CONF_NUM_MSG * sizeof(debug_print_t));
@@ -241,7 +240,7 @@ debug_print_msg(uint64_t time, char level, char *module, char *data)
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 }
 /*---------------------------------------------------------------------------*/
-inline void
+void
 debug_print_msg_now(char *module, char *data)
 {
   if(data) {
@@ -260,17 +259,6 @@ debug_print_msg_now(char *module, char *data)
   }
 }
 /*---------------------------------------------------------------------------*/
-void
-debug_print_processes(struct process *const processes[])
-{
-  printf("Starting");
-  while(*processes != NULL) {
-    printf(" '%s'", (*processes)->name);
-    processes++;
-  }
-  printf("\r\n");
-}
-/*---------------------------------------------------------------------------*/
 #else /* DEBUG_PRINT_CONF_ON */
 /*---------------------------------------------------------------------------*/
 void
@@ -285,16 +273,6 @@ debug_print_msg(rtimer_clock_t *time, char level, char *module, char *content)
 /*---------------------------------------------------------------------------*/
 void
 debug_print_msg_now(char *content)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
-debug_print_device_info(void)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
-debug_print_processes(struct process *const processes[])
 {
 }
 /*---------------------------------------------------------------------------*/

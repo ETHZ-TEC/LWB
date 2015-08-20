@@ -39,7 +39,7 @@
 /**
  * @file
  *
- * First-in, first-out queue based on a linear data array. All elements
+ * @brief First-in, first-out queue based on a linear data array. All elements
  * have the same maximum size. 
  * This lib provides address management only, no actual memory allocation.
  * Therefore, it is suitable for any type of memory (RAM, Flash or 
@@ -58,29 +58,35 @@
  * itself uses 14 bytes.
  */
 #define FIFO(name, elem_size, num) \
-  static struct fifo name = { 0, elem_size, num - 1, 0, 0, 0 }     // better to save the last index than the number of elements
+  static struct fifo name = { 0, elem_size, num - 1, 0, 0, 0 }
   
 struct fifo {
   uint32_t start;     /* start address of the array */
   uint16_t size;      /* size of one data unit */
-  uint16_t last;      /* number of data units in this memory block -1 (= index of last block) */
+  uint16_t last;      /* number of data units in this memory block - 1 */
   uint16_t count;     /* number of occupied queue spaces */
   uint16_t read;      /* the read pointer */
   uint16_t write;     /* the write pointer */
 };
 
-#define FIFO_RESET(f)                   ( (f)->read = (f)->write = 0 )
-#define FIFO_EMPTY(f)                   ( ((f)->read == (f)->write) && ((f)->count == 0) )
-#define FIFO_FULL(f)                    ( ((f)->read == (f)->write) && ((f)->count != 0) )
-#define FIFO_READ_ADDR(f)               ( (f)->start + ((uint32_t)(f)->read * (uint32_t)(f)->size) )
-#define FIFO_WRITE_ADDR(f)              ( (f)->start + ((uint32_t)(f)->write * (uint32_t)(f)->size) )
-#define FIFO_INCR_READ(f)               ( (f)->read = (((f)->read == (f)->last) ? 0 : ((f)->read + 1) ) )     /* increment the read index */
-#define FIFO_INCR_WRITE(f)              ( (f)->write = (((f)->write == (f)->last) ? 0 : ((f)->write + 1) ) )  /* increment the write index */
+#define FIFO_RESET(f)       ((f)->read = (f)->write = (f)->count = 0)
+#define FIFO_EMPTY(f)       (((f)->read == (f)->write) && ((f)->count == 0))
+#define FIFO_FULL(f)        (((f)->read == (f)->write) && ((f)->count != 0))
+#define FIFO_READ_ADDR(f)   ((f)->start + \
+                             ((uint32_t)(f)->read * (uint32_t)(f)->size))
+#define FIFO_WRITE_ADDR(f)  ((f)->start + \
+                             ((uint32_t)(f)->write * (uint32_t)(f)->size))
+/* increment the read index */
+#define FIFO_INCR_READ(f)   ((f)->read = \
+                             (((f)->read == (f)->last) ? 0 : ((f)->read +1)))
+/* increment the write index */
+#define FIFO_INCR_WRITE(f)  ((f)->write = \
+                             (((f)->write == (f)->last) ? 0 : ((f)->write +1)))
 
 static inline void
 fifo_init(struct fifo * const f, uint32_t start_addr)
 {
-    f->start = start_addr;
+  f->start = start_addr;
 }
 
 /**

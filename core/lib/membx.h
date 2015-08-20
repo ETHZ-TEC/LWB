@@ -32,18 +32,10 @@
  */
 
 /**
- * \addtogroup platform
- * @{
- *
- * \defgroup membx membx
- *
  * @brief Memory block management functions for external FRAM
  *
- * @{
- *
- * \file
+ * @file
  *         Memory block allocation routines.
- *
  */
 
 #ifndef __MEMBX_H__
@@ -110,8 +102,3 @@ uint32_t membx_get_next(struct membx *m, uint16_t start_idx);
 
 
 #endif /* __MEMBX_H__ */
-
-/**
- * @}
- * @} 
- */

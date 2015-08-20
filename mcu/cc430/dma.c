@@ -179,6 +179,12 @@ dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
+void
+dma_set_dummy_byte_value(uint8_t c)
+{
+  dma_dummy_byte = c;   
+}
+/*---------------------------------------------------------------------------*/
 ISR(DMA, dma_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);

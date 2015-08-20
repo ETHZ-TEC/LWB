@@ -39,7 +39,7 @@ volatile uint16_t node_id;
 /*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
-debug_print_device_info(void)
+print_device_info(void)
 {
   /* 
    * note: this device does not offer an LPMx.5 mode, therefore there's no
@@ -152,8 +152,7 @@ main(int argc, char **argv)
   uart_init();
   uart_enable(1);
   uart_set_input_handler(serial_line_input_byte);
-    
-  debug_print_device_info();
+  print_device_info();
 
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
@@ -165,7 +164,9 @@ main(int argc, char **argv)
 #endif /* RF_CONF_ON */
 
 #if FRAM_CONF_ON
-  fram_init();
+  if (!fram_init()) {
+    DEBUG_PRINT_FATAL("ERROR: fram init failed");
+  }
 #endif
   
   /* set the node ID */

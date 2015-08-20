@@ -44,8 +44,6 @@
 
 #ifdef FLOCKLAB
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
-  #define FRAM_CONF_ON                  0                           // make sure external FRAM is disabled when using FlockLAB
-  #define BOLT_CONF_ON                  0
 #else
   #define NODE_ID                       2                           // only define a node ID if FlockLAB is not used
 #endif // FLOCKLAB

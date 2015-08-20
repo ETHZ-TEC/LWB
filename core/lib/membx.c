@@ -32,7 +32,6 @@
  */
 
 #include "membx.h"
-#include "fram.h"
 
 /*---------------------------------------------------------------------------*/
 void
@@ -51,8 +50,8 @@ membx_alloc(struct membx *m)
   i = m->last;
   limit = m->num;
 find_free:
-  for(; i < limit; i++) {       /* loop through all data units in this memory
-                                   block */
+  /* loop through all data units in this memory block */
+  for(; i < limit; i++) {       
     bit = (1 << (i & 0x07));
     if(0 == (m->count[i >> 3] & bit)) {      /* bit set? */
       m->count[i >> 3] |= bit;    /* set bit */
@@ -85,28 +84,23 @@ membx_free(struct membx *m, uint32_t addr)
 }
 /*---------------------------------------------------------------------------*/
 uint32_t
-membx_get_next(struct membx *m, uint16_t start_idx)      /* returns the first
-                                                            non-empty block */
+membx_get_next(struct membx *m, uint16_t start_idx)
 {
   uint16_t i;
   uint8_t bit;
-  if(start_idx >= m->num) {
-    start_idx = 0;
-  }
+  if(start_idx >= m->num) { start_idx = 0; }
   i = start_idx;
-  do {                         /* loop through all data units in this memory
-                                  block */
+  /* loop through all data units in this memory block */
+  do {                         
     bit = (1 << (i & 0x07));
     if(m->count[i >> 3] & bit) {      /* bit set? */
-      return m->mem + ((uint32_t)i * (uint32_t)m->size);    /* return the
-                                                               address */
+      /* return the address for the first non-empty block */
+      return m->mem + ((uint32_t)i * (uint32_t)m->size);
     }
     i++;
-    if(i == m->num) {
-      i = 0;
-    }
+    if(i == m->num) { i = 0; }
   } while(i != start_idx);
-  return MEMBX_INVALID_ADDR;
+  return MEMBX_INVALID_ADDR;    /* no used block found */
 }
 /*---------------------------------------------------------------------------*/
 

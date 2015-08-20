@@ -39,9 +39,20 @@
 uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
 volatile uint16_t node_id;
 /*---------------------------------------------------------------------------*/
+void
+print_processes(struct process *const processes[])
+{
+  printf("Starting");
+  while(*processes != NULL) {
+    printf(" '%s'", (*processes)->name);
+    processes++;
+  }
+  printf("\r\n");
+}
+/*---------------------------------------------------------------------------*/
 /* prints some info about the system */
 void
-debug_print_device_info(void)
+print_device_info(void)
 {
   /* note: this device does not offer an LPMx.5 mode, therefore there's no
    * corresponding reset source */
@@ -150,8 +161,8 @@ main(int argc, char **argv)
   uart_init();
   uart_enable(1);
   uart_set_input_handler(serial_line_input_byte);
-  debug_print_device_info();
-
+  print_device_info();
+    
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
@@ -162,7 +173,9 @@ main(int argc, char **argv)
 #endif /* RF_CONF_ON */
   
 #if FRAM_CONF_ON
-  fram_init();
+  if (!fram_init()) {
+    DEBUG_PRINT_FATAL("ERROR: fram init failed");
+  }
 #endif
 
   /* set the node ID */
@@ -202,7 +215,7 @@ main(int argc, char **argv)
   
   /* start processes */
   debug_print_init();  
-  debug_print_processes(autostart_processes);
+  print_processes(autostart_processes);
   autostart_start(autostart_processes);
 
   while(1) {

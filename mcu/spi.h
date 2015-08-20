@@ -98,24 +98,24 @@
 
 typedef enum {
   SPI_0 = 0,
-  SPI_1 = 0,
+  SPI_1,
 #if SPI_CONF_NUM_MODULES > 2
-  SPI_2 = 0,
+  SPI_2,
 #endif 
 #if SPI_CONF_NUM_MODULES > 3
-  SPI_3 = 0,
+  SPI_3,
 #endif 
 #if SPI_CONF_NUM_MODULES > 4
-  SPI_4 = 0,
+  SPI_4,
 #endif 
 #if SPI_CONF_NUM_MODULES > 5
-  SPI_5 = 0,
+  SPI_5,
 #endif 
 #if SPI_CONF_NUM_MODULES > 6
-  SPI_6 = 0,
+  SPI_6,
 #endif 
 #if SPI_CONF_NUM_MODULES > 7
-  SPI_7 = 0,
+  SPI_7,
 #endif 
   NUM_OF_SPI_MODULES
 } spi_module_t; 

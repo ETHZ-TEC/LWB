@@ -36,12 +36,6 @@
 #if FRAM_CONF_ON
 
 /*---------------------------------------------------------------------------*/
-/* hide the following settings/definitions from the rest of the code */
-
-/* adjust the following figures according to the used FRAM chip */
-#define FRAM_START          0x00000         /* first byte of the ext. FRAM */
-#define FRAM_SIZE           0x40000         /* total size in bytes */
-
 /* operation codes */
 #define FRAM_OPCODE_WREN    0x06            /* disable write protection */
 #define FRAM_OPCODE_WRDI    0x04            /* enable write protection */
@@ -54,7 +48,7 @@
 /*---------------------------------------------------------------------------*/
 static volatile uint8_t fram_sleeps = 0;
 static uint16_t fram_num_alloc_blocks = 0;
-static uint32_t fram_curr_offset = 0;
+static uint32_t fram_curr_offset = FRAM_CONF_ALLOC_START;
 static volatile uint8_t fram_fill_value = 0;
 static uint8_t fram_initialized = 0;
 /*---------------------------------------------------------------------------*/
@@ -82,7 +76,7 @@ uint8_t
 fram_acquire(void) 
 {
   if(PIN_GET(FRAM_CONF_CTRL_PIN)) {
-    spi_enable(FRAM_CONF_SPI, 0);
+    spi_enable(FRAM_CONF_SPI, 1);
     PIN_CLR(FRAM_CONF_CTRL_PIN);     /* pull select line low */
     if(fram_sleeps) {     /* in LPM? -> wait ~0.5ms */
       __delay_cycles(MCLK_SPEED / 2000);
@@ -98,7 +92,6 @@ fram_get_id(char *const out_buffer, uint8_t formatted)
 {
   uint8_t count = 0;
   uint8_t rcv_buffer[9];
-  
   if(!fram_acquire()) {
     return 0;
   }
@@ -143,9 +136,12 @@ fram_init(void)
   if(!fram_initialized) {    
     PIN_SET(FRAM_CONF_CTRL_PIN);
     PIN_CFG_OUT(FRAM_CONF_CTRL_PIN);
-    spi_init(FRAM_CONF_SPI, FRAM_CONF_SCLK_SPEED);
+    if(!spi_init(FRAM_CONF_SPI, FRAM_CONF_SCLK_SPEED)) {
+        DEBUG_PRINT_MSG_NOW("ERROR: spi init failed");
+        return 0;
+    }
     fram_num_alloc_blocks = 0;
-    fram_curr_offset = 0;
+    fram_curr_offset = FRAM_CONF_ALLOC_START;
 
     /* make sure that at least 1ms has passed since power-up before using 
      * the FRAM */
@@ -161,7 +157,7 @@ fram_init(void)
     }
     while(c < 6) {
       if(0x7f != dev_id[c]) {
-        DEBUG_PRINT_MSG_NOW("ERROR: fram_init failed (disconnected?)");
+        DEBUG_PRINT_MSG_NOW("ERROR: init failed (disconnected?)");
         return 0;
       }
       c++;
@@ -204,7 +200,7 @@ uint8_t
 fram_read(uint32_t start_addr, uint16_t num_bytes, uint8_t *out_data)
 {
   /* validate the start address */
-  if((FRAM_SIZE + FRAM_START) <= start_addr) {
+  if((FRAM_CONF_SIZE + FRAM_CONF_START) <= start_addr) {
     return 0;
   }
   if(!fram_acquire()) {
@@ -250,7 +246,7 @@ uint8_t
 fram_write(uint32_t start_address, uint16_t num_bytes, const uint8_t *data)
 {
   /* validate the start address */
-  if((FRAM_SIZE + FRAM_START) <= start_address) {
+  if((FRAM_CONF_SIZE + FRAM_CONF_START) <= start_address) {
     return 0;
   }
   if(!fram_acquire()) {
@@ -291,7 +287,7 @@ uint8_t
 fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
 {
   /* validate the start address */
-  if((FRAM_SIZE + FRAM_START) <= start_address) {
+  if((FRAM_CONF_SIZE + FRAM_CONF_START) <= start_address) {
     return 0;
   }
   if(!fram_acquire()) {
@@ -332,18 +328,18 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
 /*---------------------------------------------------------------------------*/
 uint32_t
 fram_alloc(uint16_t size)
-{
+{    
   uint32_t addr = fram_curr_offset;     /* word address */
-  if(0 == size || ((fram_curr_offset + size) >= (FRAM_SIZE + FRAM_START))) {
-    /* use printf to make sure this error message is printed out immediately */
+  if(0 == size || 
+     ((fram_curr_offset + size) >= (FRAM_CONF_SIZE + FRAM_CONF_START))) {
     DEBUG_PRINT_MSG_NOW("ERROR: Memory allocation failed! "
                         "(requested block size: %d B)", size);
     return FRAM_ALLOC_ERROR;
   }
-  DEBUG_PRINT_INFO("memory allocated (block: %d, length: %d, offset: %lu)",
-                   fram_num_alloc_blocks,
-                   size,
-                   fram_curr_offset);
+  DEBUG_PRINT_MSG_NOW("memory allocated (block: %d, len: %d, ofs: %lu)",
+                      fram_num_alloc_blocks,
+                      size,
+                      fram_curr_offset);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
   return addr;

@@ -32,23 +32,26 @@
  */
 
 /**
- * @addtogroup  Platform
- * @{
- *
- * @defgroup    fram External FRAM
- * @{
- *
  * @file
  *
- * This lib provides access towards the external serial memory and implements
- * the xmem interface.
+ * @brief This lib provides access towards the external serial memory and 
+ * implements the xmem interface.
  * 
- * @note This library is intended to be used with the 2 Mbit FRAM chip from
+ * This library is intended to be used with the 2 Mbit FRAM chip from
  * Cypress (tested with the FM25V20)
  * All operations can either be synchronous (blocking) or asynchronous
  * (non-blocking, DMA-driven).
- * @remark The write latency is approximately 16 + num_bytes * 2.5us for an SPI
- * clock speed of 3.25 MHz. The read latency is approx. 6us shorter.
+ * 
+ * The memory region from FRAM_CONF_START to FRAM_CONF_ALLOC_START - 1 
+ * is reserved for the application for unmanaged (direct) access. The 
+ * application is responsible for the distribution of this memory region. 
+ * However, the memory from FRAM_CONF_ALLOC_START to the end is managed by
+ * this lib. The application can dynamically allocate memory by calling 
+ * fram_alloc() or xmem_alloc(). Once allocated memory cannot be freed, but
+ * will be released by resetting the MCU.
+ * 
+ * @note The write latency is approximately 16 + num_bytes * 2.5us for an
+ * SPI clock speed of 3.25 MHz. The read latency is approx. 6us shorter.
  */
 
 #ifndef __FRAM_H__
@@ -57,7 +60,33 @@
 /* necessary to enable overwriting the default settings in platform.h */
 #include "platform.h"   
 
+#ifndef FRAM_CONF_ON
+#define FRAM_CONF_ON            0       /* disabled by default */
+#endif /* FRAM_CONF_ON */
+
 #if FRAM_CONF_ON
+
+/* adjust the following figures according to the used FRAM chip */
+#ifndef FRAM_CONF_START
+#define FRAM_CONF_START         0x00000 /* virtual address of first byte */
+#endif /* FRAM_CONF_START */
+
+#ifndef FRAM_CONF_SIZE          /* the total size of the ext. memory */
+#define FRAM_CONF_SIZE          0x40000
+#endif /* FRAM_CONF_SIZE */
+
+#ifndef FRAM_CONF_ALLOC_SIZE    /* bytes available for dynamic allocation */
+#define FRAM_CONF_ALLOC_SIZE    0x20000 
+#endif /* FRAM_CONF_ALLOC_SIZE */
+
+#ifndef FRAM_CONF_ALLOC_START   /* start address for dynamic mem. alloc. */
+#define FRAM_CONF_ALLOC_START   (FRAM_CONF_START + FRAM_CONF_SIZE - \
+                                 FRAM_CONF_ALLOC_SIZE)
+#endif /* FRAM_CONF_ALLOC_START */
+
+#if FRAM_CONF_ALLOC_SIZE >= (FRAM_CONF_SIZE + FRAM_CONF_START)
+#error "FRAM_CONF_ALLOC_SIZE is invalid"
+#endif
 
 #ifndef FRAM_CONF_CTRL_PIN
 #error "FRAM_CONF_CTRL_PIN not defined!"
@@ -69,6 +98,7 @@
 
 #ifndef FRAM_CONF_CTRL_PIN
 /* control line for the external FRAM (SPI chip select/enable line) */
+#warning "FRAM_CONF_CTRL_PIN not defined!"
 #define FRAM_CONF_CTRL_PIN      PORT1, PIN7 
 #endif /* FRAM_CONF_CTRL_PIN */
 
@@ -79,7 +109,6 @@
 #ifndef FRAM_CONF_USE_DMA
 #define FRAM_CONF_USE_DMA       0
 #endif /* FRAM_CONF_USE_DMA */
-
 
 #define FRAM_ALLOC_ERROR        0xffffffff  /* this address indicates a memory
                                                allocation error */
@@ -97,10 +126,10 @@
 
 /**
  * @brief initializes the external memory
- * @note      Due to an added safety delay, it takes more than 1ms for this
+ * @return zero if an error occurred, one otherwise
+ * @note Due to an added 'safety' delay, it takes more than 1ms for this
  * function to complete.
- * @return    zero if an error occurred, one otherwise
- * @remark    This function checks the external memory by reading and verifying
+ * @remark This function checks the external memory by reading and verifying
  * the device ID (all device IDs start with the manufacturer ID). Therefore, a
  * non-zero value will only be returned for FRAM chips from Cypress.
  *
@@ -185,9 +214,6 @@ uint8_t fram_fill(uint32_t start_address,
                   uint16_t num_bytes,
                   const uint8_t fill_value);
 
-/* memory manager is only available if DMA is not being used for the data
-   transfer into the FRAM */
-#ifndef FRAM_USE_DMA
 /**
  * @brief provides a simple allocation scheme for the external memory
  * @param[in] size the desired size of the memory block to be allocated
@@ -199,13 +225,8 @@ uint8_t fram_fill(uint32_t start_address,
  * specified size on the external FRAM.
  */
 uint32_t fram_alloc(uint16_t size);
-#endif /* FRAM_USE_DMA */
 
 #endif /* FRAM_CONF_ON */
 
 #endif /* __FRAM_H__ */
 
-/**
- * @}
- * @}
- */

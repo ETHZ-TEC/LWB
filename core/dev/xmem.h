@@ -32,18 +32,9 @@
  */
 
 /**
- * \addtogroup platform
- * @{
- *
- * \defgroup dev xmem
- *
- * @brief external memory access (interface definitions only)
- *
- * @{
- *
- * \file
- *         Access to an external memory module.
- *
+ * @file
+ * 
+ * @brief external memory interface definition
  */
 
 
@@ -81,13 +72,9 @@ inline uint32_t xmem_alloc(uint32_t size);
 
 
 inline uint8_t xmem_sleep(void);
+
 inline uint8_t xmem_wakeup(void);
 
 
 
 #endif /* __XMEM_H__ */
-
-/**
- * @}
- * @} 
- */
