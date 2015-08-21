@@ -31,7 +31,13 @@
  * Author:  Reto Da Forno
  */
 
-/**
+/** 
+ * @addtogroup  Dev
+ * @{
+ *
+ * @defgroup    xmem External memory
+ * @{
+ *
  * @file
  * 
  * @brief external memory interface definition
@@ -78,3 +84,8 @@ inline uint8_t xmem_wakeup(void);
 
 
 #endif /* __XMEM_H__ */
+
+/**
+ * @}
+ * @}
+ */

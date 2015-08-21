@@ -33,7 +33,7 @@
  */
 
 /**
- * \addtogroup lc
+ * \addtogroup sys
  * @{
  */
 

@@ -32,6 +32,18 @@
  *          Federico Ferrari
  */
 
+/**
+ * @addtogroup  Dev
+ * @{
+ *
+ * @defgroup    debug-print Debug print task
+ * @{
+ *
+ * @file
+ * 
+ * @brief Debug print task (print out debug messages over UART)
+ */
+
 #ifndef __DEBUG_PRINT_H__
 #define __DEBUG_PRINT_H__
 
@@ -44,7 +56,7 @@
 #endif /* DEBUG_PRINT_CONF_ON */
 
 #ifndef DEBUG_PRINT_CONF_NUM_MSG        /* number of messages to store */
-#define DEBUG_PRINT_CONF_NUM_MSG        8     
+#define DEBUG_PRINT_CONF_NUM_MSG        6     
 #endif /* DEBUG_PRINT_CONF_NUM_MSG */
 
 #ifndef DEBUG_PRINT_CONF_MSG_LEN        /* max. num of chars per msg */
@@ -207,3 +219,8 @@ void debug_print_msg_now(char *module, char *data);
 
 
 #endif /* __DEBUG_PRINT_H__ */
+
+/**
+ * @}
+ * @}
+ */

@@ -34,7 +34,7 @@
  */
 
 /**
- * @addtogroup  net
+ * @addtogroup  lwb
  * @{
  *
  * @defgroup    stream LWB streams
@@ -42,7 +42,7 @@
  *
  * @file 
  * 
- * @brief   manages the streams on the source node
+ * @brief   manages streams on the source node
  * 
  * Keeps track of the stream state.
  * lwb_stream_info_t must be defined in the scheduler implementation
@@ -53,9 +53,10 @@
 
 #include "lwb.h"
 
-
 #define LWB_STREAM_REQ_PENDING          ( lwb_pending_requests != 0 )
 #define LWB_STREAMS_ACTIVE              ( lwb_joined_streams_cnt != 0 )
+
+#define LWB_INVALID_STREAM_ID           0xff
 
 /**
  * @brief the different states of a stream
@@ -66,12 +67,14 @@
  * waiting means, a stream request was sent and is pending, i.e. the source 
  *   node is awaiting an S-ACK
  */
-typedef enum {
+enum {
     LWB_STREAM_STATE_INACTIVE = 0,
     LWB_STREAM_STATE_WAITING,
     LWB_STREAM_STATE_ACTIVE,
     NUM_LWB_STREAM_STATES
-} lwb_stream_state_t;
+};
+/* only way to control the size of an enum type */
+typedef uint8_t lwb_stream_state_t; 
 
 /**
  * @brief struct to store information about the active streams on a source node
@@ -81,7 +84,9 @@ typedef struct {
     lwb_stream_state_t  state;
     uint8_t             id;
     uint16_t            ipi;
+#if LWB_CONF_STREAM_EXTRA_DATA_LEN
     uint8_t             extra_data[LWB_CONF_STREAM_EXTRA_DATA_LEN];
+#endif /* LWB_CONF_STREAM_EXTRA_DATA_LEN */
 } lwb_stream_t;
 
 
@@ -108,7 +113,7 @@ uint8_t lwb_stream_update_state(uint8_t stream_id);
  * The application can call this function to add (and request) a stream.
  * If the stream already exists, it is updated with the new stream information.
  */
-uint8_t lwb_stream_add(const lwb_stream_t* const stream_info);
+uint8_t lwb_stream_add(const lwb_stream_req_t* const stream_info);
 
 /**
  * @brief sets all joined streams back to JOINING
@@ -126,6 +131,15 @@ void lwb_stream_rejoin(void);
  */
 uint8_t 
 lwb_stream_prepare_req(lwb_stream_req_t* const out_srq_pkt, uint8_t stream_id);
+
+
+/**
+ * @brief get the state of the stream
+ * @return LWB_STREAM_STATE_WAITING if the stream request is pending, 
+ * LWB_STREAM_STATE_ACTIVE if the stream is active and LWB_STREAM_STATE_INACTIVE
+ * if the stream does not exist or has been disabled.
+ */
+lwb_stream_state_t lwb_stream_get_state(uint8_t stream_id);
 
 
 #endif /* __STREAM_H__ */

@@ -33,7 +33,7 @@
  */
 
 /**
- * \addtogroup mem
+ * \addtogroup lib
  * @{
  */
 

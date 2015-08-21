@@ -32,15 +32,13 @@
  */
 
 /**
- * @addtogroup  Platform
- * @{
- *
- * @defgroup    platform Platform
- * @{
- *
  * @file
  *
  * @brief platform includes and definitions
+ * 
+ * @note generally, if one of the platform files is needed platform.h
+ * should be included instead of the specific file to preserve the 
+ * include order and prevent compiler warnings
  */
 
 #ifndef __PLATFORM_H__
@@ -57,65 +55,40 @@
 /*
  * include MCU definitions
  */
-#include <cc430f5137.h>   /* or simply include <msp430.h> */
+#include <cc430f5137.h>             /* or simply include <msp430.h> */
 
-#define MCU_TYPE                      "CC430F5137"
-#define COMPILER_INFO                 "GCC " __VERSION__
-#define GCC_VS                        __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
-#define COMPILE_DATE                  __DATE__
-#define SRAM_SIZE                     4096              /* starting at 0x1C00 */
+#define MCU_TYPE                    "CC430F5137"
+#define COMPILER_INFO               "GCC " __VERSION__
+#define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
+#define COMPILE_DATE                __DATE__
+#define SRAM_SIZE                   4096            /* starting at 0x1C00 */
 
 /*
  * include application specific config
  */
-#include "config.h"
+#include "config.h"                 /* application specific configuration */
 
 /*
  * default configuration (values may be overwritten in config.h)
  */
-//#define FRAM_CONF_ON                1
-#if FRAM_CONF_ON
-  #define FRAM_CONF_SIZE              0x40000
-  #define FRAM_CONF_SPI               SPI_1
-  #ifndef DEBUG_PRINT_CONF_USE_XMEM
-  #define DEBUG_PRINT_CONF_USE_XMEM   1
-  #define LWB_USE_XMEM                1
-  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
-  #ifndef DEBUG_PRINT_CONF_NUM_MSG
-  #define DEBUG_PRINT_CONF_NUM_MSG    20
-  #endif /* DEBUG_PRINT_CONF_NUM_MSG */
-#endif /* FRAM_CONF_ON */
-
-//#define BOLT_CONF_ON                1
-#if BOLT_CONF_ON
-  #define BOLT_CONF_SPI               SPI_1
-  #define BOLT_CONF_IND_PIN           PORT2, PIN0
-  #define BOLT_CONF_MODE_PIN          PORT2, PIN1
-  #define BOLT_CONF_REQ_PIN           PORT2, PIN2
-  #define BOLT_CONF_ACK_PIN           PORT2, PIN3
-  /* IND pin for the outgoing queue (sent messages) */
-  #define BOLT_CONF_IND_OUT_PIN       PORT2, PIN4
-  #define BOLT_CONF_TIMEREQ_PIN       PORT3, PIN3
-#endif /* BOLT_CONF_ON */
-
 #ifndef WATCHDOG_CONF_ON
-#define WATCHDOG_CONF_ON              0
+#define WATCHDOG_CONF_ON            0
 #endif /* WATCHDOG_CONF_ON */
 
 #ifndef LEDS_CONF_ON 
-#define LEDS_CONF_ON                  1
+#define LEDS_CONF_ON                1
 #endif /* LEDS_CONF_ON */
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
-#define RTIMER_CONF_NUM_HF            4  /* number of high-frequency timers */
+#define RTIMER_CONF_NUM_HF          4  /* number of high-frequency timers */
 #else
-#define RTIMER_CONF_NUM_HF            5
+#define RTIMER_CONF_NUM_HF          5
 #endif /* RF_CONF_ON */
-#define RTIMER_CONF_NUM_LF            3  /* number of low-frequency timers */     
+#define RTIMER_CONF_NUM_LF          3  /* number of low-frequency timers */     
 
 /* specify the number of SPI modules */
-#define SPI_CONF_NUM_MODULES          2
+#define SPI_CONF_NUM_MODULES        2
 
 /* The application should define the following two macros for better
  * performance (otherwise glossy will disable all active interrupts). */
@@ -125,34 +98,34 @@
 /*
  * pin mapping
  */
-#define LED_RED                       PORT1, PIN0
-#define LED_0                         LED_RED 
-#define LED_STATUS                    LED_RED
-#define LED_ERROR                     LED_RED
-#define DEBUG_SWITCH                  PORT1, PIN1  /* user push-button */
-#define FRAM_CONF_CTRL_PIN            PORT1, PIN7
+#define LED_RED                     PORT1, PIN0
+#define LED_0                       LED_RED 
+#define LED_STATUS                  LED_RED
+#define LED_ERROR                   LED_RED
+#define DEBUG_SWITCH                PORT1, PIN1  /* user push-button */
+#define FRAM_CONF_CTRL_PIN          PORT1, PIN7
 /*
-#define FLOCKLAB_LED1                 PORT1, PIN0
-#define FLOCKLAB_LED2                 PORT1, PIN1
+#define FLOCKLAB_LED1               PORT1, PIN0
+#define FLOCKLAB_LED2               PORT1, PIN1
 #define FLOCKLAB_LED3        
-#define FLOCKLAB_INT1                 PORT3, PIN6
-#define FLOCKLAB_INT2                 PORT3, PIN7
+#define FLOCKLAB_INT1               PORT3, PIN6
+#define FLOCKLAB_INT2               PORT3, PIN7
 */
-#define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN0
-#define LWB_CONF_TASK_ACT_PIN         PORT2, PIN1
-#define GLOSSY_START_PIN              LED_0
-#define GLOSSY_RX_PIN                 PORT2, PIN3
-#define GLOSSY_TX_PIN                 PORT2, PIN4
-/*#define RF_GDO0_PIN                 PORT1, PIN2 */
-/*#define RF_GDO1_PIN                 PORT1, PIN3 */
-#define RF_GDO2_PIN                   PORT1, PIN4
+#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
+#define LWB_CONF_TASK_ACT_PIN       PORT2, PIN1
+#define GLOSSY_START_PIN            LED_0
+#define GLOSSY_RX_PIN               PORT2, PIN3
+#define GLOSSY_TX_PIN               PORT2, PIN4
+/*#define RF_GDO0_PIN               PORT1, PIN2 */
+/*#define RF_GDO1_PIN               PORT1, PIN3 */
+#define RF_GDO2_PIN                 PORT1, PIN4
 /* note: rf1a_init sets the GDO2 signal as follows: Asserts when sync word has
  * been sent or received, and deasserts at the end of the packet. In RX, the 
  * pin deassert when the optional address check fails or the RX FIFO 
  * overflows. In TX the pin deasserts if the TX FIFO underflows. */
-#define MCLK_PIN                      PORT2, PIN5
-/*#define ACLK_PIN                    PORT3, PIN3*/
-/*#define SMCLK_PIN                   PORT3, PIN1*/
+#define MCLK_PIN                    PORT2, PIN5
+/*#define ACLK_PIN                  PORT3, PIN3*/
+/*#define SMCLK_PIN                 PORT3, PIN1*/
 
 /*
  * include MCU specific files
@@ -165,7 +138,7 @@
 #include "gpio.h"
 #include "pmm.h"
 #include "leds.h"
-#include "rf1a.h" /* RF1A config must be include before rf1a.h! */
+#include "rf1a.h"        /* RF1A config must be include before rf1a.h! */
 #include "rtimer.h"
 #include "spi.h"
 #include "uart.h"
@@ -174,7 +147,3 @@
 
 #endif /* __PLATFORM_H__ */
 
-/**
- * @}
- * @}
- */

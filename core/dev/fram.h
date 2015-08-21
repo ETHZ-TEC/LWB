@@ -32,6 +32,12 @@
  */
 
 /**
+ * @addtogroup  Dev
+ * @{
+ *
+ * @defgroup    fram External FRAM access
+ * @{
+ * 
  * @file
  *
  * @brief This lib provides access towards the external serial memory and 
@@ -230,3 +236,7 @@ uint32_t fram_alloc(uint16_t size);
 
 #endif /* __FRAM_H__ */
 
+/**
+ * @}
+ * @}
+ */

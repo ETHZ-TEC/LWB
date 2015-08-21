@@ -177,6 +177,9 @@ main(int argc, char **argv)
     DEBUG_PRINT_FATAL("ERROR: fram init failed");
   }
 #endif
+#if BOLT_CONF_ON
+  bolt_init(0);
+#endif /* BOLT_CONF_ON */  
 
   /* set the node ID */
 #ifdef NODE_ID

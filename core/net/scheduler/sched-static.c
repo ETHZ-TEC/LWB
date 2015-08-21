@@ -34,8 +34,14 @@
  */
 
 /**
+ * @addtogroup  lwb-scheduler
+ * @{
+ *
+ * @defgroup    static-sched Static scheduler
+ * @{
+ *
  * @brief
- * This is a very basic implementation of a scheduler for the LWB.
+ * a very basic scheduler implementation for the LWB
  * 
  * The scheduler operates with a constant period and only accepts new
  * stream requests if the network is not yet saturated.
@@ -129,7 +135,11 @@ void
 lwb_sched_proc_srq(const lwb_stream_req_t* req) 
 {
   lwb_stream_list_t *s = 0;
-     
+  
+  if(LWB_INVALID_STREAM_ID == req->stream_id) { 
+    DEBUG_PRINT_ERROR("invalid stream request (LWB_INVALID_STREAM_ID)");
+    return; 
+  }  
   if(n_pending_sack >= LWB_CONF_SCHED_SACK_BUFFER_SIZE) {
     DEBUG_PRINT_ERROR("max. number of pending sack's reached, stream request "
                       "dropped");
@@ -159,8 +169,8 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
           memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
           pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
           n_pending_sack++;
-          DEBUG_PRINT_VERBOSE("stream request %u.%u processed (IPI updated)", 
-                              req->node_id, req->stream_id);
+          DEBUG_PRINT_INFO("stream %u.%u updated (IPI %u)", 
+                              req->node_id, req->stream_id, req->ipi);
           return;
         }
       }  
@@ -194,9 +204,8 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
     list_insert(streams_list, prev, s);   
     n_streams++;
-    DEBUG_PRINT_VERBOSE("stream request from node %u processed"
-                        "(stream %u added)", req->node_id, req->stream_id);
-         
+    DEBUG_PRINT_INFO("stream %u.%u added (IPI %u)", req->node_id, 
+                     req->stream_id, req->ipi);         
   } else {
     /* remove this stream */
     for(s = list_head(streams_list); s != 0; s = s->next) {
@@ -404,3 +413,8 @@ lwb_sched_init(lwb_schedule_t* sched)
 /*---------------------------------------------------------------------------*/
 
 #endif /* LWB_SCHED_STATIC */
+
+/**
+ * @}
+ * @}
+ */

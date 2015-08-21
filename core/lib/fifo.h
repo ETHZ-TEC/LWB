@@ -31,12 +31,13 @@
  * Author:  Reto Da Forno
  */
 
-#ifndef __FIFO_H__
-#define __FIFO_H__
-
-#include <string.h>
-
 /**
+ * @addtogroup  lib
+ * @{
+ *
+ * @defgroup    fifo First-in, first-out queue
+ * @{
+ * 
  * @file
  *
  * @brief First-in, first-out queue based on a linear data array. All elements
@@ -45,6 +46,11 @@
  * Therefore, it is suitable for any type of memory (RAM, Flash or 
  * external memory).
  */
+
+#ifndef __FIFO_H__
+#define __FIFO_H__
+
+#include <string.h>
 
 #define FIFO_ERROR      0xffffffff
 
@@ -70,15 +76,15 @@ struct fifo {
 };
 
 #define FIFO_RESET(f)       ((f)->read = (f)->write = (f)->count = 0)
-#define FIFO_EMPTY(f)       (((f)->read == (f)->write) && ((f)->count == 0))
-#define FIFO_FULL(f)        (((f)->read == (f)->write) && ((f)->count != 0))
+#define FIFO_EMPTY(f)       ((f)->count == 0)
+#define FIFO_FULL(f)        ((f)->count > (f)->last)
 #define FIFO_READ_ADDR(f)   ((f)->start + \
                              ((uint32_t)(f)->read * (uint32_t)(f)->size))
 #define FIFO_WRITE_ADDR(f)  ((f)->start + \
                              ((uint32_t)(f)->write * (uint32_t)(f)->size))
 /* increment the read index */
 #define FIFO_INCR_READ(f)   ((f)->read = \
-                             (((f)->read == (f)->last) ? 0 : ((f)->read +1)))
+                             (((f)->read == (f)->last) ? 0 : ((f)->read + 1)))
 /* increment the write index */
 #define FIFO_INCR_WRITE(f)  ((f)->write = \
                              (((f)->write == (f)->last) ? 0 : ((f)->write +1)))
@@ -122,3 +128,8 @@ fifo_put(struct fifo * const f)
 
 
 #endif /* __FIFO_H__ */
+
+/**
+ * @}
+ * @}
+ */

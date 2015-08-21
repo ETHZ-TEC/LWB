@@ -32,7 +32,7 @@
  */
 
 /**
- * @addtogroup  Platform
+ * @addtogroup  Dev
  * @{
  *
  * @defgroup    bolt BOLT

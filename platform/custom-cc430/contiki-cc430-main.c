@@ -34,8 +34,19 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-uint16_t TOS_NODE_ID = 0x1122;
+uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
 volatile uint16_t node_id;
+/*---------------------------------------------------------------------------*/
+void
+print_processes(struct process *const processes[])
+{
+  printf("Starting");
+  while(*processes != NULL) {
+    printf(" '%s'", (*processes)->name);
+    processes++;
+  }
+  printf("\r\n");
+}
 /*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
@@ -153,7 +164,7 @@ main(int argc, char **argv)
   uart_enable(1);
   uart_set_input_handler(serial_line_input_byte);
   print_device_info();
-
+  
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
@@ -168,6 +179,9 @@ main(int argc, char **argv)
     DEBUG_PRINT_FATAL("ERROR: fram init failed");
   }
 #endif
+#if BOLT_CONF_ON
+  bolt_init(0);
+#endif /* BOLT_CONF_ON */  
   
   /* set the node ID */
 #ifdef NODE_ID
@@ -206,7 +220,7 @@ main(int argc, char **argv)
   
   /* start processes */
   debug_print_init();  
-  debug_print_processes(autostart_processes);
+  print_processes(autostart_processes);
   autostart_start(autostart_processes);
 
   LED_ON(LED_STATUS);

@@ -31,11 +31,17 @@
  * Author:  Reto Da Forno
  */
 
-/**
- * @brief Memory block management functions for external FRAM
+/** 
+ * @addtogroup  lib
+ * @{
  *
+ * @defgroup    membx Memory block allocation
+ * @{
+ * 
  * @file
- *         Memory block allocation routines.
+ *         (Virtual) memory block allocation
+ * 
+ * @brief Memory block management functions for external memory
  */
 
 #ifndef __MEMBX_H__
@@ -102,3 +108,8 @@ uint32_t membx_get_next(struct membx *m, uint16_t start_idx);
 
 
 #endif /* __MEMBX_H__ */
+
+/**
+ * @}
+ * @}
+ */

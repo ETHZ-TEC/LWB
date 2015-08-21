@@ -38,24 +38,24 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB
+//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
 #define HOST_ID    2                              
 
-
 #ifdef FLOCKLAB
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm   // set the antenna gain
+  /* set the highest antenna gain if the program runs on FlockLAB */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm   
 #else
-  #define NODE_ID                       2                           // only define a node ID if FlockLAB is not used
-#endif // FLOCKLAB
+  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
+   * assigns node IDs); select an ID other than HOST_ID to compile the code 
+   * for a source node */
+  #define NODE_ID                       2                           
+#endif /* FLOCKLAB */
 
-// LWB
-#define LWB_SCHED_STATIC                                            // use the static scheduler
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0                           // set the length (in bytes) of the additional stream information
+/* LWB configuration */
+#define LWB_SCHED_STATIC                         /* use the static scheduler */
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
 
-#define RF_CONF_TX_CH                   5               // select the channel that is best suited for the test/deployment environment
-
-#define DEBUG_PRINT_CONF_NUM_MSG        5
-#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO  // select the debug level, must be of type debug_level_t
-
+/* select the debug level, must be of type debug_level_t */
+#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO        
 
 #endif /* __CONFIG_H__ */

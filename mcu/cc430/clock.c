@@ -57,7 +57,7 @@ clock_init(void)
   P5SEL |= BIT0 + BIT1;
   /* set internal load capacitor for XT1 */
   UCSCTL6 |= XCAP_3;
-#endif
+#endif /* CLOCK_CONF_XT1_ON */
   
   /* initially, use the internal REFO and DCODIV clock sources */
   UCSCTL3 = SELREF__REFOCLK | FLLREFDIV_0;
@@ -65,13 +65,10 @@ clock_init(void)
   /* wait until XT1, XT2, and DCO stabilize */
   WAIT_FOR_OSC();
   
-  /* enable oscillator fault interrupt (NMI) */
-  SFRIE1 = OFIE;
-
 #if CLOCK_CONF_XT1_ON
   /* XT1 is now stable: reduce its drive strength to save power */
   UCSCTL6 &= ~XT1DRIVE_3;
-#endif
+#endif /* CLOCK_CONF_XT1_ON */
 
   /* set the DCO frequency to 3.25 MHz */
   /* disable the FLL control loop */
@@ -98,5 +95,30 @@ clock_init(void)
   /* finally, use the desired clock sources and speeds */
   UCSCTL4 = SELA | SELS | SELM;
   UCSCTL5 = DIVA | DIVS | DIVM;
+  
+  /* oscillator fault flag may be set after switching the clock source */
+  WAIT_FOR_OSC();
+  
+  /* enable oscillator fault interrupt (NMI) */
+  SFRIE1 = OFIE;
+}
+/*---------------------------------------------------------------------------*/
+ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
+{    
+  PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
+  switch (SYSUNIV) {
+    case SYSUNIV_NMIIFG:        /* non-maskable interrupt */
+      break;
+    case SYSUNIV_OFIFG:         /* oscillator fault */
+      WAIT_FOR_OSC();           /* try to clear the fault flag */
+      break;
+    case SYSUNIV_ACCVIFG:       /* Access Violation */
+      break;
+    case SYSUNIV_SYSBERRIV:
+      break;                    /* Bus Error */
+    default:
+      break;
+  }
+  PIN_CLR(LED_ERROR);
 }
 /*---------------------------------------------------------------------------*/

@@ -34,8 +34,14 @@
  */
 
 /**
+ * @addtogroup  lwb-scheduler
+ * @{
+ *
+ * @defgroup    sched-min-energy Min energy scheduler
+ * @{
+ *
  * @brief
- * This is an implementation of a scheduler for the LWB.
+ * a scheduler implementation for the LWB
  * 
  * The scheduler tries to minimize energy consumption by maximizing the
  * period such that the bandwidth demands in the network are still met.
@@ -211,6 +217,10 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     (lwb_stream_extra_data_t*)req->extra_data;
   sched_stats.t_last_req = time;
      
+  if(LWB_INVALID_STREAM_ID == req->stream_id) { 
+    DEBUG_PRINT_ERROR("invalid stream request (LWB_INVALID_STREAM_ID)");
+    return; 
+  }  
   if(n_pending_sack >= LWB_CONF_SCHED_SACK_BUFFER_SIZE) {
     DEBUG_PRINT_ERROR("max. number of sack's reached, stream request dropped");
     return;
@@ -277,8 +287,8 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
           memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);
           pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
           n_pending_sack++;
-          DEBUG_PRINT_VERBOSE("stream request %u.%u processed (IPI updated)", 
-                              req->node_id, req->stream_id);
+          DEBUG_PRINT_VERBOSE("stream %u.%u updated (IPI %u)", 
+                              req->node_id, req->stream_id, req->ipi);
           /* save the changes */
           xmem_write(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&s);
           return;
@@ -760,3 +770,8 @@ lwb_sched_init(lwb_schedule_t* sched)
 /*---------------------------------------------------------------------------*/
 
 #endif /* LWB_SCHED_MIN_ENERGY */
+
+/**
+ * @}
+ * @}
+ */

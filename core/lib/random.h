@@ -29,6 +29,17 @@
  * This file is part of the Contiki operating system.
  *
  */
+
+/**
+ * @addtogroup  lib
+ * @{
+ *
+ * @defgroup    random Random number generator
+ * @{
+ * 
+ * @file
+ */
+
 #ifndef __RANDOM_H__
 #define __RANDOM_H__
 
@@ -50,3 +61,8 @@ unsigned short random_rand(void);
 #define RANDOM_RAND_MAX 65535U
 
 #endif /* __RANDOM_H__ */
+
+/**
+ * @}
+ * @}
+ */

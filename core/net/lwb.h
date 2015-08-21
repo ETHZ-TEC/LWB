@@ -34,10 +34,10 @@
  */
 
 /**
- * @addtogroup  net
+ * @addtogroup  Net
  * @{
  *
- * @defgroup    lwb LWB
+ * @defgroup    lwb The Low-Power Wireless Bus (LWB)
  * @{
  *
  * @file 
@@ -61,9 +61,9 @@
 #endif /* LWB_CONF_STREAM_EXTRA_DATA_LEN */
 
 #ifndef LWB_CONF_MAX_DATA_PKT_LEN
-/* max. length of a data packet (not including the LWB header), determines 
- * T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, choose as 
- * small as possible */
+/* max. length of a data packet incl. the LWB header (node + stream ID), 
+ * determines T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, 
+ * choose as small as possible; mustn't be > LWB_CONF_MAX_PACKET_LEN */
 #define LWB_CONF_MAX_DATA_PKT_LEN       48
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
@@ -137,6 +137,11 @@
 #define LWB_CONF_OUT_BUFFER_SIZE        1
 #endif /* LWB_CONF_IN_BUFFER_SIZE */
 
+/* ensure that the buffer can at least hold one data packet */
+#if !LWB_CONF_IN_BUFFER_SIZE || !LWB_CONF_OUT_BUFFER_SIZE
+#error "invalid LWB buffer size configuration!"
+#endif 
+
 #ifndef LWB_CONF_STATS_NVMEM
 /* keep statistics in non-volatile memory? */
 #define LWB_CONF_STATS_NVMEM            1         
@@ -144,7 +149,8 @@
 
 #ifndef LWB_CONF_MAX_PACKET_LEN
 /* the max. length of a packet (limits the message size as well as the max. 
- * size of a LWB packet and the schedule) */
+ * size of a LWB packet and the schedule); do not change this value before
+ * you have adjusted the radio module configuration! */
 #define LWB_CONF_MAX_PACKET_LEN         127
 #endif /* LWB_CONF_MAX_PACKET_LEN */
 
@@ -205,6 +211,7 @@
 #endif /* LWB_CONF_LF_RTIMER_ID */
 
 #ifndef LWB_CONF_MAX_N_STREAMS_PER_NODE
+/* this value may not be higher than 32! */
 #define LWB_CONF_MAX_N_STREAMS_PER_NODE 32
 #endif /* LWB_CONF_MAX_STREAM_CNT_PER_NODE */
 
@@ -258,8 +265,6 @@
                                      LWB_T_HOP(len))
                                      
 #define MAX(x, y)                   ((x) > (y) ? (x) : (y))
-
-#define LWB_INVALID_STREAM_ID       0xff
 
 #define LWB_RECIPIENT_LOCAL         0x0000  /* localhost / loopback */
 #define LWB_RECIPIENT_HOST          0xfffd  /* to the host */
@@ -320,7 +325,7 @@ void lwb_start(void *pre_lwb_proc, void *post_lwb_proc);
 
 /**
  * @brief query the connection status of the LWB
- * @return the 
+ * @return the LWB state, lwb_conn_state_t 
  */
 lwb_conn_state_t lwb_get_state(void);
 
@@ -336,23 +341,29 @@ uint8_t lwb_is_active(void);
  * @param data a pointer to the data packet to send
  * @param len the length of the data packet (must be less or equal 
  * LWB_MAX_PACKET_LEN)
+ * @return 1 if successful, 0 otherwise (queue full)
  */
-uint8_t lwb_send_data(uint16_t recipient, 
-                      uint8_t stream_id, 
-                      const uint8_t * const data, 
-                      uint8_t len);
+uint8_t lwb_put_data(uint16_t recipient, 
+                     uint8_t stream_id, 
+                     const uint8_t * const data, 
+                     uint8_t len);
 
 /**
- * @brief receive a data packet that have been received during the previous LWB
+ * @brief get a data packet that have been received during the previous LWB
  * rounds
  * @param out_data A valid memory block that can hold one data packet. The 
  * buffer must be at least LWB_MAX_PACKET_LEN bytes long.
- * @param out_stream_id Pointer to a variable where the stream ID will be 
- * copied to (optional parameter).
- * @note once a data packet was retrieved, it will be removed from the internal
+ * @param out_node_id the ID of the node that sent the message (optional 
+ * parameter, pass 0 if not interested in this data)
+ * @param out_stream_id the stream ID (optional parameter, pass 0 if not 
+ * interested in this data)
+ * @return the length of the data packet in bytes or 0 if the queue is empty
+ * @note once a data packet was requested, it will be removed from the internal
  * buffer
  */
-uint8_t lwb_rcv_data(uint8_t* out_data, uint8_t * const out_stream_id);
+uint8_t lwb_get_data(uint8_t* out_data, 
+                     uint16_t * const out_node_id, 
+                     uint8_t * const out_stream_id);
 
 /**
  * @brief check the status of the receive buffer (incoming messages)
@@ -377,9 +388,7 @@ uint8_t lwb_get_send_buffer_state(void);
  * into an internal buffer and may be deleted after calling 
  * lwb_request_stream().
  */
-uint8_t lwb_request_stream(lwb_stream_t* stream_request, uint8_t urgent);
-
-uint8_t lwb_get_stream_state(uint8_t stream_id);
+uint8_t lwb_request_stream(lwb_stream_req_t* stream_request, uint8_t urgent);
 
 /**
  * @brief get the LWB statistics

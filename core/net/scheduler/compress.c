@@ -33,7 +33,13 @@
  *          Marco Zimmerling
  */
 
-/**
+/** 
+ * @addtogroup  lwb-scheduler
+ * @{
+ *
+ * @defgroup    compress Scheduler compression routine
+ * @{
+ *
  * @file 
  * @brief compress / uncompress routines for the schedule
  *
@@ -202,3 +208,8 @@ lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
+
+/**
+ * @}
+ * @}
+ */

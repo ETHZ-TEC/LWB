@@ -68,106 +68,75 @@
 #include "contiki.h"
 #include "platform.h"
 
-
+/*---------------------------------------------------------------------------*/
+#define IS_HOST         (node_id == HOST_ID)
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
-{
-  PROCESS_BEGIN();
+{    
+    static uint8_t stream_state = 0;
+    
+    PROCESS_BEGIN();
   
-  // ----- INIT -----
-
-#if BOLT_CONF_ON
-  bolt_init(0);
-#endif /* BOLT_CONF_ON */
+  /* all the necessary initialization is done in contiki-cc430-main.c */
   
-  lwb_start(0, &app_process);   /* start the LWB thread */
+  if(!IS_HOST) {
+    adc_init();
+  }
   
+  /* start the LWB thread */
+  lwb_start(0, &app_process);
+  
+  /* main loop of this application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);      
-    DEBUG_PRINT_INFO("application task runs now...");
-        
-    //rf1a_get_rssi();
-    //rf1a_get_last_packet_rssi();
-    /*if (RF1AIFCTL1 & RFERRIFG)
-    {
-        DEBUG_PRINT_MSG_NOW("error flag set!");
+    /*DEBUG_PRINT_INFO("application task runs now...");*/
+    
+    if(IS_HOST) {
+      /* we are the host */
+      /* print out the received data */
+      uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN];
+      uint16_t sender_id;
+      uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, 0);
+      if(pkt_len) {
+        DEBUG_PRINT_INFO("data packet received from node %u: "
+                         "%u°C, %umV", 
+                         sender_id, pkt_buffer[0], 
+                         (uint16_t)pkt_buffer[1] * 4 + 2000);
+      } 
     } else {
-        DEBUG_PRINT_MSG_NOW("no error");
-    }*/
-    DELAY(100);
-    //PROCESS_PAUSE();
+      /* we are a source node */
+      if(stream_state != LWB_STREAM_STATE_ACTIVE) {
+        stream_state = lwb_stream_get_state(1);
+        if(stream_state == LWB_STREAM_STATE_INACTIVE) {
+          /* request a stream with ID 1 and IPI 5 */
+          lwb_stream_req_t my_stream = { node_id, 0, 1, 20 };
+          if(!lwb_request_stream(&my_stream, 0)) {
+            DEBUG_PRINT_ERROR("stream request failed");
+          }
+        }
+      } else {
+        /* collect ADC samples and create a data packet */
+        uint8_t data[2];
+        adc_get_data(data);
+        if(!lwb_put_data(0, 1, data, 2)) {
+          DEBUG_PRINT_WARNING("out queue full, packet dropped");
+        } else {
+          DEBUG_PRINT_INFO("data packet passed to the LWB (%u, %u)", 
+                           data[0], data[1]);
+        }
+      }        
+    }
+    /* output some info */
+    /*DEBUG_PRINT_INFO("RSSI value: %u (last: %u)", rf1a_get_rssi(), 
+                                                rf1a_get_last_packet_rssi());*/
+    /*DELAY(100);*/
   }
 
   PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
-ISR(PORT1, port1_interrupt) 
-{    
-  ENERGEST_ON(ENERGEST_TYPE_CPU);
-  
-#ifdef DEBUG_SWITCH
-  if(PIN_IFG(DEBUG_SWITCH)) {
-    PIN_CLR_IFG(DEBUG_SWITCH);
-#if BOLT_CONF_ON
-    char msg_buffer[BOLT_CONF_MAX_MSG_LEN];
-    strcpy(msg_buffer, "hallo welt");
-    BOLT_WRITE((uint8_t*)msg_buffer, strlen(msg_buffer));
-    DEBUG_PRINT_MSG_NOW("message sent to BOLT");
-#else /* BOLT_CONF_ON */
-    static volatile uint8_t push_count = 0;
-    if(push_count > 4) {
-      WDTCTL &= ~WDTHOLD; /* trigger a watchdog password violation */
-    } else if(push_count > 3) {
-      DEBUG_PRINT_MSG_NOW("1..");
-    } else if(push_count > 2) {
-      DEBUG_PRINT_MSG_NOW("2..");
-    } else if(push_count > 1) {
-      DEBUG_PRINT_MSG_NOW("3..");
-    } else if(push_count > 0) {
-      DEBUG_PRINT_MSG_NOW("4..");
-    } else {
-      DEBUG_PRINT_MSG_NOW("Reset in 5..");
-    }
-    push_count++;         
-#endif /* BOLT_CONF_ON */
-  } 
-#endif /* DEBUG_SWITCH */
-
-  ENERGEST_OFF(ENERGEST_TYPE_CPU);
-}
-/*---------------------------------------------------------------------------*/
-ISR(PORT2, port2_interrupt)
-{
-  ENERGEST_ON(ENERGEST_TYPE_CPU);
-
-#if BOLT_CONF_ON
-  bolt_handle_irq();
-#endif
-  
-  ENERGEST_OFF(ENERGEST_TYPE_CPU);
-}
-/*---------------------------------------------------------------------------*/
-ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
-{    
-  PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
-  switch (SYSUNIV) {
-    case SYSUNIV_NMIIFG:        /* non-maskable interrupt */
-      break;
-    case SYSUNIV_OFIFG:         /* oscillator fault */
-      WAIT_FOR_OSC();           /* try to clear the fault flag */
-      break;
-    case SYSUNIV_ACCVIFG:       /* Access Violation */
-      break;
-    case SYSUNIV_SYSBERRIV:
-      break;                    /* Bus Error */
-    default:
-      break;
-  }
-  PIN_CLR(LED_ERROR);
 }
 /*---------------------------------------------------------------------------*/

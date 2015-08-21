@@ -34,17 +34,19 @@
  */
 
 /**
- * @addtogroup  net
+ * @addtogroup  lwb
  * @{
  *
- * @defgroup    scheduler LWB scheduler
+ * @defgroup    lwb-scheduler Scheduler
  * @{
  *
  * @file 
+ *
+ * @brief 
+ * interface definition for LWB schedulers
  * 
- * @brief   scheduler/stream manager for the LWB, runs on the host node only
- * 
- * This is a generic template of scheduler implementations for the LWB.
+ * This is a generic template for scheduler implementations for the LWB.
+ * The scheduler for the LWB runs on the host node only.
  */
  
 #ifndef __SCHEDULER_H__
@@ -117,14 +119,18 @@ typedef struct {
  * @note the stream_info must be the same as the stream_info in the struct 
  * lwb_stream_min_t
  */
-#define LWB_STREAM_REQ_HEADER_LEN  5
+#define LWB_STREAM_REQ_HEADER_LEN  6
 #define LWB_STREAM_REQ_PKT_LEN     (LWB_STREAM_REQ_HEADER_LEN + \
                                     LWB_CONF_STREAM_EXTRA_DATA_LEN)
 typedef struct {
     uint16_t node_id;       /* ID of this node */
+    uint8_t  reserved;      /* padding for alignment to 16-bit
+                             * or use #pragma pack(1) [...] #pragma pack() */
     uint8_t  stream_id;     /* stream ID (chosen by the source node) */
     uint16_t ipi;
+#if LWB_CONF_STREAM_EXTRA_DATA_LEN
     uint8_t  extra_data[LWB_CONF_STREAM_EXTRA_DATA_LEN];
+#endif /* LWB_CONF_STREAM_EXTRA_DATA_LEN */
 } lwb_stream_req_t;
 
 #define LWB_SACK_MIN_PKT_LEN       4
