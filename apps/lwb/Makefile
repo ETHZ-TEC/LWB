@@ -14,13 +14,11 @@ SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
 #$(info hello world = $(SRCS))
 #SRCS = lwb.c scheduler.c compress.c mm.c stream.c
 
-#WITH_GLOSSY = 1  -> no need to define this
-
 include $(CONTIKI)/Makefile.include
 
 all: $(CONTIKI_PROJECT)
 
-flocklab: 
+flocklab:
 # embed image
 	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).$(TARGET).b64
 	@sed -i -n '1h;1!H;$${ g;s/<data>.*<\/data>/<data>\n<\/data>/;p}' flocklab-cc430.xml

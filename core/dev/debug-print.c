@@ -65,7 +65,6 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   
 #ifdef DEBUG_PRINT_TASK_ACT_PIN
   PIN_CFG_OUT(DEBUG_PRINT_TASK_ACT_PIN);
-  PIN_CLR(DEBUG_PRINT_TASK_ACT_PIN);
 #endif
   
 #if DEBUG_PRINT_CONF_USE_XMEM
@@ -91,7 +90,6 @@ PROCESS_THREAD(debug_print_process, ev, data) {
     DEBUG_PRINT_TASK_ACTIVE;
     
 #if DEBUG_PRINT_CONF_USE_XMEM
-    
     next_msg = start_addr_msg;
     while(n_buffered_msg > 0) {
       /* load the message from the external memory */
@@ -115,7 +113,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       buffer_full = 0;
     }
     xmem_sleep();       // must be AFTER all the printf() statements
-    
+
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
     
     while(list_length(debug_print_list) > 0) {      
@@ -133,7 +131,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
 //      }
 //    #endif /* WITH_GLOSSY */
 //  #endif /* WITH_RADIO */
-      DEBUG_PRINT_TASK_ACTIVE;
+      /*DEBUG_PRINT_TASK_ACTIVE;*/
       /* print the first message in the queue */
       debug_print_t *msg = list_head(debug_print_list);
   #ifdef DEBUG_PRINT_DISABLE_UART
@@ -147,8 +145,8 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       /* remove it from the queue */
       list_remove(debug_print_list, msg);
       memb_free(&debug_print_memb, msg);
-      DEBUG_PRINT_TASK_SUSPENDED;
-      PROCESS_PAUSE();
+      /*DEBUG_PRINT_TASK_SUSPENDED;
+        PROCESS_PAUSE();*/
     }  
     if (buffer_full) {
       printf("WARNING: Debug messages dropped (buffer full)!\r\n");
@@ -263,6 +261,11 @@ debug_print_msg_now(char *module, char *data)
 /*---------------------------------------------------------------------------*/
 void
 debug_print_init(void)
+{
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_poll(void)
 {
 }
 /*---------------------------------------------------------------------------*/

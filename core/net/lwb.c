@@ -742,7 +742,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
            * role of the host */
         }
 #endif /* LWB_CONF_T_SILENT */
-        putchar('.');
+        /*putchar('.');*/
       } while(!glossy_is_t_ref_updated() || !LWB_SCHED_IS_1ST(&schedule));
       /* schedule received! */
       putchar('\r');

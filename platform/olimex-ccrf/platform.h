@@ -102,28 +102,35 @@
 #define LED_0                       LED_RED 
 #define LED_STATUS                  LED_RED
 #define LED_ERROR                   LED_RED
+#ifndef FLOCKLAB
 #define DEBUG_SWITCH                PORT1, PIN1  /* user push-button */
+#endif /* FLOCKLAB */
 #define FRAM_CONF_CTRL_PIN          PORT1, PIN7
-/*
-#define FLOCKLAB_LED1               PORT1, PIN0
-#define FLOCKLAB_LED2               PORT1, PIN1
-#define FLOCKLAB_LED3        
-#define FLOCKLAB_INT1               PORT3, PIN6
-#define FLOCKLAB_INT2               PORT3, PIN7
-*/
-#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
-#define LWB_CONF_TASK_ACT_PIN       PORT2, PIN1
-#define GLOSSY_START_PIN            LED_0
-#define GLOSSY_RX_PIN               PORT2, PIN3
-#define GLOSSY_TX_PIN               PORT2, PIN4
+
+/* the following pins assignments are given by FlockLAB, do not change */
+#ifdef FLOCKLAB
+#define FLOCKLAB_LED1               PORT1, PIN0  /* for GPIO tracing */
+#define FLOCKLAB_LED2               PORT1, PIN1  /* for GPIO tracing */
+#define FLOCKLAB_LED3               PORT1, PIN2  /* for GPIO tracing */
+#define FLOCKLAB_SIG1               PORT1, PIN3  /* target actuation */
+#define FLOCKLAB_SIG2               PORT1, PIN4  /* target actuation */
+#define FLOCKLAB_INT1               PORT3, PIN6  /* for GPIO tracing */
+#define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
+#define GLOSSY_START_PIN            FLOCKLAB_INT1
+#define RF_GDO2_PIN                 FLOCKLAB_INT2
+#endif /* FLOCKLAB */
+
+/*#define DEBUG_PRINT_TASK_ACT_PIN  PORT2, PIN0*/
+/*#define LWB_CONF_TASK_ACT_PIN     PORT2, PIN1*/
+/*#define GLOSSY_RX_PIN             PORT2, PIN3*/
+/*#define GLOSSY_TX_PIN             PORT2, PIN4*/
 /*#define RF_GDO0_PIN               PORT1, PIN2 */
 /*#define RF_GDO1_PIN               PORT1, PIN3 */
-#define RF_GDO2_PIN                 PORT1, PIN4
 /* note: rf1a_init sets the GDO2 signal as follows: Asserts when sync word has
  * been sent or received, and deasserts at the end of the packet. In RX, the 
  * pin deassert when the optional address check fails or the RX FIFO 
  * overflows. In TX the pin deasserts if the TX FIFO underflows. */
-#define MCLK_PIN                    PORT2, PIN5
+/*#define MCLK_PIN                  PORT2, PIN5*/
 /*#define ACLK_PIN                  PORT3, PIN3*/
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 

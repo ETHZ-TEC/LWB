@@ -64,7 +64,7 @@
 /* max. length of a data packet incl. the LWB header (node + stream ID), 
  * determines T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, 
  * choose as small as possible; mustn't be > LWB_CONF_MAX_PACKET_LEN */
-#define LWB_CONF_MAX_DATA_PKT_LEN       48
+#define LWB_CONF_MAX_DATA_PKT_LEN       16
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
 #ifndef LWB_CONF_USE_XMEM
@@ -129,7 +129,7 @@
 
 #ifndef LWB_CONF_IN_BUFFER_SIZE         
 /* size (#elements) of the internal data buffer/queue for incoming messages */
-#define LWB_CONF_IN_BUFFER_SIZE         1
+#define LWB_CONF_IN_BUFFER_SIZE         20
 #endif /* LWB_CONF_IN_BUFFER_SIZE */
 
 #ifndef LWB_CONF_OUT_BUFFER_SIZE         
@@ -157,7 +157,7 @@
 #ifndef LWB_CONF_MAX_DATA_SLOTS
 /* max. number of data slots per round, must not exceed MIN(63, 
  * (LWB_CONF_MAX_PACKET_LEN - LWB_CONF_SCHED_HEADER_LEN) / 2) */
-#define LWB_CONF_MAX_DATA_SLOTS         40        
+#define LWB_CONF_MAX_DATA_SLOTS         20        
 #endif /* LWB_CONF_MAX_DATA_SLOTS */
 
 #ifndef LWB_CONF_TX_CNT_SCHED

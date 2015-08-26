@@ -75,21 +75,21 @@
 
 /* note: all following macros ending with '_I' (immediate) can only be used
  * when passing numbers directly (no defines or variables) */
-#define PIN_XOR_I(port, pin)            P##port##OUT ^= BIT##pin
-#define PIN_SET_I(port, pin)            P##port##OUT |= BIT##pin
-#define PIN_CLR_I(port, pin)            P##port##OUT &= ~BIT##pin
-#define PIN_SEL_I(port, pin)            P##port##SEL |= BIT##pin
-#define PIN_UNSEL_I(port, pin)          P##port##SEL &= ~BIT##pin
-#define PIN_CFG_OUT_I(port, pin)        P##port##DIR |= BIT##pin
-#define PIN_CFG_IN_I(port, pin)         P##port##DIR &= ~BIT##pin
-#define PIN_MAP_I(port, pin, map)       P##port##MAP##pin = map
-#define PIN_CLR_IFG_I(port, pin)        P##port##IFG &= ~BIT##pin
+#define PIN_XOR_I(port, pin)            (P##port##OUT ^= BIT##pin)
+#define PIN_SET_I(port, pin)            (P##port##OUT |= BIT##pin)
+#define PIN_CLR_I(port, pin)            (P##port##OUT &= ~BIT##pin)
+#define PIN_SEL_I(port, pin)            (P##port##SEL |= BIT##pin)
+#define PIN_UNSEL_I(port, pin)          (P##port##SEL &= ~BIT##pin)
+#define PIN_CFG_OUT_I(port, pin)        (P##port##DIR |= BIT##pin)
+#define PIN_CFG_IN_I(port, pin)         (P##port##DIR &= ~BIT##pin)
+#define PIN_MAP_I(port, pin, map)       (P##port##MAP##pin = map)
+#define PIN_CLR_IFG_I(port, pin)        (P##port##IFG &= ~BIT##pin)
 /* only has an effect if the pin is configured as input */
-#define PIN_RES_EN_I(port, pin)         P##port##REN |= BIT##pin
-#define PIN_IES_RISING_I(port, pin)     P##port##IES &= ~BIT##pin
-#define PIN_IES_FALLING_I(port, pin)    P##port##IES |= BIT##pin
-#define PIN_IES_TOGGLE_I(port, pin)     P##port##IES ^= BIT##pin
-#define PIN_INT_EN_I(port, pin)         P##port##IE |= BIT##pin
+#define PIN_RES_EN_I(port, pin)         (P##port##REN |= BIT##pin)
+#define PIN_IES_RISING_I(port, pin)     (P##port##IES &= ~BIT##pin)
+#define PIN_IES_FALLING_I(port, pin)    (P##port##IES |= BIT##pin)
+#define PIN_IES_TOGGLE_I(port, pin)     (P##port##IES ^= BIT##pin)
+#define PIN_INT_EN_I(port, pin)         (P##port##IE |= BIT##pin)
 #define PIN_CFG_INT_I(port, pin)        { \
     PIN_CFG_IN_I(port, pin); \
     PIN_IES_RISING_I(port, pin); \
@@ -98,19 +98,19 @@
 }
 #define PIN_IFG_I(port, pin)            (P##port##IFG & (uint8_t)(BIT##pin))
 #define PIN_GET_I(port, pin)            (P##port##IN & (uint8_t)(BIT##pin))
-#define PORT_XOR_I(port)                P##port##OUT ^= 0xff
-#define PORT_SET_I(port)                P##port##OUT = 0xff
-#define PORT_CLR_I(port)                P##port##OUT = 0x00
-#define PORT_SEL_I(port)                P##port##SEL = 0xff
-#define PORT_UNSEL_I(port)              P##port##SEL = 0x00
-#define PORT_RES_EN_I(port)             P##port##REN = 0xff
+#define PORT_XOR_I(port)                (P##port##OUT ^= 0xff)
+#define PORT_SET_I(port)                (P##port##OUT = 0xff)
+#define PORT_CLR_I(port)                (P##port##OUT = 0x00)
+#define PORT_SEL_I(port)                (P##port##SEL = 0xff)
+#define PORT_UNSEL_I(port)              (P##port##SEL = 0x00)
+#define PORT_RES_EN_I(port)             (P##port##REN = 0xff)
 #define PIN_PULLUP_EN_I(port, pin)      { PIN_RES_EN_I(port, pin); \
                                           PIN_SET_I(port, pin); }
 #define PIN_PULLDOWN_EN_I(port, pin)    { PIN_RES_EN_I(port, pin); \
                                           PIN_CLR_I(port, pin); }
-#define PORT_CLR_IFG_I(port)            P##port##IFG = 0x00
-#define PORT_CFG_OUT_I(port)            P##port##DIR = 0xff
-#define PORT_CFG_IN_I(port)             P##port##DIR = 0x00
+#define PORT_CLR_IFG_I(port)            (P##port##IFG = 0x00)
+#define PORT_CFG_OUT_I(port)            (P##port##DIR = 0xff)
+#define PORT_CFG_IN_I(port)             (P##port##DIR = 0x00)
 
 /* do NOT call this macro from within an ISR! */
 #define PIN_MAP_AS_OUTPUT_I(port, pin, map)  { \

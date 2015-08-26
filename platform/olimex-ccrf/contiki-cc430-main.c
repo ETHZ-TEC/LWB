@@ -125,7 +125,9 @@ main(int argc, char **argv)
   PORT_CLR_I(J);
     
   /* board-specific optimal configuration of unused pins */
+#ifndef FLOCKLAB
   PIN_SET_I(1, 1);    /* push-button, tied to 3V */
+#endif /* FLOCKLAB */
   PIN_SET_I(1, 6);    /* UART TX, set high if pin is in use */
   PIN_SET_I(1, 7);    /* SPI B0 STE (is tied to 3V) */
 

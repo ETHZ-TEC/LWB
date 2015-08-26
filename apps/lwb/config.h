@@ -38,8 +38,8 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
-#define HOST_ID    2                              
+#define FLOCKLAB                           /* uncomment to run on FlockLAB */
+#define HOST_ID    2
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
@@ -54,8 +54,13 @@
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
+#define LWB_CONF_TASK_ACT_PIN           FLOCKLAB_LED1
 
-/* select the debug level, must be of type debug_level_t */
-#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO        
+/* debug config */
+#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#define DEBUG_PRINT_TASK_ACT_PIN        FLOCKLAB_LED2
+
+/* application config */
+#define APP_TASK_ACT_PIN                FLOCKLAB_LED3
 
 #endif /* __CONFIG_H__ */
