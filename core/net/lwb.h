@@ -134,7 +134,7 @@
 
 #ifndef LWB_CONF_OUT_BUFFER_SIZE         
 /* size (#elements) of the internal data buffer/queue for outgoing messages */
-#define LWB_CONF_OUT_BUFFER_SIZE        1
+#define LWB_CONF_OUT_BUFFER_SIZE        2
 #endif /* LWB_CONF_IN_BUFFER_SIZE */
 
 /* ensure that the buffer can at least hold one data packet */
@@ -156,8 +156,8 @@
 
 #ifndef LWB_CONF_MAX_DATA_SLOTS
 /* max. number of data slots per round, must not exceed MIN(63, 
- * (LWB_CONF_MAX_PACKET_LEN - LWB_CONF_SCHED_HEADER_LEN) / 2) */
-#define LWB_CONF_MAX_DATA_SLOTS         20        
+ * (LWB_CONF_MAX_PACKET_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2) */
+#define LWB_CONF_MAX_DATA_SLOTS         50        
 #endif /* LWB_CONF_MAX_DATA_SLOTS */
 
 #ifndef LWB_CONF_TX_CNT_SCHED
@@ -348,7 +348,7 @@ uint8_t lwb_put_data(uint16_t recipient,
                      const uint8_t * const data, 
                      uint8_t len);
 
-/**
+/** 
  * @brief get a data packet that have been received during the previous LWB
  * rounds
  * @param out_data A valid memory block that can hold one data packet. The 

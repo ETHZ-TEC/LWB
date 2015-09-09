@@ -137,7 +137,6 @@ rtimer_schedule(rtimer_id_t timer,
                 rtimer_clock_t period,
                 rtimer_callback_t func)
 {
-  // TODO: if RF_CONF_ON, then add +1 to LF timer IDs!
   if((timer < NUM_OF_RTIMERS) && (rt[timer].state != RTIMER_SCHEDULED)) {
     rt[timer].func = func;
     rt[timer].period = period;
@@ -202,9 +201,11 @@ rtimer_update_enable(uint8_t enable)
   if(enable) {
     TA0CTL |= TAIE; 
     TA1CTL |= TAIE;
+    *(&TA0CCTL0 + LWB_CONF_RTIMER_ID) |= CCIE;
   } else {
     TA0CTL &= ~TAIE; 
-    TA1CTL &= ~TAIE;      
+    TA1CTL &= ~TAIE;
+    *(&TA0CCTL0 + LWB_CONF_RTIMER_ID) &= ~CCIE;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -302,7 +303,7 @@ clock_time(void)
 ISR(TIMER0_A0, timer0_a0_interrupt) 
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-
+  
   RTIMER_HF_CALLBACK(RTIMER_HF_0);
   if(process_nevents() > 0) {
     LPM4_EXIT;
@@ -334,7 +335,6 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
   case TA0IV_TA0IFG:
     /* overflow of timer A0: increment its software extension */
     ta0_sw_ext++;
-
     /* increment also the etimer count */
     count++;
     /* check whether there are etimers ready to be served */
@@ -346,7 +346,7 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
     break;
   default: break;
   }
-
+  
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
 /*---------------------------------------------------------------------------*/
@@ -354,7 +354,7 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
 ISR(TIMER1_A0, timer1_a0_interrupt) 
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-
+  
   RTIMER_LF_CALLBACK(RTIMER_LF_0);
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
@@ -364,7 +364,7 @@ ISR(TIMER1_A0, timer1_a0_interrupt)
 ISR(TIMER1_A1, timer1_a1_interrupt) 
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-
+  
   switch(TA1IV) {
   case TA1IV_TA1CCR1:
     RTIMER_LF_CALLBACK(RTIMER_LF_1);

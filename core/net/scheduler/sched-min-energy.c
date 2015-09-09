@@ -238,6 +238,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
           /* already exists -> update the IPI */
           s->ipi = req->ipi;
           s->last_assigned = time + extra_data->t_offset;
+          s->n_cons_missed = 0;         /* reset this counter */
           /* insert into the list of pending S-ACKs */
           memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);
           pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
@@ -282,7 +283,8 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         if(req->node_id == s.node_id && req->stream_id == s.stream_id) {
           /* already exists -> update the IPI */
           s.ipi = req->ipi;
-          s.last_assigned = time + extra_data->t_offset;  
+          s.last_assigned = time + extra_data->t_offset;
+          s.n_cons_missed = 0;         /* reset this counter */
           /* insert into the list of pending S-ACKs */
           memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);
           pending_sack[n_pending_sack * 4 + 2] = req->stream_id;

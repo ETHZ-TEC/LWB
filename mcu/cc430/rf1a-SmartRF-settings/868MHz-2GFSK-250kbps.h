@@ -1,23 +1,23 @@
 /* Sync word qualifier mode = 30/32 sync word bits detected */
 /* CRC autoflush = false */
-/* Channel spacing = 199.951172 */
+/* Channel spacing = 199.951172 (default value, MDMCFG2[0:1]) */
 /* Data format = Normal mode */
 /* Data rate = 249.939 */
 /* RX filter BW = 541.666667 */
 /* PA ramping = false */
-/* Preamble count = 4 */
-/* Whitening = true */
+/* Preamble count = 4 (default value, MDMCFG1[4:6]) */
+/* Whitening = true (enabled by default, PKTCTRL0[6]) */
 /* Address config = No address check */
 /* Carrier frequency = 867.999939 */
 /* Device address = 0 */
 /* TX power = 0 */
 /* Manchester enable = false */
-/* CRC enable = true */
+/* CRC enable = true (enabled by default, PKTCTRL0[2]) */
 /* Deviation = 126.953125 */
 /* Packet length mode = Variable packet length mode. Packet length */
 /*                      configured by the first byte after sync word */
 /* Packet length = 255 */
-/* Modulation format = 2-GFSK */
+/* Modulation format = 2-GFSK (MDMCFG2[6:4] = 1) */
 /* Base frequency = 867.999939 */
 /* Modulated = true */
 /* Channel number = 0 */
@@ -58,12 +58,12 @@
 #define SMARTRF_TEST0      0x09 /* various test settings */
 
 /* values for Glossy (measured with the logic analyzer, in ns) */
-#define TAU1 (rtimer_clock_t)13540  /* 13.54 us */
-#define TAU2 (rtimer_clock_t)11860  /* 11.86 us */
-#define T2R  (rtimer_clock_t)302100 /* 302.1 us */
-#define R2T  (rtimer_clock_t)276700 /* 276.7 us */
-#define T_TX_BYTE   (rtimer_clock_t)32010 /* 32.01 us */
-#define T_TX_OFFSET (rtimer_clock_t)4100  /* 4.100 us */
+#define TAU1               (rtimer_clock_t)13540  /* 13.54 us */
+#define TAU2               (rtimer_clock_t)11860  /* 11.86 us */
+#define T2R                (rtimer_clock_t)302100 /* 302.1 us */
+#define R2T                (rtimer_clock_t)276700 /* 276.7 us */
+#define T_TX_BYTE          (rtimer_clock_t)32010 /* 32.01 us */
+#define T_TX_OFFSET        (rtimer_clock_t)4100  /* 4.100 us */
 
 #endif /* __SMARTRF_CC430_H__ */
 

@@ -46,6 +46,14 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
+#ifdef APP_TASK_ACT_PIN
+#define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
+#define TASK_SUSPENDED          PIN_CLR(APP_TASK_ACT_PIN)
+#else
+#define TASK_ACTIVE
+#define TASK_SUSPENDED
+#endif /* APP_TASK_ACT_PIN */
+/*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
@@ -70,20 +78,24 @@ PROCESS_THREAD(app_process, ev, data)
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-    PIN_SET(APP_TASK_ACT_PIN);      /* application task runs now */
+    TASK_ACTIVE;      /* application task runs now */
     
     if(HOST_ID == node_id) {
       /* we are the host */
       /* print out the received data */
       uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN];
       uint16_t sender_id;
-      uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, 0);
-      if(pkt_len) {
-        /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-        DEBUG_PRINT_MSG_NOW("data packet received from node %u: "
-                            "%u°C, %umV", 
-                            sender_id, pkt_buffer[0], 
-                            (uint16_t)pkt_buffer[1] * 4 + 2000);
+      while(1) {
+        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, 0);
+        if(pkt_len) {
+          /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
+          DEBUG_PRINT_MSG_NOW("data packet received from node %u: "
+                              "%u°C, %umV", 
+                              sender_id, pkt_buffer[0], 
+                              (uint16_t)pkt_buffer[1] * 4 + 2000);
+        } else {
+          break;
+        }
       } 
     } else {
       /* we are a source node */
@@ -91,7 +103,7 @@ PROCESS_THREAD(app_process, ev, data)
         stream_state = lwb_stream_get_state(1);
         if(stream_state == LWB_STREAM_STATE_INACTIVE) {
           /* request a stream with ID 1 and IPI 5 */
-          lwb_stream_req_t my_stream = { node_id, 0, 1, 20 };
+          lwb_stream_req_t my_stream = { node_id, 0, 1, 10 };
           if(!lwb_request_stream(&my_stream, 0)) {
             DEBUG_PRINT_ERROR("stream request failed");
           }
@@ -105,7 +117,9 @@ PROCESS_THREAD(app_process, ev, data)
         } /* else: data packet successfully passed to the LWB */
       }
     }
-    PIN_CLR(APP_TASK_ACT_PIN);
+    /* IMPORTANT: This process must not run for more than a few hundred
+     * milliseconds in order to enable proper operation of the LWB */
+    TASK_SUSPENDED;
   }
 
   PROCESS_END();

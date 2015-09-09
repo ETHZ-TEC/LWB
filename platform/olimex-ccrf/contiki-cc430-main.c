@@ -134,10 +134,6 @@ main(int argc, char **argv)
   LEDS_INIT;
   LEDS_ON;
   
-#ifdef DEBUG_SWITCH
-  PIN_CFG_INT(DEBUG_SWITCH);
-#endif
-  
   /* pin mappings */
 #ifdef RF_GDO0_PIN
   PIN_MAP_AS_OUTPUT(RF_GDO0_PIN, PM_RFGDO0);
@@ -156,6 +152,10 @@ main(int argc, char **argv)
 #endif
 #ifdef ACLK_PIN
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
+#endif
+  
+#ifdef DEBUG_SWITCH
+  PIN_CFG_INT(DEBUG_SWITCH);
 #endif
 
   clock_init();

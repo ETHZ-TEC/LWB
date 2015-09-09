@@ -76,10 +76,10 @@
 #define LWB_CONF_SCHED_USE_XMEM              0       
 #endif /* LWB_CONF_SCHED_USE_XMEM */
 
-// SCHEDULER
+/* SCHEDULER */
 
 #ifndef LWB_CONF_SCHED_PERIOD_MAX
-/* max. assignable round period in seconds, must not exceed 127 seconds! */
+/* max. assignable round period in seconds, must not exceed 2^15 - 1 seconds! */
 #define LWB_CONF_SCHED_PERIOD_MAX            30      
 #endif /* LWB_CONF_SCHED_PERIOD_MAX */
 
@@ -103,14 +103,15 @@
 /**
  * @brief the structure of a schedule packet
  */
-#define LWB_SCHED_PKT_HEADER_LEN    9
+#define LWB_SCHED_PKT_HEADER_LEN    10
 typedef struct {    
     uint32_t time;
     uint16_t host_id;
     uint16_t period;
      /* store num. of data slots and last two bits to indicate whether there is
       * a contention or an s-ack slot in this round */
-    uint8_t  n_slots;      
+    uint8_t  n_slots;
+    uint8_t  reserved;  /* padding */
     uint16_t slot[LWB_CONF_MAX_DATA_SLOTS];
 } lwb_schedule_t;
 
@@ -147,19 +148,19 @@ typedef struct {
 /**
  * @brief marks the schedule as the 1st schedule
  */
-#define LWB_SCHED_SET_AS_1ST(s)     ((s)->period |= 0x8000)
+#define LWB_SCHED_SET_AS_1ST(s)       ((s)->period |= 0x8000)
 /**
  * @brief marks the schedule s as the 2nd schedule 
  */
-#define LWB_SCHED_SET_AS_2ND(s)     ((s)->period &= ~0x8000)
+#define LWB_SCHED_SET_AS_2ND(s)       ((s)->period &= ~0x8000)
 /**
  * @brief checks whether schedule is the 1st schedule
  */
-#define LWB_SCHED_IS_1ST(s)         (((s)->period & 0x8000) > 0)
+#define LWB_SCHED_IS_1ST(s)           (((s)->period & 0x8000) > 0)
 /**
  * @brief checks whether schedule is the 2nd schedule
  */
-#define LWB_SCHED_IS_2ND(s)         (((s)->period & 0x8000) == 0)
+#define LWB_SCHED_IS_2ND(s)           (((s)->period & 0x8000) == 0)
 /**
  * @brief returns the number of data slots from schedule
  */

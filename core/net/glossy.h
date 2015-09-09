@@ -136,6 +136,12 @@ uint64_t glossy_get_t_ref(void);
  */
 uint8_t glossy_get_relay_cnt_first_rx(void);
 
+/**
+ * @brief get the packet error rate/ratio in percentages
+ */
+uint8_t glossy_get_per(void);
+
+
 
 #endif /* __GLOSSY_H__ */
 

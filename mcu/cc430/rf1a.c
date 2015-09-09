@@ -136,13 +136,7 @@ rf1a_init(void)
 
   load_SmartRF_configuration();
 
-  /* register settings corresponding to TX power levels {-30, -12, -6, 0, +10,
-     max} dBm */
-  /* NOTE: these values work only for 2-FSK, 2-GFSK, and MSK modulation 
-   * schemes */
-  static const uint8_t pa_values[N_TX_POWER_LEVELS] =
-  { 0x03, 0x25, 0x2d, 0x8d, 0xc3, 0xc0 };
-  write_data_to_register(PATABLE, (uint8_t *)pa_values, N_TX_POWER_LEVELS);
+  rf1a_set_tx_power(RF1A_TX_POWER_0_dBm);
 
   /* set the FIFO threshold such that FIFO_CHUNK_SIZE bytes can be written/read
      after an interrupt */
@@ -206,6 +200,13 @@ void
 rf1a_set_tx_power(rf1a_tx_powers_t tx_power_level)
 {
   if(tx_power_level < N_TX_POWER_LEVELS) {
+    /* register settings corresponding to TX power levels {-30, -12, -6, 0, +10,
+        max} dBm */
+    /* NOTE: these values work only for 2-FSK, 2-GFSK, and MSK modulation 
+    * schemes */
+    static const uint8_t pa_values[N_TX_POWER_LEVELS] =
+    { 0x03, 0x25, 0x2d, 0x8d, 0xc3, 0xc0 };
+    write_data_to_register(PATABLE, (uint8_t *)pa_values, N_TX_POWER_LEVELS);
     set_register_field(FREND0, tx_power_level, 3, 0);
   }
 }
@@ -457,8 +458,8 @@ rf1a_get_last_packet_lqi(void)
 void
 rf1a_set_maximum_packet_length(uint8_t length)
 {
-  /* ensure that we are in variable packet length mode */
-  set_register_field(PKTCTRL0, 0x1, 2, 0);
+  /* ensure that we are in variable packet length mode (default value) */
+  set_register_field(PKTCTRL0, 0x01, 2, 0);
   /* set the maximum packet length */
   if(length > RF1A_MAX_PACKET_LENGTH) {
     packet_len_max = RF1A_MAX_PACKET_LENGTH;

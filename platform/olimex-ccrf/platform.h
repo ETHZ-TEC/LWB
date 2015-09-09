@@ -108,7 +108,6 @@
 #define FRAM_CONF_CTRL_PIN          PORT1, PIN7
 
 /* the following pins assignments are given by FlockLAB, do not change */
-#ifdef FLOCKLAB
 #define FLOCKLAB_LED1               PORT1, PIN0  /* for GPIO tracing */
 #define FLOCKLAB_LED2               PORT1, PIN1  /* for GPIO tracing */
 #define FLOCKLAB_LED3               PORT1, PIN2  /* for GPIO tracing */
@@ -116,6 +115,8 @@
 #define FLOCKLAB_SIG2               PORT1, PIN4  /* target actuation */
 #define FLOCKLAB_INT1               PORT3, PIN6  /* for GPIO tracing */
 #define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
+
+#ifdef FLOCKLAB
 #define GLOSSY_START_PIN            FLOCKLAB_INT1
 #define RF_GDO2_PIN                 FLOCKLAB_INT2
 #endif /* FLOCKLAB */

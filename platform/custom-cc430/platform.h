@@ -125,6 +125,15 @@
 /*#define ACLK_PIN                  PORT3, PIN3*/
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 
+/* the following pins assignments are given by FlockLAB, do not change */
+#define FLOCKLAB_LED1               PORT1, PIN0  /* for GPIO tracing */
+#define FLOCKLAB_LED2               PORT1, PIN1  /* for GPIO tracing */
+#define FLOCKLAB_LED3               PORT1, PIN2  /* for GPIO tracing */
+#define FLOCKLAB_SIG1               PORT1, PIN3  /* target actuation */
+#define FLOCKLAB_SIG2               PORT1, PIN4  /* target actuation */
+#define FLOCKLAB_INT1               PORT3, PIN6  /* for GPIO tracing */
+#define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
+
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7     
 

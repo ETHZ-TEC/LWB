@@ -97,6 +97,7 @@ clock_init(void)
   UCSCTL5 = DIVA | DIVS | DIVM;
   
   /* oscillator fault flag may be set after switching the clock source */
+  __delay_cycles(406250);
   WAIT_FOR_OSC();
   
   /* enable oscillator fault interrupt (NMI) */

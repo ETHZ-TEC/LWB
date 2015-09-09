@@ -36,6 +36,10 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
+#ifndef GLOSSY_CONF_RTIMER_ID
+#define GLOSSY_CONF_RTIMER_ID   RTIMER_HF_3
+#endif /* GLOSSY_CONF_RTIMER_ID */
+/*---------------------------------------------------------------------------*/
 
 /* minimum and maximum number of slots after which the timeout expires, since
  * the last transmission
@@ -224,6 +228,8 @@ typedef struct {
   uint16_t enabled_adc_interrupts;
   uint16_t enabled_port_interrupts;
 #endif /* GLOSSY_DISABLE_INTERRUPTS */
+  uint32_t pkt_cnt;
+  uint32_t corrupted_pkt_cnt;
 } glossy_state_t;
 /*---------------------------------------------------------------------------*/
 static glossy_state_t g;
@@ -265,7 +271,7 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
     }
 
     if((g.payload_len != GLOSSY_UNKNOWN_PAYLOAD_LEN) &&
-       (g.payload_len != pkt_len - GLOSSY_HEADER_LEN(g.header.pkt_type))) {
+       (g.payload_len != (pkt_len - GLOSSY_HEADER_LEN(g.header.pkt_type)))) {
       /* keep processing only if the local payload_len value is either unknown
        * or it matches the received one */
       return FAIL;
@@ -310,7 +316,10 @@ timeout_expired(rtimer_t *rt)
   } else {
     /* we are receiving a packet: postpone the timeout by one slot */
     g.relay_cnt_timeout++;
-    rtimer_schedule(3, rt->time + g.T_slot_estimated, 0, timeout_expired);
+    rtimer_schedule(GLOSSY_CONF_RTIMER_ID, 
+                    rt->time + g.T_slot_estimated, 
+                    0, 
+                    timeout_expired);
   }
   return 0;
 }
@@ -327,7 +336,9 @@ schedule_timeout(void)
      * slots */
     g.relay_cnt_timeout = g.header.relay_cnt + slot_timeout;
   }
-  rtimer_schedule(3, g.t_timeout + slot_timeout * g.T_slot_estimated, 0,
+  rtimer_schedule(GLOSSY_CONF_RTIMER_ID, 
+                  g.t_timeout + slot_timeout * g.T_slot_estimated, 
+                  0,
                   timeout_expired);
 }
 /*---------------------------------------------------------------------------*/
@@ -382,6 +393,9 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   rf1a_set_txoff_mode(RF1A_OFF_MODE_RX);
   /* do not calibrate automatically */
   rf1a_set_calibration_mode(RF1A_CALIBRATION_MODE_MANUAL);
+  
+  /* re-configure patable (config is lost when radio was in sleep mode */
+  /*rf1a_set_tx_power(RF_CONF_TX_POWER);*/
 
   if(rf_cal == GLOSSY_WITH_RF_CAL) {
     /* if instructed so, perform a manual calibration */
@@ -419,11 +433,13 @@ glossy_stop(void)
   if(g.active) {
     GLOSSY_STOPPED;
     /* stop the timeout */
-    rtimer_stop(3);
+    rtimer_stop(GLOSSY_CONF_RTIMER_ID);
     /* flush both RX FIFO and TX FIFO and go to sleep */
     rf1a_flush_rx_fifo();
     rf1a_flush_tx_fifo();
-    rf1a_go_to_sleep();
+    /* important: if the radio is put into sleep mode, the patable must be 
+     * re-configured! see CC1101 datasheet p.33 */
+    /*rf1a_go_to_sleep();*/
     GLOSSY_RX_STOPPED;
     GLOSSY_TX_STOPPED;
     g.active = 0;
@@ -499,6 +515,15 @@ glossy_get_relay_cnt_first_rx(void)
 {
   return g.relay_cnt_first_rx;
 }
+/*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_per(void)
+{
+  if(g.pkt_cnt > 0) {
+    return g.corrupted_pkt_cnt * 100 / g.pkt_cnt;
+  }
+  return 0;
+}
 /*---------------------- RF1A callback implementation -----------------------*/
 void
 rf1a_cb_rx_started(rtimer_clock_t *timestamp)
@@ -516,7 +541,7 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
   if(IS_INITIATOR()) {
     /* we are the initiator and we have started a packet reception: stop the
      * timeout */
-    rtimer_stop(3);
+    rtimer_stop(GLOSSY_CONF_RTIMER_ID);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -554,7 +579,8 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
   /* enable timer overflow / update interrupt */
   rtimer_update_enable(1);
   g.t_rx_stop = *timestamp;
-
+  g.pkt_cnt++;
+  
   if((process_glossy_header(pkt, pkt_len, 1) == SUCCESS)) {
     /* we received a correct packet, and the header has been stored into
      * g.header */
@@ -615,6 +641,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
                         "initiator %u.",
                         pkt_len, g.header.initiator_id);
   } else {
+    g.corrupted_pkt_cnt++;
     /* some fields in the header were not correct: discard it */
     rf1a_cb_rx_failed(timestamp);
   }
@@ -668,8 +695,7 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
   GLOSSY_RX_STOPPED;
   /* notify about the failure, flush the RX FIFO and start a new reception
    * attempt */
-  DEBUG_PRINT_WARNING("Glossy RX failed, corrupted packet received");
-
+  DEBUG_PRINT_VERBOSE("Glossy RX failed, corrupted packet received");
   rtimer_update_enable(1);
   rf1a_flush_rx_fifo();
   rf1a_start_rx();
@@ -681,7 +707,7 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
   GLOSSY_RX_STOPPED;
   GLOSSY_TX_STOPPED;
   /* notify about the error */
-  DEBUG_PRINT_WARNING("Glossy RX/TX error (interference?)");
+  DEBUG_PRINT_VERBOSE("Glossy RX/TX error (interference?)");
 
   rtimer_update_enable(1);
 

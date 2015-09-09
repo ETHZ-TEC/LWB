@@ -44,23 +44,23 @@
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm   
+  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
+  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
+  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED2
+  #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
 #else
   /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
-  #define NODE_ID                       2                           
+  #define NODE_ID                       2                          
 #endif /* FLOCKLAB */
 
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
-#define LWB_CONF_TASK_ACT_PIN           FLOCKLAB_LED1
+#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-#define DEBUG_PRINT_TASK_ACT_PIN        FLOCKLAB_LED2
-
-/* application config */
-#define APP_TASK_ACT_PIN                FLOCKLAB_LED3
 
 #endif /* __CONFIG_H__ */

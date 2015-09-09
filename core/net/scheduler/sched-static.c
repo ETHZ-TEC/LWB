@@ -58,7 +58,7 @@
 #endif
 
 /* max. number of packets per period */
-#define BANDWIDTH_LIMIT (LWB_CONF_MAX_DATA_SLOTS * LWB_CONF_SCHED_PERIOD_IDLE)
+#define BANDWIDTH_LIMIT LWB_CONF_MAX_DATA_SLOTS
 
 #ifndef MAX
 #define MAX(x, y)       ((x) > (y) ? (x) : (y))
@@ -165,6 +165,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
           used_bw = used_bw + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi));
           s->ipi = req->ipi;
           s->last_assigned = time;
+          s->n_cons_missed = 0;         /* reset this counter */
           /* insert into the list of pending S-ACKs */
           memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
           pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
@@ -214,6 +215,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       }
     }
     lwb_sched_del_stream(s);
+    DEBUG_PRINT_INFO("stream %u.%u removed", req->node_id, req->stream_id);
   }
       
   /* insert into the list of pending S-ACKs */
@@ -379,7 +381,7 @@ set_schedule:
    * (i.e. do not set the first bit of period) */
   sched->period = period;   /* no need to clear the last bit */
   sched->time   = time - (period - 1);
-  
+    
   /* log the parameters of the new schedule */
   DEBUG_PRINT_INFO("schedule updated (s=%u T=%u n=%u|%u l=%u|%u load=%u%%)", 
                    n_streams, sched->period, n_slots_assigned, 
