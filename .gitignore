@@ -1,0 +1,10 @@
+.cache
+.settings
+.project
+.directory
+*.dis
+*.exe
+*.hex
+*.html
+target/
+obj/

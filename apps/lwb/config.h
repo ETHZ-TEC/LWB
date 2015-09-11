@@ -43,7 +43,7 @@
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm   
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
   #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
   #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
   #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED2

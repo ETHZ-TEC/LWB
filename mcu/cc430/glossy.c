@@ -516,9 +516,10 @@ glossy_get_relay_cnt_first_rx(void)
   return g.relay_cnt_first_rx;
 }
 /*---------------------------------------------------------------------------*/
-uint8_t
+uint16_t
 glossy_get_per(void)
 {
+  return g.corrupted_pkt_cnt;
   if(g.pkt_cnt > 0) {
     return g.corrupted_pkt_cnt * 100 / g.pkt_cnt;
   }

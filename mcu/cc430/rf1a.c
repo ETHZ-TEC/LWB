@@ -459,7 +459,7 @@ void
 rf1a_set_maximum_packet_length(uint8_t length)
 {
   /* ensure that we are in variable packet length mode (default value) */
-  set_register_field(PKTCTRL0, 0x01, 2, 0);
+  set_register_field(PKTCTRL0, 0x1, 2, 0);
   /* set the maximum packet length */
   if(length > RF1A_MAX_PACKET_LENGTH) {
     packet_len_max = RF1A_MAX_PACKET_LENGTH;

@@ -982,7 +982,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       stats.unsynced_cnt++;
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
-    DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u td=%u tp=%u d=%lu p=%u r=%u b=%u "
+    DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u td=%u tp=%u p=%u r=%u b=%u "
                      "u=%u ds=%d per=%d rssi=%d", 
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time, 
@@ -990,8 +990,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      LWB_SCHED_N_SLOTS(&schedule), 
                      LWB_STREAMS_ACTIVE, 
                      stats.t_proc_max, 
-                     stats.t_prep_max, 
-                     stats.data_tot,
+                     stats.t_prep_max,
                      stats.pck_cnt,
                      stats.relay_cnt, 
                      stats.bootstrap_cnt, 

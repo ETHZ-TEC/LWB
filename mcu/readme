@@ -1,2 +1,1 @@
-Create a separate folder for each MCU familty. Don't forget to add the new folder to 'Makefile.include' to include it for compilation.
-Interface definitions which should be observed throughout all MCUs shall be stored in this folder (mcu).
+Create a separate folder for each MCU familty. Interface definitions which should be observed throughout all MCUs shall be stored in this folder (mcu).

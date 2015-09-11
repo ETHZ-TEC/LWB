@@ -139,7 +139,7 @@ uint8_t glossy_get_relay_cnt_first_rx(void);
 /**
  * @brief get the packet error rate/ratio in percentages
  */
-uint8_t glossy_get_per(void);
+uint16_t glossy_get_per(void);
 
 
 
