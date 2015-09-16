@@ -660,7 +660,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
                      stats.pck_cnt, 
                      stats.relay_cnt,
                      glossy_get_per(),
-                     rf1a_get_rssi());  /* or: rf1a_get_last_packet_rssi() */ 
+                     rf1a_get_last_packet_rssi());
         
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
@@ -997,7 +997,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      stats.unsynced_cnt, 
                      (drift_last - (int16_t)drift),
                      glossy_get_per(),
-                     rf1a_get_rssi());  /* or: rf1a_get_last_packet_rssi() */
+                     rf1a_get_last_packet_rssi());
     if(ALREADY_SYNCED == sync_state || UNSYNCED_1 == sync_state) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
@@ -1071,12 +1071,7 @@ PROCESS_THREAD(lwb_process, ev, data)
   PIN_CFG_OUT(LWB_CONF_TASK_ACT_PIN);
   PIN_CLR(LWB_CONF_TASK_ACT_PIN);
 #endif /* LWB_CONF_TASK_ACT_PIN */
-      
-  /* must set the PMMHPMRE bit to enable radio operation in LPM3/4 */
-  PMMCTL0_H  = 0xa5;  /* unlock */
-  PMMCTL0_L |= PMMHPMRE;
-  PMMCTL0_H  = 0;        /* lock */
-  
+        
   PT_INIT(&lwb_pt); /* initialize the protothread */
   if(node_id == HOST_ID) {
     /* note: must add at least some clock ticks! */

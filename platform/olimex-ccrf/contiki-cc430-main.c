@@ -168,9 +168,6 @@ main(int argc, char **argv)
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  rf1a_set_tx_power(RF_CONF_TX_POWER);
-  rf1a_set_channel(RF_CONF_TX_CH);
-  rf1a_set_maximum_packet_length(RF_CONF_MAX_PKT_LEN);
   printf("RF module configured (gain: %sdB, channel: %u, packet len: %u B)\r\n", rf1a_tx_powers_to_string[RF_CONF_TX_POWER], RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
   
@@ -245,7 +242,7 @@ main(int argc, char **argv)
 #if WATCHDOG_CONF_ON
       watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
-      /* enter low-power mode */
+      /* enter low-power mode 3 */
       __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
       __no_operation();
 #if WATCHDOG_CONF_ON

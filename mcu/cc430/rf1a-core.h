@@ -34,7 +34,7 @@
 #ifndef __RF1A_CORE_H__
 #define __RF1A_CORE_H__
 
-#define RF1A_MAX_PACKET_LENGTH 255
+#define RF1A_MAX_PACKET_LENGTH  255
 
 /* status byte (see Table 25-8) */
 #define GET_RADIO_CORE_READY(status)  ((status & 0x80) >> 7)

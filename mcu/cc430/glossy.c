@@ -394,8 +394,8 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   /* do not calibrate automatically */
   rf1a_set_calibration_mode(RF1A_CALIBRATION_MODE_MANUAL);
   
-  /* re-configure patable (config is lost when radio was in sleep mode */
-  /*rf1a_set_tx_power(RF_CONF_TX_POWER);*/
+  /* re-configure patable (config is lost when radio was in sleep mode) */
+  rf1a_set_tx_power(RF_CONF_TX_POWER);
 
   if(rf_cal == GLOSSY_WITH_RF_CAL) {
     /* if instructed so, perform a manual calibration */
@@ -439,7 +439,7 @@ glossy_stop(void)
     rf1a_flush_tx_fifo();
     /* important: if the radio is put into sleep mode, the patable must be 
      * re-configured! see CC1101 datasheet p.33 */
-    /*rf1a_go_to_sleep();*/
+    rf1a_go_to_sleep();
     GLOSSY_RX_STOPPED;
     GLOSSY_TX_STOPPED;
     g.active = 0;
@@ -516,10 +516,9 @@ glossy_get_relay_cnt_first_rx(void)
   return g.relay_cnt_first_rx;
 }
 /*---------------------------------------------------------------------------*/
-uint16_t
+uint8_t
 glossy_get_per(void)
 {
-  return g.corrupted_pkt_cnt;
   if(g.pkt_cnt > 0) {
     return g.corrupted_pkt_cnt * 100 / g.pkt_cnt;
   }
@@ -538,6 +537,7 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
 
   g.t_rx_start = *timestamp;
   g.header_ok = 0;
+  g.pkt_cnt++;
 
   if(IS_INITIATOR()) {
     /* we are the initiator and we have started a packet reception: stop the
@@ -580,7 +580,6 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
   /* enable timer overflow / update interrupt */
   rtimer_update_enable(1);
   g.t_rx_stop = *timestamp;
-  g.pkt_cnt++;
   
   if((process_glossy_header(pkt, pkt_len, 1) == SUCCESS)) {
     /* we received a correct packet, and the header has been stored into
@@ -642,7 +641,6 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
                         "initiator %u.",
                         pkt_len, g.header.initiator_id);
   } else {
-    g.corrupted_pkt_cnt++;
     /* some fields in the header were not correct: discard it */
     rf1a_cb_rx_failed(timestamp);
   }
@@ -697,6 +695,10 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
   /* notify about the failure, flush the RX FIFO and start a new reception
    * attempt */
   DEBUG_PRINT_VERBOSE("Glossy RX failed, corrupted packet received");
+  PIN_SET(FLOCKLAB_LED1);
+  __delay_cycles(100);
+  PIN_CLR(FLOCKLAB_LED1);
+  g.corrupted_pkt_cnt++;
   rtimer_update_enable(1);
   rf1a_flush_rx_fifo();
   rf1a_start_rx();

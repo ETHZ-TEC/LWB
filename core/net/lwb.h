@@ -95,7 +95,7 @@
 #endif /* LWB_CONF_T_SCHED */
   
 #ifndef LWB_CONF_T_DATA
-/* length of a data slot: 10 ms (make them long enough to allow 3 - 5 floods 
+/* length of a data slot: 10 ms (make them long enough to allow 2 - 5 floods 
  * per node and 5 - 6 hops through the network) */
 #define LWB_CONF_T_DATA                 MAX(LWB_T_SLOT_MIN( \
                                             LWB_CONF_MAX_DATA_PKT_LEN), \
@@ -168,12 +168,12 @@
 
 #ifndef LWB_CONF_TX_CNT_DATA
 /* max. number of TX phases for a data packet */
-#define LWB_CONF_TX_CNT_DATA            2
+#define LWB_CONF_TX_CNT_DATA            3
 #endif
 
 #ifndef LWB_CONF_MAX_HOPS
-/* max. number of hops in the network to reach all nodes (should be <= 3) */
-#define LWB_CONF_MAX_HOPS               3
+/* max. number of hops in the network to reach all nodes */
+#define LWB_CONF_MAX_HOPS               5
 #endif /* LWB_CONF_MAX_HOPS */
 
 #ifndef LWB_CONF_T_SILENT               /* set to 0 to disable this feature */

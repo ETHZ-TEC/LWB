@@ -39,7 +39,17 @@
 #if RF_CONF_ON
 
 /*---------------------------------------------------------------------------*/
-
+/* default values */
+#ifndef RF_CONF_TX_POWER
+#define RF_CONF_TX_POWER        RF1A_TX_POWER_0_dBm
+#endif /* RF_CONF_TX_POWER */
+#ifndef RF_CONF_TX_CH
+#define RF_CONF_TX_CH           0
+#endif /* RF_CONF_TX_CH */
+#ifndef RF_CONF_MAX_PKT_LEN     /* must be <= RF1A_MAX_PACKET_LENGTH */
+#define RF_CONF_MAX_PKT_LEN     127
+#endif /* RF_CONF_MAX_PKT_LEN */
+/*---------------------------------------------------------------------------*/
 const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = { 
     "-30", "-12", "-6", "0", "10", "MAX" 
 };
@@ -133,10 +143,13 @@ rf1a_init(void)
   txoff_mode = RF1A_OFF_MODE_IDLE;
 
   packet_len_max = RF1A_MAX_PACKET_LENGTH;
-
+  
   load_SmartRF_configuration();
-
-  rf1a_set_tx_power(RF1A_TX_POWER_0_dBm);
+  
+  /* set transmit power, channel and packet length */
+  rf1a_set_tx_power(RF_CONF_TX_POWER);
+  rf1a_set_channel(RF_CONF_TX_CH);
+  rf1a_set_maximum_packet_length(RF_CONF_MAX_PKT_LEN);
 
   /* set the FIFO threshold such that FIFO_CHUNK_SIZE bytes can be written/read
      after an interrupt */
@@ -168,6 +181,11 @@ rf1a_init(void)
   /* interrupt when sync word received or transmitted, or end of packet
      (RFIFG9) */
   ENABLE_INTERRUPTS(BIT9, 1);
+    
+  /* must set the PMMHPMRE bit to enable radio operation in LPM3/4 */
+  PMMCTL0_H  = 0xa5;  /* unlock */
+  PMMCTL0_L |= PMMHPMRE;
+  PMMCTL0_H  = 0;        /* lock */
 }
 /*---------------------------------------------------------------------------*/
 void

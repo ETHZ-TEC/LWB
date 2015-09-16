@@ -28,40 +28,55 @@ hundred milliseconds to ensure proper operation of the LWB.
 To use the commands below you need to install Code Composer Studio v6 from TI.
 Note: The provided demo application runs on the Olimex MSP430-CCRF only.
 
+1. Install the msp430 toolchain. Note that you may need to enable 'universe'
+    (community-maintained free & open-source software) for this step:
+    
+    ```
+    sudo apt-get install msp430-libc binutils-msp430 gcc-msp430 msp430mcu
+    ```
+    
 1. Go to the directory 'apps/lwb' and run make.
 
-2. To flash the application onto the CC430F5137, run flash.sh.
+2. To flash the application onto the CC430F5137, run flash.sh. This script uses
+    the tilib driver, which requires libmsp430.so, a shared object that is e.g.
+    included in Code Composer Studio 6. You may also need to adjust the path
+    to the libmsp430.so.
+    Alternatively, you can use any other flash tool (e.g. TI Uniflash) to 
+    program the target.
 
 
 ## Run the Demo Application on FlockLab
 
 1. Compile the code and embed the proram image into "flocklab-cc430.xml":
-   ```
-   make
-   make flocklab
-   ```
+
+    ```
+    make
+    make flocklab
+    ```
 
 2. Adjust the FlockLab configuration file "flocklab-cc430.xml". You can set 
-   various parameters for your test. The most important parameters are:
-   ```
-   <durationSecs>       the duration of your test in seconds
-   <obsIds>             the IDs of the involved nodes (observers)
-   ```
-   Visit www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig for more info. 
-   If you don't set a start time for your test, it will be scheduled ASAP. 
-   IMPORTANT: Since only one user can run a test on FlockLab at a time, the 
-   system relies on 'fair play'. Do not run long tests (> 1h) during daytime 
-   (UTC 06:00 - 18:00) to enable other users to run their tests.
+    various parameters for your test. The most important parameters are:
+    
+    ```
+    <durationSecs>       the duration of your test in seconds
+    <obsIds>             the IDs of the involved nodes (observers)
+    ```
+    
+    Visit www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig for more info. 
+    If you don't set a start time for your test, it will be scheduled ASAP. 
+    IMPORTANT: Since only one user can run a test on FlockLab at a time, the 
+    system relies on 'fair play'. Do not run long tests (> 1h) during daytime 
+    (UTC 06:00 - 18:00) to enable other users to run their tests.
 
 3. Go to www.flocklab.ethz.ch and select 'Use FlockLab'. If you are not yet 
-   familiar with FlockLab, you should at least go through the tutorials and 
-   the quick start guide. If you don't have a login yet, you can register a new
-   account on this page: www.user.flocklab.ethz.ch. Once your ready to schedule
-   your test, login with your username and select 'Validate XML Test Config' in
-   the menu on the right. Choose the file "flocklab-cc430.xml" and validate it.
-   If no errors pop up, click 'Create Test' to schedule your test. Go to 
-   'Manage Tests' to get an overview of all your tests. Once your test has 
-   finished, you can download or preview the results.
+    familiar with FlockLab, you should at least go through the tutorials and 
+    the quick start guide. If you don't have a login yet, you can register a 
+    new account on this page: www.user.flocklab.ethz.ch. Once your ready to
+    schedule your test, login with your username and select 'Validate XML Test
+    Config' in the menu on the right. Choose the file "flocklab-cc430.xml" and
+    validate it. If no errors pop up, click 'Create Test' to schedule your 
+    test. Go to 'Manage Tests' to get an overview of all your tests. Once 
+    your test has finished, you can download or preview the results.
 
 
 ## Disclaimer

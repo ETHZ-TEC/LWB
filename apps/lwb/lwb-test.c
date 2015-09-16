@@ -90,7 +90,7 @@ PROCESS_THREAD(app_process, ev, data)
         if(pkt_len) {
           /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
           DEBUG_PRINT_MSG_NOW("data packet received from node %u: "
-                              "%u°C, %umV", 
+                              "%uC, %umV", 
                               sender_id, pkt_buffer[0], 
                               (uint16_t)pkt_buffer[1] * 4 + 2000);
         } else {
