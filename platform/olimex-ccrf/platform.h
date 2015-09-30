@@ -107,6 +107,15 @@
 #endif /* FLOCKLAB */
 #define FRAM_CONF_CTRL_PIN          PORT1, PIN7
 
+#if BOLT_CONF_ON
+#define BOLT_CONF_TIMEREQ_PIN       PORT3, PIN3
+#define BOLT_CONF_REQ_PIN           PORT2, PIN2
+#define BOLT_CONF_IND_PIN           PORT2, PIN0
+#define BOLT_CONF_ACK_PIN           PORT2, PIN3
+#define BOLT_CONF_MODE_PIN          PORT2, PIN1
+#define BOLT_CONF_IND_OUT_PIN       PORT2, PIN4
+#endif /* BOLT_CONF_ON */
+
 /* the following pins assignments are given by FlockLAB, do not change */
 #define FLOCKLAB_LED1               PORT1, PIN0  /* for GPIO tracing */
 #define FLOCKLAB_LED2               PORT1, PIN1  /* for GPIO tracing */

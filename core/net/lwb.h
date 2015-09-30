@@ -52,6 +52,10 @@
 #include "contiki.h"
 #include "platform.h"   /* necessary for SMCLK_SPEED in clock.h */
 
+#ifndef HOST_ID
+#define HOST_ID         0
+#endif
+
 /*---------------------------------------------------------------------------*/
 
 #ifndef LWB_CONF_STREAM_EXTRA_DATA_LEN
