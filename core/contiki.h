@@ -61,7 +61,6 @@
 #include "net/nullmac.h"
 #include "dev/xmem.h"
 #include "dev/debug-print.h"
-#include "dev/bolt.h"
 #include "dev/fram.h"
 
 #endif /* __CONTIKI_H__ */
