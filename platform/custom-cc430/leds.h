@@ -27,41 +27,43 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+/**
+ * @addtogroup  Platform
+ * @{
+ *
+ * @defgroup    leds LEDs
+ * @{
+ *
+ * @file
+ *
+ * @brief access the LEDs
+ */
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
+#ifndef __LEDS_H__
+#define __LEDS_H__
 
-#include "contiki-conf.h"
+#if LEDS_CONF_ON
+#define LED_ON(portandpin)      PIN_SET_I(portandpin)
+#define LED_OFF(portandpin)     PIN_CLR_I(portandpin)
+#define LED_TOGGLE(portandpin)  PIN_XOR_I(portandpin)
+#else
+#define LED_ON(portandpin)
+#define LED_OFF(portandpin)
+#define LED_TOGGLE(portandpin)
+#endif
 
-/* unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
+#define LEDS_ON                 { PIN_SET(LED_0); PIN_SET(LED_1); PIN_SET(LED_2); PIN_SET(LED_3); }
+#define LEDS_OFF                { PIN_CLR(LED_0); PIN_CLR(LED_1); PIN_CLR(LED_2); PIN_CLR(LED_3); }
+#define LEDS_TOGGLE             { PIN_XOR(LED_0); PIN_XOR(LED_1); PIN_XOR(LED_2); PIN_XOR(LED_3); }
+#define LEDS_INIT               { LEDS_OFF; PIN_UNSEL(LED_0); PIN_UNSEL(LED_1); PIN_UNSEL(LED_2); PIN_UNSEL(LED_3); \
+                                  PIN_CFG_OUT(LED_0); PIN_CFG_OUT(LED_1); PIN_CFG_OUT(LED_2); PIN_CFG_OUT(LED_3); }
+#endif /* __LEDS_H__ */
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
-
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
-
-#include "dev/serial-line.h"
-
-/* custom files: */
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/lwb.h"
-#include "net/glossy.h"
-#include "net/nullmac.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
-
-#endif /* __CONTIKI_H__ */
+/**
+ * @}
+ * @}
+ */

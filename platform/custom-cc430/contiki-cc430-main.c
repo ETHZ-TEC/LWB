@@ -28,8 +28,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Author:  Reto Da Forno
- *          Federico Ferrari
  */
 
 #include "contiki.h"
@@ -50,12 +48,14 @@ print_processes(struct process *const processes[])
   printf("\r\n");
 }
 /*---------------------------------------------------------------------------*/
-/* prints some info about the system */
+/* prints some info about the system (e.g. MCU and reset source) */
 void
 print_device_info(void)
 {
-  /* note: this device does not offer an LPMx.5 mode, therefore there's no
-   * corresponding reset source */
+  /* 
+   * note: this device does not offer an LPMx.5 mode, therefore there's no
+   * corresponding reset source
+   */
   static uint32_t rst_flag;         
   rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
   
@@ -98,7 +98,7 @@ print_device_info(void)
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
   printf("Compiler: " COMPILER_INFO "\r\nDate: " COMPILE_DATE "\r\n");
-  /* don't disable UART module here */
+  // don't disable UART module
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -125,15 +125,15 @@ main(int argc, char **argv)
   PORT_CLR_I(J);
     
   /* board-specific optimal configuration of unused pins */
-#ifndef FLOCKLAB
-  PIN_SET_I(1, 1);    /* push-button, tied to 3V */
-#endif /* FLOCKLAB */
-  PIN_SET_I(1, 6);    /* UART TX, set high if pin is in use */
-  PIN_SET_I(1, 7);    /* SPI B0 STE (is tied to 3V) */
+  // TODO
 
   LEDS_INIT;
   LEDS_ON;
   
+#ifdef DEBUG_SWITCH
+  PIN_CFG_INT(DEBUG_SWITCH);
+#endif
+
   /* pin mappings */
 #ifdef RF_GDO0_PIN
   PIN_MAP_AS_OUTPUT(RF_GDO0_PIN, PM_RFGDO0);
@@ -154,9 +154,9 @@ main(int argc, char **argv)
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
   
-#ifdef DEBUG_SWITCH
-  PIN_CFG_INT(DEBUG_SWITCH);
-#endif
+  /* this board has a multiplexer (set it to UART) */
+  PIN_CFG_OUT(MUX_SEL_PIN);
+  PIN_SET(MUX_SEL_PIN);
 
   clock_init();
   rtimer_init();
@@ -164,13 +164,13 @@ main(int argc, char **argv)
   uart_enable(1);
   uart_set_input_handler(serial_line_input_byte);
   print_device_info();
-    
+  
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
   printf("RF module configured (gain: %sdB, channel: %u, packet len: %u B)\r\n", rf1a_tx_powers_to_string[RF_CONF_TX_POWER], RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
-  
+
 #if FRAM_CONF_ON
   if (!fram_init()) {
     DEBUG_PRINT_FATAL("ERROR: fram init failed");
@@ -179,7 +179,7 @@ main(int argc, char **argv)
 #if BOLT_CONF_ON
   bolt_init(0);
 #endif /* BOLT_CONF_ON */  
-
+  
   /* set the node ID */
 #ifdef NODE_ID
   node_id = NODE_ID;
@@ -220,6 +220,8 @@ main(int argc, char **argv)
   print_processes(autostart_processes);
   autostart_start(autostart_processes);
 
+  LED_ON(LED_STATUS);
+  
   while(1) {
     int r;
     do {
@@ -242,7 +244,7 @@ main(int argc, char **argv)
 #if WATCHDOG_CONF_ON
       watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
-      /* enter low-power mode 3 */
+      /* LPM3 */
       __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
       __no_operation();
 #if WATCHDOG_CONF_ON
