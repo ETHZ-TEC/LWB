@@ -71,6 +71,17 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       16
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
+/* scaling factor to enable periods and IPIs of less than 1 second 
+ * (e.g. a scale 10 means the LWB runs 10x faster, i.e. a round period of 1s
+ * will effectively only be 100ms long) */
+#ifndef LWB_CONF_TIME_SCALE
+#define LWB_CONF_TIME_SCALE             1
+#endif /* LWB_CONF_TIME_SCALE */
+
+#if !LWB_CONF_TIME_SCALE
+#error "invalid value for LWB_CONF_TIME_SCALE"
+#endif
+
 #ifndef LWB_CONF_USE_XMEM
 /* by default, don't use the external memory to store the message queues and
  * statistics; due to memory (SRAM) constraints, using the (slow) external 
@@ -194,7 +205,7 @@
 
 #ifndef LWB_CONF_T_PREPROCESS
 /* in LF clock ticks, set this to 0 to disable preprocessing before a LWB round
- * e.g. (RTIMER_SECOND_LF / 100) = 10 ms */
+ * e.g. (RTIMER_SECOND_HF_LF / 100) = 10 ms */
 #define LWB_CONF_T_PREPROCESS           0
 #endif /* LWB_CONF_T_PREPROCESS */
 
@@ -249,7 +260,8 @@
 
 /*---------------------------------------------------------------------------*/
 
-/* important values */
+/* important values, do not modify */
+
 #define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 2) * \
                                      (LWB_CONF_T_DATA + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_SCHED * 2) + \
@@ -267,9 +279,7 @@
 #define LWB_T_SLOT_MIN(len)         ((LWB_CONF_MAX_HOPS + \
                                      (2 * LWB_CONF_TX_CNT_DATA) - 2) * \
                                      LWB_T_HOP(len))
-                                     
-#define MAX(x, y)                   ((x) > (y) ? (x) : (y))
-
+                                                                         
 #define LWB_RECIPIENT_LOCAL         0x0000  /* localhost / loopback */
 #define LWB_RECIPIENT_HOST          0xfffd  /* to the host */
 #define LWB_RECIPIENT_SINK          0xfffe  /* to all sinks */
@@ -279,6 +289,9 @@
 #define LWB_RECIPIENT_NODE_MASK     0x0fff  /* node ID mask */
 
 /*---------------------------------------------------------------------------*/
+
+#define MAX(x, y)                   ((x) > (y) ? (x) : (y))
+
 
 /**
  * @brief keep some statistics

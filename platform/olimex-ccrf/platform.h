@@ -107,14 +107,30 @@
 #endif /* FLOCKLAB */
 #define FRAM_CONF_CTRL_PIN          PORT1, PIN7
 
+//#define FRAM_CONF_ON              1
+#if FRAM_CONF_ON
+  #define FRAM_CONF_SIZE            0x40000
+  #define FRAM_CONF_SPI             SPI_1
+  #ifndef DEBUG_PRINT_CONF_USE_XMEM
+  #define DEBUG_PRINT_CONF_USE_XMEM 1
+  #define LWB_USE_XMEM              1
+  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+  #ifndef DEBUG_PRINT_CONF_NUM_MSG
+  #define DEBUG_PRINT_CONF_NUM_MSG  20
+  #endif /* DEBUG_PRINT_CONF_NUM_MSG */
+#endif /* FRAM_CONF_ON */
+
+//#define BOLT_CONF_ON              1
 #if BOLT_CONF_ON
-#define BOLT_CONF_TIMEREQ_PIN       PORT3, PIN3
-#define BOLT_CONF_REQ_PIN           PORT2, PIN2
-#define BOLT_CONF_IND_PIN           PORT2, PIN0
-#define BOLT_CONF_ACK_PIN           PORT2, PIN3
-#define BOLT_CONF_MODE_PIN          PORT2, PIN1
-#define BOLT_CONF_IND_OUT_PIN       PORT2, PIN4
-#define BOLT_CONF_FUTURE_USE        PORT2, PIN5
+  #define BOLT_CONF_SPI             SPI_1
+  #define BOLT_CONF_IND_PIN         PORT2, PIN0
+  #define BOLT_CONF_MODE_PIN        PORT2, PIN1
+  #define BOLT_CONF_REQ_PIN         PORT2, PIN2
+  #define BOLT_CONF_ACK_PIN         PORT2, PIN3
+  /* IND pin for the outgoing queue (sent messages) */
+  #define BOLT_CONF_IND_OUT_PIN     PORT2, PIN4
+  #define BOLT_CONF_TIMEREQ_PIN     PORT3, PIN3
+  #define BOLT_CONF_FUTUREUSE_PIN   PORT2, PIN5
 #endif /* BOLT_CONF_ON */
 
 /* the following pins assignments are given by FlockLAB, do not change */

@@ -695,9 +695,6 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
   /* notify about the failure, flush the RX FIFO and start a new reception
    * attempt */
   DEBUG_PRINT_VERBOSE("Glossy RX failed, corrupted packet received");
-  PIN_SET(FLOCKLAB_LED1);
-  __delay_cycles(100);
-  PIN_CLR(FLOCKLAB_LED1);
   g.corrupted_pkt_cnt++;
   rtimer_update_enable(1);
   rf1a_flush_rx_fifo();

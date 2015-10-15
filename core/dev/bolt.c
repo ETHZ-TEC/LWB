@@ -43,6 +43,7 @@ typedef enum {
   BOLT_STATE_IDLE = 0,
   BOLT_STATE_READ,
   BOLT_STATE_WRITE,
+  BOLT_STATE_INVALID,
   NUM_OF_STATES
 } bolt_state_t;
 /*---------------------------------------------------------------------------*/
@@ -53,7 +54,7 @@ typedef enum {
 #define BOLT_ACK_STATUS                 PIN_GET(BOLT_CONF_ACK_PIN)
 #define BOLT_WAIT_TILL_COMPLETED        while(BOLT_STATE_IDLE != bolt_state)
 /*---------------------------------------------------------------------------*/
-static volatile bolt_state_t bolt_state = BOLT_STATE_IDLE;
+static volatile bolt_state_t bolt_state = BOLT_STATE_INVALID;
 static bolt_callback_t bolt_ind_callback = 0;
 #if BOLT_CONF_TIMEREQ_ENABLE
 static rtimer_clock_t ta1_timestamp = 0;
@@ -166,6 +167,10 @@ bolt_release(void)
 uint8_t
 bolt_acquire(bolt_op_mode_t mode)
 {  
+  if(BOLT_STATE_INVALID == bolt_state) {
+    DEBUG_PRINT_ERROR("BOLT not initialized!");
+    return 0;
+  }
   if(PIN_GET(BOLT_CONF_REQ_PIN) || 
      PIN_GET(BOLT_CONF_ACK_PIN)) {
     DEBUG_PRINT_ERROR("request failed (REQ or ACK still high)");
