@@ -63,8 +63,7 @@ hundred milliseconds, to ensure proper operation of LWB.
 
 ### Building the Demo App
 
-To use the commands below you need to install Code Composer Studio v6 from TI.
-Note: The provided demo application runs on the Olimex MSP430-CCRF only.
+The provided demo application runs on the Olimex MSP430-CCRF only.
 
 1. Install the msp430 toolchain. Note that you may need to enable 'universe'
     (community-maintained free & open-source software) for this step:
@@ -117,4 +116,4 @@ Note: The provided demo application runs on the Olimex MSP430-CCRF only.
     
 ## Research
 
-Glossy and LWB were developed at the [Computer Engineering Group](http://www.tec.ethz.ch/) at [ETH Zurich](https://www.ethz.ch/en.html). The following people have contributed to their design and implementation: [Federico Ferrari](https://www.linkedin.com/profile/view?id=ADEAAADzDcUBL2Oprfwgy-QEXjJ4kU1RgT3IHoM&authType=NAME_SEARCH&authToken=bEPI&locale=en_US&srchid=2523608951443443876723&srchindex=1&srchtotal=165&trk=vsrp_people_res_name&trkInfo=VSRPsearchId%3A2523608951443443876723%2CVSRPtargetId%3A15928773%2CVSRPcmpt%3Aprimary%2CVSRPnm%3Atrue%2CauthType%3ANAME_SEARCH), [Marco Zimmerling](http://www.tik.ee.ethz.ch/~marcoz/), [Reto Da Forno](https://www.linkedin.com/pub/reto-da-forno/8b/256/685), [Luca Mottola](http://home.deib.polimi.it/mottola/), [Lothar Thiele](http://www.tik.ee.ethz.ch/~thiele/pmwiki/pmwiki.php/Site/Home), and [Tonio Gsell](https://github.com/tgsell).
+Glossy and LWB were developed at the [Computer Engineering Group](http://www.tec.ethz.ch/) at [ETH Zurich](https://www.ethz.ch/en.html). The following people have contributed to their design and implementation: [Federico Ferrari](https://ch.linkedin.com/in/fferrari), [Marco Zimmerling](http://www.tik.ee.ethz.ch/~marcoz/), [Reto Da Forno](http://ch.linkedin.com/in/rdaforno), [Luca Mottola](http://home.deib.polimi.it/mottola/), [Lothar Thiele](http://www.tik.ee.ethz.ch/~thiele/pmwiki/pmwiki.php/Site/Home), and [Tonio Gsell](https://github.com/tgsell).
