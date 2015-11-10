@@ -1,10 +1,20 @@
-# Low-power Wireless Bus (LWB)
+# Low-Power Wireless Bus (LWB)
 
-Low-power Wireless Bus (LWB) is an efficient and adaptive communication protocol for wireless embedded systems, where nodes communicate as if they were conntected to a shared bus. It provides a high-level API that allows an application to dynamically submit, update, and relinquish communication demands in the form of packet *streams*. An exchangeable *scheduler* orchestrates communication over the wireless bus based on the current communication demands. Unlike other multi-hop protocols, LWB supports multiple diverse traffic patterns (e.g., one-to-many, many-to-one, and many-to-many) and seamlessly adapts to unpredictable network dynamics (e.g., mobile nodes and link fluctuations). At the same time, communication in LWB is highly reliable, energy-efficient, and predictable in terms of end-to-end packet delivery and energy costs.
+Low-Power Wireless Bus (LWB) is a communication protocol for low-power wireless embedded systems.
+LWB lets nodes communicate as if they were connected to a shared bus, where all nodes can receive all packets, although the underlying multi-hop network topology may be very complex.
+LWB provides an API through which an application can dynamically adjust its traffic demands at runtime.
+To serve the current traffic demands in the network, a scheduler computes online a global communication schedule.
+All nodes follow the schedule and communicate in a time-triggered fashion.
+
+Unlike other multi-hop low-power wireless protocols, LWB supports multiple traffic patterns (e.g., one-to-many, many-to-one, and many-to-many) and seamlessly adapts to changes in the network (e.g., volatile wireless links and mobile nodes). At the same time, LWB is highly reliable and efficient, providing end-to-end packet reliabilities above 99.9% at energy costs that are on par or below state-of-the-art solutions on real networks with hundreds of nodes.
 
 ## Glossy
 
-LWB uses Glossy as underlying communication and time-synchronization primitive. Glossy is a fast and reliable flooding protocol that allows a node to send a packet to all other nodes in a multi-hop wireless network. Optionally, Glossy can synchronize all nodes to within microsecond accuracy at nearly zero additional cost. Unlike most wireless protocols, Glossy takes advantage of packet collisions rather than fighting against them. It deliberately lets nodes send the same packet at the same time, thereby harnessing different forms of diversity.
+LWB uses Glossy as underlying communication and time-synchronization primitive.
+Glossy is a flooding protocol that lets a node send a packet to all others within a few milliseconds and at a reliability above 99.9%.
+In addition, Glossy can synchronize all nodes to within microsecond accuracy.
+Unlike most wireless protocols, Glossy takes advantage of packet collisions rather than fighting against them.
+It deliberately lets different nodes send the same packet at the same time, thereby taking advantage of capture effects and constructive interference to harness different forms of diversity.
 
 ## Further Reading and Documentation
 
