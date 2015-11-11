@@ -99,7 +99,7 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
 
 ### Running the Demo App on FlockLab
 
-FlockLab is a public testbed hosted by the [Computer Engineering Group](http://www.tec.ethz.ch/) at ETH Zurich.
+FlockLab is a public testbed hosted by the [Computer Engineering Group](http://www.tec.ethz.ch/) at [ETH Zurich](https://www.ethz.ch/en.html).
 Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, TinyNode, Opal, and Iris platforms. Please visit [http://www.flocklab.ethz.ch](http://www.flocklab.ethz.ch) to create an account and start using FlockLab. To concretely run the LWB demo application on FlockLab, you should
 
 1. Compile the code
@@ -126,6 +126,7 @@ Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, Ti
     test. Go to 'Manage Tests' to see all your tests. Once 
     your test has finished, you can download or preview the results.
     
-## Research
+## Contributors
 
-Glossy and LWB were developed at the [Computer Engineering Group](http://www.tec.ethz.ch/) at [ETH Zurich](https://www.ethz.ch/en.html). The following people have contributed to their design and implementation: [Federico Ferrari](https://ch.linkedin.com/in/fferrari), [Marco Zimmerling](http://www.tik.ee.ethz.ch/~marcoz/), [Reto Da Forno](http://ch.linkedin.com/in/rdaforno), [Luca Mottola](http://home.deib.polimi.it/mottola/), [Lothar Thiele](http://www.tik.ee.ethz.ch/~thiele/pmwiki/pmwiki.php/Site/Home), and [Tonio Gsell](https://github.com/tgsell).
+LWB and Glossy were developed at the [Computer Engineering Group](http://www.tec.ethz.ch/) at [ETH Zurich](https://www.ethz.ch/en.html).
+The following people contributed to their design and implementation: [Federico Ferrari](https://ch.linkedin.com/in/fferrari), [Marco Zimmerling](http://www.tik.ee.ethz.ch/~marcoz/), [Reto Da Forno](http://ch.linkedin.com/in/rdaforno), [Luca Mottola](http://home.deib.polimi.it/mottola/), [Lothar Thiele](http://www.tik.ee.ethz.ch/~thiele/pmwiki/pmwiki.php/Site/Home), and [Tonio Gsell](https://github.com/tgsell).
