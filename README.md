@@ -18,7 +18,7 @@ LWB uses Glossy as underlying communication and time-synchronization primitive.
 Glossy provides two services that are fundamental to LWB's operation: one-to-all network flooding and network-wide time synchronization.
 That is, in multi-hop wireless networks Glossy can send a packet from one node to all others within a few milliseconds and at a reliability close to 100%, while synchronizing all nodes to within microsecond accuracy.
 Unlike most wireless protocols, Glossy takes advantage of packet collisions rather than fighting against them.
-It deliberately forces multiple nodes to send the same packet at nearly the same time, thereby taking advantage of the [capture effect](https://en.wikipedia.org/wiki/Capture_effect) and constructive interference to harness different forms of diversity.
+It deliberately forces multiple nodes to send the same packet at nearly the same time, thereby taking advantage of the [capture effect](https://en.wikipedia.org/wiki/Capture_effect) and [constructive interference](https://en.wikipedia.org/wiki/Interference_(wave_propagation)) to harness different forms of diversity.
 
 ## Further Reading and Documentation
 
