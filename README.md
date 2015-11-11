@@ -80,25 +80,22 @@ hundred milliseconds (i.e., until the beginning of the next LWB round) so it doe
 
 For concurrent, fully decoupled execution of application and communication tasks, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while the two asynchronously exchange messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch/](http://www.bolt.ethz.ch/).
 
-### Building the Demo App
+### Building and Flashing the Demo App
 
-The provided demo application runs on the Olimex MSP430-CCRF only.
+The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Products/MSP430/Starter/MSP430-CCRF/), which features a CC430F5137 SoC.
 
-1. Install the msp430 toolchain. Note that you may need to enable 'universe'
-    (community-maintained free & open-source software) for this step:
-    
+1. Install the MSP430 toolchain. You may need to enable 'universe'
+    (community-maintained free and open-source software) for this step.
+
     ```
     sudo apt-get install msp430-libc binutils-msp430 gcc-msp430 msp430mcu
-    ```
-    
-1. Go to the directory `apps/lwb` and run `make`.
+    ```  
+2. Go to the directory `apps/lwb` and run `make`.
 
-2. To flash the application onto the CC430F5137, run `flash.sh`. This script uses
-    the tilib driver, which requires `libmsp430.so`, a shared object that is included, for example, in Code Composer Studio 6. You may also need to adjust the path
+3. Run `flash.sh` to flash the application onto the CC430F5137. This script uses
+    the `tilib` driver, which requires `libmsp430.so`, a shared object that is included, for example, in Code Composer Studio 6. You may also need to adjust the path
     to the `libmsp430.so`.
-    Alternatively, you can use any other flash tool (e.g., TI Uniflash) to 
-    program the target.
-
+    Alternatively, you can use any other flash tool, such as TI Uniflash.
 
 ### Running the Demo App on FlockLab
 
