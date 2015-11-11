@@ -99,8 +99,7 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
 
 ### Running the Demo App on FlockLab
 
-FlockLab is a public testbed for wireless embedded systems at ETH Zurich.
-It provides, for example, power and GPIO tracing and serial logging.
+FlockLab is a public testbed hosted by the Computer Engineering Group at ETH Zurich.
 Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, TinyNode, Opal, and Iris platforms. Please visit [https://www.flocklab.ethz.ch/wiki/](https://www.flocklab.ethz.ch/wiki/) to create an account and start using FlockLab. To concretely run the LWB demo application on FlockLab, you should
 
 1. Compile the code and embed the program image into `apps/lwb/locklab-cc430.xml`:
