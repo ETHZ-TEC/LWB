@@ -102,15 +102,16 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
 FlockLab is a public testbed hosted by the [Computer Engineering Group](http://www.tec.ethz.ch/) at ETH Zurich.
 Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, TinyNode, Opal, and Iris platforms. Please visit [http://www.flocklab.ethz.ch](http://www.flocklab.ethz.ch) to create an account and start using FlockLab. To concretely run the LWB demo application on FlockLab, you should
 
-1. Compile the code and embed the program image into `apps/lwb/locklab-cc430.xml`:
+1. Compile the code
 
     ```
     make
     make flocklab
     ```
+   and embed the program image into `apps/lwb/locklab-cc430.xml`.
 
 2. Adjust the FlockLab configuration file `flocklab-cc430.xml`. You can set 
-    various parameters for your test. The most important ones are:
+    various parameters for your test. The most important ones are
     
     ```
     <durationSecs>       the duration of your test in seconds
