@@ -1,20 +1,24 @@
 # Low-Power Wireless Bus (LWB)
 
 Low-Power Wireless Bus (LWB) is a communication protocol for low-power wireless embedded systems.
-LWB lets nodes communicate as if they were connected to a shared bus, where all nodes can receive all packets, although the underlying multi-hop network topology may be very complex.
+LWB lets nodes communicate as if they were connected to a shared bus, where all nodes can receive all packets, although the underlying multi-hop wireless topology may be very complex.
 LWB provides an API through which an application can dynamically adjust its traffic demands at runtime.
 To serve the current traffic demands in the network, a scheduler computes online a global communication schedule.
-All nodes follow the schedule and communicate in a time-triggered fashion.
+All nodes follow this schedule and communicate in a time-triggered fashion.
+Thus, LWB's operation is conceptually similar to that of wired busses used in avionics and automotive industries, such as [CAN](https://en.wikipedia.org/wiki/CAN_bus), [FlexRay](https://en.wikipedia.org/wiki/FlexRay), or [TTP](https://en.wikipedia.org/wiki/Time-Triggered_Protocol).
 
-Unlike other multi-hop low-power wireless protocols, LWB supports multiple traffic patterns (e.g., one-to-many, many-to-one, and many-to-many) and seamlessly adapts to changes in the network (e.g., volatile wireless links and mobile nodes). At the same time, LWB is highly reliable and efficient, providing end-to-end packet reliabilities above 99.9% at energy costs that are on par or below state-of-the-art solutions on real networks with hundreds of nodes.
+LWB supports multiple communication patterns, including one-to-many, many-to-one, and many-to-many.
+It quickly adapts to changes in the application's traffic demands and is highly resilient to network dynamics.
+This entails in particular that LWB's performance and reliability are remarkably unaffected by, for example, the presence of mobile nodes and wireless interference.
+Experiments on large multi-hop networks with more than 100 nodes show that LWB's end-to-end packet reliability typically ranges above 99.9%, with energy consumption on par or below state-of-the-art solutions.
 
 ## Glossy
 
-LWB uses Glossy as underlying communication and time-synchronization primitive.
-Glossy is a flooding protocol that lets a node send a packet to all others within a few milliseconds and at a reliability above 99.9%.
-In addition, Glossy can synchronize all nodes to within microsecond accuracy.
+LWB uses Glossy as its underlying communication and time-synchronization primitive.
+Glossy provides two services that are fundamental to LWB's operation: one-to-all network flooding and network-wide time synchronization.
+That is, in large multi-hop networks Glossy can send a packet from one node to all others within a few milliseconds and close to 100% reliability, while synchronizing all nodes to within microsecond accuracy.
 Unlike most wireless protocols, Glossy takes advantage of packet collisions rather than fighting against them.
-It deliberately lets different nodes send the same packet at the same time, thereby taking advantage of capture effects and constructive interference to harness different forms of diversity.
+It deliberately lets nodes send the same packet at the same time, taking advantage of capture effects and constructive interference to harness different forms of diversity.
 
 ## Further Reading and Documentation
 
