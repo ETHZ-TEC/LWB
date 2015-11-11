@@ -22,8 +22,6 @@ It deliberately forces multiple nodes to send the same packet at nearly the same
 
 ## Further Reading and Documentation
 
-## Further Reading and Documentation
-
 If you want to learn more about LWB and Glossy, please have a look at our [IPSN'11](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/GlossyIPSN11.pdf) and [SenSys'12](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/LWBSenSys12.pdf) papers, which include a high-level description of their designs and detailed performance evaluations. Our [MASCOTS'13](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) paper provides further details on LWB's operation and how this can be accurately modeled.
 Finally, the code is fairly well documented.
 
