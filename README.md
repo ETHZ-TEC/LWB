@@ -33,14 +33,18 @@ To get a glimpse of what LWB can be used for, you may also check out our work on
 
 ## Code
 
-### Disclaimer
+*Disclaimer: Although we have tested the code extensively, LWB and Glossy are research prototypes that likely contain bugs. We take no responsibility for, and give no warranties and guarantees in respect of using the code.*
 
-Glossy and LWB are research prototypes. We provide the code 'as is,' no warranties are given. 
-Use it at your own risk. 
+### Status
+
+We currently provide a revised implementation of LWB and the scheduler as described in the original [SenSys'12](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/LWBSenSys12.pdf) paper.
+We ported the underlying implementation of Glossy to the [CC430 SoC](http://www.ti.com/lsds/ti/microcontrollers_16-bit_32-bit/wireless_mcus/cc430/overview.page), a state-of-the-art platform that integrates an 868/915 MHz transceiver and an ultra-low power MSP430 microcontroller on one chip.
+You may readily run a LWB demo application we provide on the [FlockLab](https://www.flocklab.ethz.ch/wiki/) testbed by following the instructions below.
 
 ### Layout
 
-Both LWB and Glossy are based on the [Contiki](http://www.contiki-os.org/) operating system, and we try to adhere to Contiki's source tree structure and coding conventions.
+LWB and Glossy are implemented based on a minimum subset of the [Contiki](http://www.contiki-os.org/) operating system.
+We try to adhere to Contiki's source tree structure and coding conventions.
 
 `apps/lwb` LWB demo application and FlockLab testbed configuration file
 
@@ -50,12 +54,10 @@ Both LWB and Glossy are based on the [Contiki](http://www.contiki-os.org/) opera
 
 `mcu/cc430/` Glossy implementation for CC430
 
-### Status
+### Future
 
-Currently, we provide an implementation of Glossy for the CC430 SoC platform from Texas Instruments, as well as a completely revised implementation of LWB and the scheduler presented in the original [SenSys'12 paper](ftp://ftp.tik.ee.ethz.ch/pub/people/ferrarif/FZMT2012.pdf). You may run the code on the [FlockLab](https://www.flocklab.ethz.ch/wiki/) testbed by following the instructions below.
-We intend to adapt and include the Glossy port for the MSP430F1611 microcontroller and the CC2420 radio (currently available [here](http://sourceforge.net/p/contikiprojects/code/HEAD/tree/ethz.ch/glossy/)), in the near future, so you can run LWB also on other testbeds featuring TelosB nodes and in the Cooja simulator. We are also working toward a release of the Virtus and Blink code.
-
-Please feel free to contact us if you have any comments, would like to submit bug reports, suggest improvements, or contribute your own code.
+We intend to provide here also the original Glossy port for the old but still widely used TelosB platform, which features an MSP430F1611 microcontroller and a CC2420 radio, so you can run LWB also on other public testbeds and in the [Cooja/MSPSim](http://www.contiki-os.org/start.html#simulation) simulator. For now, the TelosB port of Glossy is available [here](http://sourceforge.net/p/contikiprojects/code/HEAD/tree/ethz.ch/glossy/).
+More generally, we would like to invite the community to help us collect here bug fixes, enhancements, ports to other platforms, etc. related to LWB and Glossy. Please contact us if you have any comments, suggestions, or would like to get involved.
 
 ## LWB Demo Application
 
