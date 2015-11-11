@@ -5,7 +5,7 @@ LWB lets nodes communicate as if they were connected to a shared bus, where all 
 LWB provides an API through which an application can dynamically adjust its traffic demands at runtime.
 To serve the current traffic demands in the network, a scheduler computes online a global communication schedule.
 All nodes follow this schedule and communicate in a time-triggered fashion.
-Thus, LWB's operation is conceptually similar to that of wired busses used in avionics and automotive industries, such as [CAN](https://en.wikipedia.org/wiki/CAN_bus), [FlexRay](https://en.wikipedia.org/wiki/FlexRay), or [TTP](https://en.wikipedia.org/wiki/Time-Triggered_Protocol).
+Thus, LWB's operation is conceptually similar to that of wired busses used in the avionics and automotive industries, such as [CAN](https://en.wikipedia.org/wiki/CAN_bus), [FlexRay](https://en.wikipedia.org/wiki/FlexRay), or [TTP](https://en.wikipedia.org/wiki/Time-Triggered_Protocol).
 
 LWB supports multiple communication patterns, including one-to-many, many-to-one, and many-to-many.
 It quickly adapts to changes in the application's traffic demands and is highly resilient to network dynamics.
@@ -14,11 +14,11 @@ Experiments on large multi-hop networks with more than 100 nodes show that LWB's
 
 ## Glossy
 
-LWB uses Glossy as its underlying communication and time-synchronization primitive.
+LWB uses Glossy as underlying communication and time-synchronization primitive.
 Glossy provides two services that are fundamental to LWB's operation: one-to-all network flooding and network-wide time synchronization.
-That is, in large multi-hop networks Glossy can send a packet from one node to all others within a few milliseconds and close to 100% reliability, while synchronizing all nodes to within microsecond accuracy.
+That is, in multi-hop wireless networks Glossy can send a packet from one node to all others within a few milliseconds and at a reliability close to 100%, while synchronizing all nodes to within microsecond accuracy.
 Unlike most wireless protocols, Glossy takes advantage of packet collisions rather than fighting against them.
-It deliberately lets nodes send the same packet at the same time, taking advantage of capture effects and constructive interference to harness different forms of diversity.
+It deliberately lets multiple nodes send the same packet at the same time, thereby taking advantage of capture effects and constructive interference to harness different forms of diversity.
 
 ## Further Reading and Documentation
 
