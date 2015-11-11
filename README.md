@@ -28,7 +28,7 @@ Finally, the code is fairly well documented.
 To get a glimpse of what LWB can be used for, you may also check out our work on:
 
 - [Virtus](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/VirtusSRDS13.pdf), a protocol that provides [virtual synchrony](https://en.wikipedia.org/wiki/Virtual_synchrony) in multi-hop low-power wireless networks (previously thought [impossible](http://www1.cse.wustl.edu/~lu/papers/pieee03.pdf)), thus enabling dependable applications through replication;
-- [predictability](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) of LWB's end-to-end packet delivery and energy consumption based on the finding that, unlike link-based protocols, packet receptions and losses in Glossy are largely statistically independent;
+- [predictability](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) of LWB's end-to-end reliability and energy consumption based on the finding that, unlike link-based protocols, packet receptions and losses in Glossy are largely statistically independent;
 - [building and deploying](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/DeploymentSenSys13.pdf) a wireless nurse call system based on LWB for two weeks during a summer camp for teenagers with [Duchenne muscular dystrophy](https://en.wikipedia.org/wiki/Duchenne_muscular_dystrophy).
 
 ## Code
