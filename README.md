@@ -63,19 +63,20 @@ More generally, we would like to invite the community to help us collect here bu
 
 ### Overview
 
-The demo application exemplifies how one could use LWB. The default scheduler for this demo is a static one, that, the round 
-period is fixed and there is one contention slot in each round. Each source
-node request one stream and sends one data packet per round to the host node, which also serves as sink in this setup. The application code comprises two source files located in `apps/lwb`, `lwb-test.c` and `config.h`. The latter contains all application-specific parameters and you may adjust it to your needs. The application code 
-itself in `lwb-test.c` is straightforward. A contiki process (i.e., application task) is defined,
-which starts LWB and then enters its main loop. An important thing to 
-note is that LWB controls the entire program flow, that is, the application
-task may only run if LWB permits it. This supervision function is achieved 
-through the following:
+The demo aims to exemplifies how an application might use LWB.
+To simplify the setup, the demo uses a static LWB scheduler that schedules communication rounds with a fixed round period and every round contains a contention slot.
+After joining the bus operation by synchronizing with the host, each source node request one stream such that it sends one data packet per round to the LWB host, which also acts as the sink in this specific setup.
+
+The application code comprises two source files located in `apps/lwb`: `lwb-test.c` and `config.h`.
+The latter contains all application-specific parameters, which you may adjust to your needs.
+The application logic in `lwb-test.c` runs within its own Contiki process.
+The process first starts LWB and then enters its main loop.
+LWB controls when the application process may continue its execution: 
 
 `PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);`
 
-Once LWB has polled the application task, it may run for no more than a few
-hundred milliseconds, to ensure proper operation of LWB. 
+Once LWB has polled the application process, it may run for no more than a few
+hundred milliseconds (i.e., until the beginning of the next LWB round) so it does not interfere with the scheduled execution of LWB and Glossy. To allow for concurrent and fully decoupled execution of application and communication tasks, we suggest using a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while asynchronously exchanging messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch/](http://www.bolt.ethz.ch/).
 
 ### Building the Demo App
 
