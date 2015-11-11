@@ -71,7 +71,7 @@ The application code comprises two source files located in `apps/lwb`: `lwb-test
 The latter contains all application-specific parameters, which you may adjust to your needs.
 The application logic in `lwb-test.c` runs within its own Contiki process.
 The process first starts LWB and then enters its main loop.
-LWB controls when the application process may continue its execution: 
+LWB controls when the application process continues its execution: 
 
 `PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);`
 
