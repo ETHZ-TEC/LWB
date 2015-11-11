@@ -78,7 +78,7 @@ LWB controls when the application process continues its execution:
 Once LWB has polled the application process, it may run for no more than a few
 hundred milliseconds (i.e., until the beginning of the next LWB round) so it does not interfere with the scheduled execution of LWB and Glossy.
 
-For concurrent, fully decoupled execution of application and communication tasks, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while the two asynchronously exchange messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch/](http://www.bolt.ethz.ch/).
+For concurrent, fully decoupled execution of application and communication tasks, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while the two asynchronously exchange messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch](http://www.bolt.ethz.ch).
 
 ### Building and Flashing the Demo App
 
@@ -100,7 +100,7 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
 ### Running the Demo App on FlockLab
 
 FlockLab is a public testbed hosted by the [Computer Engineering Group](http://www.tec.ethz.ch/) at ETH Zurich.
-Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, TinyNode, Opal, and Iris platforms. Please visit [https://www.flocklab.ethz.ch/wiki/](https://www.flocklab.ethz.ch/wiki/) to create an account and start using FlockLab. To concretely run the LWB demo application on FlockLab, you should
+Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, TinyNode, Opal, and Iris platforms. Please visit [http://www.flocklab.ethz.ch](http://www.flocklab.ethz.ch) to create an account and start using FlockLab. To concretely run the LWB demo application on FlockLab, you should
 
 1. Compile the code and embed the program image into `apps/lwb/locklab-cc430.xml`:
 
