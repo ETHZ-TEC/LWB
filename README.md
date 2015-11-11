@@ -63,7 +63,7 @@ More generally, we would like to invite the community to help us collect here bu
 
 ### Overview
 
-The demo aims to exemplifies how an application might use LWB.
+The demo aims to exemplify how an application might use LWB.
 To simplify the setup, the demo uses a static LWB scheduler that schedules communication rounds with a fixed round period and every round contains a contention slot.
 After joining the bus operation by synchronizing with the host, each source node request one stream such that it sends one data packet per round to the LWB host, which also acts as the sink in this specific setup.
 
@@ -99,6 +99,10 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
 
 ### Running the Demo App on FlockLab
 
+FlockLab is a public testbed for wireless embedded systems at ETH Zurich.
+It provides, for example, power and GPIO tracing and serial logging.
+Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, TinyNode, Opal, and Iris platforms. Please visit [https://www.flocklab.ethz.ch/wiki/](https://www.flocklab.ethz.ch/wiki/) to create an account and start using FlockLab. To concretely run the LWB demo application on FlockLab, you should
+
 1. Compile the code and embed the program image into `apps/lwb/locklab-cc430.xml`:
 
     ```
@@ -107,26 +111,19 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
     ```
 
 2. Adjust the FlockLab configuration file `flocklab-cc430.xml`. You can set 
-    various parameters for your test. The most important parameters are:
+    various parameters for your test. The most important ones are:
     
     ```
     <durationSecs>       the duration of your test in seconds
     <obsIds>             the IDs of the involved nodes (observers)
     ```
     
-    Visit www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig for more info. 
-    If you don't set a start time for your test, it will be scheduled ASAP. 
-    IMPORTANT: Since only one user can run a test on FlockLab at a time, the 
-    system relies on 'fair play'. Do not run long tests (> 1h) during daytime 
-    (UTC 06:00 - 18:00) to enable other users to run their tests.
+    See [https://www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig](https://www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig) for more information. 
+    
 
-3. Go to www.flocklab.ethz.ch and select 'Use FlockLab'. If you are not yet 
-    familiar with FlockLab, you should at least go through the tutorials and 
-    the quick start guide. If you don't have a login yet, you can register a 
-    new account on this page: www.user.flocklab.ethz.ch. Once your ready to
-    schedule your test, login with your username and select 'Validate XML Test
-    Config' in the menu on the right. Choose the file "flocklab-cc430.xml" and
-    validate it. If no errors pop up, click 'Create Test' to schedule your 
+3. Go to [https://www.flocklab.ethz.ch/user/login.php](https://www.flocklab.ethz.ch/user/login.php) and log in with your username and password. Select 'Validate XML Test
+    Config' in the menu on the right. Choose the file `flocklab-cc430.xml` and
+    validate it. Unless there are errors, click on 'Create Test' to schedule your 
     test. Go to 'Manage Tests' to get an overview of all your tests. Once 
     your test has finished, you can download or preview the results.
     
