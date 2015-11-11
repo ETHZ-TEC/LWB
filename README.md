@@ -33,7 +33,7 @@ To get a glimpse of what LWB can be used for, you may also check out our work on
 
 ## Code
 
-*Disclaimer: Although we have tested the code extensively, LWB and Glossy are research prototypes that likely contain bugs. We take no responsibility for, and give no warranties and guarantees in respect of using the code.*
+*Disclaimer: Although we tested the code extensively, LWB and Glossy are research prototypes that likely contain bugs. We take no responsibility for and give no warranties in respect of using the code.*
 
 ### Status
 
