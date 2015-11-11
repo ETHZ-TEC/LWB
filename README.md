@@ -22,14 +22,16 @@ It deliberately forces multiple nodes to send the same packet at nearly the same
 
 ## Further Reading and Documentation
 
-If you want to learn more about LWB and Glossy, please have a look at the original research papers published at [SenSys'12](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/LWBSenSys12.pdf) and [IPSN'11](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/GlossyIPSN11.pdf), which also provide a high-level overview of their designs and detailed performance evaluations. For further details on LWB's design and protocol parameters, you may also check out our [MASCOTS'13 paper](ftp://ftp.tik.ee.ethz.ch/pub/people/marcoz/ZFMT2013.pdf) and the [Blink technical report](ftp://ftp.tik.ee.ethz.ch/pub/publications/TIK-Report-356.pdf). The code itself is fairly well documented using [Doxygen](http://www.stack.nl/~dimitri/doxygen/).
+## Further Reading and Documentation
 
-Other research artifacts we have built based on LWB include:
-- [Virtus](ftp://ftp.tik.ee.ethz.ch/pub/people/ferrarif/FZMT2013.pdf), a protocol that provides [virtual-synchrony guarantees](https://en.wikipedia.org/wiki/Virtual_synchrony) in multi-hop low-power wireless networks, enabling dependable applications;
-- [Blink](ftp://ftp.tik.ee.ethz.ch/pub/publications/TIK-Report-356.pdf), a protocol that provides energy-efficient real-time communication in multi-hop low-power wireless networks to support applications with real-time requirements, such as [Cyber-physical Systems (CPS)](https://www.google.de/url?sa=t&rct=j&q=&esrc=s&source=web&cd=4&cad=rja&uact=8&ved=0CDIQFjADahUKEwjd17qXx5nIAhXmjHIKHd5UD6k&url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FCyber-physical_system&usg=AFQjCNHEv3w1SdMsXfsWwK3ALj4gJG_rEg&sig2=vpyxY-vJ2VMgg_AhMD_G1Q); and
-- [work](ftp://ftp.tik.ee.ethz.ch/pub/people/marcoz/ZFMT2013.pdf) demonstrating that end-to-end packet delivery and energy consumption are highly predictable in LWB, which is also due to the empirical finding that, different from traditional link-based multi-hop protocols, packet receptions and losses in Glossy are largely statistically independent.
+If you want to learn more about LWB and Glossy, please have a look at our [IPSN'11](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/GlossyIPSN11.pdf) and [SenSys'12](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/LWBSenSys12.pdf) papers, which include a high-level description of their designs and detailed performance evaluations. Our [MASCOTS'13](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) paper provides further details on LWB's operation and how this can be accurately modeled.
+Finally, the code is fairly well documented.
 
-We also built a [wireless nurse call system](ftp://ftp.tik.ee.ethz.ch/pub/people/marcoz/ZFLSSDSW2013.pdf) based on LWB, and deployed it for two weeks during a summer camp for teenagers with [Duchenne muscular dystrophy](https://en.wikipedia.org/wiki/Duchenne_muscular_dystrophy).
+To get a glimpse of what LWB can be used for, you may also check out our work on:
+
+- [Virtus](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/VirtusSRDS13.pdf), a protocol based on LWB that provides [virtual synchrony](https://en.wikipedia.org/wiki/Virtual_synchrony) in multi-hop low-power wireless networks &mdash; something that was thought to be [impossible](http://www1.cse.wustl.edu/~lu/papers/pieee03.pdf) &mdash; thus enabling dependable applications based on replication;
+- [predictability](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) of LWB's end-to-end packet delivery and energy consumption based on the finding that, different from traditional link-based protocols, packet receptions and losses in Glossy are largely statistically independent;
+- [building and deploying](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/DeploymentSenSys13.pdf) a wireless nurse call system based on LWB for two weeks during a summer camp for teenagers with [Duchenne muscular dystrophy](https://en.wikipedia.org/wiki/Duchenne_muscular_dystrophy).
 
 ## Code
 
