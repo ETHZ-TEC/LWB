@@ -122,7 +122,7 @@ Besides Olimex MSP430-CCRF, FlockLab currently supports the TelosB, OpenMote, Ti
     
 
 3. Go to [https://www.flocklab.ethz.ch/user/login.php](https://www.flocklab.ethz.ch/user/login.php) and log in with your username and password. Select 'Validate XML Test
-    Config' in the menu on the right to validate the `flocklab-cc430.xml` configuration file. Unless there are errors, click on 'Create Test' to schedule your 
+    Config' in the menu on the right to validate the `flocklab-cc430.xml` configuration file. Then click on 'Create Test' to schedule your 
     test. Go to 'Manage Tests' to get an overview of all your tests. Once 
     your test has finished, you can download or preview the results.
     
