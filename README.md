@@ -78,7 +78,7 @@ LWB controls when the application process continues its execution:
 Once LWB has polled the application process, it may run for no more than a few
 hundred milliseconds (i.e., until the beginning of the next LWB round) so it does not interfere with the scheduled execution of LWB and Glossy.
 
-For concurrent, fully decoupled execution of application and communication, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while asynchronously exchanging messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch/](http://www.bolt.ethz.ch/).
+For concurrent, fully decoupled execution of application and communication, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while the two asynchronously exchange messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch/](http://www.bolt.ethz.ch/).
 
 ### Building the Demo App
 
