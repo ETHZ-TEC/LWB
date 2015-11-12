@@ -23,12 +23,12 @@ It deliberately forces multiple nodes to send the same packet at nearly the same
 ## Further Reading and Documentation
 
 If you want to learn more about LWB and Glossy, please have a look at our [IPSN'11](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/GlossyIPSN11.pdf) and [SenSys'12](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/LWBSenSys12.pdf) papers, which include a high-level description of their designs and detailed performance evaluations. Our [MASCOTS'13](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) paper provides further details on LWB's operation and how this can be accurately modeled.
-Finally, the code is fairly well documented.
+Finally, the code is fairly well documented using [Doxygen](https://en.wikipedia.org/wiki/Doxygen) annotation syntax.
 
 To get a glimpse of what LWB can be used for, you may also check out our work on:
 
-- [Virtus](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/VirtusSRDS13.pdf), a protocol that provides [virtual synchrony](https://en.wikipedia.org/wiki/Virtual_synchrony) in multi-hop low-power wireless networks (previously thought [impossible](http://www1.cse.wustl.edu/~lu/papers/pieee03.pdf)), thus enabling dependable applications through replication;
-- [predictability](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) of LWB's end-to-end reliability and energy consumption by exploiting the fact that, unlike link-based transmissions, packet losses in Glossy are largely statistically independent;
+- [Virtus](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/VirtusSRDS13.pdf), a protocol that provides [virtual synchrony](https://en.wikipedia.org/wiki/Virtual_synchrony) in multi-hop low-power wireless networks (previously thought [impossible](http://www1.cse.wustl.edu/~lu/papers/pieee03.pdf)), thus enabling dependable applications through replication.
+- [predictability](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/ModelingMASCOTS13.pdf) of LWB's end-to-end reliability and energy consumption by exploiting the fact that, unlike link-based transmissions, packet losses in Glossy are largely statistically independent.
 - [building and deploying](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/DeploymentSenSys13.pdf) a wireless nurse call system based on LWB for two weeks during a summer camp for teenagers with [Duchenne muscular dystrophy](https://en.wikipedia.org/wiki/Duchenne_muscular_dystrophy).
 
 ## Code
@@ -57,7 +57,7 @@ We try to adhere to Contiki's source tree structure and coding conventions.
 ### Future
 
 Looking forward, we intend to provide here also the original Glossy port for the old but still widely used TelosB platform, which features an MSP430F1611 microcontroller and a CC2420 radio, so you can run LWB also on other public testbeds and in the [Cooja/MSPSim](http://www.contiki-os.org/start.html#simulation) simulator. For now, the TelosB port of Glossy is available [here](http://sourceforge.net/p/contikiprojects/code/HEAD/tree/ethz.ch/glossy/).
-More generally, we would like to invite the community to help us collect here bug fixes, enhancements, ports to other platforms, etc. related to LWB and Glossy. Please contact us if you have any comments, suggestions, or would like to get involved.
+More generally, we would like to invite the community to help us collect here bugfixes, enhancements, ports to other platforms, etc. related to LWB and Glossy. Please contact us if you have any comments, suggestions, or would like to get involved and submit your code contributions to LWB as [Github pull requests](https://help.github.com/articles/using-pull-requests/).
 
 ## LWB Demo Application
 
@@ -65,11 +65,11 @@ More generally, we would like to invite the community to help us collect here bu
 
 The demo aims to exemplify how an application might use LWB.
 To simplify the setup, the demo uses a static LWB scheduler that schedules communication rounds with a fixed round period and every round contains a contention slot.
-After joining the bus operation by synchronizing with the host, each source node request one stream such that it sends one data packet per round to the LWB host, which also acts as the sink in this specific setup.
+After joining the bus operation by synchronizing with the host, each source node requests one stream such that it sends one data packet per round to the LWB host, which also acts as the sink in this specific setup.
 
 The application code comprises two source files located in `apps/lwb`: `lwb-test.c` and `config.h`.
 The latter contains all application-specific parameters, which you may adjust to your needs.
-The application logic in `lwb-test.c` runs within its own Contiki process.
+The application logic in `lwb-test.c` runs within its own [Contiki process](https://github.com/contiki-os/contiki/wiki/Processes).
 The process first starts LWB and then enters its main loop.
 LWB controls when the application process continues its execution: 
 
@@ -78,7 +78,7 @@ LWB controls when the application process continues its execution:
 Once LWB has polled the application process, it may run for no more than a few
 hundred milliseconds (i.e., until the beginning of the next LWB round) so it does not interfere with the scheduled execution of LWB and Glossy.
 
-For concurrent, fully decoupled execution of application and communication tasks, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks while the two asynchronously exchange messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch](http://www.bolt.ethz.ch).
+For concurrent, fully decoupled execution of application and communication tasks, you may use a dual-processor platform, where one processor is dedicated to application processing and the other to handling communication tasks, while the two asynchronously exchange messages (e.g., data packets) through the [Bolt](https://github.com/ETHZ-TEC/LWB/blob/master/doc/papers/BoltSenSys15.pdf) processor interconnect. More information on Bolt and how to construct your own customized dual-processor platform is available at [http://www.bolt.ethz.ch](http://www.bolt.ethz.ch).
 
 ### Building and Flashing the Demo App
 
@@ -89,10 +89,15 @@ The demo application runs on the [Olimex MSP430-CCRF](https://www.olimex.com/Pro
 
     ```
     sudo apt-get install msp430-libc binutils-msp430 gcc-msp430 msp430mcu
-    ```  
-2. Go to the directory `apps/lwb` and run `make`.
+    ```
+2. Download the LWB code from the git repository
 
-3. Run `flash.sh` to flash the application onto the CC430F5137. This script uses
+    ```
+    git clone git@github.com:ETHZ-TEC/LWB.git
+    ```
+3. Go to the directory `apps/lwb` and run `make`.
+
+4. Run `flash.sh` to flash the application onto the CC430F5137. This script uses
     the `tilib` driver, which requires `libmsp430.so`, a shared object that is included, for example, in Code Composer Studio 6. You may also need to adjust the path
     to the `libmsp430.so`.
     Alternatively, you can use any other flash tool, such as TI Uniflash.
