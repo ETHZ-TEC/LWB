@@ -57,7 +57,7 @@ We try to adhere to Contiki's source tree structure and coding conventions.
 ### Future
 
 Looking forward, we intend to provide here also the original Glossy port for the old but still widely used TelosB platform, which features an MSP430F1611 microcontroller and a CC2420 radio, so you can run LWB also on other public testbeds and in the [Cooja/MSPSim](http://www.contiki-os.org/start.html#simulation) simulator. For now, the TelosB port of Glossy is available [here](http://sourceforge.net/p/contikiprojects/code/HEAD/tree/ethz.ch/glossy/).
-More generally, we would like to invite the community to help us collect here bugfixes, enhancements, ports to other platforms, etc. related to LWB and Glossy. Please contact us if you have any comments, suggestions, or would like to get involved and submit your code contributions to LWB as [Github pull requests](https://help.github.com/articles/using-pull-requests/).
+More generally, we would like to invite the community to help us collect here bugfixes, enhancements, ports to other platforms, etc. related to LWB and Glossy. Please contact us if you have any comments, suggestions, or would like to get involved and submit your code contributions to LWB and Glossy as [GitHub pull requests](https://help.github.com/articles/using-pull-requests/).
 
 ## LWB Demo Application
 
