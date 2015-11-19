@@ -1,7 +1,7 @@
 # Low-Power Wireless Bus (LWB)
 
 Low-Power Wireless Bus (LWB) is a communication protocol for low-power wireless embedded systems.
-LWB lets nodes communicate as if they were connected to a shared bus, where all nodes can receive all packets, although the underlying multi-hop wireless topology may be very complex.
+LWB lets nodes communicate as if they were connected to a shared bus, where all nodes can receive all packets, although the underlying multi-hop wireless topology may be very complex and continuously changing.
 LWB provides an API through which an application can dynamically adjust its traffic demands at runtime.
 To serve the current traffic demands in the network, a scheduler computes online a global communication schedule.
 All nodes follow this schedule and communicate in a time-triggered fashion.
