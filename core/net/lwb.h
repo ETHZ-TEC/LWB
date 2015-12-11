@@ -71,6 +71,17 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       16
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
+/* scaling factor to enable periods and IPIs of less than 1 second 
+ * (e.g. a scale 10 means the LWB runs 10x faster, i.e. a round period of 1s
+ * will effectively only be 100ms long) */
+#ifndef LWB_CONF_TIME_SCALE
+#define LWB_CONF_TIME_SCALE             1
+#endif /* LWB_CONF_TIME_SCALE */
+
+#if !LWB_CONF_TIME_SCALE
+#error "invalid value for LWB_CONF_TIME_SCALE"
+#endif
+
 #ifndef LWB_CONF_USE_XMEM
 /* by default, don't use the external memory to store the message queues and
  * statistics; due to memory (SRAM) constraints, using the (slow) external 

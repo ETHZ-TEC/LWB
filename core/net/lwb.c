@@ -504,9 +504,11 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       process_poll(pre_proc);
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF);
+    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+                      LWB_CONF_TIME_SCALE);
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF)
+    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF / 
+                             LWB_CONF_TIME_SCALE)
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_T_PREPROCESS */
 
@@ -590,7 +592,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
               glossy_payload.data_pkt.recipient == 0) {
               /* is it a stream request? (piggyback on data packet) */
               if(LWB_INVALID_STREAM_ID == glossy_payload.data_pkt.stream_id) {
-                DEBUG_PRINT_INFO("piggyback stream request from node %u", 
+                DEBUG_PRINT_VERBOSE("piggyback stream request from node %u", 
                                  glossy_payload.srq_pkt.node_id);
                 lwb_sched_proc_srq((lwb_stream_req_t*)
                                    &glossy_payload.raw_data[3]);
@@ -630,7 +632,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       LWB_RCV_PACKET();
       if(LWB_DATA_RCVD) {
         /* check the request */
-        DEBUG_PRINT_INFO("stream request from node %u (stream %u, IPI %u)", 
+        DEBUG_PRINT_VERBOSE("stream request from node %u (stream %u, IPI %u)", 
                          glossy_payload.srq_pkt.node_id, 
                          glossy_payload.srq_pkt.stream_id, 
                          glossy_payload.srq_pkt.ipi);
@@ -675,12 +677,13 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
     /* suspend this task and wait for the next round */
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF - 
-                      LWB_CONF_T_PREPROCESS);
+    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+                      LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF - 
-                   LWB_CONF_T_PREPROCESS);
-    rt->time = t_start + schedule.period * RTIMER_SECOND_HF;
+    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF /
+                   LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS);
+    /*rt->time = t_start + schedule.period * RTIMER_SECOND_HF / 
+                 LWB_CONF_TIME_SCALE; */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   }
   
@@ -726,10 +729,11 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       process_poll(pre_proc);
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF - 
-                      (t_guard / RTIMER_HF_LF_RATIO));
+    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+                      LWB_CONF_TIME_SCALE - (t_guard / RTIMER_HF_LF_RATIO));
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF - t_guard)
+    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF / 
+                   LWB_CONF_TIME_SCALE - t_guard)
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_T_PREPROCESS */
     
@@ -784,7 +788,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* estimate t_ref */
-      t_ref = t_ref + schedule.period * (RTIMER_SECOND_HF + drift_last); 
+      t_ref = t_ref + schedule.period * (RTIMER_SECOND_HF + drift_last) /
+                      LWB_CONF_TIME_SCALE; 
       t_start = t_ref - LWB_CONF_T_REF_OFS;
     }
 #if LWB_CONF_USE_LF_FOR_WAKEUP
@@ -825,10 +830,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               stats.t_slot_last = schedule.time;
               rounds_to_wait = 0;
               if(lwb_stream_update_state(stream_id)) {
-                DEBUG_PRINT_INFO("S-ACK received for stream %u (joined)", 
+                DEBUG_PRINT_VERBOSE("S-ACK received for stream %u (joined)", 
                                  stream_id);
               } else {
-                DEBUG_PRINT_INFO("S-ACK received for stream %u (removed)", 
+                DEBUG_PRINT_VERBOSE("S-ACK received for stream %u (removed)", 
                                  stream_id);
               }
             } 
@@ -861,7 +866,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                                         urgent_stream_req)) {
                 payload_len = sizeof(lwb_stream_req_t) + 3;
               }
-              DEBUG_PRINT_INFO("piggyback stream request prepared");
+              DEBUG_PRINT_VERBOSE("piggyback stream request prepared");
             } else {
               /* fetch the next 'ready-to-send' packet */
               payload_len = lwb_out_buffer_get(glossy_payload.raw_data);
@@ -871,9 +876,9 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               stats.t_slot_last = schedule.time;
               LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
-              DEBUG_PRINT_INFO("data packet sent (%u bytes)", payload_len);
+              DEBUG_PRINT_VERBOSE("data packet sent (%u bytes)", payload_len);
             } else {              
-              DEBUG_PRINT_WARNING("no message to send (data slot ignored)");
+              DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
             }
           } else {
             /* receive a data packet */
@@ -928,7 +933,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               DEBUG_PRINT_ERROR("failed to prepare stream request packet");
             }
           } else {
-            DEBUG_PRINT_INFO("must wait %u rounds", rounds_to_wait);
+            DEBUG_PRINT_VERBOSE("must wait %u rounds", rounds_to_wait);
             /* keep waiting and just relay incoming packets */
             rounds_to_wait--;       /* decrease the number of rounds to wait */
             /* wait until the contention slot starts */
@@ -974,8 +979,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     
     /* update the stats and estimate the clock drift (clock cycles per
      * second) */
+#if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
     drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
                       RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
+#endif
     stats.period_last = schedule.period;
     t_ref_last = t_ref; 
     if(sync_state > ALREADY_SYNCED) {
@@ -998,6 +1005,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      (drift_last - (int16_t)drift),
                      glossy_get_per(),
                      rf1a_get_last_packet_rssi());
+#if (LWB_CONF_TIME_SCALE == 1)
     if(ALREADY_SYNCED == sync_state || UNSYNCED_1 == sync_state) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
@@ -1010,6 +1018,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         DEBUG_PRINT_WARNING("Critical timing error (timer update overrun?)");
       }
     }
+#endif
     
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
@@ -1026,12 +1035,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* NOTE: drift compensation not feasible with LF crystal */
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF - 
+    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+                      LWB_CONF_TIME_SCALE - 
                       (t_guard / RTIMER_HF_LF_RATIO) - LWB_CONF_T_PREPROCESS);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * (RTIMER_SECOND_HF + drift_last)
-                   - t_guard - LWB_CONF_T_PREPROCESS);
-    rt->time = t_start + schedule.period * RTIMER_SECOND_HF;
+    LWB_WAIT_UNTIL(t_start + schedule.period * (RTIMER_SECOND_HF + drift_last) 
+                   / LWB_CONF_TIME_SCALE - t_guard - LWB_CONF_T_PREPROCESS);
+    /*rt->time = t_start + schedule.period * RTIMER_SECOND_HF / 
+                         LWB_CONF_TIME_SCALE;*/
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   }
 
@@ -1078,7 +1089,7 @@ PROCESS_THREAD(lwb_process, ev, data)
     rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() + RTIMER_SECOND_HF,
                     0, lwb_thread_host);
   } else {
-    rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() + RTIMER_SECOND_HF,
+    rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() + RTIMER_SECOND_HF / 2,
                     0, lwb_thread_src);
   }
 
