@@ -979,8 +979,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     
     /* update the stats and estimate the clock drift (clock cycles per
      * second) */
+#if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
     drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
                       RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
+#endif
     stats.period_last = schedule.period;
     t_ref_last = t_ref; 
     if(sync_state > ALREADY_SYNCED) {
@@ -1003,6 +1005,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      (drift_last - (int16_t)drift),
                      glossy_get_per(),
                      rf1a_get_last_packet_rssi());
+#if (LWB_CONF_TIME_SCALE == 1)
     if(ALREADY_SYNCED == sync_state || UNSYNCED_1 == sync_state) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
@@ -1015,6 +1018,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         DEBUG_PRINT_WARNING("Critical timing error (timer update overrun?)");
       }
     }
+#endif
     
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();

@@ -49,6 +49,9 @@
 #define __GLOSSY_H__
 
 
+#include <stdlib.h>
+
+
 enum {
   GLOSSY_UNKNOWN_INITIATOR = 0
 };
@@ -105,14 +108,20 @@ uint8_t glossy_stop(void);
 uint8_t glossy_is_active(void);
 
 /**
- * @brief get the number of received bytes
+ * @brief get the number of received packets
  */
 uint8_t glossy_get_n_rx(void);
 
 /**
- * @brief get the number of transmitted bytes
+ * @brief get the number of transmitted packets
  */
 uint8_t glossy_get_n_tx(void);
+
+/**
+ * @brief get the signal-to-noise ratio (average RSSI value of all received 
+ * packets of the last flood minus RSSI of the noise floor before the flood)
+ */
+int8_t glossy_get_snr(void);
 
 /**
  * @brief get the length of the payload of the received/transmitted packet

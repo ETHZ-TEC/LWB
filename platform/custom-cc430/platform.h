@@ -113,7 +113,7 @@
 #define DEBUG_SWITCH                PORT1, PIN0
 #define FRAM_CONF_CTRL_PIN          PORT2, PIN0
 
-#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
+//#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
 #define LWB_CONF_TASK_ACT_PIN       PORT2, PIN1
 #define GLOSSY_START_PIN            LED_1  
 #define GLOSSY_RX_PIN               PORT2, PIN3
@@ -121,7 +121,7 @@
 #define RF_GDO0_PIN                 PORT1, PIN2
 #define RF_GDO1_PIN                 PORT1, PIN3
 #define RF_GDO2_PIN                 PORT1, PIN4
-#define MCLK_PIN                    PORT2, PIN5
+//#define MCLK_PIN                    PORT2, PIN5
 /*#define ACLK_PIN                  PORT3, PIN3*/
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 

@@ -228,6 +228,8 @@ typedef struct {
   uint16_t enabled_adc_interrupts;
   uint16_t enabled_port_interrupts;
 #endif /* GLOSSY_DISABLE_INTERRUPTS */
+  int16_t  rssi_sum;
+  int16_t  rssi_noise;
   uint32_t pkt_cnt;
   uint32_t corrupted_pkt_cnt;
 } glossy_state_t;
@@ -381,6 +383,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   g.t_ref_updated = 0;
   g.T_slot_sum = 0;
   g.n_T_slot = 0;
+  g.rssi_sum = 0;
 
   /* prepare the Glossy header, with the information known so far */
   g.header.initiator_id = initiator_id;
@@ -423,7 +426,11 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     }
   } else {
     /* Glossy receiver */
-    rf1a_start_rx();
+    rf1a_start_rx();        
+    /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
+    __delay_cycles(MCLK_SPEED / 2000);    /* wait 0.5 ms */
+    g.rssi_noise = rf1a_get_rssi();       /* get RSSI of the noise floor */
+    LED_TOGGLE(FLOCKLAB_LED3);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -484,6 +491,16 @@ uint8_t
 glossy_get_n_rx(void)
 {
   return g.n_rx;
+}
+/*---------------------------------------------------------------------------*/
+int8_t
+glossy_get_snr(void)
+{
+  int16_t rssi_avg = g.rssi_sum / (int16_t)g.n_rx;
+  if(rssi_avg == 0) {
+      return 0;
+  }
+  return (int8_t)( - g.rssi_noise);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -608,6 +625,9 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
       glossy_stop();
     }
 
+    /* get the RSSI value */
+    g.rssi_sum += rf1a_get_last_packet_rssi();
+    
     /* increment the reception counter */
     g.n_rx++;
 
@@ -685,7 +705,7 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
        * schedule the timeout */
       schedule_timeout();
     }
-  }
+  }     
 }
 /*---------------------------------------------------------------------------*/
 void
