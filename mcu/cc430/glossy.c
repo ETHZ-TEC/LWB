@@ -499,7 +499,7 @@ glossy_get_snr(void)
   if(rssi_avg == 0) {
       return 0;
   }
-  return (int8_t)( - g.rssi_noise);
+  return (int8_t)(rssi_avg - g.rssi_noise);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
