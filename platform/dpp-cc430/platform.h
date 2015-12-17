@@ -57,7 +57,7 @@
  */
 #include <cc430f5137.h>             /* or simply include <msp430.h> */
 
-#define MCU_TYPE                    "CC430F5137"
+#define MCU_TYPE                    "CC430F5147"
 #define COMPILER_INFO               "GCC " __VERSION__
 #define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
 #define COMPILE_DATE                __DATE__
@@ -69,7 +69,8 @@
 #include "config.h"                 /* application specific configuration */
 
 /*
- * default configuration (values may be overwritten in config.h)
+ * configuration and definitions (default values, may be overwritten
+ * in config.h)
  */
 #ifndef WATCHDOG_CONF_ON
 #define WATCHDOG_CONF_ON            0
@@ -78,6 +79,9 @@
 #ifndef LEDS_CONF_ON 
 #define LEDS_CONF_ON                1
 #endif /* LEDS_CONF_ON */
+
+/* this board does not have a crystal oscillator installed at XT1 */
+#define CLOCK_CONF_XT1_ON           0           
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -90,81 +94,54 @@
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2
 
-/* The application should define the following two macros for better
- * performance (otherwise glossy will disable all active interrupts). */
+/*
+ * The application should define the following two macros for better
+ * performance (otherwise glossy will disable all active interrupts).
+ */
 #define GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS
 
 /*
  * pin mapping
  */
-#define LED_RED                     PORT1, PIN0
-#define LED_0                       LED_RED 
-#define LED_STATUS                  LED_RED
-#define LED_ERROR                   LED_RED
-#ifndef FLOCKLAB
-#define DEBUG_SWITCH                PORT1, PIN1  /* user push-button */
-#endif /* FLOCKLAB */
-#define FRAM_CONF_CTRL_PIN          PORT1, PIN7
+#define LED_0                       PORT3, PIN0
+#define LED_STATUS                  LED_0
+#define LED_ERROR                   LED_0
+#define DEBUG_SWITCH                PORT1, PIN0
+#define FRAM_CONF_CTRL_PIN          PORT2, PIN0
 
-//#define FRAM_CONF_ON              1
-#if FRAM_CONF_ON
-  #define FRAM_CONF_SIZE            0x40000
-  #define FRAM_CONF_SPI             SPI_1
-  #ifndef DEBUG_PRINT_CONF_USE_XMEM
-  #define DEBUG_PRINT_CONF_USE_XMEM 1
-  #define LWB_USE_XMEM              1
-  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
-  #ifndef DEBUG_PRINT_CONF_NUM_MSG
-  #define DEBUG_PRINT_CONF_NUM_MSG  20
-  #endif /* DEBUG_PRINT_CONF_NUM_MSG */
-#endif /* FRAM_CONF_ON */
+/* select multiplexer channel (high = UART, low = SPI) */
+#define MUX_SEL_PIN                 PORT2, PIN7
 
-//#define BOLT_CONF_ON              1
-#if BOLT_CONF_ON
-  #define BOLT_CONF_SPI             SPI_1
-  #define BOLT_CONF_IND_PIN         PORT2, PIN0
-  #define BOLT_CONF_MODE_PIN        PORT2, PIN1
-  #define BOLT_CONF_REQ_PIN         PORT2, PIN2
-  #define BOLT_CONF_ACK_PIN         PORT2, PIN3
-  /* IND pin for the outgoing queue (sent messages) */
-  #define BOLT_CONF_IND_OUT_PIN     PORT2, PIN4
-  #define BOLT_CONF_TIMEREQ_PIN     PORT3, PIN3
-  #define BOLT_CONF_FUTUREUSE_PIN   PORT2, PIN5
-#endif /* BOLT_CONF_ON */
-
-/* the following pins assignments are given by FlockLAB, do not change */
-#define FLOCKLAB_LED1               PORT1, PIN0  /* for GPIO tracing */
-#define FLOCKLAB_LED2               PORT1, PIN1  /* for GPIO tracing */
-#define FLOCKLAB_LED3               PORT1, PIN2  /* for GPIO tracing */
-#define FLOCKLAB_SIG1               PORT1, PIN3  /* target actuation */
-#define FLOCKLAB_SIG2               PORT1, PIN4  /* target actuation */
-#define FLOCKLAB_INT1               PORT3, PIN6  /* for GPIO tracing */
-#define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
-
-#ifdef FLOCKLAB
-#define GLOSSY_START_PIN            FLOCKLAB_INT1
-#define RF_GDO2_PIN                 FLOCKLAB_INT2
-#else
-#define GLOSSY_START_PIN            LED_0
-#endif /* FLOCKLAB */
-
-/*#define DEBUG_PRINT_TASK_ACT_PIN  PORT2, PIN0*/
-/*#define LWB_CONF_TASK_ACT_PIN     PORT2, PIN1*/
-/*#define GLOSSY_RX_PIN             PORT2, PIN3*/
-/*#define GLOSSY_TX_PIN             PORT2, PIN4*/
-/*#define RF_GDO0_PIN               PORT1, PIN2 */
-/*#define RF_GDO1_PIN               PORT1, PIN3 */
-/* note: rf1a_init sets the GDO2 signal as follows: Asserts when sync word has
- * been sent or received, and deasserts at the end of the packet. In RX, the 
- * pin deassert when the optional address check fails or the RX FIFO 
- * overflows. In TX the pin deasserts if the TX FIFO underflows. */
-/*#define MCLK_PIN                  PORT2, PIN5*/
+//#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
+#define GLOSSY_START_PIN            LED_0  
+//#define GLOSSY_RX_PIN               PORT2, PIN3
+//#define GLOSSY_TX_PIN               PORT2, PIN4
+//#define RF_GDO0_PIN                 PORT1, PIN2
+#define RF_GDO1_PIN                 PORT3, PIN4
+#define RF_GDO2_PIN                 PORT3, PIN5
+//#define MCLK_PIN                    PORT2, PIN5
 /*#define ACLK_PIN                  PORT3, PIN3*/
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 
+/* the following pins assignments are given by FlockLAB, do not change */
+#define FLOCKLAB_INT1               PORT3, PIN5  /* for GPIO tracing */
+#define FLOCKLAB_INT2               PORT3, PIN4  /* for GPIO tracing */
+
+/* specify what needs to be done every time before UART is enabled */
+#define UART_BEFORE_ENABLE {\
+  PIN_SET(MUX_SEL_PIN);\
+  uart_reinit();\
+}
+
+/* specify what needs to be done every time before SPI is enabled */
+#define SPI_BEFORE_ENABLE(spi) {\
+  PIN_CLR(MUX_SEL_PIN); \
+  if(spi == SPI_0) { spi_reinit(SPI_0); }\
+}
+
 /*
- * include MCU specific files
+ * include MCU specific drivers
  */
 #include "rf1a-SmartRF-settings/868MHz-2GFSK-250kbps.h" /* RF1A config */
 #include "adc.h"
@@ -174,7 +151,7 @@
 #include "gpio.h"
 #include "pmm.h"
 #include "leds.h"
-#include "rf1a.h"        /* RF1A config must be include before rf1a.h! */
+#include "rf1a.h"        /* RF1A config must be included BEFORE rf1a.h */
 #include "rtimer.h"
 #include "spi.h"
 #include "uart.h"

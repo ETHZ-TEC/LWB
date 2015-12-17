@@ -430,7 +430,6 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
     __delay_cycles(MCLK_SPEED / 2000);    /* wait 0.5 ms */
     g.rssi_noise = rf1a_get_rssi();       /* get RSSI of the noise floor */
-    LED_TOGGLE(FLOCKLAB_LED3);
   }
 }
 /*---------------------------------------------------------------------------*/
