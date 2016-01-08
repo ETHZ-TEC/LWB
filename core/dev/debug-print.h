@@ -64,7 +64,7 @@
 #endif /* DEBUG_PRINT_CONF_MSG_LEN */
 
 #ifndef DEBUG_PRINT_MODULE_INFO_LEN     /* num chars for module designator */
-#define DEBUG_PRINT_MODULE_INFO_LEN     12    
+#define DEBUG_PRINT_MODULE_INFO_LEN     13    
 #endif /* DEBUG_PRINT_MODULE_INFO_LEN */
 
 #ifndef DEBUG_PRINT_CONF_LEVEL
@@ -90,7 +90,7 @@
  */
 #ifndef DEBUG_PRINT_CONF_DISABLE_UART
 #define DEBUG_PRINT_CONF_DISABLE_UART   1
-#endif /* DEBUG_PRINT_DISABLE_UART */
+#endif /* DEBUG_PRINT_CONF_DISABLE_UART */
 
 #ifdef LED_ERROR                        /* don't use LED_ON */
 #define DEBUG_PRINT_ERROR_LED_ON        PIN_SET(LED_ERROR)                                        

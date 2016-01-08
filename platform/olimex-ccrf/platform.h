@@ -163,6 +163,8 @@
 /*#define ACLK_PIN                  PORT3, PIN3*/
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 
+#define MCU_HAS_ADC12
+
 /*
  * include MCU specific files
  */

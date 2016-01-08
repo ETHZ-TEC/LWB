@@ -10,32 +10,36 @@ endif
 #HEXFILE_ID = $(CONTIKI_PROJECT)-$(NODE_ID).hex
 #endif
 
+
+
 ifndef TARGET
+  ifdef target
+    TARGET=$(target)
+  else
+    TARGET = olimex
+  endif
+endif
+
+ifeq ($(TARGET),olimex)
   MCU = cc430f5137
   MCUFOLDER = cc430
   PLATFORM = olimex-ccrf
+else ifeq ($(TARGET),sky)
+  MCU = msp430f1611
+  MCUFOLDER = msp430f1611
+  PLATFORM = sky
+else ifeq ($(TARGET),custom-cc430)
+  MCU = cc430f5137
+  MCUFOLDER = cc430
+  PLATFORM = custom-cc430
+else ifeq ($(TARGET),dpp-cc430)
+  MCU = cc430f5147
+  MCUFOLDER = cc430
+  PLATFORM = dpp-cc430
 else
-  ifeq ($(TARGET),olimex)
-    MCU = cc430f5137
-    MCUFOLDER = cc430
-    PLATFORM = olimex-ccrf
-  else ifeq ($(TARGET),sky)
-    MCU = msp430f1611
-    MCUFOLDER = msp430f1611
-    PLATFORM = sky
-  else ifeq ($(TARGET),custom-cc430)
-    MCU = cc430f5137
-    MCUFOLDER = cc430
-    PLATFORM = custom-cc430
-  else ifeq ($(TARGET),dpp-cc430)
-    MCU = cc430f5147
-    MCUFOLDER = cc430
-    PLATFORM = dpp-cc430
-  else
-    MCU = cc430f5137
-    MCUFOLDER = cc430
-    PLATFORM = olimex-ccrf
-  endif
+  MCU = cc430f5137
+  MCUFOLDER = cc430
+  PLATFORM = olimex-ccrf
 endif
 
 #$(info MCUFOLDER = $(MCUFOLDER), Platform = $(PLATFORM))

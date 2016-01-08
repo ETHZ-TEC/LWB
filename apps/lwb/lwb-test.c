@@ -58,16 +58,12 @@ PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
-{    
+{ 
   static uint8_t stream_state = 0;
-    
-  PROCESS_BEGIN();  
   
-  /* application specific initialization code */
-  if(HOST_ID != node_id) {
-    adc_init();
-  }
-    
+  PROCESS_BEGIN();
+          
+  SVS_DISABLE;
   /* all other necessary initialization is done in contiki-cc430-main.c */
   
   /* start the LWB thread */
@@ -89,10 +85,8 @@ PROCESS_THREAD(app_process, ev, data)
         uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, 0);
         if(pkt_len) {
           /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-          DEBUG_PRINT_MSG_NOW("data packet received from node %u: "
-                              "%uC, %umV", 
-                              sender_id, pkt_buffer[0], 
-                              (uint16_t)pkt_buffer[1] * 4 + 2000);
+          DEBUG_PRINT_MSG_NOW("data packet received from node %u",
+                              sender_id);
         } else {
           break;
         }
@@ -109,16 +103,27 @@ PROCESS_THREAD(app_process, ev, data)
           }
         }
       } else {
-        /* collect ADC samples and create a data packet */
-        uint8_t data[2];
-        adc_get_data(data);
-        if(!lwb_put_data(0, 1, data, 2)) {
+        /* generate a dummy packet */
+        if(!lwb_put_data(0, 1, (uint8_t*)&node_id, 2)) {
           DEBUG_PRINT_WARNING("out queue full, packet dropped");
         } /* else: data packet successfully passed to the LWB */
       }
     }
     /* IMPORTANT: This process must not run for more than a few hundred
      * milliseconds in order to enable proper operation of the LWB */
+    
+    /* since this process is only executed at the end of an LWB round, we 
+     * can now configure the MCU for minimal power dissipation for the idle
+     * period until the next round starts */
+    fram_sleep();
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+    /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
+    TA0CTL   &= ~MC_3; /* stop TA0 */
+    DISABLE_XT2();
+    P1SEL = 0; /* reconfigure GPIOs */
+    P1DIR = 0xff;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+    
     TASK_SUSPENDED;
   }
 

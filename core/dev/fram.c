@@ -171,7 +171,7 @@ uint8_t
 fram_sleep(void)
 {
   if(fram_sleeps) {
-    return 1;
+    return 2;
   }
   if(!fram_acquire()) {
     return 0;

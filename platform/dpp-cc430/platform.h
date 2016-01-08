@@ -55,7 +55,7 @@
 /*
  * include MCU definitions
  */
-#include <cc430f5137.h>             /* or simply include <msp430.h> */
+#include <cc430f5147.h>             /* or simply include <msp430.h> */
 
 #define MCU_TYPE                    "CC430F5147"
 #define COMPILER_INFO               "GCC " __VERSION__
@@ -80,8 +80,11 @@
 #define LEDS_CONF_ON                1
 #endif /* LEDS_CONF_ON */
 
-/* this board does not have a crystal oscillator installed at XT1 */
-#define CLOCK_CONF_XT1_ON           0           
+#ifndef FRAM_CONF_ON
+#define FRAM_CONF_ON                1
+#endif /* FRAM_CONF_ON */
+
+#define CLOCK_CONF_XT1_ON           1           
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -94,12 +97,12 @@
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2
 
-/*
- * The application should define the following two macros for better
- * performance (otherwise glossy will disable all active interrupts).
- */
-#define GLOSSY_DISABLE_INTERRUPTS
-#define GLOSSY_ENABLE_INTERRUPTS
+/* disable the SVS */
+#define SVS_DISABLE                 { PMMCTL0_H = 0xA5;\
+                                      SVSMHCTL  = 0;\
+                                      SVSMLCTL  = 0;\
+                                      PMMCTL0_H = 0x00; }
+
 
 /*
  * pin mapping
@@ -107,32 +110,71 @@
 #define LED_0                       PORT3, PIN0
 #define LED_STATUS                  LED_0
 #define LED_ERROR                   LED_0
-#define DEBUG_SWITCH                PORT1, PIN0
+#define COM_MCU_INT1                PORT3, PIN5
+#define COM_MCU_INT2                PORT3, PIN4    
 #define FRAM_CONF_CTRL_PIN          PORT2, PIN0
+#define FRAM_CONF_SPI               SPI_0
 
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7
 
 //#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
 #define GLOSSY_START_PIN            LED_0  
-//#define GLOSSY_RX_PIN               PORT2, PIN3
-//#define GLOSSY_TX_PIN               PORT2, PIN4
-//#define RF_GDO0_PIN                 PORT1, PIN2
-#define RF_GDO1_PIN                 PORT3, PIN4
-#define RF_GDO2_PIN                 PORT3, PIN5
-//#define MCLK_PIN                    PORT2, PIN5
-/*#define ACLK_PIN                  PORT3, PIN3*/
-/*#define SMCLK_PIN                 PORT3, PIN1*/
+//#define GLOSSY_RX_PIN               COM_MCU_INT1
+//#define GLOSSY_TX_PIN               COM_MCU_INT2
+//#define RF_GDO0_PIN                 COM_MCU_INT1
+//#define RF_GDO1_PIN                 COM_MCU_INT1
+//#define RF_GDO2_PIN                 COM_MCU_INT1
+//#define MCLK_PIN                    COM_MCU_INT1
+//#define ACLK_PIN                    COM_MCU_INT1
+//#define SMCLK_PIN                   COM_MCU_INT1
 
 /* the following pins assignments are given by FlockLAB, do not change */
-#define FLOCKLAB_INT1               PORT3, PIN5  /* for GPIO tracing */
-#define FLOCKLAB_INT2               PORT3, PIN4  /* for GPIO tracing */
+#define FLOCKLAB_INT1               COM_MCU_INT1  /* for GPIO tracing */
+#define FLOCKLAB_INT2               COM_MCU_INT2  /* for GPIO tracing */
 
 /* specify what needs to be done every time before UART is enabled */
 #define UART_BEFORE_ENABLE {\
   PIN_SET(MUX_SEL_PIN);\
   uart_reinit();\
 }
+
+/*
+ * The application should define the following two macros for better
+ * performance (otherwise glossy will disable all active interrupts).
+ */
+#define GLOSSY_DISABLE_INTERRUPTS
+#define GLOSSY_ENABLE_INTERRUPTS
+
+
+/*#define LWB_BEFORE_DEEPSLEEP()    {\
+                                    \
+                                    TA0CTL  &= ~MC_3;\
+                                    UCSCTL4  = SELA__XT1CLK | SELS__XT1CLK | \
+                                               SELM__XT1CLK;\
+                                    DISABLE_XT2();\
+                                    UCSCTL7  = 0;\
+                                    P1SEL    = 0;\
+                                    P1DIR   |= (BIT2 | BIT5);\
+                                    UCA0CTL1 |= UCSWRST;\
+                                    }
+*/
+                                    /* make sure HF crystal is enabled */
+#define LWB_AFTER_DEEPSLEEP()       {\
+                                    if(UCSCTL6 & XT2OFF) {\
+                                      SFRIE1  &= ~OFIE;\
+                                      ENABLE_XT2();\
+                                      WAIT_FOR_OSC();\
+                                      UCSCTL4  = SELA | SELS | SELM;\
+                                      UCSCTL7  = 0;\
+                                      SFRIE1  |= OFIE;\
+                                      TA0CTL  |= MC_2;\
+                                      P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                                  BIT6);\
+                                      P1DIR   &= ~(BIT2 | BIT5);\
+                                    }\
+                                    }
+                                    /*UCSCTL4  = SELA | SELS | SELM;*/
 
 /* specify what needs to be done every time before SPI is enabled */
 #define SPI_BEFORE_ENABLE(spi) {\
@@ -144,7 +186,6 @@
  * include MCU specific drivers
  */
 #include "rf1a-SmartRF-settings/868MHz-2GFSK-250kbps.h" /* RF1A config */
-#include "adc.h"
 #include "clock.h"
 #include "dma.h"
 #include "flash.h"

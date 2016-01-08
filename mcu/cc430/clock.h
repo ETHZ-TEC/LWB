@@ -117,7 +117,6 @@
 { \
     UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
     SFRIFG1 &= ~OFIFG; \
-    /*__delay_cycles(406250);*/ \
 } while (SFRIFG1 & OFIFG)
 
 /**

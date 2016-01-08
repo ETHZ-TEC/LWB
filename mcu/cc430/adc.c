@@ -33,6 +33,7 @@
 
 #include "platform.h"
 
+#ifdef MCU_HAS_ADC12
 /*---------------------------------------------------------------------------*/
 #define ADC_TEMP_CAL1   0x1a1c   /* calibration data, located in info memory */
 #define ADC_TEMP_CAL2   0x1a1a
@@ -88,3 +89,4 @@ adc_get_data(uint8_t *out_data)
      100) */
 }
 /*---------------------------------------------------------------------------*/
+#endif /* MCU_HAS_ADC12 */

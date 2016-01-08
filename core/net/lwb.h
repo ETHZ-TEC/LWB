@@ -232,7 +232,7 @@
 
 #ifndef LWB_CONF_MAX_N_STREAMS
 /* max. number of streams (bounds the required memory on the host) */
-#define LWB_CONF_MAX_N_STREAMS          50 
+#define LWB_CONF_MAX_N_STREAMS          40 
 #endif /* N_STREAMS_MAX */
 
 /*---------------------------------------------------------------------------*/

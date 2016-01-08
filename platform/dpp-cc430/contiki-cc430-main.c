@@ -105,8 +105,7 @@ int
 main(int argc, char **argv)
 {
   watchdog_stop();
-  watchdog_init();
-
+  
   /* initialize hardware */
 
   /* default config for all pins: port function, output direction */
@@ -153,22 +152,24 @@ main(int argc, char **argv)
 #ifdef ACLK_PIN
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
-  
+      
   /* this board has a multiplexer (set it to UART) */
   PIN_CFG_OUT(MUX_SEL_PIN);
   PIN_SET(MUX_SEL_PIN);
-
-  clock_init();
+  
+  clock_init();  
   rtimer_init();
   uart_init();
   uart_enable(1);
   uart_set_input_handler(serial_line_input_byte);
   print_device_info();
-  
+    
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  printf("RF module configured (gain: %sdB, channel: %u, packet len: %u B)\r\n", rf1a_tx_powers_to_string[RF_CONF_TX_POWER], RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
+  printf("RF module configured (gain: %sdB, channel: %u, pkt_len: %u B)\r\n",
+         rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
+         RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
 
 #if FRAM_CONF_ON
@@ -216,9 +217,10 @@ main(int argc, char **argv)
   __eint();
   
   /* start processes */
-  debug_print_init();  
   print_processes(autostart_processes);
   autostart_start(autostart_processes);
+  debug_print_init();  
+  /* note: start debug process as last due to process_poll() execution order */
 
   LED_ON(LED_STATUS);
   
