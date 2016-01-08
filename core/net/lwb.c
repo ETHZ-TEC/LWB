@@ -186,10 +186,10 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #define LWB_LF_WAIT_UNTIL(time) \
 {\
   rtimer_schedule(LWB_CONF_LF_RTIMER_ID, time, 0, callback_func);\
-  /*PREPARE_DEEPSLEEP();*/\
+  LWB_BEFORE_DEEPSLEEP();\
   LWB_TASK_SUSPENDED;\
   PT_YIELD(&lwb_pt);\
-  /*AFTER_DEEPSLEEP();*/\
+  LWB_AFTER_DEEPSLEEP();\
   LWB_TASK_RESUMED;\
 }
 #define LWB_UPDATE_SYNC_STATE \
@@ -198,6 +198,12 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
   sync_state = next_state[GET_EVENT][sync_state];\
   t_guard = guard_time[sync_state];         /* adjust the guard time */\
 }
+#ifndef LWB_BEFORE_DEEPSLEEP
+#define LWB_BEFORE_DEEPSLEEP() 
+#endif /* LWB_PREPARE_DEEPSLEEP */
+#ifndef LWB_AFTER_DEEPSLEEP
+#define LWB_AFTER_DEEPSLEEP()
+#endif /* LWB_AFTER_DEEPSLEEP */
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
 static struct process*  pre_proc;
@@ -218,6 +224,9 @@ static uint32_t         stats_addr = 0;
 #endif /* LWB_CONF_USE_XMEM */
 FIFO(in_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_IN_BUFFER_SIZE);
 FIFO(out_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_OUT_BUFFER_SIZE);
+/*---------------------------------------------------------------------------*/
+/* define the process control block */
+PROCESS(lwb_process, "Communication Task (LWB)");
 /*---------------------------------------------------------------------------*/
 #if LWB_CONF_USE_XMEM   /* to get rid of a compiler warning */
 static uint16_t 
@@ -497,6 +506,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   /* initialization specific to the host node */
   schedule_len = lwb_sched_init(&schedule);
   
+#if LWB_CONF_USE_LF_FOR_WAKEUP 
+  rt->time = rtimer_now_lf();
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  
   while(1) {
     
 #if LWB_CONF_T_PREPROCESS
@@ -512,17 +525,15 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_T_PREPROCESS */
 
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-    /* reset the timer value (bc timer might have been stopped since the last 
-     * LWB round) */
-    rt->time = rtimer_now_hf();    
-    /* or use: = (t_start_lf + schedule.period * RTIMER_SECOND_LF) */
-    t_start_lf = rtimer_now_lf();   
-#endif
+#if LWB_CONF_USE_LF_FOR_WAKEUP 
+    t_start_lf = rt->time;  // or: rtimer_now_lf()  
+    t_start = rtimer_now_hf();
+#else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     /* set the start time of the round to the expiration time of the last 
      * scheduled timeout */
     t_start = rt->time;
-    
+#endif  /* LWB_CONF_USE_LF_FOR_WAKEUP */
+        
     /* --- COMMUNICATION ROUND STARTS --- */
     lwb_status = 1;
     
@@ -666,9 +677,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
-#endif
+#endif /* LWB_CONF_STATS_NVMEM */
     /* poll the other processes to allow them to run after the LWB task was 
-     * suspended */
+     * suspended (note: the polled processes will be executed in the inverse
+     * order they were started/created) */
     debug_print_poll();
     if(post_proc) {
       /* will be executed before the debug print task */
@@ -682,8 +694,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF /
                    LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS);
-    /*rt->time = t_start + schedule.period * RTIMER_SECOND_HF / 
-                 LWB_CONF_TIME_SCALE; */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   }
   
@@ -793,10 +803,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       t_start = t_ref - LWB_CONF_T_REF_OFS;
     }
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    /* reset the timer value (bc timer might have been stopped since the last
-     * LWB round) */
-    rt->time = rtimer_now_hf();    
-    /* or use: = (t_start_lf + schedule.period * RTIMER_SECOND_LF) */
     t_start_lf = rtimer_now_lf();
 #endif
     
@@ -1027,7 +1033,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     memset(&schedule.slot, 0, sizeof(schedule.slot));
 
     /* poll the other processes to allow them to run after the LWB task was
-     * suspended */
+     * suspended (note: the polled processes will be executed in the inverse
+     * order they were started/created) */
     debug_print_poll();
     if(post_proc) {
       process_poll(post_proc);
@@ -1048,9 +1055,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 
   PT_END(&lwb_pt);
 }
-/*---------------------------------------------------------------------------*/
-/* define the process control block */
-PROCESS(lwb_process, "Communication Task (LWB)");
 /*---------------------------------------------------------------------------*/
 /* define the body (protothread) of a process */
 PROCESS_THREAD(lwb_process, ev, data) 

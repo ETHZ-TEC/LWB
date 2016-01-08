@@ -10,27 +10,39 @@ endif
 #HEXFILE_ID = $(CONTIKI_PROJECT)-$(NODE_ID).hex
 #endif
 
+
+
 ifndef TARGET
-  MCU = cc430f5137
-  CPU = cc430
-  PLATFORM = olimex-ccrf
-else
-  ifeq ($(TARGET),olimex)
-    MCU = cc430f5137
-    CPU = cc430
-    PLATFORM = olimex-ccrf
-  else ifeq ($(TARGET),sky)
-    MCU = msp430
-    CPU = msp430
-    PLATFORM = sky
+  ifdef target
+    TARGET=$(target)
   else
-    MCU = cc430f5137
-    CPU = cc430
-    PLATFORM = custom-cc430
+    TARGET = olimex
   endif
 endif
 
-#$(info CPU = $(CPU), Platform = $(PLATFORM))
+ifeq ($(TARGET),olimex)
+  MCU = cc430f5137
+  MCUFOLDER = cc430
+  PLATFORM = olimex-ccrf
+else ifeq ($(TARGET),sky)
+  MCU = msp430f1611
+  MCUFOLDER = msp430f1611
+  PLATFORM = sky
+else ifeq ($(TARGET),custom-cc430)
+  MCU = cc430f5137
+  MCUFOLDER = cc430
+  PLATFORM = custom-cc430
+else ifeq ($(TARGET),dpp-cc430)
+  MCU = cc430f5147
+  MCUFOLDER = cc430
+  PLATFORM = dpp-cc430
+else
+  MCU = cc430f5137
+  MCUFOLDER = cc430
+  PLATFORM = olimex-ccrf
+endif
+
+#$(info MCUFOLDER = $(MCUFOLDER), Platform = $(PLATFORM))
 
 EXEFILE = $(CONTIKI_PROJECT).exe
 HEXFILE = $(CONTIKI_PROJECT).hex
@@ -42,7 +54,7 @@ DEVDIR  = $(COREDIR)/dev
 LIBDIR  = $(COREDIR)/lib
 NETDIR  = $(COREDIR)/net
 SCHEDDIR = $(COREDIR)/net/scheduler
-CPUDIR  = $(CONTIKI)/mcu/$(CPU)
+CPUDIR  = $(CONTIKI)/mcu/$(MCUFOLDER)
 MCUDIR  = $(CONTIKI)/mcu
 PLATDIR = $(CONTIKI)/platform/$(PLATFORM)
 TOOLSDIR= $(CONTIKI)/tools

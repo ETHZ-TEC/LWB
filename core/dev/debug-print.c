@@ -94,14 +94,14 @@ PROCESS_THREAD(debug_print_process, ev, data) {
     while(n_buffered_msg > 0) {
       /* load the message from the external memory */
       xmem_read(next_msg, sizeof(debug_print_t), (uint8_t *)&msg);
-  #ifdef DEBUG_PRINT_DISABLE_UART
+  #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(true);
-  #endif /* DEBUG_PRINT_DISABLE_UART */
+  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       printf("%3u %7llu %s %s: %s\r\n", node_id, msg.time, msg.module, 
              debug_print_lvl_to_string[msg.level], msg.content);
-  #ifdef DEBUG_PRINT_DISABLE_UART
+  #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(false);
-  #endif /* DEBUG_PRINT_DISABLE_UART */
+  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       next_msg += sizeof(debug_print_t);
       n_buffered_msg--;
       /* do not pause process between the print-outs (otherwise a circular
@@ -134,14 +134,14 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       /*DEBUG_PRINT_TASK_ACTIVE;*/
       /* print the first message in the queue */
       debug_print_t *msg = list_head(debug_print_list);
-  #ifdef DEBUG_PRINT_DISABLE_UART
-      uart_enable(true);
-  #endif /* DEBUG_PRINT_DISABLE_UART */
+  #if DEBUG_PRINT_CONF_DISABLE_UART
+      uart_enable(1);
+  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       printf("%3u %7llu %s %s: %s\r\n", node_id, msg->time, msg->module, 
              debug_print_lvl_to_string[msg->level], msg->content);
-  #ifdef DEBUG_PRINT_DISABLE_UART
-      uart_enable(false);
-  #endif /* DEBUG_PRINT_DISABLE_UART */
+  #if DEBUG_PRINT_CONF_DISABLE_UART
+      uart_enable(0);
+  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       /* remove it from the queue */
       list_remove(debug_print_list, msg);
       memb_free(&debug_print_memb, msg);
@@ -242,17 +242,17 @@ void
 debug_print_msg_now(char *module, char *data)
 {
   if(data) {
-#ifdef DEBUG_PRINT_DISABLE_UART
-    uart_enable(true);
-#endif
+#if DEBUG_PRINT_CONF_DISABLE_UART
+    uart_enable(1);
+#endif    
     if(module) {
       printf(debug_print_format_mod_string(module, 0));
       putchar(' ');
     }
     printf(data);
     printf("\r\n");
-#ifdef DEBUG_PRINT_DISABLE_UART
-    uart_enable(false);
+#if DEBUG_PRINT_CONF_DISABLE_UART
+    uart_enable(0);
 #endif
   }
 }
