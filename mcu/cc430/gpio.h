@@ -90,6 +90,7 @@
 #define PIN_IES_FALLING_I(port, pin)    (P##port##IES |= BIT##pin)
 #define PIN_IES_TOGGLE_I(port, pin)     (P##port##IES ^= BIT##pin)
 #define PIN_INT_EN_I(port, pin)         (P##port##IE |= BIT##pin)
+#define PIN_INT_OFF_I(port, pin)        (P##port##IE &= ~BIT##pin)
 #define PIN_CFG_INT_I(port, pin)        { \
     PIN_CFG_IN_I(port, pin); \
     PIN_IES_RISING_I(port, pin); \
@@ -209,6 +210,10 @@
  * @brief enable the port interrupt for the specified (port, pin)
  */
 #define PIN_INT_EN(p)                   PIN_INT_EN_I(p)
+/**
+ * @brief disable the port interrupt for the specified (port, pin)
+ */
+#define PIN_INT_OFF(p)                  PIN_INT_OFF_I(p)
 /**
  * @brief configure the port interrupt for the specified (port, pin), available
  * for pins on port 1 and 2 only

@@ -38,8 +38,8 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB                             /* uncomment to run on FlockLAB */
-#define HOST_ID    2
+#define FLOCKLAB                             /* uncomment to run on FlockLAB */
+#define HOST_ID    1
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
@@ -74,7 +74,7 @@
 
 /* constant time offset that is added to t_ref in each round (to align the 
  * glossy start pulses on host and source nodes) */
-#define T_REF_OFS                       (RTIMER_SECOND_HF / 500)
+#define T_REF_OFS                       (RTIMER_SECOND_HF / 800)
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO

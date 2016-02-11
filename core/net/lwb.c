@@ -430,13 +430,13 @@ lwb_get_data(uint8_t* out_data,
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_get_rcv_buffer_status(void)
+lwb_get_rcv_buffer_state(void)
 {
   return !FIFO_EMPTY(&in_buffer);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_get_send_buffer_status(void)
+lwb_get_send_buffer_state(void)
 {
   return !FIFO_EMPTY(&out_buffer);
 }
@@ -523,8 +523,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #endif /* LWB_CONF_T_PREPROCESS */
 
 #if LWB_CONF_USE_LF_FOR_WAKEUP 
-    t_start_lf = rt->time;  // or: rtimer_now_lf()  
-    t_start = rtimer_now_hf();
+    t_start_lf = rt->time; 
+    rt->time = rtimer_now_hf();
+    t_start = rt->time;
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     /* set the start time of the round to the expiration time of the last 
      * scheduled timeout */
@@ -545,9 +546,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* put the external memory back into active mode (takes ~500us) */
     xmem_wakeup();    
 #endif /* LWB_CONF_USE_XMEM */
-#if DEBUG_PRINT_CONF_ON
-    putchar('\n');
-#endif /* DEBUG_PRINT_CONF_ON */
 
     /* uncompress the schedule */
 #if LWB_CONF_SCHED_COMPRESS
@@ -662,15 +660,13 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* time for other computations */
     
     /* print out some stats */
-    DEBUG_PRINT_INFO("ts=%u td=%u dp=%u d=%lu p=%u r=%u per=%d%% rssi=%ddBm", 
+    DEBUG_PRINT_INFO("ts=%u td=%u dp=%u p=%u per=%d%% snr=%ddBm", 
                      stats.t_sched_max, 
                      stats.t_proc_max, 
                      rcvd_data_pkts, 
-                     stats.data_tot, 
-                     stats.pck_cnt, 
-                     stats.relay_cnt,
+                     stats.pck_cnt,
                      glossy_get_per(),
-                     rf1a_get_last_packet_rssi());
+                     glossy_get_snr());
         
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
@@ -746,6 +742,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     
     /* --- COMMUNICATION ROUND STARTS --- */
     lwb_status = 1;
+        
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+    rt->time = rtimer_now_hf();        /* overwrite LF with HF timestamp */
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
     if(sync_state == BOOTSTRAP) {
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
@@ -777,9 +777,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* put the external memory back into active mode (takes ~500us) */
     xmem_wakeup();    
 #endif /* LWB_CONF_USE_XMEM */
-#if DEBUG_PRINT_CONF_ON
-    putchar('\n');
-#endif /* DEBUG_PRINT_CONF_ON */
            
     /* update the sync state machine (compute new sync state and update 
      * t_guard) */
@@ -792,19 +789,31 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     if(glossy_is_t_ref_updated()) {
       t_ref   = glossy_get_t_ref();   
       t_start = t_ref - LWB_CONF_T_REF_OFS;
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+      /* estimate t_start_lf by subtracting the elapsed time since t_ref: */
+      rtimer_clock_t hf_now;
+      rtimer_now(&hf_now, &t_start_lf);
+      t_start_lf = t_start_lf - 
+                   (uint32_t)(hf_now - t_ref + LWB_CONF_T_REF_OFS) /
+                   (uint32_t)RTIMER_HF_LF_RATIO;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
-      /* estimate t_ref */
+      /* we can only estimate t_ref and t_start/t_start_lf */
       t_ref = t_ref + schedule.period * (RTIMER_SECOND_HF + drift_last) /
                       LWB_CONF_TIME_SCALE; 
       t_start = t_ref - LWB_CONF_T_REF_OFS;
-    }
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    t_start_lf = rtimer_now_lf();
-#endif
+      t_start_lf = t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+                   LWB_CONF_TIME_SCALE;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+    }
     
     /* permission to participate in this round? */
-    if(sync_state == SYNCED || sync_state == UNSYNCED_1) {
+    /* NOTE: added QUASI_SYNCED in order to reduce the latency to the first 
+     * data packet */
+    if(sync_state == SYNCED || sync_state == UNSYNCED_1 || 
+       sync_state == QUASI_SYNCED) {
               
       slot_idx = 0;   /* reset the packet counter */
       stats.relay_cnt = glossy_get_relay_cnt_first_rx();     
@@ -833,10 +842,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               stats.t_slot_last = schedule.time;
               rounds_to_wait = 0;
               if(lwb_stream_update_state(stream_id)) {
-                DEBUG_PRINT_VERBOSE("S-ACK received for stream %u (joined)", 
+                DEBUG_PRINT_INFO("S-ACK received for stream %u (joined)", 
                                  stream_id);
               } else {
-                DEBUG_PRINT_VERBOSE("S-ACK received for stream %u (removed)", 
+                DEBUG_PRINT_INFO("S-ACK received for stream %u (removed)", 
                                  stream_id);
               }
             } 
@@ -855,6 +864,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         static uint8_t i;   
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
           if(schedule.slot[i] == node_id) {
+            stats.t_slot_last = schedule.time;
             /* this is our data slot, send a data packet */
             /* measure the time it takes to prepare the packet */
             RTIMER_CAPTURE;     
@@ -875,8 +885,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               payload_len = lwb_out_buffer_get(glossy_payload.raw_data);
             }
             if(payload_len) {
-              stats.t_prep_max = MAX(RTIMER_ELAPSED, stats.t_prep_max);
-              stats.t_slot_last = schedule.time;
               LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
               DEBUG_PRINT_VERBOSE("data packet sent (%u bytes)", payload_len);
@@ -964,14 +972,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         
     /* update the state machine and the guard time */
     LWB_UPDATE_SYNC_STATE;
+    if(LWB_SCHED_IS_1ST(&schedule)) {
+      DEBUG_PRINT_ERROR("wrong schedule received!");
+      sync_state = BOOTSTRAP;   /* something went wrong */
+    }
     if(BOOTSTRAP == sync_state) {
-      /* something went wrong */
-      if(LWB_SCHED_IS_1ST(&schedule)) {
-        DEBUG_PRINT_ERROR("wrong schedule received!");
-      }
-      /* this happened probably due to a host failure */
       continue;
     }
+    
     /* check joining state */
     if(LWB_STREAMS_ACTIVE && ((schedule.time - stats.t_slot_last) > 
                               (LWB_CONF_SCHED_PERIOD_MAX << 1))) {
@@ -983,42 +991,48 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* update the stats and estimate the clock drift (clock cycles per
      * second) */
 #if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+    /* t_ref can't be used in this case -> use t_start_lf instead */
+    drift = (int32_t)((t_start_lf - t_ref_last) - ((int32_t)stats.period_last *
+                      RTIMER_SECOND_LF)) / (int32_t)stats.period_last;
+    t_ref_last = t_start_lf; 
+  #else
     drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
                       RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
+    t_ref_last = t_ref; 
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif
     stats.period_last = schedule.period;
-    t_ref_last = t_ref; 
     if(sync_state > ALREADY_SYNCED) {
       stats.unsynced_cnt++;
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
-    DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u td=%u tp=%u p=%u r=%u b=%u "
-                     "u=%u ds=%d per=%d rssi=%d", 
+    DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u tp=%u p=%u r=%u b=%u "
+                     "u=%u dr=%d per=%d snr=%d", 
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time, 
                      schedule.period, 
                      LWB_SCHED_N_SLOTS(&schedule), 
                      LWB_STREAMS_ACTIVE, 
-                     stats.t_proc_max, 
-                     stats.t_prep_max,
+                     stats.t_proc_max,
                      stats.pck_cnt,
                      stats.relay_cnt, 
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
                      (drift_last - (int16_t)drift),
                      glossy_get_per(),
-                     rf1a_get_last_packet_rssi());
+                     glossy_get_snr()); //rf1a_get_last_packet_rssi());
 #if (LWB_CONF_TIME_SCALE == 1)
     if(ALREADY_SYNCED == sync_state || UNSYNCED_1 == sync_state) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
         drift_last = (int16_t)drift;
       } else if(drift_last) {  /* only if not zero */
-        /* most probably a timer update overrun (or a host failure)
+        /* most probably a timer update overrun or a host failure
          * usually, the deviation per second is not higher than 50 cycles; 
          * if only one timer update is missed in 30 seconds, the deviation per
          * second is still more than 1k cycles and therefore detectable */
-        DEBUG_PRINT_WARNING("Critical timing error (timer update overrun?)");
+        DEBUG_PRINT_WARNING("Critical timing error, d=%ld", drift);
       }
     }
 #endif
@@ -1038,13 +1052,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     }
     
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    /* NOTE: drift compensation not feasible with LF crystal */
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+    LWB_LF_WAIT_UNTIL(t_start_lf + 
+                      schedule.period * (RTIMER_SECOND_LF + drift_last) / 
                       LWB_CONF_TIME_SCALE - 
                       (t_guard / RTIMER_HF_LF_RATIO) - LWB_CONF_T_PREPROCESS);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * (RTIMER_SECOND_HF + drift_last) 
-                   / LWB_CONF_TIME_SCALE - t_guard - LWB_CONF_T_PREPROCESS);
+    LWB_WAIT_UNTIL(t_start + 
+                   schedule.period * (RTIMER_SECOND_HF + drift_last) / 
+                   LWB_CONF_TIME_SCALE - t_guard - LWB_CONF_T_PREPROCESS);
     /*rt->time = t_start + schedule.period * RTIMER_SECOND_HF / 
                          LWB_CONF_TIME_SCALE;*/
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
@@ -1061,12 +1076,6 @@ PROCESS_THREAD(lwb_process, ev, data)
 {
   PROCESS_BEGIN();
   
-  DEBUG_PRINT_INFO("T_SLOT_SCHED_MIN: %ums, T_SLOT_DATA_MIN: %ums, "
-                   "T_ROUND_MAX: %ums", 
-          (uint16_t)RTIMER_HF_TO_MS(LWB_T_SLOT_MIN(LWB_CONF_MAX_PACKET_LEN)),
-          (uint16_t)RTIMER_HF_TO_MS(LWB_T_SLOT_MIN(LWB_CONF_MAX_DATA_PKT_LEN)),
-          (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX));
-
 #if LWB_CONF_STATS_NVMEM
   lwb_stats_load();   /* load the stats from the external memory */
 #endif /* LWB_CONF_STATS_NVMEM */
@@ -1090,10 +1099,12 @@ PROCESS_THREAD(lwb_process, ev, data)
   PT_INIT(&lwb_pt); /* initialize the protothread */
   if(node_id == HOST_ID) {
     /* note: must add at least some clock ticks! */
-    rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() + RTIMER_SECOND_HF,
+    rtimer_schedule(LWB_CONF_RTIMER_ID, 
+                    rtimer_now_hf() + RTIMER_SECOND_HF / 100,
                     0, lwb_thread_host);
   } else {
-    rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() + RTIMER_SECOND_HF / 2,
+    rtimer_schedule(LWB_CONF_RTIMER_ID, 
+                    rtimer_now_hf() + RTIMER_SECOND_HF / 100,
                     0, lwb_thread_src);
   }
 
@@ -1106,6 +1117,19 @@ lwb_start(void *pre_lwb_proc, void *post_lwb_proc)
   pre_proc = (struct process*)pre_lwb_proc;
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s'\r\n", lwb_process.name);
+    
+  printf("t_sched=%ums, t_data=%ums, t_round=%ums, "
+         "data=%ub, slots=%u, tx=%u, hop=%u\r\n", 
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
+         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
+         LWB_CONF_MAX_DATA_PKT_LEN, 
+         LWB_CONF_MAX_DATA_SLOTS, 
+         LWB_CONF_TX_CNT_DATA, 
+         LWB_CONF_MAX_HOPS);  
+  if((LWB_CONF_T_SCHED2_START > RTIMER_SECOND_HF / LWB_CONF_TIME_SCALE)) {
+    printf("WARNING: LWB_CONF_T_SCHED2_START > 1s\r\n");
+  }
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

@@ -496,7 +496,8 @@ int8_t
 glossy_get_snr(void)
 {
   int16_t rssi_avg = g.rssi_sum / (int16_t)g.n_rx;
-  if(rssi_avg == 0) {
+  /* RSSI values are only valid if at at least one packet was received */
+  if(g.n_rx == 0 || rssi_avg == 0) {
       return 0;
   }
   return (int8_t)(rssi_avg - g.rssi_noise);

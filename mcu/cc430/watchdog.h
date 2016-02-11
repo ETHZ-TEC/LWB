@@ -85,12 +85,22 @@ watchdog_reset(void)
 }
 
 /**
+ * @brief same as watchdog_reset()
+ */
+static inline void
+watchdog_periodic(void)
+{
+  /* set counter clear bit */
+  WDTCTL = (WDTCTL_L | WDTCNTCL) + WDTPW;
+}
+
+/**
  * @brief trigger a reset with a password violation error
  */
 static inline void
-watchdog_trigger_reset(void)
+watchdog_reboot(void)
 {
-  WDTCTL &= ~WDTHOLD;
+  WDTCTL = 0;
 }
 
 #endif /* __WATCHDOG_H__ */

@@ -60,12 +60,8 @@
 #endif /* DEBUG_PRINT_CONF_NUM_MSG */
 
 #ifndef DEBUG_PRINT_CONF_MSG_LEN        /* max. num of chars per msg */
-#define DEBUG_PRINT_CONF_MSG_LEN        80    
+#define DEBUG_PRINT_CONF_MSG_LEN        79    
 #endif /* DEBUG_PRINT_CONF_MSG_LEN */
-
-#ifndef DEBUG_PRINT_MODULE_INFO_LEN     /* num chars for module designator */
-#define DEBUG_PRINT_MODULE_INFO_LEN     13    
-#endif /* DEBUG_PRINT_MODULE_INFO_LEN */
 
 #ifndef DEBUG_PRINT_CONF_LEVEL
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
@@ -83,6 +79,21 @@
 #ifndef DEBUG_PRINT_CONF_POLL
 #define DEBUG_PRINT_CONF_POLL           0    
 #endif /* DEBUG_PRINT_CONF_POLL */
+
+/* stack guard to detect stack overflows, recommended value is:
+ * SRAM_START + bss section size */
+#ifndef DEBUG_CONF_STACK_GUARD
+  #ifdef SRAM_END
+    #define DEBUG_CONF_STACK_GUARD      (SRAM_END - 0x01ff)
+  #endif
+#else /* DEBUG_CONF_STACK_GUARD */
+  #if !defined(SRAM_START) || !defined(SRAM_END)
+    #error "SRAM_START or SRAM_END not defined!"
+  #endif
+  #if DEBUG_CONF_STACK_GUARD < SRAM_START || DEBUG_CONF_STACK_GUARD > SRAM_END
+    #error "Invalid value for DEBUG_CONF_STACK_GUARD"
+  #endif
+#endif /* DEBUG_CONF_STACK_GUARD */
 
 /**
  * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each
@@ -120,8 +131,7 @@
 /* always enabled: highest severity level errors that require a reset */
 #define DEBUG_PRINT_FATAL(...) {\
   DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \
-  DEBUG_PRINT_ERROR_LED_ON; watchdog_start(); \
-  while(1); \
+  watchdog_reboot(); \
 }
     
 
@@ -129,19 +139,23 @@
   #if DEBUG_PRINT_CONF_PRINT_DIRECT
     #define DEBUG_PRINT_MSG(t, p, ...) \
       snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
-      debug_print_msg_now(__FILE__, debug_print_buffer)
+      debug_print_msg_now(debug_print_buffer)
+    #define DEBUG_PRINT_SIMPLE(s)   debug_print_msg_now(s)
   #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
     #define DEBUG_PRINT_MSG(t, p, ...) \
       snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
-      debug_print_msg(RTIMER_LF_TO_MS(rtimer_now_lf()), p, __FILE__, \
-                      debug_print_buffer)  
+      debug_print_msg(rtimer_now_lf(), p, debug_print_buffer)
+    #define DEBUG_PRINT_SIMPLE(s)   debug_print_msg(rtimer_now_lf(), p, 0, s)
   #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
   #define DEBUG_PRINT_MSG_NOW(...) \
     snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
-    debug_print_msg_now(__FILE__, debug_print_buffer)
+    debug_print_msg_now(debug_print_buffer)
+  #define DEBUG_PRINT_SIMPLE_NOW(s)  debug_print_msg_now(s)
 #else /* DEBUG_PRINT_CONF_ON */
   #define DEBUG_PRINT_MSG(t, p, ...)
   #define DEBUG_PRINT_MSG_NOW(...) 
+  #define DEBUG_PRINT_SIMPLE(s)
+  #define DEBUG_PRINT_SIMPLE_NOW(s)
 #endif /* DEBUG_PRINT_CONF_ON */
 
 #define DEBUG_PRINT_STACK_ADDRESS { \
@@ -188,9 +202,8 @@ extern char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1];
 
 typedef struct debug_print_t {
   struct debug_print_t *next;
-  rtimer_clock_t time;
+  uint32_t time;
   uint8_t level;
-  char module[DEBUG_PRINT_MODULE_INFO_LEN + 1]; /* src module of the message */
   char content[DEBUG_PRINT_CONF_MSG_LEN + 1];
 } debug_print_t;
 
@@ -207,15 +220,14 @@ void debug_print_poll(void);
 /**
  * @brief schedule a message for print out over UART
  */
-void debug_print_msg(uint64_t time, 
-                     char level, 
-                     char *module, 
+void debug_print_msg(rtimer_clock_t timestamp, 
+                     char level,  
                      char *data);
 
 /**
  * @brief print out a message immediately over UART (blocking call)
  */
-void debug_print_msg_now(char *module, char *data);
+void debug_print_msg_now(char *data);
 
 
 #endif /* __DEBUG_PRINT_H__ */

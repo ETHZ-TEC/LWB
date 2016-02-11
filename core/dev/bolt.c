@@ -147,6 +147,17 @@ bolt_handle_timereq(uint8_t *out_buffer)
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 /*---------------------------------------------------------------------------*/
 void
+bolt_set_ind_callback(void (*func)(void))
+{
+  bolt_ind_callback = func;
+  if(func) {
+    PIN_CFG_INT(BOLT_CONF_IND_PIN);
+  } else {
+    PIN_INT_OFF(BOLT_CONF_IND_PIN);      
+  }
+}
+/*---------------------------------------------------------------------------*/
+void
 bolt_release(void)
 {
   /* --- 1. stop DMA --- */
@@ -282,7 +293,6 @@ void
 bolt_handle_irq(void) 
 {
   if(PIN_IFG(BOLT_CONF_IND_PIN)) {
-    PIN_IES_TOGGLE(BOLT_CONF_IND_PIN);
     PIN_CLR_IFG(BOLT_CONF_IND_PIN);
     DEBUG_PRINT_VERBOSE("BOLT IND pin interrupt");
     if(bolt_ind_callback) {

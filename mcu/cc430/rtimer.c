@@ -288,6 +288,52 @@ rtimer_now_lf(void)
   return time;
 }
 /*---------------------------------------------------------------------------*/
+void
+rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
+{
+  /* NOTE: This function will only work properly if the CPU is running on the
+   * same clock source as the timer TA0 (HF) and this function can be executed 
+   * within one TA0 period (i.e. ~20ms @ 3.25 MHz). */
+  if(hf_val && lf_val) {
+    /* disable all interrupts */
+    uint16_t interrupt_enabled = __get_interrupt_state() & GIE;//READ_SR & GIE;
+    __dint(); __nop();
+    
+    /* take a snapshot of the SW extension */
+    rtimer_clock_t sw_hf = ta0_sw_ext;
+    rtimer_clock_t sw_lf = ta1_sw_ext;
+capture_values: ;
+    uint16_t hw_hf = TA0R;
+    uint16_t hw_lf = TA1R;
+    uint16_t hw_lf2 = TA1R;
+    if(hw_lf != hw_lf2) { 
+      goto capture_values;
+    }
+    if((TA0CTL & TAIFG) && (sw_hf == ta0_sw_ext)) {
+        /* in the meantime there has been an overflow of the HW timer: */
+        /* manually increment the SW extension and recapture all values */
+        sw_hf++;
+        goto capture_values;        
+    }
+    if((TA1CTL & TAIFG) && (sw_lf == ta1_sw_ext)) {
+        /* in the meantime there has been an overflow of the HW timer: */
+        /* manually increment the SW extension and recapture all values */
+        sw_lf++;
+        goto capture_values;
+    }
+    /* compose the final timestamps (shift the SW extension to the left and 
+    * append the HW timer */
+    *hf_val = (sw_hf << 16) | hw_hf;
+    *lf_val = (sw_lf << 16) | hw_lf;
+
+    /* only enable interrupts if the GIE bit was set before! otherwise ISR
+     * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
+    if(interrupt_enabled) {
+        __eint(); __nop();
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
 clock_time_t
 clock_time(void)
 {

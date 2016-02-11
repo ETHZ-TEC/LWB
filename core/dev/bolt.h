@@ -185,6 +185,15 @@ uint8_t bolt_handle_timereq(uint8_t *out_buffer);
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 
 /**
+ * @brief set the callback function for the IND line interrupt
+ * @note this will enable the port interrupt on the IND pin
+ * @param func a pointer to the callback function. Pass 0 to disable the 
+ * IND interrupt.
+ */
+void
+bolt_set_ind_callback(void (*func)(void));
+
+/**
  * @brief handles IRQs if there are pending interrupts
  * call this function from the appropriate port ISR (e.g. Port 2 ISR)
  */

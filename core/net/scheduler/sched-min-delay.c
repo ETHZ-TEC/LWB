@@ -37,27 +37,32 @@
  * @addtogroup  lwb-scheduler
  * @{
  *
- * @defgroup    static-sched Static scheduler
+ * @defgroup    min-delay-sched Min-delay scheduler
  * @{
  *
  * @brief
- * a very basic scheduler implementation for the LWB
+ * a simple scheduler implementation for the LWB
  * 
- * The scheduler operates with a constant period and only accepts new
- * stream requests if the network is not yet saturated.
- * There is exactly one contention slot per round.
+ * The scheduler minimizes the delay by using the smallest IPI of all active 
+ * streams as the base period. The default (and max.) period is
+ * LWB_CONF_SCHED_PERIOD_IDLE.
+ * There is always one contention slot per round.
+ * 
+ * The saturation calculation is not accurate and pessimistic, i.e. the BW
+ * count is increased by 1 for each added stream (meaning there are only as 
+ * many streams allowed as there are data slots per round).
  */
  
 #include "lwb.h"
 
-#ifdef LWB_SCHED_STATIC
+#ifdef LWB_SCHED_MIN_DELAY
 
 #if !defined(LWB_CONF_STREAM_EXTRA_DATA_LEN) || \
     (LWB_CONF_STREAM_EXTRA_DATA_LEN != 0)
 #error "LWB_CONF_STREAM_EXTRA_DATA_LEN not set to 0!"
 #endif
 
-/* max. number of packets per period */
+/* max. number of packets per second */
 #define BANDWIDTH_LIMIT LWB_CONF_MAX_DATA_SLOTS
 
 #ifndef MAX
@@ -83,7 +88,7 @@ static uint32_t           time;                               /* global time */
 static uint16_t           n_streams;                            /* # streams */
 static uint8_t            first_index;         /* offset for the stream list */
 static uint8_t            n_slots_assigned;              /* # slots assigned */
-static int32_t            used_bw;   /* used bandwidth: # packets per period */
+static uint16_t           used_bw;   /* used bandwidth: # packets per second */
 static volatile uint8_t   n_pending_sack = 0;
 /* factor of 4 because of the memory alignment and faster index calculation! */
 static uint8_t            pending_sack[4 * LWB_CONF_SCHED_SACK_BUFFER_SIZE]; 
@@ -105,12 +110,12 @@ lwb_sched_del_stream(lwb_stream_list_t* stream)
   if(0 == stream) {    
     return;  /* entry not found, don't do anything */
   }
-  uint16_t node  = stream->node_id;
-  uint8_t  stream_id  = stream->stream_id;
-  used_bw = used_bw - MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / stream->ipi));
-  if(used_bw < 0) {
-      DEBUG_PRINT_ERROR("something went wrong, used_bw < 0");
-      used_bw = 0;
+  uint16_t node   = stream->node_id;
+  uint8_t  stream_id = stream->stream_id;
+  if(!used_bw) {
+    DEBUG_PRINT_ERROR("something went wrong, used_bw < 0");
+  } else {
+    used_bw--;
   }
   list_remove(streams_list, stream);
   memb_free(&streams_memb, stream);
@@ -153,16 +158,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     if(n_streams) {
       for(s = list_head(streams_list); s != 0; s = s->next) {
         if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
-          /* already exists -> update the IPI...
-           * ... but first, check whether the scheduler can support the 
-           * requested data_ipi */
-          if(used_bw + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi)) > 
-             BANDWIDTH_LIMIT) {
-            DEBUG_PRINT_ERROR("stream req %u.%u dropped, network saturated", 
-                              req->node_id, req->stream_id);
-            return;
-          }
-          used_bw = used_bw - MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / s->ipi)) + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi));
+          /* already exists -> update the IPI... */
           s->ipi = req->ipi;
           s->last_assigned = time;
           s->n_cons_missed = 0;         /* reset this counter */
@@ -176,15 +172,19 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         }
       }  
     }
-    /* does not exist: add the new stream...
-     * but first, check whether the scheduler can support the requested ipi */
-    if(used_bw + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi)) > 
-       BANDWIDTH_LIMIT) {
+    /* does not exist: add the new stream */
+    if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
+      DEBUG_PRINT_ERROR("stream request %u.%u dropped, max #streams reched", 
+                        req->node_id, req->stream_id);
+      return;
+    }
+    /* check whether the scheduler can support the requested ipi */
+    if(used_bw > BANDWIDTH_LIMIT) {
       DEBUG_PRINT_ERROR("stream request %u.%u dropped, network saturated", 
                         req->node_id, req->stream_id);
       return;
     }
-    used_bw = used_bw + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi));
+    used_bw++;
     s = memb_alloc(&streams_memb);
     if(s == 0) {
       DEBUG_PRINT_ERROR("out of memory: stream request dropped");
@@ -249,6 +249,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
                   uint8_t reserve_slot_host) 
 {
   static uint16_t slots_tmp[LWB_CONF_MAX_DATA_SLOTS];
+  uint16_t min_ipi = LWB_CONF_SCHED_PERIOD_IDLE;
     
   first_index = 0; 
   n_slots_assigned = 0;
@@ -264,6 +265,9 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       /* no packet received from this stream */
       curr_stream->n_cons_missed &= 0x7f; /* clear the last bit */
       curr_stream->n_cons_missed++;
+    }
+    if(min_ipi > curr_stream->ipi) {
+      min_ipi = curr_stream->ipi;
     }
     if(curr_stream->n_cons_missed > LWB_CONF_SCHED_STREAM_REMOVAL_THRES) {
       /* too many consecutive slots without reception: delete this stream */
@@ -284,8 +288,8 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     n_slots_assigned++;
   }
   
-  /* keep the round period constant */
-  period = LWB_CONF_SCHED_PERIOD_IDLE; 
+  /* set the period to the smallest IPI among all active streams */
+  period = min_ipi; 
 
   time += period;   /* increment time by the current period */
 
@@ -364,7 +368,7 @@ set_schedule:
   sched->time   = time - (period - 1);
     
   /* log the parameters of the new schedule */
-  DEBUG_PRINT_INFO("schedule updated (s=%u T=%u n=%u|%u l=%u load=%u%%)", 
+  DEBUG_PRINT_INFO("schedule updated (s=%u T=%u n=%u|%u len=%u load=%u%%)", 
                    n_streams, sched->period, n_slots_assigned, 
                    sched->n_slots >> 6, compressed_size,
                    (uint16_t)(used_bw * 100 / BANDWIDTH_LIMIT));
@@ -381,6 +385,7 @@ lwb_sched_init(lwb_schedule_t* sched)
   n_streams = 0;
   n_slots_assigned = 0;
   n_pending_sack = 0;
+  used_bw = 0;
   time = 0;                             /* global time starts now */
   sched->host_id = node_id;             /* embed the host ID */
   period = LWB_CONF_SCHED_PERIOD_IDLE; 
@@ -391,14 +396,14 @@ lwb_sched_init(lwb_schedule_t* sched)
   /* mark as the first schedule (beginning of a round) */
   LWB_SCHED_SET_AS_1ST(sched); 
   
-  DEBUG_PRINT_INFO("static scheduler initialized (max streams: %u)", 
+  DEBUG_PRINT_INFO("min-delay scheduler initialized (max streams: %u)", 
                    LWB_CONF_MAX_N_STREAMS);
   
   return LWB_SCHED_PKT_HEADER_LEN; /* empty schedule, no slots allocated yet */
 }
 /*---------------------------------------------------------------------------*/
 
-#endif /* LWB_SCHED_STATIC */
+#endif /* LWB_SCHED_MIN_DELAY */
 
 /**
  * @}

@@ -61,7 +61,9 @@
 #define COMPILER_INFO               "GCC " __VERSION__
 #define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
 #define COMPILE_DATE                __DATE__
-#define SRAM_SIZE                   4096            /* starting at 0x1C00 */
+#define SRAM_START                  0x1c00
+#define SRAM_END                    0x2bff        /* last valid byte in SRAM */
+#define SRAM_SIZE                   4096          /* starting at 0x1C00 */
 
 /*
  * include application specific config
@@ -84,7 +86,7 @@
 #define FRAM_CONF_ON                1
 #endif /* FRAM_CONF_ON */
 
-#define CLOCK_CONF_XT1_ON           1           
+#define CLOCK_CONF_XT1_ON           1
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -97,12 +99,6 @@
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2
 
-/* disable the SVS */
-#define SVS_DISABLE                 { PMMCTL0_H = 0xA5;\
-                                      SVSMHCTL  = 0;\
-                                      SVSMLCTL  = 0;\
-                                      PMMCTL0_H = 0x00; }
-
 
 /*
  * pin mapping
@@ -111,9 +107,9 @@
 #define LED_STATUS                  LED_0
 #define LED_ERROR                   LED_0
 #define COM_MCU_INT1                PORT3, PIN5
-#define COM_MCU_INT2                PORT3, PIN4    
-#define FRAM_CONF_CTRL_PIN          PORT2, PIN0
-#define FRAM_CONF_SPI               SPI_0
+#define COM_MCU_INT2                PORT3, PIN4
+#define COM_MCU_SPARE1              PORT3, PIN6         /* spare GPIO pin */
+#define COM_MCU_SPARE2              PORT3, PIN7         /* spare GPIO pin */
 
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7
@@ -124,7 +120,7 @@
 //#define GLOSSY_TX_PIN               COM_MCU_INT2
 //#define RF_GDO0_PIN                 COM_MCU_INT1
 //#define RF_GDO1_PIN                 COM_MCU_INT1
-//#define RF_GDO2_PIN                 COM_MCU_INT1
+#define RF_GDO2_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                    COM_MCU_INT1
 //#define ACLK_PIN                    COM_MCU_INT1
 //#define SMCLK_PIN                   COM_MCU_INT1
@@ -132,6 +128,31 @@
 /* the following pins assignments are given by FlockLAB, do not change */
 #define FLOCKLAB_INT1               COM_MCU_INT1  /* for GPIO tracing */
 #define FLOCKLAB_INT2               COM_MCU_INT2  /* for GPIO tracing */
+
+#if FRAM_CONF_ON
+  #define FRAM_CONF_CTRL_PIN        PORT2, PIN0
+  #define FRAM_CONF_SIZE            0x20000     /* 1 Mbit */
+  #define FRAM_CONF_SPI             SPI_0       
+  #ifndef DEBUG_PRINT_CONF_USE_XMEM
+  #define DEBUG_PRINT_CONF_USE_XMEM 1
+  #define LWB_USE_XMEM              1
+  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+  #ifndef DEBUG_PRINT_CONF_NUM_MSG
+  #define DEBUG_PRINT_CONF_NUM_MSG  20
+  #endif /* DEBUG_PRINT_CONF_NUM_MSG */
+#endif /* FRAM_CONF_ON */
+
+#if BOLT_CONF_ON
+  #define BOLT_CONF_SPI             SPI_1
+  #define BOLT_CONF_IND_PIN         PORT2, PIN2
+  #define BOLT_CONF_MODE_PIN        PORT2, PIN3
+  #define BOLT_CONF_REQ_PIN         PORT2, PIN4
+  #define BOLT_CONF_ACK_PIN         PORT2, PIN5
+  /* IND pin for the outgoing queue (sent messages) */
+  #define BOLT_CONF_IND_OUT_PIN     PORT1, PIN1
+  #define BOLT_CONF_TIMEREQ_PIN     PORT2, PIN1
+  #define BOLT_CONF_FUTUREUSE_PIN   PORT2, PIN6
+#endif /* BOLT_CONF_ON */
 
 /* specify what needs to be done every time before UART is enabled */
 #define UART_BEFORE_ENABLE {\

@@ -18,6 +18,13 @@
 #define PMM_STATUS_OK     0
 #define PMM_STATUS_ERROR  1
 
+/* disable the SVS (added by rdaforno) */
+#define SVS_DISABLE       { PMMCTL0_H = 0xA5;\
+                            SVSMHCTL  = 0;\
+                            SVSMLCTL  = 0;\
+                            PMMCTL0_H = 0x00; }
+
+
 /* ==================================================================== */
 /**
  * Set the VCore to a new level if it is possible and return a
