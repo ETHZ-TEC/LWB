@@ -42,6 +42,7 @@ volatile uint16_t node_id;
 void
 print_processes(struct process *const processes[])
 {
+  uart_enable(1);
   printf("Starting");
   while(*processes != NULL) {
     printf(" '%s'", (*processes)->name);
@@ -93,7 +94,7 @@ print_device_info(void)
   } else {
     printf("Unknown");
   }
-  printf("\r\nMCU: " MCU_TYPE " (%d kB RAM, %d kB Flash, %u kB used)\r\n",
+  printf("\r\nMCU: " MCU_TYPE " (%ukB SRAM, %ukB ROM, %ukB used)\r\n",
          SRAM_SIZE >> 10,
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
@@ -168,14 +169,11 @@ main(int argc, char **argv)
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  printf("RF module configured (gain: %sdB, channel: %u, packet len: %u B)\r\n", rf1a_tx_powers_to_string[RF_CONF_TX_POWER], RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
+  printf("RF module configured (gain=%sdB, channel=%u, pkt_len=%ub)\r\n",
+         rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
+         RF_CONF_TX_CH,
+         RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
-  
-#if FRAM_CONF_ON
-  if (!fram_init()) {
-    DEBUG_PRINT_FATAL("ERROR: fram init failed");
-  }
-#endif
 
   /* set the node ID */
 #ifdef NODE_ID
@@ -184,12 +182,21 @@ main(int argc, char **argv)
   node_id = TOS_NODE_ID;
 #endif /* NODE_ID */
 
-  printf("\r\n" CONTIKI_VERSION_STRING " started. ");
   if(node_id > 0) {
-    printf("Node ID is set to %u.\r\n", node_id);
+    printf(CONTIKI_VERSION_STRING " started. Node ID is set to %u.\r\n",
+           node_id);
   } else {
-    printf("Node ID is not set.\r\n");
+    printf(CONTIKI_VERSION_STRING " started. Node ID is not set.\r\n");
   }
+  
+#if FRAM_CONF_ON
+  if (!fram_init()) {
+    DEBUG_PRINT_FATAL("ERROR: fram init failed");
+  }
+#endif
+#if BOLT_CONF_ON
+  bolt_init(0);
+#endif /* BOLT_CONF_ON */  
 
   process_init();
   process_start(&etimer_process, NULL);
@@ -208,15 +215,16 @@ main(int argc, char **argv)
 #if WATCHDOG_CONF_ON
   watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
+  
+  /* start processes */
+  print_processes(autostart_processes);
+  autostart_start(autostart_processes);
+  debug_print_init();  
+  /* note: start debug process as last due to process_poll() execution order */
 
   LEDS_OFF;     /* init done */
   __eint();
   
-  /* start processes */
-  debug_print_init();  
-  print_processes(autostart_processes);
-  autostart_start(autostart_processes);
-
   while(1) {
     int r;
     do {

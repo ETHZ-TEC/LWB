@@ -61,6 +61,8 @@
 #define COMPILER_INFO               "GCC " __VERSION__
 #define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
 #define COMPILE_DATE                __DATE__
+#define SRAM_START                  0x1c00
+#define SRAM_END                    0x2bff        /* last valid byte in SRAM */
 #define SRAM_SIZE                   4096            /* starting at 0x1C00 */
 
 /*
@@ -79,6 +81,8 @@
 #define LEDS_CONF_ON                1
 #endif /* LEDS_CONF_ON */
 
+#define CLOCK_CONF_XT1_ON           1
+
 /* specify the number of timer modules */
 #if RF_CONF_ON
 #define RTIMER_CONF_NUM_HF          4  /* number of high-frequency timers */
@@ -89,11 +93,6 @@
 
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2
-
-/* The application should define the following two macros for better
- * performance (otherwise glossy will disable all active interrupts). */
-#define GLOSSY_DISABLE_INTERRUPTS
-#define GLOSSY_ENABLE_INTERRUPTS
 
 /*
  * pin mapping
@@ -120,7 +119,6 @@
   #endif /* DEBUG_PRINT_CONF_NUM_MSG */
 #endif /* FRAM_CONF_ON */
 
-//#define BOLT_CONF_ON              1
 #if BOLT_CONF_ON
   #define BOLT_CONF_SPI             SPI_1
   #define BOLT_CONF_IND_PIN         PORT2, PIN0
@@ -147,6 +145,7 @@
 #define RF_GDO2_PIN                 FLOCKLAB_INT2
 #else
 #define GLOSSY_START_PIN            LED_0
+#define RF_GDO2_PIN                 FLOCKLAB_LED3
 #endif /* FLOCKLAB */
 
 /*#define DEBUG_PRINT_TASK_ACT_PIN  PORT2, PIN0*/
@@ -164,6 +163,28 @@
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 
 #define MCU_HAS_ADC12
+
+/* The application should define the following two macros for better
+ * performance (otherwise glossy will disable all active interrupts). */
+#define GLOSSY_DISABLE_INTERRUPTS
+#define GLOSSY_ENABLE_INTERRUPTS
+
+                                    /* make sure HF crystal is enabled */
+#define LWB_AFTER_DEEPSLEEP()       {\
+                                    if(UCSCTL6 & XT2OFF) {\
+                                      SFRIE1  &= ~OFIE;\
+                                      ENABLE_XT2();\
+                                      WAIT_FOR_OSC();\
+                                      UCSCTL4  = SELA | SELS | SELM;\
+                                      UCSCTL7  = 0;\
+                                      SFRIE1  |= OFIE;\
+                                      TA0R    = 0;\
+                                      TA0CTL  |= MC_2;\
+                                      P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                                  BIT6);\
+                                      P1DIR   &= ~(BIT2 | BIT5);\
+                                    }}\
+                                    
 
 /*
  * include MCU specific files

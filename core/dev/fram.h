@@ -90,13 +90,9 @@
                                  FRAM_CONF_ALLOC_SIZE)
 #endif /* FRAM_CONF_ALLOC_START */
 
-#if FRAM_CONF_ALLOC_SIZE >= (FRAM_CONF_SIZE + FRAM_CONF_START)
+#if FRAM_CONF_ALLOC_SIZE > (FRAM_CONF_SIZE + FRAM_CONF_START)
 #error "FRAM_CONF_ALLOC_SIZE is invalid"
 #endif
-
-#ifndef FRAM_CONF_CTRL_PIN
-#error "FRAM_CONF_CTRL_PIN not defined!"
-#endif /* FRAM_CONF_CTRL_PIN */
 
 #ifndef FRAM_CONF_SPI           /* must be of type spi_module_t */
 #define FRAM_CONF_SPI           SPI_1
@@ -105,7 +101,7 @@
 #ifndef FRAM_CONF_CTRL_PIN
 /* control line for the external FRAM (SPI chip select/enable line) */
 #warning "FRAM_CONF_CTRL_PIN not defined!"
-#define FRAM_CONF_CTRL_PIN      PORT1, PIN7 
+#define FRAM_CONF_CTRL_PIN      PORT1, PIN7
 #endif /* FRAM_CONF_CTRL_PIN */
 
 #ifndef FRAM_CONF_SCLK_SPEED    /* serial clock speed */

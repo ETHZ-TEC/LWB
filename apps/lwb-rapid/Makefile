@@ -11,6 +11,7 @@ CONTIKI_PROJECT = lwb
 #TARGET = cc430
 
 SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
+#$(info hello world = $(SRCS))
 
 include $(CONTIKI)/Makefile.include
 
@@ -26,3 +27,4 @@ flocklab:
 upload: 
 	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
+

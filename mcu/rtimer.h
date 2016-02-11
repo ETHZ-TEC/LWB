@@ -216,6 +216,17 @@ rtimer_clock_t rtimer_now_hf(void);
  */
 rtimer_clock_t rtimer_now_lf(void);
 
+/**
+ * @brief get the current timer value of both, the high and low frequency
+ * timer
+ * @param[in] hf_val value in timer clock ticks (timestamp)
+ * @param[in] lf_val value in timer clock ticks (timestamp)
+ * @remark This function will only work properly if the CPU is running on the
+ * same clock source as the timer TA0 (HF) and this function can be executed 
+ * within one TA0 period (i.e. ~20ms @ 3.25 MHz).
+ */
+void rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val);
+
 
 #endif /* __RTIMER_H__ */
 

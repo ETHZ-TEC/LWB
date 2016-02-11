@@ -46,6 +46,10 @@
 #define UART_ENABLE     (UCA0CTL1 &= ~UCSWRST)
 #define UART_DISABLE    (UCA0CTL1 |= UCSWRST)
 /*---------------------------------------------------------------------------*/
+#if UART_CONF_TX_INTERRUPT
+static struct ringbuf txbuf;
+static uint8_t txbuf_data[UART_CONF_TXBUF_SIZE];
+#endif /* UART_CONF_TX_INTERRUPT */
 static int (*uart0_input_handler)(unsigned char c);
 static uint32_t prescaler = 0;
 static uint32_t mod = 0;
@@ -53,16 +57,28 @@ static uint32_t mod = 0;
 /* this function must be defined (referenced from std lib printf.c) */
 int
 putchar(int c)
-{
-  /* print out a single byte over UART */
+{    
 #if WATCHDOG_CONF_ON
   watchdog_periodic();
 #endif /* WATCHDOG_CONF_ON */
+ 
+#if UART_CONF_TX_INTERRUPT
+  /* interrupt driven */
+  
+  /* put the outgoing byte on the transmission buffer. If the buffer
+     is full, we just keep on trying to put the byte into the buffer
+     until it is possible to put it there. */
+  while(ringbuf_put(&txbuf, c) == 0);
+  UCA0IE |= UCTXIE;                             /* enable UART TX interrupt  */
+  
+#else /* UART_CONF_TX_INTERRUPT */
+  /* polling */
   /* Loop until the transmission buffer is available. */
   while((UCA0STAT & UCBUSY));
-
-  /* Transmit the data. */
-  UCA0TXBUF = c;
+  /* print out a single byte over UART */
+  UCA0TXBUF = c;  
+#endif /* UART_CONF_TX_INTERRUPT */
+  
   return c;
 }
 /*---------------------------------------------------------------------------*/
@@ -100,6 +116,10 @@ uart_init(void)
   
   /* note: do NOT enable interrupts by default, they can mess up the timing 
    * due to higher interrupt priority */
+  
+#if UART_CONF_TX_INTERRUPT
+  ringbuf_init(&txbuf, txbuf_data, sizeof(txbuf_data));
+#endif /* UART_CONF_TX_INTERRUPT */  
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -137,9 +157,9 @@ ISR(USCI_A0, uart0_rx_interrupt)
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   uint8_t c;
-  if(UCA0IV == 2) {
+  if(UCA0IFG & UCRXIFG) {    /* data received */
     if(UCA0STAT & UCRXERR) {
-      c = UCA0RXBUF;   /* Clear error flags by forcing a dummy read. */
+      c = UCA0RXBUF;   /* clear error flags by forcing a dummy read. */
     } else {
       c = UCA0RXBUF;
       if(uart0_input_handler != NULL) {
@@ -149,6 +169,17 @@ ISR(USCI_A0, uart0_rx_interrupt)
       }
     }
   }
+#if UART_CONF_TX_INTERRUPT
+  if(UCA0IFG & UCTXIFG) {
+    /* TX buffer empty, fetch the next byte and transmit it */
+    if(ringbuf_elements(&txbuf) == 0) {
+      UCA0TXBUF = ringbuf_get(&txbuf);
+    } else {
+      /* disable the TX interrupt */
+      UCA0IE &= ~UCTXIE; 
+    }
+  }
+#endif /* UART_CONF_TX_INTERRUPT */
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }

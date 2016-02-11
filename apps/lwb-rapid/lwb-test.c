@@ -35,10 +35,10 @@
 /**
  * @brief Low-Power Wireless Bus Test Application
  * 
- * All source nodes sample the temperature and supply voltage and send this
- * information to the host node.
- * The used scheduler is static, i.e. the period is constant. A source node
- * may send a stream request in each round.
+ * A min-delay scheduler is used to show how the LWB is able to quickly
+ * adjust to high traffic demands.
+ * 
+ * This demo application is not designed to run on Flocklab. 
  */
 
 
@@ -59,7 +59,9 @@ AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
 { 
-  static uint8_t stream_state = 0;
+  static uint8_t low_stream_state = 0;
+  static uint8_t high_stream_state = 0;
+  static uint8_t round_cnt = 0;
   
   PROCESS_BEGIN();
           
@@ -68,50 +70,69 @@ PROCESS_THREAD(app_process, ev, data)
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   /* all other necessary initialization is done in contiki-cc430-main.c */
   
+#ifdef COM_MCU_SPARE1
+  /* make sure pin P3.6 (Vcc for FRAM) is high! */
+  PIN_SET(COM_MCU_SPARE1);
+#endif /* COM_MCU_SPARE1 */
+  
   /* start the LWB thread */
   lwb_start(0, &app_process);
-  
+    
   /* main loop of this application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
-    
+        
     if(HOST_ID == node_id) {
       /* we are the host */
       /* print out the received data */
-      uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN];
+      uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN], stream_id;
       uint16_t sender_id;
       while(1) {
-        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, 0);
+        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, &stream_id);
         if(pkt_len) {
           /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-          DEBUG_PRINT_MSG_NOW("data packet received from node %u",
-                              sender_id);
+          DEBUG_PRINT_MSG_NOW("data packet received (stream %u.%u)",
+                              sender_id, stream_id);
         } else {
           break;
         }
       } 
     } else {
       /* we are a source node */
-      if(stream_state != LWB_STREAM_STATE_ACTIVE) {
-        stream_state = lwb_stream_get_state(1);
-        if(stream_state == LWB_STREAM_STATE_INACTIVE) {
-          /* request a stream with ID 1 and an IPI (inter packet interval) 
-           * of 10 seconds */
-          lwb_stream_req_t my_stream = { node_id, 0, 1, 10 };
+      low_stream_state = lwb_stream_get_state(1);
+      if(low_stream_state == LWB_STREAM_STATE_INACTIVE) {
+        /* request a stream with ID 1 and an IPI (inter packet interval) 
+         * of LWB_CONF_SCHED_PERIOD_IDLE seconds, for periodic status messages */
+        lwb_stream_req_t my_stream = { node_id, 0, 1, LWB_CONF_SCHED_PERIOD_IDLE };
+        if(!lwb_request_stream(&my_stream, 0)) {
+          DEBUG_PRINT_ERROR("low stream request failed");
+        }
+      }
+      if((round_cnt % 10) == 0) {
+        /* generate a dummy packet (just send the 16-bit node ID) */
+        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);
+      }
+      /* allocate a high data-rate stream after 10 idle rounds */
+      if(round_cnt > 5) {
+        high_stream_state = lwb_stream_get_state(2);
+        if(high_stream_state == LWB_STREAM_STATE_INACTIVE) {
+          /* request a stream with ID 2 and an the minimal IPI */
+          lwb_stream_req_t my_stream = { node_id, 0, 2, 1 };
           if(!lwb_request_stream(&my_stream, 0)) {
-            DEBUG_PRINT_ERROR("stream request failed");
+            DEBUG_PRINT_ERROR("high stream request failed");
+          } else {
+            DEBUG_PRINT_INFO("high data-rate stream requested");   
           }
         }
-      } else {
-        /* generate a dummy packet */
-        if(!lwb_put_data(0, 1, (uint8_t*)&node_id, 2)) {
-          DEBUG_PRINT_WARNING("out queue full, packet dropped");
-        } /* else: data packet successfully passed to the LWB */
+        /* generate a dummy packet (just send the 16-bit node ID) */
+        lwb_put_data(0, 2, (uint8_t*)&node_id, 2);
       }
     }
+    round_cnt++;
+    
     /* IMPORTANT: This process must not run for more than a few hundred
      * milliseconds in order to enable proper operation of the LWB */
     

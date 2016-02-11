@@ -38,7 +38,7 @@
  * application specific config file to override default settings
  */
 
-#define FLOCKLAB                           /* uncomment to run on FlockLAB */
+//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
 #define HOST_ID    2
  
 #ifdef FLOCKLAB
@@ -58,14 +58,19 @@
   //#define APP_TASK_ACT_PIN              COM_MCU_INT2
 #endif /* FLOCKLAB */
 
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
 #define CLOCK_CONF_FLL_ON               1
 #define FRAM_CONF_ON                    0
                                                        
 /* LWB configuration */
-#define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
+#define LWB_SCHED_MIN_DELAY                 /* use the 'min delay' scheduler */
+#define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
+#define LWB_CONF_USE_XMEM               0
+#define LWB_CONF_MAX_N_STREAMS          10
+#define LWB_CONF_OUT_BUFFER_SIZE        2
+#define LWB_CONF_IN_BUFFER_SIZE         2
+#define LWB_CONF_MAX_DATA_PKT_LEN       127
+#define LWB_CONF_MAX_DATA_SLOTS         10
+#define LWB_CONF_TIME_SCALE             1
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO

@@ -154,12 +154,12 @@ lwb_sched_del_stream(uint32_t stream_addr)
     return;
   }  
   lwb_stream_list_t stream;
-  uint16_t    node_id;
+  uint16_t    node;
   uint8_t     stream_id;
   xmem_read(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&stream);
   uint32_t next_addr = (uint32_t)stream.next; 
   if(streams_list == stream_addr) {  /* special case: it's the first element */
-    node_id  = stream.node_id;
+    node  = stream.node_id;
     stream_id  = stream.stream_id;
     streams_list = next_addr; 
   } else {
@@ -167,7 +167,7 @@ lwb_sched_del_stream(uint32_t stream_addr)
     do {
       xmem_read(prev_addr, sizeof(lwb_stream_list_t), (uint8_t*)&stream);
       if(stream.next == stream_addr) {
-        node_id  = stream.node_id;
+        node  = stream.node_id;
         stream_id  = stream.stream_id;
         break;
       }
@@ -187,7 +187,7 @@ lwb_sched_del_stream(uint32_t stream_addr)
   n_streams--;
   sched_stats.n_deleted++;
   
-  DEBUG_PRINT_INFO("stream %u.%u removed", node_id, stream_id);
+  DEBUG_PRINT_INFO("stream %u.%u removed", node, stream_id);
 }
 #endif /* LWB_CONF_SCHED_USE_XMEM */
 /*---------------------------------------------------------------------------*/
@@ -347,7 +347,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
 #if !LWB_CONF_SCHED_USE_XMEM  
     /* remove this stream */
     for(s = list_head(streams_list); s != 0; s = s->next) {
-      if(req->node_id == s->node_id) {
+      if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
         break;
       }
     }
@@ -356,7 +356,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     stream_addr = streams_list;
     while(stream_addr != MEMBX_INVALID_ADDR) {
       xmem_read(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&s);
-      if(req->node_id == s.node_id) {
+      if(req->node_id == s.node_id && req->stream_id == s.stream_id) {
         break;
       }
       stream_addr = s.next;  /* go to the next address */ 
@@ -766,6 +766,8 @@ lwb_sched_init(lwb_schedule_t* sched)
   sched->period = period;
   /* mark as first schedule (beginning of a round) */
   LWB_SCHED_SET_AS_1ST(sched); 
+  
+  DEBUG_PRINT_INFO("min-energy scheduler initialized");
   
   return LWB_SCHED_PKT_HEADER_LEN; /* empty schedule, no slots allocated yet */
 }

@@ -53,21 +53,16 @@
 #include "platform.h"   /* necessary for SMCLK_SPEED in clock.h */
 
 #ifndef HOST_ID
+#warning "HOST_ID not defined, set to 0"
 #define HOST_ID         0
 #endif
 
 /*---------------------------------------------------------------------------*/
 
-#ifndef LWB_CONF_STREAM_EXTRA_DATA_LEN
-#warning "stream info length (LWB_CONF_STREAM_EXTRA_DATA_LEN) not defined!"
-/* size in bytes of the additional stream info (extra data) in lwb_stream_t */
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  1                            
-#endif /* LWB_CONF_STREAM_EXTRA_DATA_LEN */
-
 #ifndef LWB_CONF_MAX_DATA_PKT_LEN
 /* max. length of a data packet incl. the LWB header (node + stream ID), 
  * determines T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, 
- * choose as small as possible; mustn't be > LWB_CONF_MAX_PACKET_LEN */
+ * choose as small as possible; must be <= LWB_CONF_MAX_PACKET_LEN */
 #define LWB_CONF_MAX_DATA_PKT_LEN       16
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
@@ -97,8 +92,8 @@
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
 #ifndef LWB_CONF_T_REF_OFS
-/* constant time offset that is added to t_ref in each round (to align the 
- * glossy start pulses on host and source nodes) */
+/* constant time offset that is subtracted from t_ref in each round to align  
+ * the glossy start pulses on host and source nodes */
 #define LWB_CONF_T_REF_OFS              (RTIMER_SECOND_HF / 800)
 #endif /* LWB_CONF_T_REF_OFS */
 
@@ -149,7 +144,7 @@
 
 #ifndef LWB_CONF_OUT_BUFFER_SIZE         
 /* size (#elements) of the internal data buffer/queue for outgoing messages */
-#define LWB_CONF_OUT_BUFFER_SIZE        2
+#define LWB_CONF_OUT_BUFFER_SIZE        10
 #endif /* LWB_CONF_IN_BUFFER_SIZE */
 
 /* ensure that the buffer can at least hold one data packet */
@@ -171,7 +166,8 @@
 
 #ifndef LWB_CONF_MAX_DATA_SLOTS
 /* max. number of data slots per round, must not exceed MIN(63, 
- * (LWB_CONF_MAX_PACKET_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2) */
+ * (LWB_CONF_MAX_PACKET_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
+ * must be at least 2 */
 #define LWB_CONF_MAX_DATA_SLOTS         50        
 #endif /* LWB_CONF_MAX_DATA_SLOTS */
 
@@ -199,8 +195,9 @@
 #endif /* LWB_CONF_T_SILENT */
 
 #ifndef LWB_CONF_T_SCHED2_START
-/* start point (offset) of the second schedule at the end of a round */
-#define LWB_CONF_T_SCHED2_START         MAX(LWB_T_ROUND_MAX, RTIMER_SECOND_HF) 
+/* start point (offset) of the second schedule at the end of a round
+ * must be after LWB_T_ROUND_MAX */
+#define LWB_CONF_T_SCHED2_START         LWB_T_ROUND_MAX
 #endif /* LWB_CONF_T_SCHED2_START */
 
 #ifndef LWB_CONF_T_PREPROCESS
@@ -305,7 +302,6 @@ typedef struct {
     uint16_t pck_cnt;     /* total number of received packets */
     uint16_t t_sched_max; /* max. time needed to calculate the new schedule */
     uint16_t t_proc_max;  /* max. time needed to process the rcvd data pkts */
-    uint16_t t_prep_max;  /* max. time needed to prepare a packet */
     uint16_t crc;         /* crc of this struct (with crc set to 0!) */
     uint32_t t_slot_last; /* last slot assignment (in seconds) */
     uint32_t data_tot;

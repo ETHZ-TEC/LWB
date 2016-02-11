@@ -53,6 +53,18 @@
 #define UART_CONF_BAUDRATE  115200LU
 #endif /* UART_CONF_BAUDRATE */
 
+/* use interrupt driven UART transmission */
+#ifndef UART_CONF_TX_INTERRUPT
+#define UART_CONF_TX_INTERRUPT  0
+#endif /* UART_CONF_TX_INTERRUPT */
+
+#if UART_CONF_TX_INTERRUPT
+/* set the buffer size for interrupt driven transmission */
+#ifndef UART_CONF_TXBUF_SIZE 
+#define UART_CONF_TXBUF_SIZE    64      /* characters/bytes */
+#endif /* UART_CONF_TX_BUFSIZE */
+#endif /* UART_CONF_TX_INTERRUPT */
+
 /** 
  * @brief this macro can be defined in a platform specific file
  * to add instructions that need to be executed before enabling UART

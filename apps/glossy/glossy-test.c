@@ -44,8 +44,13 @@
 
 static struct pt                glossy_pt; /* glossy protothread */
 /*---------------------------------------------------------------------------*/
+#ifdef APP_TASK_ACT_PIN
 #define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
 #define TASK_SUSPENDED          PIN_CLR(APP_TASK_ACT_PIN)
+#else
+#define TASK_ACTIVE
+#define TASK_SUSPENDED
+#endif /* APP_TASK_ACT_PIN */
 
 #define WAIT_UNTIL(time) \
 {\
@@ -73,7 +78,7 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
    * protothread is scheduled */
   
   PT_BEGIN(&glossy_pt);   /* declare variables before this statement! */
-     
+ 
   /* main loop of this application task */
   while(1) {
     /* HOST NODE */
@@ -117,6 +122,7 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
                      GLOSSY_WITH_RF_CAL);
         WAIT_UNTIL(rt->time + GLOSSY_T_SLOT + t_guard);
         uint16_t n_rx = glossy_stop();
+        uint16_t snr = 0;
       
         /* at least one packet received? */
         if(n_rx) {
@@ -131,6 +137,7 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
           t_start    = t_ref - T_REF_OFS;
           sync_state = 1;         /* synchronized */
           t_guard    = GLOSSY_T_GUARD;
+          snr        = glossy_get_snr();
 
 #if (TIME_SCALE == 1) /* only calc drift when TIME_SCALE is not used */
           /* drift compensation (calculate drift in clock cycles per second) */
@@ -150,10 +157,11 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
             sync_state = 0; /* go back to bootstrap */
             continue;
           } else {
+            drift = 0;
             sync_state = 2;               /* unsynced */   
             t_guard = GLOSSY_T_GUARD_2;   /* increase guard time */
             /* estimate t_ref */
-            t_ref = t_ref + GLOSSY_PERIOD * (RTIMER_SECOND_HF + drift) /
+            t_ref = t_ref + GLOSSY_PERIOD * (RTIMER_SECOND_HF) /
                             TIME_SCALE; 
             t_start = t_ref - T_REF_OFS;
           }
@@ -167,7 +175,7 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
                          pkt_cnt, miss_cnt, bootstrap_cnt, 
                          drift, glossy_get_per(), 
                          glossy_get_relay_cnt_first_rx(), max_hop,
-                         glossy_get_snr());
+                         snr);
       }
     }
     

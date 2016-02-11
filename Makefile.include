@@ -17,6 +17,7 @@ ifndef TARGET
     TARGET=$(target)
   else
     TARGET = olimex
+    ${warning WARNING: TARGET not defined (set to olimex)}
   endif
 endif
 
@@ -40,6 +41,7 @@ else
   MCU = cc430f5137
   MCUFOLDER = cc430
   PLATFORM = olimex-ccrf
+  ${error unknown TARGET}
 endif
 
 #$(info MCUFOLDER = $(MCUFOLDER), Platform = $(PLATFORM))

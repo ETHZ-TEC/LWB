@@ -62,11 +62,7 @@ PROCESS(debug_print_process, "Debug Print Task");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(debug_print_process, ev, data) {
   PROCESS_BEGIN();
-  
-#ifdef DEBUG_PRINT_TASK_ACT_PIN
-  PIN_CFG_OUT(DEBUG_PRINT_TASK_ACT_PIN);
-#endif
-  
+        
 #if DEBUG_PRINT_CONF_USE_XMEM
   static uint32_t next_msg = MEMBX_INVALID_ADDR;
   n_buffered_msg = 0;
@@ -81,6 +77,21 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   memb_init(&debug_print_memb);
   list_init(debug_print_list);
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+  
+  uart_enable(1);       /* make sure UART is enabled */
+  
+#ifdef DEBUG_PRINT_TASK_ACT_PIN
+  PIN_CFG_OUT(DEBUG_PRINT_TASK_ACT_PIN);
+#endif
+  
+#ifdef DEBUG_CONF_STACK_GUARD
+  *(uint16_t*)DEBUG_CONF_STACK_GUARD = 0xaaaa;
+  *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) = 0xaaaa;
+  *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) = 0xaaaa;
+  *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) = 0xaaaa;
+  printf("Stack guard enabled\r\n");
+#endif /* DEBUG_CONF_STACK_GUARD */
+    
   printf("Debug print task initialized (buffer size: %u)\r\n", DEBUG_PRINT_CONF_NUM_MSG);
   
   while(1) {
@@ -88,19 +99,19 @@ PROCESS_THREAD(debug_print_process, ev, data) {
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     /* wait until we are polled by somebody */
     DEBUG_PRINT_TASK_ACTIVE;
-    
+        
 #if DEBUG_PRINT_CONF_USE_XMEM
     next_msg = start_addr_msg;
     while(n_buffered_msg > 0) {
       /* load the message from the external memory */
       xmem_read(next_msg, sizeof(debug_print_t), (uint8_t *)&msg);
   #if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(true);
+      uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
-      printf("%3u %7llu %s %s: %s\r\n", node_id, msg.time, msg.module, 
+      printf("%3u %7lu %s: %s\r\n", node_id, msg.time, 
              debug_print_lvl_to_string[msg.level], msg.content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(false);
+      uart_enable(0);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       next_msg += sizeof(debug_print_t);
       n_buffered_msg--;
@@ -116,28 +127,12 @@ PROCESS_THREAD(debug_print_process, ev, data) {
 
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
     
-    while(list_length(debug_print_list) > 0) {      
-      /* debug task should not run anyway if LWB/Glossy is active! */
-//  #ifdef WITH_RADIO
-//    #ifdef WITH_GLOSSY
-//      /* do not try to print anything over the UART while Glossy is active */
-//      while(glossy_is_active()) {
-//        PROCESS_PAUSE();
-//      }
-//    #else
-//      /* do not try to print anything over the UART while the radio is busy */
-//      while(rf1a_is_busy()) {
-//        PROCESS_PAUSE();
-//      }
-//    #endif /* WITH_GLOSSY */
-//  #endif /* WITH_RADIO */
-      /*DEBUG_PRINT_TASK_ACTIVE;*/
-      /* print the first message in the queue */
+    while(list_length(debug_print_list) > 0) {
       debug_print_t *msg = list_head(debug_print_list);
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
-      printf("%3u %7llu %s %s: %s\r\n", node_id, msg->time, msg->module, 
+      printf("%3u %7lu %s: %s\r\n", node_id, msg->time, 
              debug_print_lvl_to_string[msg->level], msg->content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(0);
@@ -153,43 +148,24 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       buffer_full = 0;
     }
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+    
+#ifdef DEBUG_CONF_STACK_GUARD
+    /* check if the stack might be corrupt (check 8 bytes) */
+    if(*(uint16_t*)DEBUG_CONF_STACK_GUARD != 0xaaaa       || 
+       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) != 0xaaaa || 
+       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) != 0xaaaa || 
+       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) != 0xaaaa) {
+      DEBUG_PRINT_FATAL("FATAL ERROR: Stack overflow detected");
+    }    
+ #endif /* DEBUG_CONF_STACK_GUARD */
   }
   PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
-char*
-debug_print_format_mod_string(const char* module, char* out_buffer)
-{
-  uint8_t i = 0;  
-  char* res = strrchr(module, '/');
-  
-#if !DEBUG_PRINT_CONF_USE_XMEM
-  static char buffer[DEBUG_PRINT_MODULE_INFO_LEN + 1];
-  if(!out_buffer) {
-    out_buffer = buffer;
-  }  
-#else
-  if(!out_buffer) {
-    out_buffer = msg.module;
-  }
-#endif
-
-  if(res) {
-    module = res + 1;
-  }
-  while((i < DEBUG_PRINT_MODULE_INFO_LEN) && 
-        (*module != 0) && (*module != '.')) {
-    out_buffer[i++] = *module;
-    module++;
-  }
-  out_buffer[i] = 0;  /* close the string */
-  return out_buffer;
 }
 /*---------------------------------------------------------------------------*/
 void
 debug_print_init(void)
 {
-  printf("Starting '%s'\r\n", debug_print_process.name);
+  DEBUG_PRINT_MSG_NOW("Starting '%s'", debug_print_process.name);
   process_start(&debug_print_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -200,15 +176,14 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(uint64_t time, char level, char *module, char *data)
+debug_print_msg(rtimer_clock_t timestamp, char level, char *data)
 {  
 #if DEBUG_PRINT_CONF_USE_XMEM
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
      MEMBX_INVALID_ADDR != start_addr_msg) {
     /* compose the message struct */
-    msg.time = time;
+    msg.time = RTIMER_LF_TO_MS(timestamp);
     msg.level = level;
-    debug_print_format_mod_string(module, msg.module);
     memcpy(msg.content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* write to external memory */
     xmem_write(start_addr_msg + n_buffered_msg * sizeof(debug_print_t),
@@ -222,9 +197,8 @@ debug_print_msg(uint64_t time, char level, char *module, char *data)
   debug_print_t *msg = memb_alloc(&debug_print_memb);
   if(msg != NULL) {
     /* compose the message struct */
-    msg->time = time;
-    msg->level = level;    
-    debug_print_format_mod_string(module, msg->module);
+    msg->time = RTIMER_LF_TO_MS(timestamp);
+    msg->level = level;
     memcpy(msg->content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* add it to the list of messages ready to print */
     list_add(debug_print_list, msg);
@@ -239,16 +213,12 @@ debug_print_msg(uint64_t time, char level, char *module, char *data)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg_now(char *module, char *data)
+debug_print_msg_now(char *data)
 {
   if(data) {
 #if DEBUG_PRINT_CONF_DISABLE_UART
     uart_enable(1);
-#endif    
-    if(module) {
-      printf(debug_print_format_mod_string(module, 0));
-      putchar(' ');
-    }
+#endif 
     printf(data);
     printf("\r\n");
 #if DEBUG_PRINT_CONF_DISABLE_UART
@@ -270,12 +240,12 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(rtimer_clock_t *time, char level, char *module, char *content)
+debug_print_msg(rtimer_clock_t timestamp, char level, char *data)
 {
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg_now(char *content)
+debug_print_msg_now(char *data)
 {
 }
 /*---------------------------------------------------------------------------*/

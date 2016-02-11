@@ -79,7 +79,7 @@
 /* SCHEDULER */
 
 #ifndef LWB_CONF_SCHED_PERIOD_MAX
-/* max. assignable round period in seconds, must not exceed 2^15 - 1 seconds! */
+/* max. assignable round period in seconds, must not exceed 2^15 - 1 seconds!*/
 #define LWB_CONF_SCHED_PERIOD_MAX            30      
 #endif /* LWB_CONF_SCHED_PERIOD_MAX */
 
@@ -99,7 +99,21 @@
 #define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  10      
 #endif /* LWB_CONF_SCHED_STREAM_REMOVAL_THRES */
 
-                                
+/* define the stream extra data length based on the selected scheduler */
+#if defined(LWB_SCHED_STATIC) || defined(LWB_SCHED_MIN_DELAY)
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN       0
+#endif
+#ifdef LWB_SCHED_MIN_ENERGY
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN       1
+#endif
+                         
+#ifndef LWB_CONF_STREAM_EXTRA_DATA_LEN
+#warning "stream info length (LWB_CONF_STREAM_EXTRA_DATA_LEN) not defined!"
+/* size in bytes of the additional stream info (extra data) in lwb_stream_t */
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN  1                            
+#endif /* LWB_CONF_STREAM_EXTRA_DATA_LEN */
+
+                         
 /**
  * @brief the structure of a schedule packet
  */
