@@ -38,7 +38,7 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
+#define FLOCKLAB                           /* uncomment to run on FlockLAB */
 #define HOST_ID    2
  
 #ifdef FLOCKLAB

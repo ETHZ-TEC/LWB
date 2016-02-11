@@ -10,6 +10,8 @@ CONTIKI_PROJECT = lwb
 # specify the target platform (or pass this parameter by command line)
 #TARGET = cc430
 
+SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
+
 include $(CONTIKI)/Makefile.include
 
 all: $(CONTIKI_PROJECT)

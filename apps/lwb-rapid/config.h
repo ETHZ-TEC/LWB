@@ -70,7 +70,7 @@
 #define LWB_CONF_IN_BUFFER_SIZE         2
 #define LWB_CONF_MAX_DATA_PKT_LEN       127
 #define LWB_CONF_MAX_DATA_SLOTS         10
-#define LWB_CONF_TIME_SCALE             2
+#define LWB_CONF_TIME_SCALE             1
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
