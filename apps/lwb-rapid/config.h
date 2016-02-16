@@ -38,39 +38,34 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
 #define HOST_ID    2
  
-#ifdef FLOCKLAB
-  /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
-  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
-  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED2
-  #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
-#else
-  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
-   * assigns node IDs); select an ID other than HOST_ID to compile the code 
-   * for a source node */
-  #define NODE_ID                       2
-  //#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT2
-  //#define DEBUG_PRINT_TASK_ACT_PIN      COM_MCU_INT2
-  //#define APP_TASK_ACT_PIN              COM_MCU_INT2
-#endif /* FLOCKLAB */
+/* only define a node ID if FlockLAB is not used (FlockLAB automatically 
+* assigns node IDs); select an ID other than HOST_ID to compile the code 
+* for a source node */
+#define NODE_ID                       2
+#define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
+//#define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
+//#define APP_TASK_ACT_PIN              PORT2, PIN6
 
 #define CLOCK_CONF_FLL_ON               1
 #define FRAM_CONF_ON                    0
-                                                       
+#define BOLT_CONF_ON                    0
+
 /* LWB configuration */
 #define LWB_SCHED_MIN_DELAY                 /* use the 'min delay' scheduler */
 #define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
 #define LWB_CONF_USE_XMEM               0
 #define LWB_CONF_MAX_N_STREAMS          10
-#define LWB_CONF_OUT_BUFFER_SIZE        2
+#define LWB_CONF_OUT_BUFFER_SIZE        3
 #define LWB_CONF_IN_BUFFER_SIZE         2
-#define LWB_CONF_MAX_DATA_PKT_LEN       127
-#define LWB_CONF_MAX_DATA_SLOTS         10
-#define LWB_CONF_TIME_SCALE             1
+#define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PACKET_LEN)
+#define LWB_CONF_MAX_DATA_SLOTS         2
+#define LWB_CONF_TIME_SCALE             5
+#define LWB_CONF_TX_CNT_DATA            2
+#define LWB_CONF_MAX_HOPS               3
+/* since the scheduler is simple, we can reduce the time for the computation */
+//#define LWB_CONF_T_SCHED2_START       (LWB_T_ROUND_MAX - LWB_CONF_T_SCHED/2)
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO

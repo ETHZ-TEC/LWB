@@ -158,7 +158,7 @@
  * been sent or received, and deasserts at the end of the packet. In RX, the 
  * pin deassert when the optional address check fails or the RX FIFO 
  * overflows. In TX the pin deasserts if the TX FIFO underflows. */
-/*#define MCLK_PIN                  PORT2, PIN5*/
+//#define MCLK_PIN                  PORT2, PIN6
 /*#define ACLK_PIN                  PORT3, PIN3*/
 /*#define SMCLK_PIN                 PORT3, PIN1*/
 
@@ -169,8 +169,8 @@
 #define GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS
 
-                                    /* make sure HF crystal is enabled */
-#define LWB_AFTER_DEEPSLEEP()       {\
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+  #define LWB_AFTER_DEEPSLEEP()     {\
                                     if(UCSCTL6 & XT2OFF) {\
                                       SFRIE1  &= ~OFIE;\
                                       ENABLE_XT2();\
@@ -183,8 +183,9 @@
                                       P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
                                                   BIT6);\
                                       P1DIR   &= ~(BIT2 | BIT5);\
-                                    }}\
-                                    
+                                    }}
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
 
 /*
  * include MCU specific files

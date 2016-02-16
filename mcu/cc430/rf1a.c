@@ -46,7 +46,7 @@
 #ifndef RF_CONF_TX_CH
 #define RF_CONF_TX_CH           0
 #endif /* RF_CONF_TX_CH */
-#ifndef RF_CONF_MAX_PKT_LEN     /* must be <= RF1A_MAX_PACKET_LENGTH */
+#ifndef RF_CONF_MAX_PKT_LEN     /* must be <= RF_CONF_MAX_PKT_LEN */
 #define RF_CONF_MAX_PKT_LEN     127
 #endif /* RF_CONF_MAX_PKT_LEN */
 /*---------------------------------------------------------------------------*/
@@ -64,7 +64,7 @@ static rf1a_rx_tx_states_t rf1a_state;
 /* buffer used to manage packets longer than the RX/TX FIFO size (64 bytes) */
 /* force its address to be even in order to avoid misalignment issues */
 /* when executing the callback functions */
-static uint8_t rf1a_buffer[RF1A_MAX_PACKET_LENGTH] __attribute__((aligned(2)));
+static uint8_t rf1a_buffer[RF_CONF_MAX_PKT_LEN] __attribute__((aligned(2)));
 
 /* variables to indicate where is the starting point of the buffer (used for
    TX) and its length */
@@ -142,7 +142,7 @@ rf1a_init(void)
   rxoff_mode = RF1A_OFF_MODE_IDLE;
   txoff_mode = RF1A_OFF_MODE_IDLE;
 
-  packet_len_max = RF1A_MAX_PACKET_LENGTH;
+  packet_len_max = RF_CONF_MAX_PKT_LEN;
   
   load_SmartRF_configuration();
   
@@ -479,8 +479,8 @@ rf1a_set_maximum_packet_length(uint8_t length)
   /* ensure that we are in variable packet length mode (default value) */
   set_register_field(PKTCTRL0, 0x1, 2, 0);
   /* set the maximum packet length */
-  if(length > RF1A_MAX_PACKET_LENGTH) {
-    packet_len_max = RF1A_MAX_PACKET_LENGTH;
+  if(length > RF_CONF_MAX_PKT_LEN) {
+    packet_len_max = RF_CONF_MAX_PKT_LEN;
   } else {
     packet_len_max = length;
   }
