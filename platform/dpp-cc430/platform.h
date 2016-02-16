@@ -180,8 +180,9 @@
                                     UCA0CTL1 |= UCSWRST;\
                                     }
 */
-                                    /* make sure HF crystal is enabled */
-#define LWB_AFTER_DEEPSLEEP()       {\
+
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+  #define LWB_AFTER_DEEPSLEEP()     {\
                                     if(UCSCTL6 & XT2OFF) {\
                                       SFRIE1  &= ~OFIE;\
                                       ENABLE_XT2();\
@@ -193,9 +194,9 @@
                                       P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
                                                   BIT6);\
                                       P1DIR   &= ~(BIT2 | BIT5);\
-                                    }\
-                                    }
+                                    }}
                                     /*UCSCTL4  = SELA | SELS | SELM;*/
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
 /* specify what needs to be done every time before SPI is enabled */
 #define SPI_BEFORE_ENABLE(spi) {\

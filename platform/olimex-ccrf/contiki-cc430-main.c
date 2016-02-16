@@ -158,7 +158,7 @@ main(int argc, char **argv)
 #ifdef DEBUG_SWITCH
   PIN_CFG_INT(DEBUG_SWITCH);
 #endif
-
+  
   clock_init();
   rtimer_init();
   uart_init();
@@ -169,9 +169,9 @@ main(int argc, char **argv)
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  printf("RF module configured (gain=%sdB, channel=%u, pkt_len=%ub)\r\n",
+  printf("RF module configured (pwr=%sdB, ch=%u/%u.%uMHz, len=%ub)\r\n",
          rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
-         RF_CONF_TX_CH,
+         RF_CONF_TX_CH, RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
          RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
 

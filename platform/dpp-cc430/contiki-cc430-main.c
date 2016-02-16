@@ -125,6 +125,11 @@ main(int argc, char **argv)
   PORT_CLR_I(J);
     
   /* ---> board-specific optimal configuration of unused pins goes here <--- */
+  
+#ifdef COM_MCU_SPARE1
+  /* make sure pin P3.6 (Vcc for FRAM) is high! */
+  PIN_SET(COM_MCU_SPARE1);
+#endif /* COM_MCU_SPARE1 */
 
   LEDS_INIT;
   LEDS_ON;
@@ -167,9 +172,9 @@ main(int argc, char **argv)
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  printf("RF module configured (gain=%sdB, channel=%u, pkt_len=%ub)\r\n",
+  printf("RF module configured (pwr=%sdBm, ch=%u/%u.%uMHz, len=%ub)\r\n",
          rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
-         RF_CONF_TX_CH,
+         RF_CONF_TX_CH, RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
          RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
   

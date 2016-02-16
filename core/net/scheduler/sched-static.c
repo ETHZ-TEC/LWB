@@ -137,12 +137,12 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   lwb_stream_list_t *s = 0;
   
   if(LWB_INVALID_STREAM_ID == req->stream_id) { 
-    DEBUG_PRINT_ERROR("invalid stream request (LWB_INVALID_STREAM_ID)");
+    DEBUG_PRINT_WARNING("invalid stream request (LWB_INVALID_STREAM_ID)");
     return; 
   }  
   if(n_pending_sack >= LWB_CONF_SCHED_SACK_BUFFER_SIZE) {
-    DEBUG_PRINT_ERROR("max. number of pending sack's reached, stream request "
-                      "dropped");
+    DEBUG_PRINT_WARNING("max. number of pending sack's reached, stream request"
+                        " dropped");
     return;
   }
   
@@ -162,17 +162,14 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
                               req->node_id, req->stream_id);
             return;
           }
-          used_bw = used_bw - MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / s->ipi)) + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi));
+          used_bw = used_bw - MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / s->ipi)) + 
+                    MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi));
           s->ipi = req->ipi;
           s->last_assigned = time;
           s->n_cons_missed = 0;         /* reset this counter */
-          /* insert into the list of pending S-ACKs */
-          memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
-          pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
-          n_pending_sack++;
           DEBUG_PRINT_INFO("stream %u.%u updated (IPI %u)", 
-                              req->node_id, req->stream_id, req->ipi);
-          return;
+                           req->node_id, req->stream_id, req->ipi);
+          goto add_sack;
         }
       }  
     }
@@ -180,8 +177,8 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
      * but first, check whether the scheduler can support the requested ipi */
     if(used_bw + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi)) > 
        BANDWIDTH_LIMIT) {
-      DEBUG_PRINT_ERROR("stream request %u.%u dropped, network saturated", 
-                        req->node_id, req->stream_id);
+      DEBUG_PRINT_WARNING("stream request %u.%u dropped, network saturated", 
+                          req->node_id, req->stream_id);
       return;
     }
     used_bw = used_bw + MAX(1, (LWB_CONF_SCHED_PERIOD_IDLE / req->ipi));
@@ -216,7 +213,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
     lwb_sched_del_stream(s);
   }
-      
+add_sack:
   /* insert into the list of pending S-ACKs */
   /* use memcpy to avoid pointer misalignment errors */
   memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
@@ -361,7 +358,7 @@ set_schedule:
   /* this schedule is sent at the end of a round: do not communicate 
    * (i.e. do not set the first bit of period) */
   sched->period = period;   /* no need to clear the last bit */
-  sched->time   = time - (period - 1);
+  sched->time   = time;
     
   /* log the parameters of the new schedule */
   DEBUG_PRINT_INFO("schedule updated (s=%u T=%u n=%u|%u l=%u load=%u%%)", 
