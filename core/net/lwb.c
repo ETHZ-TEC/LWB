@@ -222,6 +222,8 @@ static struct pt        lwb_pt;
 static struct process*  pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
+static rtimer_clock_t   reception_timestamp;
+static uint32_t         global_time;
 static lwb_statistics_t stats = { 0 };
 static uint8_t          urgent_stream_req = 0;
 #if !LWB_CONF_USE_XMEM
@@ -480,6 +482,15 @@ lwb_get_state(void)
   return LWB_STATE_CONN_LOST;
 }
 /*---------------------------------------------------------------------------*/
+uint32_t 
+lwb_get_time(rtimer_clock_t* reception_time)
+{
+  if(reception_time) {
+    *reception_time = reception_timestamp;
+  }
+  return global_time;
+}
+/*---------------------------------------------------------------------------*/
 /**
  * @brief thread of the host node
  */
@@ -511,6 +522,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   
   /* initialization specific to the host node */
   schedule_len = lwb_sched_init(&schedule);
+  sync_state = SYNCED;  /* the host is always 'synced' */
   
 #if LWB_CONF_USE_LF_FOR_WAKEUP 
   rt->time = rtimer_now_lf();
@@ -544,6 +556,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- COMMUNICATION ROUND STARTS --- */
     
     schedule.time += schedule.period;         /* update the timestamp */
+    global_time = schedule.time;
+    reception_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
     LWB_SEND_SCHED();            /* send the previously computed schedule */
     
@@ -812,7 +826,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       t_start_lf = t_start_lf + schedule.period * RTIMER_SECOND_LF / 
                    LWB_CONF_TIME_SCALE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      schedule.time += schedule.period;
     }
+    global_time = schedule.time;
+    reception_timestamp = t_ref;
     
     /* permission to participate in this round? */
     if(sync_state == SYNCED || sync_state == MISSED) {

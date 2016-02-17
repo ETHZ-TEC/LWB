@@ -227,6 +227,13 @@ rtimer_clock_t rtimer_now_lf(void);
  */
 void rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val);
 
+/**
+ * @brief get the address of the software extensions of the timer module
+ * @param[in] timer the ID of an rtimer 
+ * @return the address of the software extension
+ */
+uint16_t rtimer_get_swext_addr(rtimer_id_t timer);
+
 
 #endif /* __RTIMER_H__ */
 

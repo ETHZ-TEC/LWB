@@ -94,6 +94,7 @@
 #define PIN_CFG_INT_I(port, pin)        { \
     PIN_CFG_IN_I(port, pin); \
     PIN_IES_RISING_I(port, pin); \
+    PIN_PULLDOWN_EN_I(port, pin); \
     PIN_CLR_IFG_I(port, pin); \
     PIN_INT_EN_I(port, pin); \
 }
