@@ -179,9 +179,10 @@ void bolt_set_timereq_callback(void (*func)(void));
 
 /**
  * @brief checks whether a timestamp request is pending and handles it if so
- * @return one if there is a timestamp request pending, zero otherwise
+ * @return the timestamp if successful, zero otherwise
+ * @note this function should be used in polling mode only
  */
-uint8_t bolt_handle_timereq(uint8_t *out_buffer);
+rtimer_clock_t bolt_handle_timereq(void);
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 
 /**

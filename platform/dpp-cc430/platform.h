@@ -152,6 +152,7 @@
   #define BOLT_CONF_IND_OUT_PIN     PORT1, PIN1
   #define BOLT_CONF_TIMEREQ_PIN     PORT2, PIN1
   #define BOLT_CONF_FUTUREUSE_PIN   PORT2, PIN6
+  #define BOLT_CONF_TIMEREQ_TIMERID RTIMER_LF_0
 #endif /* BOLT_CONF_ON */
 
 /* specify what needs to be done every time before UART is enabled */

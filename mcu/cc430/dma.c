@@ -131,6 +131,17 @@ dma_config_timer(dma_triggersrc_t trigger_src,
   DMA2CTL |= DMAEN;                     /* enable DMA */
 }
 /*---------------------------------------------------------------------------*/
+void 
+dma_enable_timer(uint8_t enable)
+{
+  if(enable) {
+    DMA2CTL &= ~DMAIFG;
+    DMA2CTL |= DMAEN;
+  } else {
+    DMA2CTL &= ~DMAEN;
+  }
+}
+/*---------------------------------------------------------------------------*/
 uint8_t
 dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
 {

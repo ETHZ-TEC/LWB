@@ -58,6 +58,12 @@
 
 
 /**
+ * @brief DMA interrupt flag for the channel that is used with the timer
+ */
+#define DMA_TIMER_IFG                   (DMA2CTL & DMAIFG)
+
+
+/**
  * @brief DMA trigger sources for the dma_init_timer function (DMA_CH2)
  */
 typedef enum {
@@ -95,6 +101,12 @@ void dma_config_spi(uint16_t spi_addr,
  */
 void dma_config_timer(dma_triggersrc_t trigger_src, 
                       uint16_t src_addr, uint16_t dest_addr, uint8_t num_bytes);
+
+/**
+ * @brief enable or disable the DMA CH2 for timer TA0 or TA1
+ * @param enable 1 = enable, 0 = disable
+ */
+void dma_enable_timer(uint8_t enable);
 
 /**
  * @brief start a data transfer on CH0 and CH1 (SPI RX and TX)

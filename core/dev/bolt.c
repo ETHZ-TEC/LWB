@@ -94,13 +94,14 @@ bolt_init(bolt_callback_t IND_line_callback)
 #if BOLT_CONF_TIMEREQ_ENABLE
   PIN_SEL(BOLT_CONF_TIMEREQ_PIN);
   PIN_CFG_IN(BOLT_CONF_TIMEREQ_PIN);
-  PIN_RES_EN(BOLT_CONF_TIMEREQ_PIN);
+  PIN_PULLDOWN_EN(BOLT_CONF_TIMEREQ_PIN);
   
   /* configure TA1 CCR0 to capture the timestamp on an edge change on pin 2.1
      (do NOT enable interrupts!) */
   rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */
-  dma_config_timer(DMA_TRCSRC_TA1CCR0, (uint16_t)&ta0_sw_ext, 
+  dma_config_timer(DMA_TRCSRC_TA1CCR0, 
+                   rtimer_get_swext_addr(BOLT_CONF_TIMEREQ_TIMERID), 
                    (uint16_t)&ta1_timestamp, 8);     
 #endif
   
@@ -117,30 +118,27 @@ bolt_set_timereq_callback(void (*func)(void))
     /* remove the callback = switch to polling mode (utilize the DMA) */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
-    dma_config_timer(DMA_TRCSRC_TA1CCR0, (uint16_t)&ta0_sw_ext, 
+    dma_config_timer(DMA_TRCSRC_TA1CCR0, 
+                     rtimer_get_swext_addr(BOLT_CONF_TIMEREQ_TIMERID), 
                      (uint16_t)&ta1_timestamp, 8);
   } else {
     /* set the rtimer callback function */
+    dma_enable_timer(0);
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, (rtimer_callback_t)func);
+    /* configure the time request pin for port interrupt
+     * (default is 'pulldown resistor' and 'trigger on rising edge') */
+    PIN_CFG_INT(BOLT_CONF_IND_PIN);
   }
 }
 /*---------------------------------------------------------------------------*/
-uint8_t
-bolt_handle_timereq(uint8_t *out_buffer)
+rtimer_clock_t
+bolt_handle_timereq(void)
 {
-  if(DMA2CTL & DMAIFG || TA1CCTL0 & CCIFG) {        /* interrupt flag set? */
+  if(DMA_TIMER_IFG) {        /* interrupt flag set? */
     ta1_timestamp = (ta1_timestamp << 16) | TA1CCR0;
-    DEBUG_PRINT_VERBOSE("timestamp: %llu (now: %llu)", ta1_timestamp,
-                        rtimer_now());
-    TA1CCTL0 &= ~(CCIFG + COV);
-    DMA2CTL &= ~DMAIFG;
-    DMA2CTL |= DMAEN;           /* re-enable the DMA */
-    /* send the timestamp to the application processor */
-    if(out_buffer) {
-      memcpy(out_buffer, &ta1_timestamp, 8);
-      ta1_timestamp = 0;
-    }
-    return 1;
+    TA1CCTL0 &= ~(CCIFG + COV); /* clear the interrupt flags */
+    dma_enable_timer(1);
+    return ta1_timestamp;
   }
   return 0;
 }

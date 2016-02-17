@@ -354,13 +354,6 @@ void lwb_start(void *pre_lwb_proc, void *post_lwb_proc);
 lwb_conn_state_t lwb_get_state(void);
 
 /**
- * @brief check whether the LWB is currently running
- * @return 1 if an LWB is active, i.e. a round has started and not yet 
- * finished, and 0 otherwise (= idle, inactive)
- */
-uint8_t lwb_is_active(void);
-
-/**
  * @brief schedule a packet for transmission over the LWB
  * @param data a pointer to the data packet to send
  * @param len the length of the data packet (must be less or equal 
@@ -423,6 +416,14 @@ const lwb_statistics_t * const lwb_get_stats(void);
  * @brief reset the statistics
  */
 void lwb_stats_reset(void);
+
+/**
+ * @brief get the time of the LWB, i.e. the network-wide scheduler time 
+ * @param reception_time timestamp of the reception of the last schedule,
+ * optional parameter (pass 0 if not needed)
+ * @return the relative time in seconds since the host started
+ */
+uint32_t lwb_get_time(rtimer_clock_t* reception_time);
 
 
 #endif /* __LWB_H__ */

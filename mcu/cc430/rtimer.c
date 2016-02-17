@@ -334,6 +334,15 @@ capture_values: ;
   }
 }
 /*---------------------------------------------------------------------------*/
+uint16_t
+rtimer_get_swext_addr(rtimer_id_t timer)
+{
+   if(timer < RTIMER_CONF_NUM_HF) {
+     return (uint16_t)&ta0_sw_ext;
+   } 
+   return (uint16_t)&ta1_sw_ext;
+}
+/*---------------------------------------------------------------------------*/
 clock_time_t
 clock_time(void)
 {
