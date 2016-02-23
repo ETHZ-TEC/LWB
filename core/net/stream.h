@@ -68,10 +68,10 @@
  *   node is awaiting an S-ACK
  */
 enum {
-    LWB_STREAM_STATE_INACTIVE = 0,
-    LWB_STREAM_STATE_WAITING,
-    LWB_STREAM_STATE_ACTIVE,
-    NUM_LWB_STREAM_STATES
+  LWB_STREAM_STATE_INACTIVE = 0,
+  LWB_STREAM_STATE_WAITING,
+  LWB_STREAM_STATE_ACTIVE,
+  NUM_LWB_STREAM_STATES
 };
 /* only way to control the size of an enum type */
 typedef uint8_t lwb_stream_state_t; 
@@ -81,11 +81,11 @@ typedef uint8_t lwb_stream_state_t;
  */
 #define LWB_STREAM_INFO_HEADER_LEN      4
 typedef struct {
-    lwb_stream_state_t  state;
-    uint8_t             id;
-    uint16_t            ipi;
+  lwb_stream_state_t  state;
+  uint8_t             id;
+  uint16_t            ipi;
 #if LWB_CONF_STREAM_EXTRA_DATA_LEN
-    uint8_t             extra_data[LWB_CONF_STREAM_EXTRA_DATA_LEN];
+  uint8_t             extra_data[LWB_CONF_STREAM_EXTRA_DATA_LEN];
 #endif /* LWB_CONF_STREAM_EXTRA_DATA_LEN */
 } lwb_stream_t;
 

@@ -104,15 +104,14 @@
 #ifndef FLOCKLAB
 #define DEBUG_SWITCH                PORT1, PIN1  /* user push-button */
 #endif /* FLOCKLAB */
-#define FRAM_CONF_CTRL_PIN          PORT1, PIN7
 
 //#define FRAM_CONF_ON              1
 #if FRAM_CONF_ON
-  #define FRAM_CONF_SIZE            0x40000
+  #define FRAM_CONF_CTRL_PIN        PORT1, PIN7
+  #define FRAM_CONF_SIZE            0x20000
   #define FRAM_CONF_SPI             SPI_1
   #ifndef DEBUG_PRINT_CONF_USE_XMEM
   #define DEBUG_PRINT_CONF_USE_XMEM 1
-  #define LWB_USE_XMEM              1
   #endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #ifndef DEBUG_PRINT_CONF_NUM_MSG
   #define DEBUG_PRINT_CONF_NUM_MSG  20
@@ -145,7 +144,7 @@
 #define RF_GDO2_PIN                 FLOCKLAB_INT2
 #else
 #define GLOSSY_START_PIN            LED_0
-#define RF_GDO2_PIN                 FLOCKLAB_LED3
+//#define RF_GDO2_PIN               FLOCKLAB_LED3  /* used for FRAM! */
 #endif /* FLOCKLAB */
 
 /*#define DEBUG_PRINT_TASK_ACT_PIN  PORT2, PIN0*/
@@ -169,6 +168,8 @@
 #define GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS
 
+#define UART_ACTIVE                 (UCA0STAT & UCBUSY)
+
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   #define LWB_AFTER_DEEPSLEEP()     {\
                                     if(UCSCTL6 & XT2OFF) {\
@@ -181,7 +182,7 @@
                                       TA0R    = 0;\
                                       TA0CTL  |= MC_2;\
                                       P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                                  BIT6);\
+                                                  BIT6 | BIT7);\
                                       P1DIR   &= ~(BIT2 | BIT5);\
                                     }}
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

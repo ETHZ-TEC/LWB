@@ -84,12 +84,12 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   PIN_CFG_OUT(DEBUG_PRINT_TASK_ACT_PIN);
 #endif
   
-#ifdef DEBUG_CONF_STACK_GUARD
+#if DEBUG_CONF_STACK_GUARD
   *(uint16_t*)DEBUG_CONF_STACK_GUARD = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) = 0xaaaa;
-  printf("Stack guard enabled\r\n");
+  printf("Stack guard enabled (max. stack size: %ub)\r\n", (SRAM_END - DEBUG_CONF_STACK_GUARD));
 #endif /* DEBUG_CONF_STACK_GUARD */
     
   printf("Debug print task initialized (buffer size: %u)\r\n", DEBUG_PRINT_CONF_NUM_MSG);

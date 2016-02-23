@@ -223,6 +223,7 @@ typedef struct {
   uint8_t relay_cnt_timeout;
   uint8_t t_ref_updated;
   uint8_t header_ok;
+  uint8_t activity;
 #ifdef GLOSSY_DISABLE_INTERRUPTS
   uint32_t enabled_interrupts;
   uint16_t enabled_adc_interrupts;
@@ -384,6 +385,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   g.T_slot_sum = 0;
   g.n_T_slot = 0;
   g.rssi_sum = 0;
+  g.activity = 0;
 
   /* prepare the Glossy header, with the information known so far */
   g.header.initiator_id = initiator_id;
@@ -541,6 +543,18 @@ glossy_get_per(void)
   }
   return 0;
 }
+/*---------------------------------------------------------------------------*/
+uint32_t
+glossy_get_n_pkts(void)
+{
+  return g.pkt_cnt;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+glossy_activity_detected(void)
+{
+  return g.activity;  
+}
 /*---------------------- RF1A callback implementation -----------------------*/
 void
 rf1a_cb_rx_started(rtimer_clock_t *timestamp)
@@ -555,6 +569,7 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
   g.t_rx_start = *timestamp;
   g.header_ok = 0;
   g.pkt_cnt++;
+  g.activity = 1;
 
   if(IS_INITIATOR()) {
     /* we are the initiator and we have started a packet reception: stop the

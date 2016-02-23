@@ -87,6 +87,7 @@
 #endif /* FRAM_CONF_ON */
 
 #define CLOCK_CONF_XT1_ON           1
+#define CLOCK_CONF_FLL_ON           1
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -135,7 +136,6 @@
   #define FRAM_CONF_SPI             SPI_0       
   #ifndef DEBUG_PRINT_CONF_USE_XMEM
   #define DEBUG_PRINT_CONF_USE_XMEM 1
-  #define LWB_USE_XMEM              1
   #endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #ifndef DEBUG_PRINT_CONF_NUM_MSG
   #define DEBUG_PRINT_CONF_NUM_MSG  20
@@ -168,19 +168,7 @@
 #define GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS
 
-
-/*#define LWB_BEFORE_DEEPSLEEP()    {\
-                                    \
-                                    TA0CTL  &= ~MC_3;\
-                                    UCSCTL4  = SELA__XT1CLK | SELS__XT1CLK | \
-                                               SELM__XT1CLK;\
-                                    DISABLE_XT2();\
-                                    UCSCTL7  = 0;\
-                                    P1SEL    = 0;\
-                                    P1DIR   |= (BIT2 | BIT5);\
-                                    UCA0CTL1 |= UCSWRST;\
-                                    }
-*/
+#define UART_ACTIVE                 (UCA0STAT & UCBUSY)
 
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   #define LWB_AFTER_DEEPSLEEP()     {\
@@ -193,7 +181,7 @@
                                       SFRIE1  |= OFIE;\
                                       TA0CTL  |= MC_2;\
                                       P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                                  BIT6);\
+                                                  BIT6 | BIT7);\
                                       P1DIR   &= ~(BIT2 | BIT5);\
                                     }}
                                     /*UCSCTL4  = SELA | SELS | SELM;*/

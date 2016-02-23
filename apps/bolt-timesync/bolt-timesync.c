@@ -53,16 +53,12 @@
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
 void handle_timereq(void)
-{
-  char buffer[BOLT_CONF_MAX_MSG_LEN];
-     
+{     
   uint8_t* sw_ext_addr = (uint8_t*)rtimer_get_swext_addr(RTIMER_LF_0);
   uint32_t sw_ext = 0;
   uint64_t timestamp;
   memcpy((uint8_t*)&sw_ext, sw_ext_addr, 8);
   timestamp = (sw_ext << 16) | TA1CCR0;
-  //snprintf(buffer, BOLT_CONF_MAX_MSG_LEN, "%llu", timestamp);
-  //BOLT_WRITE((uint8_t*)buffer, strlen(buffer));
   BOLT_WRITE((uint8_t*)&timestamp, 8);
 }
 /*---------------------------------------------------------------------------*/

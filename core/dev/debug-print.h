@@ -85,8 +85,10 @@
 #ifndef DEBUG_CONF_STACK_GUARD
   #ifdef SRAM_END
     #define DEBUG_CONF_STACK_GUARD      (SRAM_END - 0x01ff)
+  #else
+    #define DEBUG_CONF_STACK_GUARD      0
   #endif
-#else /* DEBUG_CONF_STACK_GUARD */
+#elif DEBUG_CONF_STACK_GUARD
   #if !defined(SRAM_START) || !defined(SRAM_END)
     #error "SRAM_START or SRAM_END not defined!"
   #endif
@@ -131,7 +133,7 @@
 /* always enabled: highest severity level errors that require a reset */
 #define DEBUG_PRINT_FATAL(...) {\
   DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \
-  watchdog_reboot(); \
+  watchdog_start(); while(1); \
 }
     
 

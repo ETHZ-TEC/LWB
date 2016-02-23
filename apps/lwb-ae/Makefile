@@ -5,7 +5,10 @@
 # and points out to the specific Makefile of our target platform. Makefile.include must always be 
 # located in the root folder of the Contiki source tree.
 CONTIKI = ../..
-CONTIKI_PROJECT = glossy
+CONTIKI_PROJECT = lwb-ae
+
+# specify the target platform (or pass this parameter by command line)
+#TARGET = cc430
 
 SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
 #$(info hello world = $(SRCS))

@@ -100,7 +100,7 @@
 #endif /* LWB_CONF_SCHED_STREAM_REMOVAL_THRES */
 
 /* define the stream extra data length based on the selected scheduler */
-#if defined(LWB_SCHED_STATIC) || defined(LWB_SCHED_MIN_DELAY)
+#if defined(LWB_SCHED_STATIC) || defined(LWB_SCHED_MIN_DELAY) || defined(LWB_SCHED_BURST)
 #define LWB_CONF_STREAM_EXTRA_DATA_LEN       0
 #endif
 #ifdef LWB_SCHED_MIN_ENERGY
@@ -117,15 +117,13 @@
 /**
  * @brief the structure of a schedule packet
  */
-#define LWB_SCHED_PKT_HEADER_LEN    10
+#define LWB_SCHED_PKT_HEADER_LEN    8
 typedef struct {    
     uint32_t time;
-    uint16_t host_id;
     uint16_t period;
      /* store num. of data slots and last two bits to indicate whether there is
       * a contention or an s-ack slot in this round */
-    uint8_t  n_slots;
-    uint8_t  reserved;  /* padding */
+    uint16_t n_slots;
     uint16_t slot[LWB_CONF_MAX_DATA_SLOTS];
 } lwb_schedule_t;
 
@@ -178,27 +176,27 @@ typedef struct {
 /**
  * @brief returns the number of data slots from schedule
  */
-#define LWB_SCHED_N_SLOTS(s)          ((s)->n_slots & 0x3f)
+#define LWB_SCHED_N_SLOTS(s)          ((s)->n_slots & 0x3fff)
 /**
  * @brief checks whether schedule has data slots
  */
-#define LWB_SCHED_HAS_DATA_SLOT(s)    (((s)->n_slots & 0x3f) > 0)
+#define LWB_SCHED_HAS_DATA_SLOT(s)    (((s)->n_slots & 0x3fff) > 0)
 /**
  * @brief checks whether schedule has a contention slot
  */
-#define LWB_SCHED_HAS_CONT_SLOT(s)    (((s)->n_slots & 0x40) > 0)
+#define LWB_SCHED_HAS_CONT_SLOT(s)    (((s)->n_slots & 0x4000) > 0)
 /**
  * @brief checks whether schedule has an S-ACK slot
  */
-#define LWB_SCHED_HAS_SACK_SLOT(s)    (((s)->n_slots & 0x80) > 0)
+#define LWB_SCHED_HAS_SACK_SLOT(s)    (((s)->n_slots & 0x8000) > 0)
 /**
  * @brief marks schedule to have a contention slot
  */
-#define LWB_SCHED_SET_CONT_SLOT(s)    ((s)->n_slots |= 0x40)
+#define LWB_SCHED_SET_CONT_SLOT(s)    ((s)->n_slots |= 0x4000)
 /**
  * @brief marks schedule to have an S-ACK slot
  */
-#define LWB_SCHED_SET_SACK_SLOT(s)    ((s)->n_slots |= 0x80)
+#define LWB_SCHED_SET_SACK_SLOT(s)    ((s)->n_slots |= 0x8000)
 
 
 /**

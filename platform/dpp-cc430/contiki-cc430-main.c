@@ -158,9 +158,11 @@ main(int argc, char **argv)
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
       
+#ifdef MUX_SEL_PIN
   /* this board has a multiplexer (set it to UART) */
   PIN_CFG_OUT(MUX_SEL_PIN);
   PIN_SET(MUX_SEL_PIN);
+#endif 
   
   clock_init();  
   rtimer_init();
@@ -194,7 +196,7 @@ main(int argc, char **argv)
   
 #if FRAM_CONF_ON
   if (!fram_init()) {
-    DEBUG_PRINT_FATAL("ERROR: fram init failed");
+    DEBUG_PRINT_FATAL("ERROR: FRAM failure");
   }
 #endif
 #if BOLT_CONF_ON
@@ -240,7 +242,7 @@ main(int argc, char **argv)
     /* disable interrupts */
     __dint();
     __nop();
-    if(process_nevents() != 0) { /* || UART_ACTIVE) {*/
+    if(process_nevents() != 0 || UART_ACTIVE) {
       /* re-enable interrupts */
       __eint();
       __nop();

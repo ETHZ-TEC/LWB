@@ -150,6 +150,15 @@ uint8_t glossy_get_relay_cnt_first_rx(void);
  */
 uint8_t glossy_get_per(void);
 
+/**
+ * @brief get the total number of received packets including corrupt packets
+ */
+uint32_t glossy_get_n_pkts(void);
+
+/**
+ * @brief returns 1 if activity was detected during the last flood
+ */
+uint8_t glossy_activity_detected(void);
 
 
 #endif /* __GLOSSY_H__ */

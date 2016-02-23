@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,8 +35,9 @@
 /**
  * @brief Low-Power Wireless Bus Test Application
  * 
- * A very simple min-delay scheduler is used to show how the LWB is able to 
- * quickly adjust to higher traffic demands.
+ * The burst scheduler is used in this example. It is designed for scenarios
+ * where most of the time no data is transmitted, but occasionally (upon an
+ * event) a node needs to send a large amount of data to the host.
  * 
  * This demo application is not designed to run on Flocklab. 
  */
@@ -58,11 +59,8 @@ PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
-{ 
-  static uint8_t low_stream_state = 0;
-  static uint8_t high_stream_state = 0;
-  static uint8_t round_cnt = 0;
-  static uint8_t data_pkt[LWB_CONF_MAX_DATA_PKT_LEN - 3];
+{   
+  static uint16_t round_cnt = 0;
   
   PROCESS_BEGIN();
           
@@ -73,77 +71,67 @@ PROCESS_THREAD(app_process, ev, data)
     
   /* start the LWB thread */
   lwb_start(0, &app_process);
-      
-  /* main loop of this application task */
+  
+  /* INIT code */
+#if HOST_ID != NODE_ID
+  /* configure port interrupt */
+  PIN_CFG_INT(DEBUG_SWITCH);
+  PIN_PULLUP_EN(DEBUG_SWITCH); 
+#endif
+  
+  /* MAIN LOOP of this application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
         
-    if(HOST_ID == node_id) {
+    if(HOST_ID == NODE_ID) {
       /* we are the host */
       /* print out the received data */
       uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN], stream_id;
       uint16_t sender_id;
+      uint8_t pkt_cnt = 0;
+      uint16_t num_bytes = 0;
       while(1) {
         uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, &stream_id);
         if(pkt_len) {
-          /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-          DEBUG_PRINT_MSG_NOW("data packet received (stream %u.%u)",
-                              sender_id, stream_id);
+          pkt_cnt++;
+          num_bytes += pkt_len;
         } else {
           break;
         }
       } 
+      DEBUG_PRINT_INFO("%u data packets (%ub) received",
+                       pkt_cnt, num_bytes);
     } else {
-      /* we are a source node */
-      low_stream_state = lwb_stream_get_state(1);
-      if(low_stream_state == LWB_STREAM_STATE_INACTIVE) {
-        /* request a stream with ID 1 and an IPI (inter packet interval) of
-         * LWB_CONF_SCHED_PERIOD_IDLE seconds, for periodic status messages */
-        lwb_stream_req_t 
-        my_stream = { node_id,0, 1, LWB_CONF_SCHED_PERIOD_IDLE };
+      if(round_cnt == 2) {
+        /* request a stream */
+        lwb_stream_req_t my_stream = 
+          { node_id, 0, 1, LWB_CONF_SCHED_PERIOD_IDLE };
         if(!lwb_request_stream(&my_stream, 0)) {
           DEBUG_PRINT_ERROR("low stream request failed");
         }
-      }
-      if((round_cnt % 10) == 0) {
-        /* generate a dummy packet (just send the 16-bit node ID) */
-        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);
-      }
-      /* allocate a high data-rate stream after 5 idle rounds */
-      if(round_cnt > 5 && round_cnt < 20) {
-        high_stream_state = lwb_stream_get_state(2);
-        if(high_stream_state == LWB_STREAM_STATE_INACTIVE) {
-          /* request 2 streams with ID 2 & 3 and an the minimal IPI */
-          lwb_stream_req_t my_stream = { node_id, 0, 2, 1 };
-          if(!lwb_request_stream(&my_stream, 0)) {
-            DEBUG_PRINT_ERROR("high stream request failed");
-          } else {
-            DEBUG_PRINT_INFO("high data-rate stream requested");   
-          }/*
-          my_stream.stream_id = 3;
-          if(!lwb_request_stream(&my_stream, 0)) {
-            DEBUG_PRINT_ERROR("high stream request failed");
-          } else {
-            DEBUG_PRINT_INFO("high data-rate stream requested");   
-          }*/
+        /* request a stream once and send a dummy packet with the node ID */
+        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);  
+      } else if(round_cnt == 5) {
+        /* request a stream */
+        lwb_stream_req_t my_stream = 
+          { node_id, 0, 1, 0 }; /* remove this stream */
+        if(!lwb_request_stream(&my_stream, 0)) {
+          DEBUG_PRINT_ERROR("low stream request failed");
         }
-        /* generate a dummy packet (note: max. packet payload length is 
-         * LWB_CONF_MAX_DATA_PKT_LEN - 3 bytes) */
-        if(!lwb_put_data(0, 2, (uint8_t*)data_pkt,
-                         LWB_CONF_MAX_DATA_PKT_LEN - 3)) {
-          DEBUG_PRINT_WARNING("LWB queue is full");
-        }
+        /* request a stream once and send a dummy packet with the node ID */
+        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);  
       }
-      else if(round_cnt == 20) {
-        /* cancel the two streams */
-        lwb_stream_req_t my_stream = { node_id, 0, 2, 0 };
-        lwb_request_stream(&my_stream, 0);
-        //my_stream.stream_id = 3;
-        //lwb_request_stream(&my_stream, 0);
-      }          
+        
+      if(round_cnt > 8) {
+        /* we are a source node */
+        static uint8_t data_pkt[LWB_CONF_MAX_DATA_PKT_LEN - 3];
+        /* generate some data, keep the buffer filled */
+        while(lwb_put_data(0, 2, (uint8_t*)data_pkt,
+                           LWB_CONF_MAX_DATA_PKT_LEN - 3));
+      }
     }
     round_cnt++;
                 
@@ -172,4 +160,20 @@ PROCESS_THREAD(app_process, ev, data)
 
   PROCESS_END();
 }
+/*---------------------------------------------------------------------------*/
+#if HOST_ID != NODE_ID
+ISR(PORT1, port1_interrupt) 
+{
+  if(PIN_IFG(DEBUG_SWITCH)) {
+    //PIN_XOR(LED_0);
+    lwb_stream_req_t my_stream = { node_id, 0, 2, 1 };
+    if(!lwb_request_stream(&my_stream, 0)) {
+      DEBUG_PRINT_ERROR("stream request failed");
+    } else {
+      DEBUG_PRINT_INFO("stream requested");   
+    }
+    PIN_CLR_IFG(DEBUG_SWITCH);
+  } 
+}
+#endif
 /*---------------------------------------------------------------------------*/

@@ -145,9 +145,17 @@
 #define LWB_CONF_T_GUARD_3              (RTIMER_SECOND_HF / 100)    /* 10 ms */
 #endif /* LWB_CONF_T_GUARD_3 */
 
+#ifndef LWB_CONF_MAX_DATA_SLOTS
+/* max. number of data slots per round, must not exceed MIN(63, 
+ * (LWB_CONF_MAX_PACKET_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
+ * must be at least 2 */
+#define LWB_CONF_MAX_DATA_SLOTS         20        
+#endif /* LWB_CONF_MAX_DATA_SLOTS */
+
 #ifndef LWB_CONF_IN_BUFFER_SIZE         
-/* size (#elements) of the internal data buffer/queue for incoming messages */
-#define LWB_CONF_IN_BUFFER_SIZE         20
+/* size (#elements) of the internal data buffer/queue for incoming messages,
+ * should be at least LWB_CONF_MAX_DATA_SLOTS */
+#define LWB_CONF_IN_BUFFER_SIZE         LWB_CONF_MAX_DATA_SLOTS
 #endif /* LWB_CONF_IN_BUFFER_SIZE */
 
 #ifndef LWB_CONF_OUT_BUFFER_SIZE         
@@ -171,13 +179,6 @@
  * you have adjusted the radio module configuration! */
 #define LWB_CONF_MAX_PACKET_LEN         127
 #endif /* LWB_CONF_MAX_PACKET_LEN */
-
-#ifndef LWB_CONF_MAX_DATA_SLOTS
-/* max. number of data slots per round, must not exceed MIN(63, 
- * (LWB_CONF_MAX_PACKET_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
- * must be at least 2 */
-#define LWB_CONF_MAX_DATA_SLOTS         50        
-#endif /* LWB_CONF_MAX_DATA_SLOTS */
 
 #ifndef LWB_CONF_TX_CNT_SCHED
 /* max. number of TX phases for a schedule packet (how many times each node 

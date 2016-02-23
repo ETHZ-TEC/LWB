@@ -46,6 +46,8 @@ lwb_stream_init()
   memset(streams, 0, 
          (LWB_STREAM_INFO_HEADER_LEN + LWB_CONF_STREAM_EXTRA_DATA_LEN) * 
          LWB_CONF_MAX_N_STREAMS_PER_NODE);
+  lwb_pending_requests = 0;
+  lwb_joined_streams_cnt = 0;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -150,8 +152,8 @@ lwb_stream_prepare_req(lwb_stream_req_t* const out_srq_pkt, uint8_t stream_id)
     /* compose the packet */
     out_srq_pkt->node_id = node_id;
     memcpy((uint8_t*)out_srq_pkt + 3,  /* skip the first 3 bytes */
-            (uint8_t*)&streams[stream_id] + 1, 
-            LWB_STREAM_REQ_HEADER_LEN - 3 + LWB_CONF_STREAM_EXTRA_DATA_LEN);
+           (uint8_t*)&streams[stream_id] + 1, 
+           LWB_STREAM_REQ_HEADER_LEN - 3 + LWB_CONF_STREAM_EXTRA_DATA_LEN);
     return 1;
   }
   return 0;

@@ -55,8 +55,10 @@ clock_init(void)
   ENABLE_XT1();
   /* set pins 5.0 and 5.1 to analog (XT1 operation) */
   P5SEL |= BIT0 + BIT1;
-  /* set internal load capacitor for XT1 */
-  UCSCTL6 |= XCAP_3;
+  /* set internal load capacitor for XT1
+   * note: the total capacitance seen by the crystal is (XCAP + 2pF) / 2 
+   * where XCAP can be 2 (XCAP_0), 6, 9 or 12pF (XCAP_3) */
+  //UCSCTL6 |= XCAP_0;
 #endif /* CLOCK_CONF_XT1_ON */
   
   /* initially, use the internal REFO and DCODIV clock sources */
