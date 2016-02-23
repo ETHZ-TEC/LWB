@@ -42,7 +42,6 @@
 #ifndef UART_TXD
 #define UART_TXD        PORT1, PIN6     /* output (transmit line) */
 #endif /* UART_TXD */
-#define UART_ACTIVE     (UCA0STAT & UCBUSY)
 #define UART_ENABLE     (UCA0CTL1 &= ~UCSWRST)
 #define UART_DISABLE    (UCA0CTL1 |= UCSWRST)
 /*---------------------------------------------------------------------------*/

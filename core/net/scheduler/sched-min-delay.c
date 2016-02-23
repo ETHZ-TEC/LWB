@@ -384,7 +384,6 @@ lwb_sched_init(lwb_schedule_t* sched)
   n_pending_sack = 0;
   used_bw = 0;
   time = 0;                             /* global time starts now */
-  sched->host_id = node_id;             /* embed the host ID */
   period = LWB_CONF_SCHED_PERIOD_IDLE; 
   sched->n_slots = 0;
   LWB_SCHED_SET_CONT_SLOT(sched);       /* include a contention slot */

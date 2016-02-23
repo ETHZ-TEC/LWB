@@ -134,15 +134,15 @@ PROCESS_THREAD(app_process, ev, data)
          * LWB_CONF_MAX_DATA_PKT_LEN - 3 bytes) */
         if(!lwb_put_data(0, 2, (uint8_t*)data_pkt,
                          LWB_CONF_MAX_DATA_PKT_LEN - 3)) {
-          DEBUG_PRINT_ERROR("LWB queue is full");
+          DEBUG_PRINT_WARNING("LWB queue is full");
         }
       }
       else if(round_cnt == 20) {
         /* cancel the two streams */
         lwb_stream_req_t my_stream = { node_id, 0, 2, 0 };
         lwb_request_stream(&my_stream, 0);
-        my_stream.stream_id = 3;
-        lwb_request_stream(&my_stream, 0);
+        //my_stream.stream_id = 3;
+        //lwb_request_stream(&my_stream, 0);
       }          
     }
     round_cnt++;

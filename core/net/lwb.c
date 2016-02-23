@@ -41,6 +41,7 @@
  
 #include "contiki.h"
 
+#ifndef LWB_MOD
 /*---------------------------------------------------------------------------*/
 #define LWB_DATA_PKT_HEADER_LEN     3  
 #define LWB_DATA_PKT_PAYLOAD_LEN    (LWB_CONF_MAX_DATA_PKT_LEN - \
@@ -105,17 +106,17 @@ typedef struct {
 static const 
 lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] = 
 {/* STATES:                                                                               EVENTS:           */
- /* BOOTSTRAP,  QUASISYNCED,  SYNCED,    SYNCED2,   MISSED,    UNSYNCED1, UNSYNCED2                         */
+ /* BOOTSTRAP,  QUASISYNCED,  SYNCED,    SYNCED2,   MISSED,    UNSYNCED,  UNSYNCED2                         */
   { AFTER_BOOT, SYNCED,       BOOTSTRAP, SYNCED,    SYNCED,    SYNCED,    SYNCED    }, /* 1st schedule rcvd */
   { BOOTSTRAP,  QUASI_SYNCED, SYNCED_2,  BOOTSTRAP, BOOTSTRAP, BOOTSTRAP, BOOTSTRAP }, /* 2nd schedule rcvd */
   { BOOTSTRAP,  BOOTSTRAP,    MISSED,    UNSYNCED,  UNSYNCED,  UNSYNCED2, BOOTSTRAP }  /* schedule missed   */
 };
 /* note: syn2 = already synced */
 static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = 
-{ "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN1", "USYN2" };
+{ "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN", "USYN2" };
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
-/* STATE:         BOOTSTRAP,        QUASI_SYNCED,      SYNCED,           SYNCED_2,         MISSED,             UNSYNCED,           UNSYNCED2 */
-/* GUARD TIME: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD,  LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3
+/* STATE:      BOOTSTRAP,        QUASI_SYNCED,      SYNCED,           SYNCED_2,         MISSED,             UNSYNCED,           UNSYNCED2 */
+/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD,  LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3
 };
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -388,7 +389,6 @@ lwb_put_data(uint16_t recipient,
     *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_DATA_PKT_HEADER_LEN;
     memcpy(next_msg + LWB_DATA_PKT_HEADER_LEN, data, len);
 #else /* LWB_CONF_USE_XMEM */
-    /* recipient is always 'all sinks' */
     *(msg_buffer) = (uint8_t)recipient;   /* recipient L */  
     *(msg_buffer + 1) = recipient >> 8;   /* recipient H */
     *(msg_buffer + 2) = stream_id;
@@ -555,7 +555,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         
     /* --- COMMUNICATION ROUND STARTS --- */
     
-    schedule.time += schedule.period;         /* update the timestamp */
     global_time = schedule.time;
     reception_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
@@ -605,7 +604,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             /* wait until the data slot starts */
             LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));  
             LWB_SEND_PACKET();
-            DEBUG_PRINT_VERBOSE("data packet sent (%u bytes)", payload_len);
+            DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
           }
         } else {        
           /* wait until the data slot starts */
@@ -680,7 +679,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* time for other computations */
     
     /* print out some stats */
-    DEBUG_PRINT_INFO("ts=%u td=%u dp=%u p=%u per=%d%% snr=%ddBm", 
+    DEBUG_PRINT_INFO("t=%lu ts=%u td=%u dp=%u p=%u per=%d%% snr=%ddBm", 
+                     global_time,
                      stats.t_sched_max, 
                      stats.t_proc_max, 
                      rcvd_data_pkts, 
@@ -906,7 +906,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             if(payload_len) {
               LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
-              DEBUG_PRINT_INFO("data packet sent (%u bytes)", payload_len);
+              DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
             } else {              
               DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
             }
@@ -1115,22 +1115,22 @@ PROCESS_THREAD(lwb_process, ev, data)
   #if NODE_ID == HOST_ID  
     /* note: must add at least some clock ticks! */
     rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 100,
+                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
                     0, lwb_thread_host);
   #else
     rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 100,
+                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
                     0, lwb_thread_src);    
   #endif
 #else /* NODE_ID */
   if(node_id == HOST_ID) {
     /* note: must add at least some clock ticks! */
     rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 100,
+                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
                     0, lwb_thread_host);
   } else {
     rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 100,
+                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
                     0, lwb_thread_src);
   }
 #endif
@@ -1160,3 +1160,4 @@ lwb_start(void *pre_lwb_proc, void *post_lwb_proc)
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
+#endif /* !LWB_MOD */

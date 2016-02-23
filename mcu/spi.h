@@ -150,6 +150,25 @@ void spi_reinit(spi_module_t spi);
 void spi_enable(spi_module_t spi, uint8_t enable);
 
 /**
+ * @brief receive several bytes from the SPI
+ * @param spi the USCI module, must be of type spi_module_t
+ * @param out_buffer the output buffer, must be at least num_bytes long
+ * @param num_bytes the number of bytes to read
+ * @note this function will generate the SPI clock for num_bytes bytes
+ * this is a blocking call (polling based)
+ */
+void spi_read(spi_module_t spi, uint8_t* out_buffer, uint16_t num_bytes);
+
+/**
+ * @brief write several bytes to the SPI
+ * @param spi the USCI module, must be of type spi_module_t
+ * @param data the input data, must be num_bytes long
+ * @param num_bytes the number of bytes to read
+ * @note this is a blocking call (polling based)
+ */
+void spi_write(spi_module_t spi, const uint8_t* data, uint16_t num_bytes);
+
+/**
  * @brief receive a single byte from the SPI, i.e. wait until data is available
  * (if wait_for_rxne is set to 1) and then read the RX buffer
  * @param spi the USCI module, must be of type spi_module_t
@@ -158,6 +177,7 @@ void spi_enable(spi_module_t spi, uint8_t enable);
  * @return the read byte
  */
 inline uint8_t spi_read_byte(spi_module_t spi, uint8_t wait_for_rxne);
+
 
 /**
  * @brief write a single byte to the SPI, i.e. wait until the TXE interrupt 

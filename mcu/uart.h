@@ -65,6 +65,11 @@
 #endif /* UART_CONF_TX_BUFSIZE */
 #endif /* UART_CONF_TX_INTERRUPT */
 
+#ifndef UART_ACTIVE
+#warning "UART_ACTIVE not defined!"
+#define UART_ACTIVE  0
+#endif /* UART_ACTIVE */
+
 /** 
  * @brief this macro can be defined in a platform specific file
  * to add instructions that need to be executed before enabling UART

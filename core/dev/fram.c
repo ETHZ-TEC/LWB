@@ -88,49 +88,24 @@ fram_acquire(void)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-fram_get_id(char *const out_buffer, uint8_t formatted)
+fram_get_id(uint8_t* out_buffer)
 {
-  uint8_t count = 0;
-  uint8_t rcv_buffer[9];
   if(!fram_acquire()) {
     return 0;
   }
   /* send opcode */
   spi_write_byte(FRAM_CONF_SPI, FRAM_OPCODE_RDID);
-  rcv_buffer[0] = spi_read_byte(FRAM_CONF_SPI, 1);
-
+  spi_read_byte(FRAM_CONF_SPI, 1);
   /* receive the ID */
-  count = 0;
-  while(count < 9) {
-    /* dummy write to generate the clock */
-    spi_write_byte(FRAM_CONF_SPI, 0x00); 
-    rcv_buffer[count] = spi_read_byte(FRAM_CONF_SPI, 1);
-    count++;
-  }
+  spi_read(FRAM_CONF_SPI, out_buffer, 9);
   fram_release();
-
-  if(formatted) {
-    sprintf(out_buffer,
-            "%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x",
-            rcv_buffer[0],
-            rcv_buffer[1],
-            rcv_buffer[2],
-            rcv_buffer[3],
-            rcv_buffer[4],
-            rcv_buffer[5],
-            rcv_buffer[6],
-            rcv_buffer[7],
-            rcv_buffer[8]);
-  } else {
-    memcpy(out_buffer, rcv_buffer, 9);
-  }
   return 1;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
 fram_init(void)
 {
-  char dev_id[32];
+  uint8_t dev_id[10];
   uint8_t c = 0;
 
   if(!fram_initialized) {    
@@ -151,13 +126,14 @@ fram_init(void)
     fram_sleeps = 1;
     /* read and verify the device ID (this implicitly checks if the external
        FRAM is available and working) */
-    if(!fram_get_id(dev_id, 0)) {
+    if(!fram_get_id(dev_id)) {
         DEBUG_PRINT_MSG_NOW("ERROR: fram_get_id failed");
         return 0;
     }
     while(c < 6) {
       if(0x7f != dev_id[c]) {
-        DEBUG_PRINT_MSG_NOW("ERROR: init failed (disconnected?)");
+        DEBUG_PRINT_MSG_NOW("ERROR: Invalid FRAM ID %x-%x-%x-%x-%x-%x", dev_id[0], dev_id[1], dev_id[2], dev_id[3],dev_id[4], dev_id[5]);
+        DEBUG_PRINT_MSG_NOW("ERROR: FRAM init failed (disconnected?)");
         return 0;
       }
       c++;
@@ -206,39 +182,23 @@ fram_read(uint32_t start_addr, uint16_t num_bytes, uint8_t *out_data)
   if(!fram_acquire()) {
     return 0;
   }
-
   /* send opcode */
   spi_write_byte(FRAM_CONF_SPI, FRAM_OPCODE_READ);
-
   /* send the 18-bit address (as 3 bytes, the first 6 bits are not used) */
   spi_write_byte(FRAM_CONF_SPI, (start_addr >> 16) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, (start_addr >> 8) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, start_addr & 0xff);
   spi_wait(FRAM_CONF_SPI);
   spi_read_byte(FRAM_CONF_SPI, 0);      /* clear RX buffer */
-
   /* receive data */
 #if FRAM_CONF_USE_DMA
   /* set up a DMA transfer */
   dma_config_spi(FRAM_CONF_SPI, fram_release);
   dma_start(out_data, 0, num_bytes);
 #else /* FRAM_CONF_USE_DMA */
- #if SPI_CONF_FAST_READ
-  /* transmit 1 byte ahead to reach faster read speed!
-   * note that 1 excess byte will be transmitted/read */
-  spi_write_byte(FRAM_CONF_SPI, 0x00);            
- #endif /* SPI_CONF_FAST_READ */
-  while(num_bytes) {
-    /* dummy write to generate the clock */
-    spi_write_byte(FRAM_CONF_SPI, 0x00);     
-    /* blocking call, waits until RX buffer is not empty */
-    *out_data = spi_read_byte(FRAM_CONF_SPI, 1); 
-    out_data++;
-    num_bytes--;
-  }
+  spi_read(FRAM_CONF_SPI, out_data, num_bytes);
   fram_release();
 #endif /* FRAM_CONF_USE_DMA */
-
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -254,29 +214,21 @@ fram_write(uint32_t start_address, uint16_t num_bytes, const uint8_t *data)
   }
   /* disable the write protection feature */
   spi_write_byte(FRAM_CONF_SPI, FRAM_OPCODE_WREN);
-  fram_release();
-  
+  fram_release();  
   if(!fram_acquire()) {
     return 0;
   }
   /* send opcode */
   spi_write_byte(FRAM_CONF_SPI, FRAM_OPCODE_WRITE);
-
   /* send the 18-bit address (as 3 bytes, the first 6 bits are not used) */
   spi_write_byte(FRAM_CONF_SPI, (start_address >> 16) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, (start_address >> 8) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, start_address & 0xff);
-
 #if FRAM_CONF_USE_DMA
   dma_config_spi(FRAM_CONF_SPI, fram_release);
   dma_start(0, data, num_bytes);
-#else
-  /* transmit data */
-  while(num_bytes) {
-    spi_write_byte(FRAM_CONF_SPI, *(uint8_t *)data);
-    data++;
-    num_bytes--;
-  }
+#else  
+  spi_write(FRAM_CONF_SPI, data, num_bytes);
   fram_release();
   /* Note: the write protection feature is now enabled again! */
 #endif /* FRAM_CONF_USE_DMA */
@@ -293,7 +245,6 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   if(!fram_acquire()) {
     return 0;
   }
-
   /* disable the write protection feature */
   spi_write_byte(FRAM_CONF_SPI, FRAM_OPCODE_WREN);
   fram_release();
@@ -303,12 +254,10 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   }
   /* send opcode */
   spi_write_byte(FRAM_CONF_SPI, FRAM_OPCODE_WRITE);
-
   /* send the 18-bit address (as 3 bytes, the first 6 bits are not used) */
   spi_write_byte(FRAM_CONF_SPI, (start_address >> 16) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, (start_address >> 8) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, start_address & 0xff);
-
 #if FRAM_CONF_USE_DMA
   dma_set_dummy_byte_value(fill_value);
   dma_config_spi(FRAM_CONF_SPI, fram_release);
@@ -322,7 +271,6 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   fram_release();
   /* Note: the write protection feature is now enabled again! */
 #endif /* FRAM_CONF_USE_DMA */
-
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -331,15 +279,14 @@ fram_alloc(uint16_t size)
 {    
   uint32_t addr = fram_curr_offset;     /* word address */
   if(0 == size || 
-     ((fram_curr_offset + size) >= (FRAM_CONF_SIZE + FRAM_CONF_START))) {
-    DEBUG_PRINT_MSG_NOW("ERROR: Memory allocation failed! "
-                        "(requested block size: %d B)", size);
+    ((fram_curr_offset + size) >= (FRAM_CONF_ALLOC_SIZE + FRAM_CONF_START))) {
+    /* fatal error: do not proceed */
+    DEBUG_PRINT_FATAL("ERROR: Memory allocation failed! "
+                      "(requested block size: %db)", size);
     return FRAM_ALLOC_ERROR;
   }
-  DEBUG_PRINT_MSG_NOW("memory allocated (block: %d, len: %d, ofs: %lu)",
-                      fram_num_alloc_blocks,
-                      size,
-                      fram_curr_offset);
+  DEBUG_PRINT_MSG_NOW("memory allocated (block: %d, len: %db, ofs: %lu)",
+                      fram_num_alloc_blocks, size, fram_curr_offset);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
   return addr;

@@ -86,11 +86,11 @@
 #endif /* FRAM_CONF_ALLOC_SIZE */
 
 #ifndef FRAM_CONF_ALLOC_START   /* start address for dynamic mem. alloc. */
-#define FRAM_CONF_ALLOC_START   (FRAM_CONF_START + FRAM_CONF_SIZE - \
-                                 FRAM_CONF_ALLOC_SIZE)
+#define FRAM_CONF_ALLOC_START   FRAM_CONF_START
 #endif /* FRAM_CONF_ALLOC_START */
 
-#if FRAM_CONF_ALLOC_SIZE > (FRAM_CONF_SIZE + FRAM_CONF_START)
+#if (FRAM_CONF_ALLOC_SIZE + FRAM_CONF_ALLOC_START) > \
+  (FRAM_CONF_SIZE + FRAM_CONF_START)
 #error "FRAM_CONF_ALLOC_SIZE is invalid"
 #endif
 
@@ -139,19 +139,6 @@
  * the SPI bus) is available and operates properly.
  */
 uint8_t fram_init(void);
-
-/**
- * @brief returns the device ID of the external memory chip
- * @param[out] out_buffer pointer to the output buffer (allocated memory block
- * must be at least 27 bytes long)
- * @param[in]  formatted if unequal zero, the output will be a string (ID coded
- * in hex format), otherwise the output is just an array of 9 bytes
- * @return     1 if successful, 0 otherwise
- *
- * This function returns the device ID of the external FRAM chip, which is
- * connected to the MCU over the SPI bus.
- */
-uint8_t fram_get_id(char *const out_buffer, uint8_t formatted);
 
 /**
  * @brief puts the external memory into sleep mode

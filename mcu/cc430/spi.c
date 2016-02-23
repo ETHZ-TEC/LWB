@@ -50,7 +50,6 @@
 #define SPI_B0_SOMI             PORT1, PIN2
 #define SPI_B0_SIMO             PORT1, PIN3
 #define SPI_B0_CLK              PORT1, PIN4
-#define SPI_B0_STE              PORT1, PIN7 /* enable / select pin */
 #define SPI_A0_SOMI             PORT1, PIN5
 #define SPI_A0_SIMO             PORT1, PIN6
 #define SPI_A0_CLK              PORT1, PIN7
@@ -65,6 +64,20 @@
 /* checks the RX buffer overrun error flag (set when the RX buffer is
  * overwritten without reading the previous value) */
 #define SPI_B0_RX_OVERRUN       (UCB0STAT & UCOE)
+/*---------------------------------------------------------------------------*/
+typedef enum {
+  SPI_REG_RXBUF,
+  SPI_REG_TXBUF,
+  SPI_REG_IFG,
+  SPI_REG_STAT,
+  NUM_SPI_REG
+} spi_reg_t;
+/* for easier access to the registers */
+volatile uint8_t* const spi_reg[NUM_OF_SPI_MODULES][NUM_SPI_REG] =
+{
+  { (volatile uint8_t*)&UCA0RXBUF, &UCA0TXBUF, &UCA0IFG, &UCA0STAT },/*SPI_0 */
+  { (volatile uint8_t*)&UCB0RXBUF, &UCB0TXBUF, &UCB0IFG, &UCB0STAT } /*SPI_1 */
+};
 /*---------------------------------------------------------------------------*/
 uint32_t clk_div_a0 = 0, 
          clk_div_b0 = 0;
@@ -94,7 +107,7 @@ spi_init(spi_module_t spi, uint32_t bclk_speed)
     UCA0BRW = clk_div_a0;
     UCA0CTL0 |= (UCMSB + UCMST + UCSYNC + (SPI_CPOL ? UCCKPL : 0) +
                 (SPI_CPHA ? 0 : UCCKPH));
-    UCA0IE &= ~(UCRXIFG + UCTXIFG);       /* clear interrupt flags */
+    UCA0IFG &= ~(UCRXIFG + UCTXIFG);       /* clear interrupt flags */
     
     return 1;
     
@@ -122,7 +135,7 @@ spi_init(spi_module_t spi, uint32_t bclk_speed)
         UCMODE_0 = 0 = 3-pin SPI */
     UCB0CTL0 |= (UCMSB + UCMST + UCSYNC + (SPI_CPOL ? UCCKPL : 0) +
                 (SPI_CPHA ? 0 : UCCKPH));
-    UCB0IE &= ~(UCRXIE + UCTXIE);        /* clear interrupt flags */
+    UCB0IFG &= ~(UCRXIFG + UCTXIFG);        /* clear interrupt flags */
     /* UCB0CTL1 &= ~UCSWRST; -> do not re-enable the module */
     
     return 1;      
@@ -142,7 +155,7 @@ spi_reinit(spi_module_t spi)
       UCA0CTL0 |= (UCMSB + UCMST + UCSYNC + (SPI_CPOL ? UCCKPL : 0) +
                   (SPI_CPHA ? 0 : UCCKPH));
     }
-  } else if(SPI_1 == spi) {
+  } else {
     if(!USCI_B0_IN_SPI_MODE) {
       while(SPI_B0_ACTIVE);
       UCB0CTL1 |= UCSWRST;
@@ -164,7 +177,7 @@ spi_enable(spi_module_t spi, uint8_t enable)
       UCA0CTL1 &= ~UCSWRST;
       /* wait for the clock signal to reach its 'inactive' level */
       while((0 == SPI_CPOL) ? PIN_GET(SPI_A0_CLK) : (!PIN_GET(SPI_A0_CLK)));
-    } else if(SPI_1 == spi) {
+    } else {
       UCB0CTL1 &= ~UCSWRST;
       while((0 == SPI_CPOL) ? PIN_GET(SPI_B0_CLK) : (!PIN_GET(SPI_B0_CLK)));
     } 
@@ -172,13 +185,56 @@ spi_enable(spi_module_t spi, uint8_t enable)
     if(SPI_0 == spi) {
       while(SPI_A0_ACTIVE);       /* wait until the data transfer is done */
       UCA0CTL1 |= UCSWRST;
-    } else if(SPI_1 == spi) {
+    } else {
       while(SPI_B0_ACTIVE);       /* wait until the data transfer is done */
       UCB0CTL1 |= UCSWRST;      
     }
     /* let the application do whatever it needs to do after disabling SPI */
     SPI_AFTER_DISABLE(spi); 
   }
+}
+/*---------------------------------------------------------------------------*/
+void
+spi_read(spi_module_t spi, uint8_t* out_buffer, uint16_t num_bytes)
+{ 
+  if(num_bytes < 2) {
+    *out_buffer = spi_read_byte(spi, 1);
+    return;
+  }
+#if SPI_CONF_FAST_READ
+  /* transmit one byte ahead */
+  *spi_reg[spi][SPI_REG_TXBUF] = 0x00;
+  num_bytes--;
+#endif
+  do {
+    /* dummy write to generate the clock */
+    /* wait until the TX buffer is empty */
+    while(!(*spi_reg[spi][SPI_REG_IFG] & UCTXIFG));
+    *spi_reg[spi][SPI_REG_TXBUF] = 0x00;
+    /* wait for the data */
+    while(!(*spi_reg[spi][SPI_REG_IFG] & UCRXIFG));
+    *out_buffer = *spi_reg[spi][SPI_REG_RXBUF];
+    out_buffer++;
+    num_bytes--;
+  } while(num_bytes);
+#if SPI_CONF_FAST_READ
+  while(!(*spi_reg[spi][SPI_REG_IFG] & UCRXIFG));
+  *out_buffer = *spi_reg[spi][SPI_REG_RXBUF];
+#endif  
+}
+/*---------------------------------------------------------------------------*/
+void
+spi_write(spi_module_t spi, const uint8_t* data, uint16_t num_bytes)
+{
+  do {
+    /* wait until the TX buffer is empty */
+    while(!(*spi_reg[spi][SPI_REG_IFG] & UCTXIFG));
+    *spi_reg[spi][SPI_REG_TXBUF] = *data;    
+    data++;
+    num_bytes--;
+  } while(num_bytes);
+  /* clear the RX buffer */
+  (void)*spi_reg[spi][SPI_REG_RXBUF];
 }
 /*---------------------------------------------------------------------------*/
 inline uint8_t
