@@ -73,7 +73,7 @@ PROCESS_THREAD(app_process, ev, data)
   lwb_start(0, &app_process);
   
   /* INIT code */
-#if HOST_ID != NODE_ID
+#ifdef DEBUG_SWITCH
   /* configure port interrupt */
   PIN_CFG_INT(DEBUG_SWITCH);
   PIN_PULLUP_EN(DEBUG_SWITCH); 
@@ -102,8 +102,10 @@ PROCESS_THREAD(app_process, ev, data)
           break;
         }
       } 
-      DEBUG_PRINT_INFO("%u data packets (%ub) received",
-                       pkt_cnt, num_bytes);
+      if(pkt_cnt) {
+        DEBUG_PRINT_INFO("%u data packets (%ub) received",
+                         pkt_cnt, num_bytes);
+      }
     } else {
       if(round_cnt == 2) {
         /* request a stream */
@@ -116,13 +118,7 @@ PROCESS_THREAD(app_process, ev, data)
         lwb_put_data(0, 1, (uint8_t*)&node_id, 2);  
       } else if(round_cnt == 5) {
         /* request a stream */
-        lwb_stream_req_t my_stream = 
-          { node_id, 0, 1, 0 }; /* remove this stream */
-        if(!lwb_request_stream(&my_stream, 0)) {
-          DEBUG_PRINT_ERROR("low stream request failed");
-        }
-        /* request a stream once and send a dummy packet with the node ID */
-        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);  
+        lwb_stream_drop(1);     /* drop the stream with ID 1 */
       }
         
       if(round_cnt > 8) {
@@ -146,13 +142,15 @@ PROCESS_THREAD(app_process, ev, data)
     fram_sleep();
   #endif /* FRAM_CONF_ON */
     /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-    TA0CTL   &= ~MC_3; /* stop TA0 */
+    TA0CTL &= ~MC_3; /* stop TA0 */
     DISABLE_XT2();
   #ifdef MUX_SEL_PIN
     PIN_CLR(MUX_SEL_PIN);
   #endif /* MUX_SEL_PIN */
     P1SEL = 0; /* reconfigure GPIOs */
-    P1DIR = 0xff;
+    P1DIR |= (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+    /* dont clear BIT6 and 7 on olimex board */
+    P1OUT &= ~(BIT2 | BIT3 | BIT4 | BIT5); //  | BIT6 | BIT7
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
     TASK_SUSPENDED;

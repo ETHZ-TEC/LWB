@@ -40,7 +40,7 @@
 
 #define HOST_ID    1
 
-#define NODE_ID                         1
+#define NODE_ID                         2
 #define LWB_CONF_TASK_ACT_PIN           PORT2, PIN6
 #define DEBUG_PRINT_TASK_ACT_PIN        PORT2, PIN6
 #define APP_TASK_ACT_PIN                PORT2, PIN6

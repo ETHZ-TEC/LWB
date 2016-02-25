@@ -120,6 +120,25 @@ lwb_stream_add(const lwb_stream_req_t* const stream_info)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+void
+lwb_stream_drop(uint8_t stream_id)
+{
+  uint8_t i = 0;
+  for(; i < LWB_CONF_MAX_N_STREAMS_PER_NODE; i++) {
+    if(streams[i].id == stream_id) {
+      /* clear the corresponding bit */
+      lwb_pending_requests &= ~((uint32_t)1 << i);  
+      streams[i].ipi = 0;
+      if(streams[i].state > LWB_STREAM_STATE_INACTIVE &&
+         lwb_joined_streams_cnt) {
+        lwb_joined_streams_cnt--;
+      }
+      streams[i].state = LWB_STREAM_STATE_INACTIVE;
+      DEBUG_PRINT_INFO("stream with ID %u dropped", stream_id);
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
 void 
 lwb_stream_rejoin(void) 
 {

@@ -105,7 +105,6 @@
 #define DEBUG_SWITCH                PORT1, PIN1  /* user push-button */
 #endif /* FLOCKLAB */
 
-//#define FRAM_CONF_ON              1
 #if FRAM_CONF_ON
   #define FRAM_CONF_CTRL_PIN        PORT1, PIN7
   #define FRAM_CONF_SIZE            0x20000
@@ -144,7 +143,7 @@
 #define RF_GDO2_PIN                 FLOCKLAB_INT2
 #else
 #define GLOSSY_START_PIN            LED_0
-//#define RF_GDO2_PIN               FLOCKLAB_LED3  /* used for FRAM! */
+#define RF_GDO2_PIN                 PORT2, PIN7
 #endif /* FLOCKLAB */
 
 /*#define DEBUG_PRINT_TASK_ACT_PIN  PORT2, PIN0*/
@@ -182,7 +181,7 @@
                                       TA0R    = 0;\
                                       TA0CTL  |= MC_2;\
                                       P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                                  BIT6 | BIT7);\
+                                                  BIT6);\
                                       P1DIR   &= ~(BIT2 | BIT5);\
                                     }}
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

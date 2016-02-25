@@ -44,8 +44,8 @@
 #define DEBUG_PRINT_TASK_SUSPENDED
 #endif
 /*---------------------------------------------------------------------------*/
-const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS] = { \
-  "CRITICAL", "ERROR", "WARNING", "INFO", "VERBOSE" };
+const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS + 1] = { \
+  "CRITICAL", "ERROR", "WARNING", "INFO", "VERBOSE", "" };
 /* global buffer, required to compose the messages */
 char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1]; 
 static uint8_t buffer_full = 0;  
@@ -176,7 +176,7 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(rtimer_clock_t timestamp, char level, char *data)
+debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data)
 {  
 #if DEBUG_PRINT_CONF_USE_XMEM
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
@@ -240,7 +240,7 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(rtimer_clock_t timestamp, char level, char *data)
+debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data)
 {
 }
 /*---------------------------------------------------------------------------*/

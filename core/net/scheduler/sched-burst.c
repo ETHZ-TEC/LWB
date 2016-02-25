@@ -134,10 +134,6 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   uint8_t exists = 0;
   
   /* check error conditions */
-  if(LWB_INVALID_STREAM_ID == req->stream_id) { 
-    DEBUG_PRINT_WARNING("invalid stream request");
-    return; 
-  }  
   if(n_pending_sack >= LWB_CONF_SCHED_SACK_BUFFER_SIZE) {
     DEBUG_PRINT_WARNING("max. number of pending sack's reached, stream request"
                         " dropped");
@@ -215,7 +211,6 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     lwb_stream_list_t *curr_stream = list_head(streams_list);
     while(curr_stream != NULL) {
       sched->slot[n_slots_assigned] = curr_stream->node_id;
-      DEBUG_PRINT_INFO("slot assigned to node %d", curr_stream->node_id);
       n_slots_assigned++;
       /* go to the next stream in the list */
       curr_stream = curr_stream->next;
@@ -223,6 +218,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     
     /* do not update the time */
     sched->period = LWB_CONF_SCHED_PERIOD_IDLE - 1;
+    time++;
     
   } else {
     /* loop through all the slots of the last schedule */
@@ -255,7 +251,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           /* too many consecutive slots without reception: remove stream */
           curr_stream->state = 0;
           n_streams--;
-          DEBUG_PRINT_INFO("stream from node %u removed", node_id);
+          DEBUG_PRINT_INFO("stream of node %u removed", curr_stream->node_id);
         }
       } else {
         /* this is not supposed to happen */
@@ -272,8 +268,8 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       n_slots_assigned++;
     } 
     
-    /* keep the period constant */
-    time += LWB_CONF_SCHED_PERIOD_IDLE;
+    /* update time, keep the period constant */
+    time += sched->period; //LWB_CONF_SCHED_PERIOD_IDLE;
     
     /* are there any streams? */
     if(n_streams) {
@@ -299,11 +295,10 @@ lwb_sched_compute(lwb_schedule_t * const sched,
         /* go to the next stream in the list */
         curr_stream = curr_stream->next;
       }
-    }
-    
-    sched->time = time;
+    }    
     sched->period = LWB_CONF_SCHED_PERIOD_IDLE;
   }
+  sched->time = time;
   
   sched->n_slots = n_slots_assigned;
   if(n_pending_sack) {

@@ -116,6 +116,13 @@ uint8_t lwb_stream_update_state(uint8_t stream_id);
 uint8_t lwb_stream_add(const lwb_stream_req_t* const stream_info);
 
 /**
+ * @brief delete a stream from the stream list without scheduling a stream
+ * request (drop silently)
+ * @param[in] stream_id ID of the stream
+ */
+void lwb_stream_drop(uint8_t stream_id);
+
+/**
  * @brief sets all joined streams back to JOINING
  * force all the active streams to re-join, i.e. re-send the stream request
  */
