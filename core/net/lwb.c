@@ -722,10 +722,9 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static lwb_schedule_t schedule;
   static rtimer_clock_t t_ref, 
                         t_ref_last, 
-                        t_start, 
                         t_now; 
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-  static rtimer_clock_t t_start_lf;
+  static rtimer_clock_t t_ref_lf;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */            /* note: t_start != t_ref */
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
@@ -752,7 +751,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       process_poll(pre_proc);
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+    LWB_LF_WAIT_UNTIL(t_ref_lf + schedule.period * RTIMER_SECOND_LF / 
                       LWB_CONF_TIME_SCALE - (t_guard / RTIMER_HF_LF_RATIO));
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF / 
@@ -806,30 +805,30 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } 
     LWB_SCHED_SET_AS_2ND(&schedule);    /* clear the last bit of 'period' */
     if(glossy_is_t_ref_updated()) {
-      t_ref   = glossy_get_t_ref();   
-      t_start = t_ref - LWB_CONF_T_REF_OFS;
+      t_ref   = glossy_get_t_ref() - LWB_CONF_T_REF_OFS;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-      /* estimate t_start_lf by subtracting the elapsed time since t_ref: */
+      /* estimate t_ref_lf by subtracting the elapsed time since t_ref: */
       rtimer_clock_t hf_now;
-      rtimer_now(&hf_now, &t_start_lf);
-      t_start_lf = t_start_lf - 
-                   (uint32_t)(hf_now - t_ref + LWB_CONF_T_REF_OFS) /
-                   (uint32_t)RTIMER_HF_LF_RATIO;
+      rtimer_now(&hf_now, &t_ref_lf);
+      t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      global_time = schedule.time;
+      reception_timestamp = t_ref;
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
-      /* we can only estimate t_ref and t_start/t_start_lf */
-      t_ref = t_ref + schedule.period * (RTIMER_SECOND_HF + drift_last) /
-                      LWB_CONF_TIME_SCALE; 
-      t_start = t_ref - LWB_CONF_T_REF_OFS;
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-      t_start_lf = t_start_lf + schedule.period * RTIMER_SECOND_LF / 
-                   LWB_CONF_TIME_SCALE;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-      schedule.time += schedule.period;
+      /* we can only estimate t_ref and t_start/t_ref_lf */
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      /* since HF clock was off, we need a new timestamp; subtract a const.
+       * processing offset to adjust (if needed) */
+      t_ref = rtimer_now_hf() + t_guard;
+      t_ref_lf += schedule.period * (RTIMER_SECOND_LF + drift_last) / 
+                  LWB_CONF_TIME_SCALE;
+  #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      t_ref += schedule.period * (RTIMER_SECOND_HF + drift_last) /
+               LWB_CONF_TIME_SCALE; 
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      /* don't update the schedule.time here! */
     }
-    global_time = schedule.time;
-    reception_timestamp = t_ref;
     
     /* permission to participate in this round? */
     if(sync_state == SYNCED || sync_state == MISSED) {
@@ -845,7 +844,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
       if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {   
         /* wait for the slot to start */
-        LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(0) - t_guard);     
+        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(0) - t_guard);     
         LWB_RCV_PACKET();                 /* receive s-ack */
         if(LWB_DATA_RCVD) {
           static uint8_t i; /* must be static */
@@ -904,7 +903,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               payload_len = lwb_out_buffer_get(glossy_payload.raw_data);
             }
             if(payload_len) {
-              LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
+              LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
               DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
             } else {              
@@ -912,7 +911,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             }
           } else {
             /* receive a data packet */
-            LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - 
+            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - 
                            t_guard);
             LWB_RCV_PACKET();            
             uint8_t pkt_len = glossy_get_payload_len();
@@ -955,7 +954,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               rounds_to_wait = (random_rand() >> 1) % 8 + 1;        
               payload_len = sizeof(lwb_stream_req_t);
               /* wait until the contention slot starts */
-              LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
+              LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_SRQ();  
               DEBUG_PRINT_INFO("request for stream %u sent", 
                                glossy_payload.srq_pkt.stream_id);
@@ -967,21 +966,21 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             /* keep waiting and just relay incoming packets */
             rounds_to_wait--;       /* decrease the number of rounds to wait */
             /* wait until the contention slot starts */
-            LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);  
+            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);  
             LWB_RCV_SRQ();
           }
           DEBUG_PRINT_VERBOSE("pending stream requests: 0x%x", 
                            LWB_STREAM_REQ_PENDING);
         } else {
           /* no request pending -> just receive / relay packets */
-          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
+          LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
           LWB_RCV_SRQ();
         }
       }  
     
       /* --- 2ND SCHEDULE --- */
     
-      LWB_WAIT_UNTIL(t_start + LWB_CONF_T_SCHED2_START - t_guard);
+      LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
       LWB_RCV_SCHED();
             
       /* update the state machine and the guard time */
@@ -1003,20 +1002,20 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       stats.t_slot_last = schedule.time;
     }
     
-    /* update the stats and estimate the clock drift (clock cycles per
-     * second) */
+    /* estimate the clock drift */
 #if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    /* t_ref can't be used in this case -> use t_start_lf instead */
-    drift = (int32_t)((t_start_lf - t_ref_last) - ((int32_t)stats.period_last *
+    /* t_ref can't be used in this case -> use t_ref_lf instead */
+    drift = (int32_t)((t_ref_lf - t_ref_last) - ((int32_t)stats.period_last *
                       RTIMER_SECOND_LF)) / (int32_t)stats.period_last;
-    t_ref_last = t_start_lf; 
-  #else
+    t_ref_last = t_ref_lf; 
+  #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
                       RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-#endif
+#endif /* LWB_CONF_TIME_SCALE */
+    
     stats.period_last = schedule.period;
     if(sync_state > SYNCED_2) {
       stats.unsynced_cnt++;
@@ -1041,7 +1040,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     if(sync_state <= MISSED) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
-        drift_last = (int16_t)drift;
+        drift_last = (drift_last + (int16_t)drift) >> 1; /* filter */
       } else if(drift_last) {  /* only if not zero */
         /* most probably a timer update overrun or a host failure
          * usually, the deviation per second is not higher than 50 cycles; 
@@ -1067,12 +1066,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     }
     
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + 
+    LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       schedule.period * (RTIMER_SECOND_LF + drift_last) / 
                       LWB_CONF_TIME_SCALE - 
                       (t_guard / RTIMER_HF_LF_RATIO) - LWB_CONF_T_PREPROCESS);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + 
+    LWB_WAIT_UNTIL(t_ref + 
                    schedule.period * (RTIMER_SECOND_HF + drift_last) / 
                    LWB_CONF_TIME_SCALE - t_guard - LWB_CONF_T_PREPROCESS);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

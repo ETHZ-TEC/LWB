@@ -139,22 +139,22 @@
 
 #if DEBUG_PRINT_CONF_ON
   #if DEBUG_PRINT_CONF_PRINT_DIRECT
-    #define DEBUG_PRINT_MSG(t, p, ...) \
+    #define DEBUG_PRINT_MSG(t, l, ...) \
       snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
       debug_print_msg_now(debug_print_buffer)
     #define DEBUG_PRINT_SIMPLE(s)   debug_print_msg_now(s)
   #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
-    #define DEBUG_PRINT_MSG(t, p, ...) \
+    #define DEBUG_PRINT_MSG(t, l, ...) \
       snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
-      debug_print_msg(rtimer_now_lf(), p, debug_print_buffer)
-    #define DEBUG_PRINT_SIMPLE(s)   debug_print_msg(rtimer_now_lf(), p, 0, s)
+      debug_print_msg(rtimer_now_lf(), l, debug_print_buffer)
+    #define DEBUG_PRINT_SIMPLE(s, l) debug_print_msg(rtimer_now_lf(), l, s)
   #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
   #define DEBUG_PRINT_MSG_NOW(...) \
     snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
     debug_print_msg_now(debug_print_buffer)
   #define DEBUG_PRINT_SIMPLE_NOW(s)  debug_print_msg_now(s)
 #else /* DEBUG_PRINT_CONF_ON */
-  #define DEBUG_PRINT_MSG(t, p, ...)
+  #define DEBUG_PRINT_MSG(t, l, ...)
   #define DEBUG_PRINT_MSG_NOW(...) 
   #define DEBUG_PRINT_SIMPLE(s)
   #define DEBUG_PRINT_SIMPLE_NOW(s)
@@ -223,7 +223,7 @@ void debug_print_poll(void);
  * @brief schedule a message for print out over UART
  */
 void debug_print_msg(rtimer_clock_t timestamp, 
-                     char level,  
+                     debug_level_t level,  
                      char *data);
 
 /**
