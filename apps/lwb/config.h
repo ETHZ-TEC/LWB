@@ -46,7 +46,7 @@
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
   #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
   #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
-  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED2
+  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
   #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
 #else
   /* only define a node ID if FlockLAB is not used (FlockLAB automatically 

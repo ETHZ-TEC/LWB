@@ -211,19 +211,23 @@ typedef struct {
   rtimer_clock_t T_slot_sum;
   rtimer_clock_t T_slot_estimated;
   rtimer_clock_t t_timeout;
-  uint8_t n_T_slot;
   glossy_header_t header;
   uint8_t *payload;
   uint8_t payload_len;
+  uint8_t n_T_slot;
   uint8_t active;
   uint8_t n_rx;
   uint8_t n_tx;
+  uint8_t n_rx_started;
+  uint8_t n_crc_ok;
+  uint8_t n_rx_fail;
+  uint8_t n_header_fail;
+  uint8_t already_counted;
   uint8_t relay_cnt_last_rx, relay_cnt_last_tx, relay_cnt_first_rx,
           relay_cnt_t_ref;
   uint8_t relay_cnt_timeout;
   uint8_t t_ref_updated;
   uint8_t header_ok;
-  uint8_t activity;
 #ifdef GLOSSY_DISABLE_INTERRUPTS
   uint32_t enabled_interrupts;
   uint16_t enabled_adc_interrupts;
@@ -232,7 +236,6 @@ typedef struct {
   int16_t  rssi_sum;
   int16_t  rssi_noise;
   uint32_t pkt_cnt;
-  uint32_t corrupted_pkt_cnt;
 } glossy_state_t;
 /*---------------------------------------------------------------------------*/
 static glossy_state_t g;
@@ -379,13 +382,18 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   g.payload_len = payload_len;
   g.n_rx = 0;
   g.n_tx = 0;
+  g.n_rx_started = 0;
+  g.n_crc_ok = 0;
+  g.n_rx_fail = 0;
+  g.n_header_fail = 0;
+  g.already_counted = 0;
   g.relay_cnt_last_rx = 0;
   g.relay_cnt_last_tx = 0;
   g.t_ref_updated = 0;
   g.T_slot_sum = 0;
   g.n_T_slot = 0;
   g.rssi_sum = 0;
-  g.activity = 0;
+  g.rssi_noise = 0;
 
   /* prepare the Glossy header, with the information known so far */
   g.header.initiator_id = initiator_id;
@@ -433,12 +441,17 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     __delay_cycles(MCLK_SPEED / 2000);    /* wait 0.5 ms */
     g.rssi_noise = rf1a_get_rssi();       /* get RSSI of the noise floor */
   }
+  /* note: RF_RDY bit must be cleared before entering LPM after a transition 
+   * from idle to RX or TX. RF1ASTATB & 0x80  or  GDO0 */
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
 glossy_stop(void)
 {
   if(g.active) {
+    /* if RX is ongoing, then wait */
+    //while(rf1a_is_busy());
+    
     GLOSSY_STOPPED;
     /* stop the timeout */
     rtimer_stop(GLOSSY_CONF_RTIMER_ID);
@@ -494,15 +507,48 @@ glossy_get_n_rx(void)
   return g.n_rx;
 }
 /*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_n_rx_started(void)
+{
+  return g.n_rx_started;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_n_crc_ok(void)
+{
+  return g.n_crc_ok;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_n_rx_fail(void)
+{
+  return g.n_rx_fail;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_n_header_fail(void)
+{
+  return g.n_header_fail;
+}
+/*---------------------------------------------------------------------------*/
 int8_t
 glossy_get_snr(void)
 {
-  int16_t rssi_avg = g.rssi_sum / (int16_t)g.n_rx;
   /* RSSI values are only valid if at at least one packet was received */
-  if(g.n_rx == 0 || rssi_avg == 0) {
+  if(g.n_rx == 0 || g.rssi_sum == 0 || g.rssi_noise == 0) {
       return 0;
   }
-  return (int8_t)(rssi_avg - g.rssi_noise);
+  return (int8_t)((g.rssi_sum / (int16_t)g.n_rx) - g.rssi_noise);
+}
+/*---------------------------------------------------------------------------*/
+int8_t
+glossy_get_rssi(void)
+{
+  /* RSSI values are only valid if at at least one packet was received */
+  if(g.n_rx == 0 || g.rssi_sum == 0) {
+      return 0;
+  }
+  return (int8_t)(g.rssi_sum / (int16_t)g.n_rx);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -539,7 +585,7 @@ uint8_t
 glossy_get_per(void)
 {
   if(g.pkt_cnt > 0) {
-    return g.corrupted_pkt_cnt * 100 / g.pkt_cnt;
+    return 100 - (g.n_crc_ok * 100 / g.pkt_cnt);
   }
   return 0;
 }
@@ -548,12 +594,6 @@ uint32_t
 glossy_get_n_pkts(void)
 {
   return g.pkt_cnt;
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-glossy_activity_detected(void)
-{
-  return g.activity;  
 }
 /*---------------------- RF1A callback implementation -----------------------*/
 void
@@ -568,8 +608,9 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
 
   g.t_rx_start = *timestamp;
   g.header_ok = 0;
+  g.already_counted = 0;
   g.pkt_cnt++;
-  g.activity = 1;
+  g.n_rx_started++;
 
   if(IS_INITIATOR()) {
     /* we are the initiator and we have started a packet reception: stop the
@@ -600,6 +641,11 @@ rf1a_cb_header_received(rtimer_clock_t *timestamp, uint8_t *header,
                         uint8_t packet_len)
 {
   if(process_glossy_header(header, packet_len, 0) != SUCCESS) {
+    if(!g.already_counted) {
+      g.n_header_fail++;
+      g.n_rx_fail++;
+      g.already_counted = 1;
+    }
     /* the header is not ok: interrupt the reception and start a new attempt */
     rf1a_cb_rx_failed(timestamp);
   }
@@ -612,7 +658,9 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
   /* enable timer overflow / update interrupt */
   rtimer_update_enable(1);
   g.t_rx_stop = *timestamp;
+  g.n_crc_ok++;
   
+  /* we have received a packet and the CRC is correct, now check the header */
   if((process_glossy_header(pkt, pkt_len, 1) == SUCCESS)) {
     /* we received a correct packet, and the header has been stored into
      * g.header */
@@ -676,6 +724,11 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
                         "initiator %u.",
                         pkt_len, g.header.initiator_id);
   } else {
+    if(!g.already_counted) {
+      g.n_header_fail++;
+      g.n_rx_fail++;
+      g.already_counted = 1;
+    }
     /* some fields in the header were not correct: discard it */
     rf1a_cb_rx_failed(timestamp);
   }
@@ -715,22 +768,29 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
      * stop Glossy */
     glossy_stop();
   } else {
+#if GLOSSY_CONF_RETRANSMISSION_TIMEOUT
     if((IS_INITIATOR()) && (g.n_rx == 0)) {
       /* we are the initiator and we still have not received any packet:
        * schedule the timeout */
       schedule_timeout();
     }
+#endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
   }     
 }
 /*---------------------------------------------------------------------------*/
 void
 rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
 {
+  /* RX has failed due to invalid CRC or invalid Glossy header */
+  if(!g.already_counted) {
+    g.n_rx_fail++;
+    g.already_counted = 1;
+  }
   GLOSSY_RX_STOPPED;
   /* notify about the failure, flush the RX FIFO and start a new reception
    * attempt */
   DEBUG_PRINT_VERBOSE("Glossy RX failed, corrupted packet received");
-  g.corrupted_pkt_cnt++;
+
   rtimer_update_enable(1);
   rf1a_flush_rx_fifo();
   rf1a_start_rx();

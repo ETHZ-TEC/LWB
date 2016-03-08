@@ -52,6 +52,13 @@
 #include <stdlib.h>
 
 
+/* whether the initiator should retransmit the packet after a certain
+ * time of no reception */
+#ifndef GLOSSY_CONF_RETRANSMISSION_TIMEOUT
+#define GLOSSY_CONF_RETRANSMISSION_TIMEOUT      1
+#endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
+
+
 enum {
   GLOSSY_UNKNOWN_INITIATOR = 0
 };
@@ -109,19 +116,52 @@ uint8_t glossy_is_active(void);
 
 /**
  * @brief get the number of received packets
+ * during the last flood
  */
 uint8_t glossy_get_n_rx(void);
 
 /**
- * @brief get the number of transmitted packets
+ * @brief get the number of transmitted packets during the last flood
  */
 uint8_t glossy_get_n_tx(void);
 
 /**
+ * @brief get the number of started receptions
+ * (preamble + sync detection) during the last flood
+ */
+uint8_t glossy_get_n_rx_started(void);
+
+/**
+ * @brief get the number of received packets with CRC ok during the last flood
+ */
+uint8_t glossy_get_n_crc_ok(void);
+
+/**
+ * @brief get the number of received packets with CRC failed during the last
+ * flood
+ */
+uint8_t glossy_get_n_rx_fail(void);
+
+/**
+ * @brief get the number of received packets with CRC ok, but header validation
+ * failed during the last flood
+ */
+uint8_t glossy_get_n_header_fail(void);
+
+
+/**
  * @brief get the signal-to-noise ratio (average RSSI value of all received 
  * packets of the last flood minus RSSI of the noise floor before the flood)
+ * @note this function is only returns a value != 0 if at least one packet 
+ * was successfully received in the last slot and the node was not the
+ * initiator of the flood
  */
 int8_t glossy_get_snr(void);
+
+/**
+ * @brief get the average RSSI value of the last flood
+ */
+int8_t glossy_get_rssi(void);
 
 /**
  * @brief get the length of the payload of the received/transmitted packet
@@ -154,11 +194,6 @@ uint8_t glossy_get_per(void);
  * @brief get the total number of received packets including corrupt packets
  */
 uint32_t glossy_get_n_pkts(void);
-
-/**
- * @brief returns 1 if activity was detected during the last flood
- */
-uint8_t glossy_activity_detected(void);
 
 
 #endif /* __GLOSSY_H__ */

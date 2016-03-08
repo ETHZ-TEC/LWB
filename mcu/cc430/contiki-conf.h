@@ -54,6 +54,10 @@
 #define ENERGEST_CONF_ON        0
 #endif /* ENERGEST_CONF_ON */
 
+#ifndef AUTOSTART_ENABLE
+#define AUTOSTART_ENABLE        1
+#endif /* AUTOSTART_ENABLE */
+
 extern volatile uint16_t node_id;
 
 
