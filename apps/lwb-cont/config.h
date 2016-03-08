@@ -38,36 +38,42 @@
  * application specific config file to override default settings
  */
 
-#define FLOCKLAB                           /* uncomment to run on FlockLAB */
-#define HOST_ID    2
- 
-#ifdef FLOCKLAB
-  /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
-  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
+#define FLOCKLAB
+#define HOST_ID    22
+
+#ifndef FLOCKLAB
+  //#define NODE_ID                       200
+  #define LWB_CONF_TASK_ACT_PIN         PORT2, PIN5
+  #define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN5
+  #define APP_TASK_ACT_PIN              PORT2, PIN5
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MINUS_12_dBm
+#else
+  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED3
   #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
   #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
-#else
-  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
-   * assigns node IDs); select an ID other than HOST_ID to compile the code 
-   * for a source node */
-  #define NODE_ID                       2
-  //#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT2
-  //#define DEBUG_PRINT_TASK_ACT_PIN      COM_MCU_INT2
-  //#define APP_TASK_ACT_PIN              COM_MCU_INT2
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm  
 #endif /* FLOCKLAB */
 
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define CLOCK_CONF_FLL_ON               1
 #define FRAM_CONF_ON                    0
-                                                       
+#define BOLT_CONF_ON                    0
+
 /* LWB configuration */
-#define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
+
+#define LWB_VERSION                     0       /* use custom version */
+
+//#define LWB_CONF_RANDOM_DELAY_MAX       400
+#define LWB_CONF_OFFSET_NODE_ID         16
+#define GLOSSY_CONF_RETRANSMISSION_TIMEOUT  0
+
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0
+#define LWB_CONF_TX_CNT_DATA            1
+#define LWB_CONF_MAX_HOPS               3
+#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200) /* 5ms */
+#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
 
 /* debug config */
+#define DEBUG_CONF_STACK_GUARD          (SRAM_END - 0x01ff)
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 
 #endif /* __CONFIG_H__ */

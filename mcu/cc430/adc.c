@@ -33,12 +33,15 @@
 
 #include "platform.h"
 
+static int16_t slope;    /* needed to transform the sampled values (ADC) */
+
+/* calibration data, located in info memory */
+#define ADC_TEMP_1_5V_30   0x1a1a   /* value at 30°C for 1.5V ref */
+#define ADC_TEMP_1_5V_85   0x1a1c   /* value at 85°C for 1.5V ref */
+#define ADC_TEMP_2_5V_30   0x1a22   /* value at 30°C for 1.5V ref */
+#define ADC_TEMP_2_5V_85   0x1a24   /* value at 85°C for 1.5V ref */
+/*---------------------------------------------------------------------------*/
 #ifdef MCU_HAS_ADC12
-/*---------------------------------------------------------------------------*/
-#define ADC_TEMP_CAL1   0x1a1c   /* calibration data, located in info memory */
-#define ADC_TEMP_CAL2   0x1a1a
-/*---------------------------------------------------------------------------*/
-static int32_t slope;    /* needed to transform the sampled values (ADC) */
 /*---------------------------------------------------------------------------*/
 void
 adc_init(void)
@@ -65,8 +68,8 @@ adc_init(void)
   __delay_cycles(MCLK_SPEED / 25000);
 
   /* use calibration data stored in info memory */
-  slope = ((int32_t)(85 - 30) << 16) /
-    (int32_t)(*((int16_t *)ADC_TEMP_CAL1) - *((int16_t *)ADC_TEMP_CAL2));
+  slope = (55 << 8) / 
+          (*(int16_t*)ADC_TEMP_1_5V_85 - *(int16_t*)ADC_TEMP_1_5V_30);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -80,8 +83,8 @@ adc_get_data(uint8_t *out_data)
 
   /* read out and convert the sampled value */
   out_data[0] = (uint8_t)((int32_t)(
-                 ((int32_t)ADC12MEM0 - (int32_t)*((int16_t *)ADC_TEMP_CAL2)) *
-                 slope) >> 16) + 30;
+                 ((int32_t)ADC12MEM0 - (int32_t)*((int16_t *)ADC_TEMP_1_5V_30))
+                 * slope) >> 8) + 30;
   out_data[1] = (uint8_t)(
                 ((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2000) >> 2);
   /* another way to encode the voltage as percentage:
@@ -89,4 +92,57 @@ adc_get_data(uint8_t *out_data)
      100) */
 }
 /*---------------------------------------------------------------------------*/
-#endif /* MCU_HAS_ADC12 */
+int16_t
+adc_get_temp(void)
+{    
+  if(ADC12CTL0 & ADC12ON) {
+    ADC12CTL0 |= ADC12ENC + ADC12SC; 
+    /* wait until sample / conversion operation has completed */
+    while (ADC12CTL0 & ADC12BUSY);
+    return (((int32_t)((int16_t)ADC12MEM0 - *(int16_t*)ADC_TEMP_1_5V_30) *
+            slope) >> 8) + 30;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+#elif defined(MCU_HAS_ADC10)
+/*---------------------------------------------------------------------------*/
+void
+adc_init(void)
+{
+  /* configure ADC10 - pulse sample mode */
+  ADC10CTL0 = ADC10SHT_3 + ADC10ON;     /* 32 ADC10CLKs sample and hold time */
+  /* ADC10SHS_0 = start trigger is SC bit */
+  ADC10CTL1 = ADC10SHP + ADC10SHS_0 + ADC10DIV_0 + ADC10CONSEQ_2 + ADC10SSEL_0;
+  ADC10CTL2 |= ADC10RES;                    /* 10-bit resolution */
+  ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10 ; // A10, internal Vref+
+  
+  /* configure internal reference */
+  while(REFCTL0 & REFGENBUSY);              /* wait if ref generator busy */                                         
+  REFCTL0 |= REFVSEL_2 + REFON;             /* select internal ref = 2.5V */
+                                                
+  /* values for the 2.5V reference, see datasheet p.105 */
+  slope = (55 << 8) / 
+          (*(int16_t*)ADC_TEMP_2_5V_85 - *(int16_t*)ADC_TEMP_2_5V_30);
+            
+  //ADC10IE |= ADC10IE0; 
+  ADC10CTL0 |= ADC10ENC;
+}
+/*---------------------------------------------------------------------------*/
+int16_t
+adc_get_temp(void)
+{  
+  if(ADC10CTL0 & ADC10ON) {
+    ADC10CTL0 |= ADC10ENC + ADC10SC; 
+    /* wait until sample / conversion operation has completed */
+    while (ADC10CTL0 & ADC10BUSY);
+    //ADC10CTL0 &= ~(ADC10ENC + ADC10SC);
+    return ((((int16_t)ADC10MEM0 - *(int16_t*)ADC_TEMP_2_5V_30) *
+            slope) >> 8) + 30;
+  }
+  return 0;  
+}
+/*---------------------------------------------------------------------------*/
+#endif /* MCU_HAS_ADCx */
+
+

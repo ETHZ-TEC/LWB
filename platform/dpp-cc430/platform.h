@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <isr_compat.h>
 
 /*
@@ -100,6 +101,8 @@
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2
 
+#define MCU_HAS_ADC10
+
 
 /*
  * pin mapping
@@ -121,12 +124,13 @@
 //#define GLOSSY_TX_PIN               COM_MCU_INT2
 //#define RF_GDO0_PIN                 COM_MCU_INT1
 //#define RF_GDO1_PIN                 COM_MCU_INT1
-#define RF_GDO2_PIN                 COM_MCU_INT2
+#define RF_GDO2_PIN                 COM_MCU_INT1
 //#define MCLK_PIN                    COM_MCU_INT1
 //#define ACLK_PIN                    COM_MCU_INT1
 //#define SMCLK_PIN                   COM_MCU_INT1
 
 /* the following pins assignments are given by FlockLAB, do not change */
+#define FLOCKLAB_LED1               LED_0
 #define FLOCKLAB_INT1               COM_MCU_INT1  /* for GPIO tracing */
 #define FLOCKLAB_INT2               COM_MCU_INT2  /* for GPIO tracing */
 
@@ -197,6 +201,7 @@
  * include MCU specific drivers
  */
 #include "rf1a-SmartRF-settings/868MHz-2GFSK-250kbps.h" /* RF1A config */
+#include "adc.h"
 #include "clock.h"
 #include "dma.h"
 #include "flash.h"

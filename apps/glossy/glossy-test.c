@@ -59,6 +59,7 @@ static struct pt                glossy_pt; /* glossy protothread */
   PT_YIELD(&glossy_pt);\
   TASK_ACTIVE;\
 }
+#define MAX(a, b)               ((a) > (b) ? (a) : (b))
 /*---------------------------------------------------------------------------*/
 PT_THREAD(glossy_thread(rtimer_t *rt)) 
 {  
@@ -73,9 +74,12 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
   static rtimer_clock_t t_ref = 0, 
                         t_ref_last = 0, 
                         t_start = 0;
+  static int32_t  avg_rssi = 0;
+  static uint16_t rssi_cnt = 0;
                         
   /* note: all statements above PT_BEGIN() will be executed each time the 
    * protothread is scheduled */
+  SVS_DISABLE;
   
   PT_BEGIN(&glossy_pt);   /* declare variables before this statement! */
  
@@ -92,7 +96,13 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
                    GLOSSY_WITH_RF_CAL);
       WAIT_UNTIL(rt->time + GLOSSY_T_SLOT);
       glossy_stop();
-      DEBUG_PRINT_INFO("packet sent");
+      if(glossy_get_rssi() != 0) {
+        avg_rssi += glossy_get_rssi();
+        rssi_cnt++;
+      }
+      DEBUG_PRINT_INFO("packet sent, rssi=%ddBm last_pkt_rssi=%ddBm avg=%ddBm", 
+                       glossy_get_rssi(), rf1a_get_last_packet_rssi(), 
+                       (int16_t)(avg_rssi / MAX(1, rssi_cnt)));
         
     /* SOURCE NODE */
     } else {
@@ -138,6 +148,10 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
           sync_state = 1;         /* synchronized */
           t_guard    = GLOSSY_T_GUARD;
           snr        = glossy_get_snr();
+          if(snr) {
+            avg_rssi += snr;
+            rssi_cnt++;
+          }
 
 #if (TIME_SCALE == 1) /* only calc drift when TIME_SCALE is not used */
           /* drift compensation (calculate drift in clock cycles per second) */
@@ -171,11 +185,16 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
         }
         /* print out some stats */
         DEBUG_PRINT_INFO("rcv=%u miss=%u boot=%u d=%d per=%u hop=%u "
-                         "m_hop=%u SNR=%ddBm",
-                         pkt_cnt, miss_cnt, bootstrap_cnt, 
-                         drift, glossy_get_per(), 
-                         glossy_get_relay_cnt_first_rx(), max_hop,
-                         snr);
+                         "m_hop=%u snr=%ddBm avg_snr=%ddBm",
+                         pkt_cnt, 
+                         miss_cnt, 
+                         bootstrap_cnt, 
+                         drift, 
+                         glossy_get_per(), 
+                         glossy_get_relay_cnt_first_rx(), 
+                         max_hop,
+                         snr, 
+                         (int16_t)(avg_rssi / MAX(1, rssi_cnt)));
       }
     }
     

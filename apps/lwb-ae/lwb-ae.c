@@ -86,7 +86,7 @@ PROCESS_THREAD(app_process, ev, data)
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
         
-    if(HOST_ID == NODE_ID) {
+    if(HOST_ID == node_id) {
       /* we are the host */
       /* print out the received data */
       uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN], stream_id;
@@ -106,7 +106,9 @@ PROCESS_THREAD(app_process, ev, data)
         DEBUG_PRINT_INFO("%u data packets (%ub) received",
                          pkt_cnt, num_bytes);
       }
-    } else {
+    }
+#if !LWB_CONF_RELAY_ONLY
+    else {
       if(round_cnt == 2) {
         /* request a stream */
         lwb_stream_req_t my_stream = 
@@ -129,6 +131,7 @@ PROCESS_THREAD(app_process, ev, data)
                            LWB_CONF_MAX_DATA_PKT_LEN - 3));
       }
     }
+#endif /* LWB_CONF_RELAY_ONLY */
     round_cnt++;
                 
     /* IMPORTANT: This process must not run for more than a few hundred

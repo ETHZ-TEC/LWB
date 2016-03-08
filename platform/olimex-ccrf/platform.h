@@ -50,6 +50,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <isr_compat.h>
 
 /*
@@ -139,7 +140,7 @@
 #define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
 
 #ifdef FLOCKLAB
-#define GLOSSY_START_PIN            FLOCKLAB_INT1
+#define GLOSSY_START_PIN            LED_0
 #define RF_GDO2_PIN                 FLOCKLAB_INT2
 #else
 #define GLOSSY_START_PIN            LED_0

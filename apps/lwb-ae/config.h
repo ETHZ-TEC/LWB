@@ -49,8 +49,9 @@
 #define BOLT_CONF_ON                    0
 
 /* LWB configuration */
-#define LWB_MOD                         /* use the modified LWB */
+#define LWB_VERSION                     2    /* use the modified LWB */
 #define LWB_SCHED_BURST                 /* use the 'burst' scheduler */
+#define LWB_CONF_RELAY_ONLY             0
 #define LWB_CONF_USE_XMEM               1
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */

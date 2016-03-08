@@ -155,12 +155,18 @@ rf1a_init(void)
      after an interrupt */
   write_byte_to_register(FIFOTHR, (FIFO_CHUNK_SIZE - 3) / 4);
 
+
+  /* output RF_RDY to GDO0 */
+  rf1a_configure_gdo_signal(0, 0x29, 0);
+  
+  /* output CRC_OK to GDO1 */
+  rf1a_configure_gdo_signal(1, 7, 0);  
+  /* output the serial clock on GDO1 */
+  /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
+  
   /* map the sync word signal to GDO2 (corresponding to GDO2_CFG = 0x06, see
      Table 25-21) */
   rf1a_configure_gdo_signal(2, 6, 0);
-  
-  /* output the serial clock on GDO1 */
-  /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
   
   /* timer 4: capture input CCI4B, which corresponds to GDO2, i.e., to the sync
      word signal */
@@ -621,6 +627,11 @@ ISR(CC1101, radio_interrupt)
           /* CRC not OK */
           /* invert the edge for the next interrupt */
           INVERT_INTERRUPT_EDGES(BIT9);
+          /* print the first 5 bytes */
+          /*DEBUG_PRINT_INFO("crc_inv: 0x%x, 0x%x 0x%x 0x%x 0x%x 0x%x", 
+                           packet_len, 
+                           rf1a_buffer[0], rf1a_buffer[1], rf1a_buffer[2], 
+                           rf1a_buffer[3], rf1a_buffer[4]);*/
           rf1a_cb_rx_failed(&timestamp);
         }
         break;

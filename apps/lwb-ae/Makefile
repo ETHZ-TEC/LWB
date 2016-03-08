@@ -7,15 +7,13 @@
 CONTIKI = ../..
 CONTIKI_PROJECT = lwb-ae
 
-# specify the target platform (or pass this parameter by command line)
-#TARGET = cc430
+SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
-SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
-#$(info hello world = $(SRCS))
+ifndef TARGET
+    TARGET=olimex
+endif
 
 include $(CONTIKI)/Makefile.include
-
-all: $(CONTIKI_PROJECT)
 
 flocklab:
 # embed image

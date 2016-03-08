@@ -201,7 +201,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
    *   at the end of a round, this condition is always met)
    * - radio activity was detected during the last glossy slot
    * - there were no data slots in the last round */
-  if(glossy_activity_detected() && 
+  if(glossy_get_n_rx_started() && 
      !LWB_SCHED_N_SLOTS(sched)) {
     DEBUG_PRINT_INFO("initiating a request round");
     /* clear the content of the schedule */

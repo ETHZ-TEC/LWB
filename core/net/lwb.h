@@ -57,6 +57,10 @@
 #define HOST_ID                         0
 #endif
 
+#ifndef LWB_VERSION
+#define LWB_VERSION     1       /* default version */
+#endif /* LWB_VERSION */
+
 /*---------------------------------------------------------------------------*/
 
 #ifndef LWB_CONF_MAX_DATA_PKT_LEN
@@ -80,6 +84,13 @@
 #ifndef LWB_CONF_TIME_SCALE
 #define LWB_CONF_TIME_SCALE             1
 #endif /* LWB_CONF_TIME_SCALE */
+
+/* if set to 1, source nodes will only relay packets, but never receive 
+ * (= store in internal memory for further processing) or transmit 
+ * (= generate) packets, and therefore require less memory */
+#ifndef LWB_CONF_RELAY_ONLY
+#define LWB_CONF_RELAY_ONLY             0
+#endif /* LWB_CONF_RELAY_NODE_ONLY */
 
 #if !LWB_CONF_TIME_SCALE
 #error "invalid value for LWB_CONF_TIME_SCALE"

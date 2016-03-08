@@ -41,7 +41,8 @@
 #define SMARTRF_FREQ0      0x76 /* frequency control word, low byte */
 #define SMARTRF_MDMCFG4    0x2D /* modem configuration */
 #define SMARTRF_MDMCFG3    0x3B /* modem configuration */
-#define SMARTRF_MDMCFG2    0x13 /* modem configuration */
+#define SMARTRF_MDMCFG2    0x13 /* modem configuration (0x13) */
+//#define SMARTRF_MDMCFG1    0x42 /* modem configuration (0x22) */
 #define SMARTRF_DEVIATN    0x62 /* modem deviation setting */
 #define SMARTRF_MCSM0      0x10 /* main radio control state machine config */
 #define SMARTRF_FOCCFG     0x1D /* frequency offset compensation config */

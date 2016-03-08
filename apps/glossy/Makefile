@@ -7,12 +7,13 @@
 CONTIKI = ../..
 CONTIKI_PROJECT = glossy
 
-SRCS = ${shell find . -type f -name "*.[c]" -printf "%f "}
-#$(info hello world = $(SRCS))
+SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
+
+ifndef TARGET
+    TARGET=olimex
+endif
 
 include $(CONTIKI)/Makefile.include
-
-all: $(CONTIKI_PROJECT)
 
 flocklab:
 # embed image
