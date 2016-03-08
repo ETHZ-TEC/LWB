@@ -78,6 +78,9 @@ CORESRCS += ${shell find $(NETDIR) -type f -name "*.[c]" -printf "%f "}
 PLATSRCS = ${shell find $(PLATDIR) -type f -name "*.[c]" -printf "%f "}
 PLATSRCS += ${shell find $(CPUDIR) -type f -name "*.[c]" -printf "%f "}
 
+ifndef APPDIR
+  APPDIR = ""
+endif
 
 #ifdef WITH_GLOSSY
 #  WITH_RADIO = 1
@@ -96,7 +99,7 @@ PLATSRCS += ${shell find $(CPUDIR) -type f -name "*.[c]" -printf "%f "}
 
 OBJS = ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.o) $(PLATSRCS:.c=.o) $(SRCS:.c=.o)}
 
-SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI) $(CPUDIR) $(NETDIR) $(SCHEDDIR) $(MCUDIR)
+SOURCEDIRS = . $(COREDIR) $(SYSDIR) $(DEVDIR) $(LIBDIR) $(PLATDIR) $(CONTIKI) $(CPUDIR) $(NETDIR) $(SCHEDDIR) $(MCUDIR) $(APPDIR)
 vpath %.c $(SOURCEDIRS)
 CFLAGS += ${addprefix -I,$(SOURCEDIRS)}
 

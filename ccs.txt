@@ -1,0 +1,15 @@
+How to integrate this source code into Code Composer Studio:
+
+1. Create a new project: File > New > Project... > C/C++ Makefile Project
+   Click 'next' and enter the project name as well as the path to the source folder.
+   
+2. Modify the project settings: Project > Properties
+   Go to "C/C++ General > Paths and Symbols > Include > GNU C" and add the path to the msp430 include files (typically /usr/msp430/include).
+   Go to "C/C++ Build > Behaviour" and clear the content of the textbox next to 'incremental build'.
+  
+3. Remove unused folders: The syntax checker gets confused when there are several folder in the subfolder 'mcu' or 'platform'. Therefore, delete all
+   unused folders. If you e.g. want to compile the code for the Olimex MSP430-CCRF, then only keep 'mcu/cc430' and 'platform/olimex-ccrf'.
+   
+4. If necessary, modify the 'Makefile' in the Contiki root folder.
+   Adjust APPDIR (the directory of the application to compile) and TARGET (the target platform).
+
