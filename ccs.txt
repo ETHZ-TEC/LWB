@@ -13,3 +13,9 @@ How to integrate this source code into Code Composer Studio:
 4. If necessary, modify the 'Makefile' in the Contiki root folder.
    Adjust APPDIR (the directory of the application to compile) and TARGET (the target platform).
 
+5. In order to flash/debug the program onto the target device, you need to create a new debug configuration: "File > New > Target Configuration File > Finish"
+   The file will open and allow you to set the 'Connection' and 'Board or Device' types. Save the file and then go to "Run > Debug Configurations", select 
+   the new configuration on the left and then set the program binary (.exe) in the tab 'Program'.
+   In the tab 'Target', make sure "Connect to the target on debugger startup" is enabled in the 'launch options'.
+   Click 'Apply' and then 'Debug'.
+   
