@@ -45,14 +45,14 @@
   /* set the highest antenna gain if the program runs on FlockLAB */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
   #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */
-  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED1
-  #define APP_TASK_ACT_PIN              FLOCKLAB_LED1
+  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
+  #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
 #else
   /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
   #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */
-  #define NODE_ID                       2
+  #define NODE_ID                       1
   #define APP_TASK_ACT_PIN              PORT2, PIN1
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
 #endif /* FLOCKLAB */
@@ -67,6 +67,8 @@
 #define GLOSSY_N_TX                     3
 
 #define TIME_SCALE                      1
+
+#define FRAM_CONF_ON                    0
 
 /* the max. clock deviation (according to the specs of the oscillator), in 
  * HF timer ticks per second */

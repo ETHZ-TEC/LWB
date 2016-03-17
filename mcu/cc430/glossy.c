@@ -219,7 +219,6 @@ typedef struct {
   uint8_t n_rx;
   uint8_t n_tx;
   uint8_t n_rx_started;
-  uint8_t n_crc_ok;
   uint8_t n_rx_fail;
   uint8_t n_header_fail;
   uint8_t already_counted;
@@ -236,6 +235,7 @@ typedef struct {
   int16_t  rssi_sum;
   int16_t  rssi_noise;
   uint32_t pkt_cnt;
+  uint32_t crc_ok_cnt;
 } glossy_state_t;
 /*---------------------------------------------------------------------------*/
 static glossy_state_t g;
@@ -383,7 +383,6 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   g.n_rx = 0;
   g.n_tx = 0;
   g.n_rx_started = 0;
-  g.n_crc_ok = 0;
   g.n_rx_fail = 0;
   g.n_header_fail = 0;
   g.already_counted = 0;
@@ -438,7 +437,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     /* Glossy receiver */
     rf1a_start_rx();        
     /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
-    __delay_cycles(MCLK_SPEED / 2000);    /* wait 0.5 ms */
+    __delay_cycles(MCLK_SPEED / 3000);    /* wait 0.33 ms */
     g.rssi_noise = rf1a_get_rssi();       /* get RSSI of the noise floor */
   }
   /* note: RF_RDY bit must be cleared before entering LPM after a transition 
@@ -516,7 +515,7 @@ glossy_get_n_rx_started(void)
 uint8_t
 glossy_get_n_crc_ok(void)
 {
-  return g.n_crc_ok;
+  return g.crc_ok_cnt;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -585,7 +584,7 @@ uint8_t
 glossy_get_per(void)
 {
   if(g.pkt_cnt > 0) {
-    return 100 - (g.n_crc_ok * 100 / g.pkt_cnt);
+    return 100 - (g.crc_ok_cnt * 100 / g.pkt_cnt);
   }
   return 0;
 }
@@ -658,7 +657,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
   /* enable timer overflow / update interrupt */
   rtimer_update_enable(1);
   g.t_rx_stop = *timestamp;
-  g.n_crc_ok++;
+  g.crc_ok_cnt++;
   
   /* we have received a packet and the CRC is correct, now check the header */
   if((process_glossy_header(pkt, pkt_len, 1) == SUCCESS)) {

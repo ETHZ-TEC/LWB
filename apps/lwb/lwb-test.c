@@ -130,6 +130,8 @@ PROCESS_THREAD(app_process, ev, data)
   #endif /* MUX_SEL_PIN */
     P1SEL = 0; /* reconfigure GPIOs */
     P1DIR = 0xff;
+    /* set clock source to DCO */
+    UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
     TASK_SUSPENDED;

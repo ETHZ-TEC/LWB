@@ -282,9 +282,9 @@
 
 /* important values, do not modify */
 
-#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 1) * \
+#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 2) * \
                                      (LWB_CONF_T_DATA + LWB_CONF_T_GAP) + \
-                                     (LWB_CONF_T_SCHED + LWB_CONF_T_GAP)*2 + \
+                                     (LWB_CONF_T_SCHED + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_CONT + LWB_CONF_T_GAP))
 /* min. duration of 1 packet transmission with glossy (approx. values, taken 
  * from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b 
@@ -372,10 +372,15 @@ lwb_conn_state_t lwb_get_state(void);
  * LWB_MAX_PACKET_LEN)
  * @return 1 if successful, 0 otherwise (queue full)
  */
+#if LWB_VERSION == 2
+uint8_t lwb_put_data(const uint8_t * const data, 
+                     uint8_t len);
+#else
 uint8_t lwb_put_data(uint16_t recipient, 
                      uint8_t stream_id, 
                      const uint8_t * const data, 
                      uint8_t len);
+#endif
 
 /** 
  * @brief get a data packet that have been received during the previous LWB
@@ -390,9 +395,13 @@ uint8_t lwb_put_data(uint16_t recipient,
  * @note once a data packet was requested, it will be removed from the internal
  * buffer
  */
+#if LWB_VERSION == 2
+uint8_t lwb_get_data(uint8_t* out_data);
+#else
 uint8_t lwb_get_data(uint8_t* out_data, 
                      uint16_t * const out_node_id, 
                      uint8_t * const out_stream_id);
+#endif
 
 /**
  * @brief check the status of the receive buffer (incoming messages)
