@@ -100,11 +100,10 @@
 #endif /* LWB_CONF_SCHED_STREAM_REMOVAL_THRES */
 
 /* define the stream extra data length based on the selected scheduler */
-#if defined(LWB_SCHED_STATIC) || defined(LWB_SCHED_MIN_DELAY) || defined(LWB_SCHED_BURST)
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN       0
-#endif
 #ifdef LWB_SCHED_MIN_ENERGY
 #define LWB_CONF_STREAM_EXTRA_DATA_LEN       1
+#else
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN       0
 #endif
                          
 #ifndef LWB_CONF_STREAM_EXTRA_DATA_LEN

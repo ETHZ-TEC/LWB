@@ -48,7 +48,7 @@
 /*---------------------------------------------------------------------------*/
 /* length of the 'wakeup' packet during a contention slot (if the received
  * packet has a different size, it will be dropped (no retransmission) */
-#define LWB_CONF_WAKEUP_PKT_LEN     1   /* set to 0 to disable */
+#define LWB_CONF_WAKEUP_PKT_LEN     0   /* set to 0 to disable */
 
 /* max. random delay before sending the stream request, in clock ticks */
 #ifndef LWB_CONF_RANDOM_DELAY_MAX
@@ -60,7 +60,7 @@
 #ifndef LWB_CONF_OFFSET_NODE_ID
 #define LWB_CONF_OFFSET_NODE_ID     0
 #endif /* LWB_CONF_OFFSET_NODE_ID */
-#define LWB_CONF_OFFSET_MAX         400
+#define LWB_CONF_OFFSET_MAX         300
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB on the source node */
 typedef enum {
@@ -205,10 +205,27 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- CONTENTION SLOT --- */
     
     if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
+      
+      /* set the sync byte */
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC1;
+      RF1ADINB = 0xba;
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC0;
+      RF1ADINB = 0xaa;
+      
       memset(&glossy_payload.raw_data, 0, 10);
       /* wait until the slot starts, then receive the packet */
       LWB_WAIT_UNTIL(t_start + LWB_CONF_T_SCHED + LWB_CONF_T_GAP - t_guard);
       LWB_RCV_SRQ();
+      
+      /* reset the sync byte */
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC1;
+      RF1ADINB = 0xd3;
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC0;
+      RF1ADINB = 0x91;
     }
     if(glossy_get_n_rx()) { 
       req_rcvd++;   /* at least one packet with CRC & header ok received */
@@ -317,6 +334,15 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
     /* is there a contention slot in this round? */
     if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
+      
+      /* set the sync byte */
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC1;
+      RF1ADINB = 0xba;
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC0;
+      RF1ADINB = 0xaa;
+        
 #if LWB_CONF_RANDOM_DELAY_MAX
       t_rand = random_rand() % LWB_CONF_RANDOM_DELAY_MAX;
 #endif /* LWB_CONF_RANDOM_DELAY_MAX */
@@ -327,28 +353,41 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         if(t_rand > LWB_CONF_OFFSET_MAX) {
           DEBUG_PRINT_INFO("STOP: max reached");
         } else {
-          t_rand++;
+          if(schedule.time % 10 == 9) {
+            t_rand += 10; /* increase by 10 ticks */
+          }
         }
       }
 #endif /* LWB_CONF_OFFSET_NODE_ID */
       
       /* send a 'wakeup' stream request */
-      payload_len = 1;
-      glossy_payload.raw_data[0] = 1;   /* repeat the length of the packet */
+      payload_len = 0xaa;
+      //glossy_payload.raw_data[0] = 1;
+      memset(glossy_payload.raw_data, 0xaa, 0xaa);
+      //glossy_payload.raw_data[0] = 1;   /* repeat the length of the packet */
       LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED + LWB_CONF_T_GAP + t_rand);
       LWB_SEND_SRQ();  
-      requests_sent++;
+      requests_sent++;      
+      
+      /* reset the sync byte */
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC1;
+      RF1ADINB = 0xd3;
+      while(!(RF1AIFCTL1 & RFINSTRIFG));
+      RF1AINSTRB = RF_SNGLREGWR | SYNC0;
+      RF1ADINB = 0x91;
     }
 
     if(sync_state == UNSYNCED) {
       unsynced_cnt++;
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
-    DEBUG_PRINT_INFO("%s %lu cont=%u usyn=%u snr=%ddbm", 
+    DEBUG_PRINT_INFO("%s %lu cont=%u usyn=%u r=%d snr=%ddbm", 
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time,
                      requests_sent,
                      unsynced_cnt,
+                     t_rand,
                      glossy_snr);
 
     /* poll the other processes to allow them to run after the LWB task was

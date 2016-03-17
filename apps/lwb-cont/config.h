@@ -71,6 +71,10 @@
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200) /* 5ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
+#define LWB_CONF_MAX_DATA_PKT_LEN       180
+#define LWB_CONF_MAX_PACKET_LEN         180
+
+#define RF_CONF_TX_CH                   10
 
 /* debug config */
 #define DEBUG_CONF_STACK_GUARD          (SRAM_END - 0x01ff)

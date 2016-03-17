@@ -54,12 +54,19 @@
 #define TASK_ACTIVE
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
+#ifdef FLOCKLAB
+#warning "--------------------- COMPILED FOR FLOCKLAB ---------------------"
+#endif 
+/*---------------------------------------------------------------------------*/
+static uint16_t events_sent = 0;
+static uint16_t acks_rcvd = 0;
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
 {   
+  static uint16_t pkt_buffer[(LWB_CONF_MAX_DATA_PKT_LEN + 1) / 2];
   static uint16_t round_cnt = 0;
   
   PROCESS_BEGIN();
@@ -73,7 +80,7 @@ PROCESS_THREAD(app_process, ev, data)
   lwb_start(0, &app_process);
   
   /* INIT code */
-#ifdef DEBUG_SWITCH
+#if !defined(FLOCKLAB) && HOST_ID != NODE_ID
   /* configure port interrupt */
   PIN_CFG_INT(DEBUG_SWITCH);
   PIN_PULLUP_EN(DEBUG_SWITCH); 
@@ -87,53 +94,46 @@ PROCESS_THREAD(app_process, ev, data)
     TASK_ACTIVE;      /* application task runs now */
         
     if(HOST_ID == node_id) {
-      /* we are the host */
+      /* HOST node */
       /* print out the received data */
-      uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN], stream_id;
-      uint16_t sender_id;
-      uint8_t pkt_cnt = 0;
-      uint16_t num_bytes = 0;
+      static uint16_t pkt_cnt = 0;
+      uint16_t cnt = 0;
       while(1) {
-        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, &stream_id);
+        uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer);
         if(pkt_len) {
-          pkt_cnt++;
-          num_bytes += pkt_len;
+          cnt++;
         } else {
           break;
         }
+      }
+      if(cnt) {
+        pkt_cnt += cnt;
+        DEBUG_PRINT_INFO("rcvd=%u", pkt_cnt);
+      }
+    } else {
+      /* SOURCE node */
+      uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer);
+      if(pkt_len && *pkt_buffer == node_id) {
+        acks_rcvd++;
+        DEBUG_PRINT_INFO("sent=%u ack=%u", events_sent, acks_rcvd);
       } 
-      if(pkt_cnt) {
-        DEBUG_PRINT_INFO("%u data packets (%ub) received",
-                         pkt_cnt, num_bytes);
+      if(round_cnt == 3) {
+        /* generate a dummy packet to 'register' this node at the host */
+        lwb_put_data((uint8_t*)&node_id, 2);
+        events_sent++;
       }
+#ifdef FLOCKLAB
+      uint16_t elapsed_time = lwb_get_time(0);
+      if((node_id == 6 || node_id == 16 || node_id == 22) && 
+         (elapsed_time % 50 == 0) && round_cnt > 15) {
+        /* generate an event every 10th round */
+        lwb_put_data((uint8_t*)&node_id, 2);
+        events_sent++;
+      }      
+#endif /* FLOCKLAB */
     }
-#if !LWB_CONF_RELAY_ONLY
-    else {
-      if(round_cnt == 2) {
-        /* request a stream */
-        lwb_stream_req_t my_stream = 
-          { node_id, 0, 1, LWB_CONF_SCHED_PERIOD_IDLE };
-        if(!lwb_request_stream(&my_stream, 0)) {
-          DEBUG_PRINT_ERROR("low stream request failed");
-        }
-        /* request a stream once and send a dummy packet with the node ID */
-        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);  
-      } else if(round_cnt == 5) {
-        /* request a stream */
-        lwb_stream_drop(1);     /* drop the stream with ID 1 */
-      }
-        
-      if(round_cnt > 8) {
-        /* we are a source node */
-        static uint8_t data_pkt[LWB_CONF_MAX_DATA_PKT_LEN - 3];
-        /* generate some data, keep the buffer filled */
-        while(lwb_put_data(0, 2, (uint8_t*)data_pkt,
-                           LWB_CONF_MAX_DATA_PKT_LEN - 3));
-      }
-    }
-#endif /* LWB_CONF_RELAY_ONLY */
     round_cnt++;
-                
+    
     /* IMPORTANT: This process must not run for more than a few hundred
      * milliseconds in order to enable proper operation of the LWB */
     
@@ -164,17 +164,15 @@ PROCESS_THREAD(app_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-#if HOST_ID != NODE_ID
+#if !defined(FLOCKLAB) && HOST_ID != NODE_ID
 ISR(PORT1, port1_interrupt) 
 {
   if(PIN_IFG(DEBUG_SWITCH)) {
-    //PIN_XOR(LED_0);
-    lwb_stream_req_t my_stream = { node_id, 0, 2, 1 };
-    if(!lwb_request_stream(&my_stream, 0)) {
-      DEBUG_PRINT_ERROR("stream request failed");
-    } else {
-      DEBUG_PRINT_INFO("stream requested");   
+    if(!lwb_put_data((uint8_t*)&node_id, 2)) {
+      DEBUG_PRINT_WARNING("can't queue data");
     }
+    events_sent++;
+    DEBUG_PRINT_INFO("event triggered");
     PIN_CLR_IFG(DEBUG_SWITCH);
   } 
 }

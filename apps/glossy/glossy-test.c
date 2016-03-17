@@ -59,7 +59,9 @@ static struct pt                glossy_pt; /* glossy protothread */
   PT_YIELD(&glossy_pt);\
   TASK_ACTIVE;\
 }
+#ifndef MAX
 #define MAX(a, b)               ((a) > (b) ? (a) : (b))
+#endif /* MAX */
 /*---------------------------------------------------------------------------*/
 PT_THREAD(glossy_thread(rtimer_t *rt)) 
 {  

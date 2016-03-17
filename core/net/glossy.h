@@ -132,7 +132,7 @@ uint8_t glossy_get_n_tx(void);
 uint8_t glossy_get_n_rx_started(void);
 
 /**
- * @brief get the number of received packets with CRC ok during the last flood
+ * @brief get the total number of received packets with CRC ok
  */
 uint8_t glossy_get_n_crc_ok(void);
 

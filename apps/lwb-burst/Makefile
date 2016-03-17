@@ -5,13 +5,9 @@
 # and points out to the specific Makefile of our target platform. Makefile.include must always be 
 # located in the root folder of the Contiki source tree.
 CONTIKI = ../..
-CONTIKI_PROJECT = lwb-ae
+CONTIKI_PROJECT = lwb-burst
 
 SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
-
-ifndef TARGET
-    TARGET=olimex
-endif
 
 include $(CONTIKI)/Makefile.include
 

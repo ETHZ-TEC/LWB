@@ -65,15 +65,7 @@ PROCESS_THREAD(app_process, ev, data)
   SVS_DISABLE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   /* all other necessary initialization is done in contiki-cc430-main.c */
-    
-  /* set the sync byte */
-  /*while(!(RF1AIFCTL1 & RFINSTRIFG));
-  RF1AINSTRB = RF_SNGLREGWR | SYNC1;
-  RF1ADINB = 0xaa;
-  while(!(RF1AIFCTL1 & RFINSTRIFG));
-  RF1AINSTRB = RF_SNGLREGWR | SYNC0;
-  RF1ADINB = 0xaa;*/
-    
+      
   /* start the LWB thread */
   lwb_start(0, &app_process);
     

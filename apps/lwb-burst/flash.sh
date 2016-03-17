@@ -1,7 +1,7 @@
 export LD_LIBRARY_PATH=/home/$USER/ti/ccsv6/ccs_base/DebugServer/drivers/
 if [ -z $1 ]
   then
-    mspdebug tilib "prog lwb-ae.hex" --allow-fw-update
+    mspdebug tilib "prog lwb-burst.hex" --allow-fw-update
   else
-    mspdebug tilib "prog lwb-ae.hex" --allow-fw-update -d $1
+    mspdebug tilib "prog lwb-burst.hex" --allow-fw-update -d $1
 fi

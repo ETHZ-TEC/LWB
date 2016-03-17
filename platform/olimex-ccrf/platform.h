@@ -140,7 +140,7 @@
 #define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
 
 #ifdef FLOCKLAB
-#define GLOSSY_START_PIN            LED_0
+#define GLOSSY_START_PIN            FLOCKLAB_LED1
 #define RF_GDO2_PIN                 FLOCKLAB_INT2
 #else
 #define GLOSSY_START_PIN            LED_0

@@ -38,45 +38,70 @@
  * application specific config file to override default settings
  */
 
+#define FLOCKLAB      /* uncomment to compile for FlockLab */
+
+/* --- ID config --- */
+
 #define HOST_ID    1
+#ifndef FLOCKLAB
+  #define NODE_ID                       1
+#endif
 
-#define NODE_ID                         1
-#define LWB_CONF_TASK_ACT_PIN           PORT2, PIN6
-#define DEBUG_PRINT_TASK_ACT_PIN        PORT2, PIN6
-#define APP_TASK_ACT_PIN                PORT2, PIN6
+/* --- RF config --- */
 
-#define FRAM_CONF_ON                    1
-#define BOLT_CONF_ON                    0
+#ifndef FLOCKLAB
+  #define RF_CONF_TX_CH                 5
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
+#else
+  #define RF_CONF_TX_CH                 10
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
+#endif
 
-/* LWB configuration */
-#define LWB_VERSION                     0    /* use the modified LWB */
-#define LWB_SCHED_BURST                 /* use the 'burst' scheduler */
-#define LWB_CONF_RELAY_ONLY             0
-#define LWB_CONF_USE_XMEM               1
-#define LWB_CONF_USE_LF_FOR_WAKEUP      1
-#define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */
-#define LWB_CONF_MAX_DATA_SLOTS         20
-#define LWB_CONF_MAX_N_STREAMS          5
-#define LWB_CONF_MAX_PACKET_LEN         128
+/* --- LWB config --- */
+
+#define LWB_CONF_USE_XMEM               0       /* don't use external memory */
+/* scheduler */
+#define LWB_VERSION                     2            /* use the modified LWB */
+#define LWB_SCHED_AE                               /* use the 'AE' scheduler */
+#define LWB_CONF_SCHED_PERIOD_IDLE      5   /* define the base period length */
+/* buffer sizes */
+#define LWB_CONF_MAX_DATA_SLOTS         10 /* equals the # nodes & # streams */
+#define LWB_CONF_MAX_PACKET_LEN         64
 #define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PACKET_LEN)
-#define LWB_CONF_SCHED_SACK_BUFFER_SIZE LWB_CONF_MAX_N_STREAMS
-#if HOST_ID == NODE_ID
+#define LWB_CONF_MAX_N_STREAMS          LWB_CONF_MAX_DATA_SLOTS 
+#if defined(FLOCKLAB) || HOST_ID == NODE_ID
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
   #define LWB_CONF_OUT_BUFFER_SIZE      1
 #else
   #define LWB_CONF_IN_BUFFER_SIZE       1
-  #define LWB_CONF_OUT_BUFFER_SIZE      LWB_CONF_MAX_DATA_SLOTS
+  #define LWB_CONF_OUT_BUFFER_SIZE      1 
 #endif
+/* slot durations and network parameters */
 #define LWB_CONF_TX_CNT_DATA            2
 #define LWB_CONF_MAX_HOPS               3
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
-#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200) /* 5ms */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250) /* 4ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
-#define LWB_CONF_SCHED_STREAM_REMOVAL_THRES     5
 
-/* debug config */
-/* adjust this accordingly! */
+/* --- DEBUG config --- */
+
+#define DEBUG_PRINT_CONF_NUM_MSG        10
 #define DEBUG_CONF_STACK_GUARD          (SRAM_END - 0x01ff)
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#ifndef FLOCKLAB
+  #define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
+  #define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
+  #define APP_TASK_ACT_PIN              PORT2, PIN6
+#else
+  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT1
+  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
+  #define APP_TASK_ACT_PIN              FLOCKLAB_INT1
+#endif
+
+/* --- GENERAL config --- */
+
+#define FRAM_CONF_ON                    0
+#define BOLT_CONF_ON                    0
+#define CLOCK_CONF_FLL_ON               1
 
 #endif /* __CONFIG_H__ */

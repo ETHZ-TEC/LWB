@@ -232,6 +232,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
         if(sched->slot[i] == curr_stream->node_id) {
           break;
         }
+        curr_stream = curr_stream->next;
       }
       /* ignore inactive streams */
       if(curr_stream != NULL && curr_stream->state) {

@@ -5,7 +5,7 @@
 # and points out to the specific Makefile of our target platform. Makefile.include must always be 
 # located in the root folder of the Contiki source tree.
 CONTIKI = ../..
-CONTIKI_PROJECT = lwb
+CONTIKI_PROJECT = lwb-ae
 
 SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
@@ -21,3 +21,4 @@ flocklab:
 upload: 
 	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
+
