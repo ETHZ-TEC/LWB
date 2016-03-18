@@ -63,6 +63,10 @@
 #define LWB_CONF_LF_WAKEUP_OFS      5
 #endif /* LWB_CONF_LF_WAKEUP_OFS */
 
+#ifndef LWB_CONF_SACK_SLOT
+#define LWB_CONF_SACK_SLOT          0
+#endif /* LWB_CONF_SACK_SLOT */
+
 #ifndef LWB_CONF_DRIFT_COMPENSATION
 #define LWB_CONF_DRIFT_COMPENSATION 0
 #endif /* LWB_CONF_DRIFT_COMPENSATION */
@@ -128,8 +132,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 }   
 #define LWB_RCV_SCHED() \
 {\
-  glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule, \
-               GLOSSY_UNKNOWN_PAYLOAD_LEN, \
+  glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule, payload_len, \
                LWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
   LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_SCHED + t_guard);\
   glossy_stop();\
@@ -448,6 +451,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   /* constant guard time for the host */
   static const uint32_t t_guard = LWB_CONF_T_GUARD; 
   static uint32_t t_slot = LWB_CONF_T_DATA;
+  static uint16_t curr_period = 0;
+  static uint16_t srq_cnt = 0;
   static uint16_t i = 0;
   static uint8_t slot_idx;
   static uint8_t streams_to_update[LWB_CONF_MAX_DATA_SLOTS];
@@ -495,10 +500,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
     if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {      
       /* adjust T_DATA (modification to original LWB) */
-      t_slot = LWB_CONF_T_CONT;
       if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
         /* this is a data round */
         t_slot = LWB_CONF_T_DATA;
+      } else {
+        t_slot = LWB_CONF_T_CONT;
+        srq_cnt++;
       }
       for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
         streams_to_update[i] = LWB_INVALID_STREAM_ID;
@@ -564,46 +571,56 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         lwb_sched_proc_srq((lwb_stream_req_t*)glossy_payload);
       }
       slot_idx++;   /* increment the packet counter */
+      if(glossy_get_n_rx_started()) {
+        /* set the period to the min. value to notify the scheduler that at 
+         * least one nodes wants to request a stream (has data to send) */
+        schedule.period = 1;
+      }
     }
 
     /* COMPUTE NEW SCHEDULE */
     
-    /* must be right after the cont. slot! */
     RTIMER_CAPTURE;
-    i = LWB_SCHED_HAS_SACK_SLOT(&schedule);
+    i = schedule.n_slots;
+    /* store the current period (required to schedule the next wakeup) */
+    curr_period = schedule.period;
     schedule_len = lwb_sched_compute(&schedule, streams_to_update, 0);
     stats.t_sched_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_sched_max);
     slot_idx++; /* increment to have more time for the schedule computation */
 
     /* --- S-ACK SLOT --- */
-    
-    if(i) {
+  #if LWB_CONF_SACK_SLOT
+    if(i &  & 0x8000) {
       payload_len = lwb_sched_prepare_sack((uint8_t*)glossy_payload);
       /* wait for the slot to start */
       LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
       LWB_SEND_PACKET();   /* transmit s-ack */
-      DEBUG_PRINT_INFO("S-ACK sent (%ub)", payload_len);
+      DEBUG_PRINT_VERBOSE("S-ACK sent (%ub)", payload_len);
       slot_idx++;
     }
-    
+  #endif /* LWB_CONF_SACK_SLOT */
+  
     /* --- 2ND SCHEDULE --- */
     
-    payload_len = 2;
-    glossy_payload[0] = schedule.period;
-    LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
-    LWB_SEND_PACKET();    /* send as normal packet! saves energy */
+    if(i & 0x4000) { 
+      /* send the 2nd schedule only if there was a contention slot */
+      payload_len = 2;
+      glossy_payload[0] = curr_period;
+      LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));
+      LWB_SEND_PACKET();    /* send as normal packet! saves energy */
+    }
     
     /* --- COMMUNICATION ROUND ENDS --- */
     /* time for other computations */
     
     /* print out some stats */
-    DEBUG_PRINT_INFO("%lu T=%u n=%u|%u ts=%u td=%u p=%u per=%d%% rssi=%ddBm", 
+    DEBUG_PRINT_INFO("%lu T=%u n=%u|%u ts=%u srq=%u p=%u per=%d%% rssi=%ddBm", 
                      global_time,
                      schedule.period / 10,
                      schedule.n_slots & 0x3fff,
                      schedule.n_slots >> 14,
                      stats.t_sched_max, 
-                     stats.t_proc_max, 
+                     srq_cnt, 
                      stats.pck_cnt,
                      glossy_get_per(),
                      glossy_rssi);
@@ -614,7 +631,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* poll the other processes to allow them to run after the LWB task was 
      * suspended (note: the polled processes will be executed in the inverse
      * order they were started/created) */
-    if(schedule.period == LWB_CONF_SCHED_PERIOD_IDLE * 10) {
+    if(curr_period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
       debug_print_poll();
       if(post_proc) {
         /* will be executed before the debug print task */
@@ -623,7 +640,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     }
     
     /* suspend this task and wait for the next round */
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 10);
+    LWB_LF_WAIT_UNTIL(t_start_lf + curr_period * RTIMER_SECOND_LF / 10);
   }
   
   PT_END(&lwb_pt);
@@ -646,7 +663,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint8_t slot_idx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t payload_len;
-  static uint8_t rounds_to_wait = 0;
 #endif /* LWB_CONF_RELAY_ONLY */
   static int8_t  glossy_snr = 0;
   static uint8_t node_registered = 0;   /* host knows about this node? */
@@ -669,6 +685,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       stats.bootstrap_cnt++;
       node_registered = 0;
       /* synchronize first! wait for the first schedule... */
+      payload_len = LWB_SCHED_PKT_HEADER_LEN;   /* empty schedule */
       do {
         LWB_RCV_SCHED();
       } while(!glossy_is_t_ref_updated());
@@ -676,6 +693,11 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       putchar('\r');
       putchar('\n');
     } else {
+      /* tell Glossy how many bytes we expect */
+      payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
+      if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
+        payload_len = LWB_SCHED_PKT_HEADER_LEN;   /* empty schedule */
+      }
       LWB_RCV_SCHED();  
     }
     glossy_snr = glossy_get_snr();
@@ -701,7 +723,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       /* we can only estimate t_ref and t_ref_lf */
       if(sync_state == UNSYNCED) {
         t_ref_lf = reception_timestamp;
-        if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 8) {
+        if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
           t_ref_lf += LWB_CONF_SCHED_PERIOD_IDLE * RTIMER_SECOND_LF;
         }
         schedule.period = LWB_CONF_SCHED_PERIOD_IDLE * 10;
@@ -728,12 +750,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
       if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {
         /* set the slot duration */
-        t_slot = LWB_CONF_T_CONT;
         if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
           /* this is a data round */
           t_slot = LWB_CONF_T_DATA;
         } else {
           /* it's a request round */
+          t_slot = LWB_CONF_T_CONT;
           node_registered = 0;
         }
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
@@ -743,7 +765,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             stats.t_slot_last = schedule.time;
             /* this is our data slot, send a data packet */
             if(!FIFO_EMPTY(&out_buffer)) {
-              if(t_slot == LWB_CONF_T_DATA) {
+              if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
                 /* it's a data round */
                 payload_len = lwb_out_buffer_get((uint8_t*)glossy_payload);  
               } else {
@@ -751,7 +773,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               }
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
-              DEBUG_PRINT_INFO("packet sent (%ub)", payload_len);
+              DEBUG_PRINT_VERBOSE("packet sent (%ub)", payload_len);
             } else {
               DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
             }
@@ -759,6 +781,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #endif /* LWB_CONF_RELAY_ONLY */
           {
             payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
+            if(!LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
+              /* the payload length is known in the request round */
+              payload_len = LWB_CONF_SRQ_PKT_LEN;
+            }
             /* receive a data packet */
             LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
             LWB_RCV_PACKET();
@@ -774,7 +800,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
         t_slot = LWB_CONF_T_CONT;
   #if !LWB_CONF_RELAY_ONLY
-        if(!FIFO_EMPTY(&out_buffer) && !rounds_to_wait) {
+        if(!FIFO_EMPTY(&out_buffer)) {
           /* if there is data in the output buffer, then request a slot */
           /* a slot request packet always looks the same (1 byte) */
           payload_len = 1;
@@ -786,15 +812,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
           /* wait until the contention slot starts */
           LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
           LWB_SEND_PACKET();
-          DEBUG_PRINT_INFO("request sent");
-          /* wait between 1 and 8 rounds */
-          rounds_to_wait = (random_rand() >> 1) % 8 + 1;
-        } else {
-          if(rounds_to_wait) {
-            DEBUG_PRINT_VERBOSE("must wait %u rounds", rounds_to_wait);
-            /* keep waiting and just relay incoming packets */
-            rounds_to_wait--;       /* decrease the number of rounds to wait */
-          }
+          DEBUG_PRINT_VERBOSE("request sent");
+        } else {          
   #endif /* LWB_CONF_RELAY_ONLY */     
           /* no request pending -> just receive / relay packets */
           payload_len = LWB_CONF_SRQ_PKT_LEN;
@@ -810,14 +829,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       slot_idx++; 
       
       /* --- S-ACK SLOT --- */
-      
+  #if LWB_CONF_SACK_SLOT
       if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
         payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
         /* wait for the slot to start */
         LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);     
         LWB_RCV_PACKET();                 /* receive s-ack */
         payload_len = glossy_get_payload_len() / 2;
-  #if !LWB_CONF_RELAY_ONLY
+    #if !LWB_CONF_RELAY_ONLY
         if(LWB_DATA_RCVD) {
           i = 0;
           while(i < payload_len) {
@@ -831,19 +850,23 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         } else {
           DEBUG_PRINT_VERBOSE("no data received in SACK slot");
         }
-  #endif /* LWB_CONF_RELAY_ONLY */
+    #endif /* LWB_CONF_RELAY_ONLY */
         slot_idx++;
       }
+  #endif /* LWB_CONF_SACK_SLOT */
       
       /* --- 2ND SCHEDULE --- */
       
-      payload_len = 2;  /* we expect exactly 2 bytes */
-      LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
-      LWB_RCV_PACKET();
-      if(LWB_DATA_RCVD) {
-        schedule.period = glossy_payload[0]; /* extract the updated period */
-      } else {
-        DEBUG_PRINT_WARNING("2nd schedule missed");
+      if(schedule.period == LWB_CONF_SCHED_PERIOD_IDLE * 10) {
+        /* only send the 2nd schedule in idle (period = base period) */
+        payload_len = 2;  /* we expect exactly 2 bytes */
+        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
+        LWB_RCV_PACKET();
+        if(LWB_DATA_RCVD) {
+          schedule.period = glossy_payload[0]; /* extract the updated period */
+        } else {
+          DEBUG_PRINT_VERBOSE("2nd schedule missed");
+        }
       }
     }
     
@@ -878,7 +901,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* poll the other processes to allow them to run after the LWB task was
      * suspended (note: the polled processes will be executed in the inverse
      * order they were started/created) */
-    if(schedule.period == LWB_CONF_SCHED_PERIOD_IDLE * 10) {
+    if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
       debug_print_poll();
       if(post_proc) {
         process_poll(post_proc);

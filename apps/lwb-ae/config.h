@@ -54,7 +54,7 @@
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
 #else
   #define RF_CONF_TX_CH                 10
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX       /* ~ +12 dBm */
 #endif
 
 /* --- LWB config --- */
@@ -64,6 +64,7 @@
 #define LWB_VERSION                     2            /* use the modified LWB */
 #define LWB_SCHED_AE                               /* use the 'AE' scheduler */
 #define LWB_CONF_SCHED_PERIOD_IDLE      5   /* define the base period length */
+//#define LWB_CONF_SACK_SLOT            1           /* 1 = enable S-ACK slot */
 /* buffer sizes */
 #define LWB_CONF_MAX_DATA_SLOTS         10 /* equals the # nodes & # streams */
 #define LWB_CONF_MAX_PACKET_LEN         64

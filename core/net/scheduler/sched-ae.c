@@ -46,13 +46,9 @@
  * scheduler will assign 1 slot to each stream in the next round. If the source
  * node wants to transmit more data, it needs to request another stream, i.e.
  * for each data packet, a stream request is necessary.
- * There are no more stream acknowledgements, but the SACK slot will be used
+ * There are no more stream acknowledgements, but the SACK slot can be used
  * to acknowledge the data reception.
- * Schedule compression is not used
- * 
- * NOTE: 
- * - max. number of streams must not exceed the max. number of data slots
- * - the minimal idle period is 3s
+ * Schedule compression is not used.
  */
  
 #include "lwb.h"
@@ -134,7 +130,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       if(!s->state) {
         n_streams++;
         s->state = 1;
-        DEBUG_PRINT_INFO("stream of node %u reactivated", req->node_id);
+        DEBUG_PRINT_VERBOSE("stream of node %u reactivated", req->node_id);
       }
       exists = 1;                    /* already exists */
       break;
@@ -179,9 +175,14 @@ lwb_sched_compute(lwb_schedule_t * const sched,
    * 0: idle
    * 1: contention detected, request round is next
    * 2: data round is next
+   * 
+   * note: the schedule is sent at the beginning of the next round,
+   * i.e. it must include the next period
    */
   if(sched_state == 0) {
-    if(glossy_get_n_rx_started()) {
+    if(sched->period == 1) {
+      /* LWB sets the period to 1 if at least a preamble and sync word was
+       * detected during the last contention slot! */
       DEBUG_PRINT_INFO("initiating a request round");
       /* clear the content of the schedule */
       memset(sched->slot, 0, sizeof(sched->slot)); 
@@ -193,10 +194,11 @@ lwb_sched_compute(lwb_schedule_t * const sched,
         /* go to the next stream in the list */
         curr_stream = curr_stream->next;
       }
-      sched->period = 1;      /* set period to the smallest value */
+      sched->period  = LWB_CONF_T_REQ_ROUND;
       sched->n_slots = n_slots_assigned;
       sched_state++;
     } else {
+      /* regular idle round */
       sched->n_slots = 0;
       sched->period  = LWB_CONF_SCHED_PERIOD_IDLE * 10;
       /* no data slots, just a contention slot */
@@ -222,16 +224,19 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     }
     sched->n_slots = n_slots_assigned;
     if(n_slots_assigned) {
-      sched->period = LWB_CONF_T_REQ_ROUND;
+      sched->period = LWB_CONF_SCHED_PERIOD_IDLE * 10 - 
+                      LWB_CONF_T_REQ_ROUND - 1;
       sched_state++;
       /* the next round will include an acknowledgement slot */
       LWB_SCHED_SET_SACK_SLOT(sched);
+      /* note: even if the sack slot is not used, still keep this marking to
+       * distinguish between a request and a data round! */
     } else {
       sched->period = LWB_CONF_SCHED_PERIOD_IDLE * 10 - 1;
       LWB_SCHED_SET_CONT_SLOT(sched);
       sched_state = 0;
     }
-  } else if(sched_state == 2) {        
+  } else if(sched_state == 2) {      
     n_pending_sack = 0;
     /* deactivate a stream if we received data */
     uint16_t i = 0;
@@ -258,7 +263,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           } else {
             n_streams--;
           }
-          DEBUG_PRINT_INFO("data received, stream removed");
+          DEBUG_PRINT_VERBOSE("data received, stream removed");
         }
       } else {
         /* this is not supposed to happen */
@@ -267,8 +272,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       i++;
     }
     sched->n_slots = 0;    
-    sched->period = LWB_CONF_SCHED_PERIOD_IDLE * 10 - 
-                    LWB_CONF_T_REQ_ROUND - 1;
+    sched->period  = LWB_CONF_SCHED_PERIOD_IDLE * 10;
     LWB_SCHED_SET_CONT_SLOT(sched);
     sched_state = 0;    /* back to idle state */
   }
@@ -297,9 +301,10 @@ lwb_sched_init(lwb_schedule_t* sched)
   LWB_SCHED_SET_CONT_SLOT(sched);       /* include a contention slot */
   sched->time = time;
   sched->period = LWB_CONF_SCHED_PERIOD_IDLE * 10;
-  
-  DEBUG_PRINT_INFO("AE scheduler initialized (max_streams: %u, t_req: %u)", 
-                   LWB_CONF_MAX_N_STREAMS, LWB_CONF_T_REQ_ROUND);
+
+  if(LWB_CONF_T_REQ_ROUND == 1) {      
+    DEBUG_PRINT_ERROR("LWB_CONF_T_REQ_ROUND must be bigger than 1!");
+  }
   
   return LWB_SCHED_PKT_HEADER_LEN; /* empty schedule, no slots allocated yet */
 }

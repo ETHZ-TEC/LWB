@@ -71,9 +71,8 @@ PROCESS_THREAD(app_process, ev, data)
   
   PROCESS_BEGIN();
           
-#if LWB_CONF_USE_LF_FOR_WAKEUP
   SVS_DISABLE;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  
   /* all other necessary initialization is done in contiki-cc430-main.c */
     
   /* start the LWB thread */
@@ -117,18 +116,21 @@ PROCESS_THREAD(app_process, ev, data)
         acks_rcvd++;
         DEBUG_PRINT_INFO("sent=%u ack=%u", events_sent, acks_rcvd);
       } 
-      if(round_cnt == 3) {
+#ifdef FLOCKLAB
+      if(round_cnt == 1 &&
+         (node_id == 6 || node_id == 28 || node_id == 22)) {
         /* generate a dummy packet to 'register' this node at the host */
         lwb_put_data((uint8_t*)&node_id, 2);
         events_sent++;
       }
-#ifdef FLOCKLAB
-      uint16_t elapsed_time = lwb_get_time(0);
-      if((node_id == 6 || node_id == 16 || node_id == 22) && 
-         (elapsed_time % 50 == 0) && round_cnt > 15) {
-        /* generate an event every 10th round */
+      //uint16_t elapsed_time = lwb_get_time(0);
+      /* initiator nodes start to send data after a certain time */
+      if((node_id == 6 || node_id == 28 || node_id == 22) && 
+         round_cnt > 12) {      /* (elapsed_time % 20 == 0) && */
+        /* generate an event */
         lwb_put_data((uint8_t*)&node_id, 2);
         events_sent++;
+        DEBUG_PRINT_INFO("sent=%u ack=%u", events_sent, acks_rcvd);
       }      
 #endif /* FLOCKLAB */
     }

@@ -82,7 +82,7 @@
 /* MCU specific code for disabling undesired interrupts during a glossy flood.
  * All but the following interrupts will be disabled: 
  * radio, watchdog and the timer CCR needed for glossy */
-#ifndef GLOSSY_DISABLE_INTERRUPTS
+/*#ifndef GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_DISABLE_INTERRUPTS {\
     g.enabled_interrupts  = 0;\
     g.enabled_interrupts |= (CBINT & CBIIE) ? (1 << 0) : 0;\
@@ -98,21 +98,21 @@
     g.enabled_interrupts |= (TA1CTL & TAIE) ? (1 << 7) : 0;\
     TA0CTL &= ~TAIE;\
     TA1CTL &= ~TAIE;\
-    /*g.enabled_interrupts |= (TA0CCTL0 & CCIE) ? (1 << 8) : 0;*/\
+    g.enabled_interrupts |= (TA0CCTL0 & CCIE) ? (1 << 8) : 0;\
     g.enabled_interrupts |= (TA0CCTL1 & CCIE) ? (1 << 9) : 0;\
     g.enabled_interrupts |= (TA0CCTL2 & CCIE) ? (1 << 10) : 0;\
-    g.enabled_interrupts |= (TA0CCTL3 & CCIE) ? (1 << 11) : 0; */\
-    /*g.enabled_interrupts |= (TA0CCTL4 & CCIE) ? (1 << 12) : 0; */\
-    /*TA0CCTL0 &= ~CCIE;*/\
+    g.enabled_interrupts |= (TA0CCTL3 & CCIE) ? (1 << 11) : 0;\
+    g.enabled_interrupts |= (TA0CCTL4 & CCIE) ? (1 << 12) : 0;\
+    TA0CCTL0 &= ~CCIE;\
     TA0CCTL1 &= ~CCIE;\
     TA0CCTL2 &= ~CCIE;\
     TA0CCTL3 &= ~CCIE;\
-    /*TA0CCTL4 &= ~CCIE; -> required for radio */\
+    TA0CCTL4 &= ~CCIE;\
     g.enabled_interrupts |= (TA1CCTL0 & CCIE) ? (1 << 13) : 0;\
-    /*g.enabled_interrupts |= (TA1CCTL1 & CCIE) ? (1 << 14) : 0;*/\
+    g.enabled_interrupts |= (TA1CCTL1 & CCIE) ? (1 << 14) : 0;\
     g.enabled_interrupts |= (TA1CCTL2 & CCIE) ? (1 << 15) : 0;\
     TA1CCTL0 &= ~CCIE;\
-    /*TA1CCTL1 &= ~CCIE;*/\
+    TA1CCTL1 &= ~CCIE;\
     TA1CCTL2 &= ~CCIE;\
     g.enabled_interrupts |= (DMA0CTL & DMAIE) ? (1 << 16) : 0;\
     g.enabled_interrupts |= (DMA1CTL & DMAIE) ? (1 << 17) : 0;\
@@ -135,9 +135,9 @@
     P2IE = 0;\
     enabled_adc_interrupts = ADC12IE;\
     ADC12IE = 0;}
-#endif /* GLOSSY_DISABLE_INTERRUPTS */
+#endif*/ /* GLOSSY_DISABLE_INTERRUPTS */
 
-#ifndef GLOSSY_ENABLE_INTERRUPTS
+/*#ifndef GLOSSY_ENABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS {\
     if(g.enabled_interrupts & (1 << 0)) { CBINT |= CBIIE; }\
     if(g.enabled_interrupts & (1 << 1)) { CBINT |= CBIE; }\
@@ -167,7 +167,7 @@
     P2IE = enabled_port_interrupts & 0xff;\
     P1IE = (enabled_port_interrupts >> 8) & 0xff;\
     ADC12IE = enabled_adc_interrupts;}
-#endif /* GLOSSY_ENABLE_INTERRUPTS */
+#endif*/ /* GLOSSY_ENABLE_INTERRUPTS */
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
@@ -435,10 +435,13 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     }
   } else {
     /* Glossy receiver */
-    rf1a_start_rx();        
-    /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
-    __delay_cycles(MCLK_SPEED / 3000);    /* wait 0.33 ms */
-    g.rssi_noise = rf1a_get_rssi();       /* get RSSI of the noise floor */
+    rf1a_start_rx();      
+    /* measure the channel noise (but only if waiting for the schedule */
+    if(sync == GLOSSY_WITH_SYNC) {
+      /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
+      __delay_cycles(MCLK_SPEED / 3000);     /* wait 0.33 ms */
+      g.rssi_noise = rf1a_get_rssi();        /* get RSSI of the noise floor */      
+    }
   }
   /* note: RF_RDY bit must be cleared before entering LPM after a transition 
    * from idle to RX or TX. RF1ASTATB & 0x80  or  GDO0 */
