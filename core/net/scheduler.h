@@ -151,7 +151,7 @@ typedef struct {
     uint8_t  stream_id;            
     uint8_t  n_extra;   /* number of additional sack's in this packet */
     /* additional sack's */
-    uint8_t  extra[LWB_CONF_MAX_PACKET_LEN - LWB_SACK_MIN_PKT_LEN];  
+    uint8_t  extra[LWB_CONF_MAX_PKT_LEN - LWB_SACK_MIN_PKT_LEN];  
 } lwb_stream_ack_t;     /* stream acknowledgement */
 
 

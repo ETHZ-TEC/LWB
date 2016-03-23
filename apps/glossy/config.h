@@ -43,45 +43,34 @@
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm 
   #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */
+  #define RF_CONF_MAX_PKT_LEN           63
   #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
   #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
 #else
   /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */
+  #define RF_CONF_TX_CH                 5      /* approx. 869 MHz */
   #define NODE_ID                       1
+  #define RF_CONF_MAX_PKT_LEN           63
   #define APP_TASK_ACT_PIN              PORT2, PIN1
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
 #endif /* FLOCKLAB */
 
 /* LWB configuration */
-#define GLOSSY_PERIOD                   1                               /* s */
+#define GLOSSY_PERIOD                   (RTIMER_SECOND_HF / 4)
 #define GLOSSY_RTIMER_ID                RTIMER_HF_0
 #define GLOSSY_T_SLOT                   (RTIMER_SECOND_HF / 20)
 #define GLOSSY_T_GUARD                  (RTIMER_SECOND_HF / 1000)     /* 1ms */
-#define GLOSSY_T_GUARD_2                (RTIMER_SECOND_HF / 500)      /* 2ms */
-#define GLOSSY_MAX_PACKET_LEN           127
+#define GLOSSY_PAYLOAD_LEN              15
 #define GLOSSY_N_TX                     3
 
-#define TIME_SCALE                      1
-
-#define FRAM_CONF_ON                    0
-
-/* the max. clock deviation (according to the specs of the oscillator), in 
- * HF timer ticks per second */
-#define MAX_CLOCK_DEV                   500 
-
-/* constant time offset that is added to t_ref in each round (to align the 
- * glossy start pulses on host and source nodes) */
-#define T_REF_OFS                       (RTIMER_SECOND_HF / 800)
+/* to align the host and source nodes */
+#define GLOSSY_REF_OFS                  (RTIMER_SECOND_HF / 800)
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-
-/* to disable a compiler warning */
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0
 
 #endif /* __CONFIG_H__ */

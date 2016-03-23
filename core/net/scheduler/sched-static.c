@@ -348,7 +348,7 @@ set_schedule:
 #if LWB_CONF_SCHED_COMPRESS
   compressed_size = lwb_sched_compress((uint8_t*)sched->slot, 
                                                n_slots_assigned);
-  if((compressed_size + LWB_SCHED_PKT_HEADER_LEN) > LWB_CONF_MAX_PACKET_LEN) {
+  if((compressed_size + LWB_SCHED_PKT_HEADER_LEN) > LWB_CONF_MAX_PKT_LEN) {
     DEBUG_PRINT_ERROR("compressed schedule is too big!");
   }
 #else

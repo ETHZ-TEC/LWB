@@ -59,7 +59,7 @@
 #define LWB_CONF_MAX_N_STREAMS          10
 #define LWB_CONF_OUT_BUFFER_SIZE        3
 #define LWB_CONF_IN_BUFFER_SIZE         2
-#define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PACKET_LEN)
+#define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PKT_LEN)
 #define LWB_CONF_MAX_DATA_SLOTS         2
 #define LWB_CONF_TIME_SCALE             5
 #define LWB_CONF_TX_CNT_DATA            2

@@ -53,14 +53,11 @@
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
   #define NODE_ID                       2
-  //#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT2
-  //#define DEBUG_PRINT_TASK_ACT_PIN      COM_MCU_INT2
-  //#define APP_TASK_ACT_PIN              COM_MCU_INT2
 #endif /* FLOCKLAB */
 
+#define LWB_CONF_OUT_BUFFER_SIZE        2
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define CLOCK_CONF_FLL_ON               1
-#define FRAM_CONF_ON                    0
+#define LWB_CONF_MAX_PKT_LEN            31
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */

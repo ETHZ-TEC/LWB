@@ -43,11 +43,13 @@
 #ifndef RF_CONF_TX_POWER
 #define RF_CONF_TX_POWER        RF1A_TX_POWER_0_dBm
 #endif /* RF_CONF_TX_POWER */
+
 #ifndef RF_CONF_TX_CH
 #define RF_CONF_TX_CH           0
 #endif /* RF_CONF_TX_CH */
-#ifndef RF_CONF_MAX_PKT_LEN     /* must be <= RF_CONF_MAX_PKT_LEN */
-#define RF_CONF_MAX_PKT_LEN     127
+
+#ifndef RF_CONF_MAX_PKT_LEN
+#define RF_CONF_MAX_PKT_LEN     255     /* max. is 255 */
 #endif /* RF_CONF_MAX_PKT_LEN */
 /*---------------------------------------------------------------------------*/
 const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = { 
@@ -155,12 +157,18 @@ rf1a_init(void)
      after an interrupt */
   write_byte_to_register(FIFOTHR, (FIFO_CHUNK_SIZE - 3) / 4);
 
+
+  /* output RF_RDY to GDO0 */
+  rf1a_configure_gdo_signal(0, 0x29, 0);
+  
+  /* output CRC_OK to GDO1 */
+  rf1a_configure_gdo_signal(1, 7, 0);  
+  /* output the serial clock on GDO1 */
+  /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
+  
   /* map the sync word signal to GDO2 (corresponding to GDO2_CFG = 0x06, see
      Table 25-21) */
   rf1a_configure_gdo_signal(2, 6, 0);
-  
-  /* output the serial clock on GDO1 */
-  /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
   
   /* timer 4: capture input CCI4B, which corresponds to GDO2, i.e., to the sync
      word signal */
@@ -186,6 +194,11 @@ rf1a_init(void)
   PMMCTL0_H  = 0xa5;  /* unlock */
   PMMCTL0_L |= PMMHPMRE;
   PMMCTL0_H  = 0;        /* lock */
+  
+  printf("RF module configured (pwr=%sdBm, ch=%u/%u.%uMHz, len=%ub)\r\n",
+         rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
+         RF_CONF_TX_CH, RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
+         RF_CONF_MAX_PKT_LEN);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -621,6 +634,11 @@ ISR(CC1101, radio_interrupt)
           /* CRC not OK */
           /* invert the edge for the next interrupt */
           INVERT_INTERRUPT_EDGES(BIT9);
+          /* print the first 5 bytes */
+          /*DEBUG_PRINT_INFO("crc_inv: 0x%x, 0x%x 0x%x 0x%x 0x%x 0x%x", 
+                           packet_len, 
+                           rf1a_buffer[0], rf1a_buffer[1], rf1a_buffer[2], 
+                           rf1a_buffer[3], rf1a_buffer[4]);*/
           rf1a_cb_rx_failed(&timestamp);
         }
         break;
