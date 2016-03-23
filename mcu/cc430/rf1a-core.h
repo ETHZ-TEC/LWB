@@ -34,8 +34,6 @@
 #ifndef __RF1A_CORE_H__
 #define __RF1A_CORE_H__
 
-#define RF_CONF_MAX_PKT_LEN  255
-
 /* status byte (see Table 25-8) */
 #define GET_RADIO_CORE_READY(status)  ((status & 0x80) >> 7)
 #define GET_RF_STATE(status)          ((status & 0x70) >> 4)

@@ -49,7 +49,6 @@
 //#include "clock.h"
 #include "sys/etimer.h"
 #include "sys/process.h"
-#include "leds.h"
 
 static struct etimer *timerlist;
 static clock_time_t next_expiration;

@@ -53,7 +53,7 @@
 
 
 #include "rf1a-core.h"
-#include "rtimer.h"
+#include "contiki-conf.h"
 
 
 /* reception started callback */

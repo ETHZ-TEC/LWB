@@ -73,6 +73,17 @@
  */
 #define REGVAL8(x)                      (*((volatile uint8_t *)((uint16_t)x)))
 
+/* LED functions */
+#if LED_CONF_ON
+  #define LED_ON(portandpin)            PIN_SET_I(portandpin)
+  #define LED_OFF(portandpin)           PIN_CLR_I(portandpin)
+  #define LED_TOGGLE(portandpin)        PIN_XOR_I(portandpin)
+#else
+  #define LED_ON(portandpin)
+  #define LED_OFF(portandpin)
+  #define LED_TOGGLE(portandpin)
+#endif
+
 /* note: all following macros ending with '_I' (immediate) can only be used
  * when passing numbers directly (no defines or variables) */
 #define PIN_XOR_I(port, pin)            (P##port##OUT ^= BIT##pin)
@@ -230,7 +241,23 @@
  * 1
  */
 #define PIN_GET(portandpin)             PIN_GET_I(portandpin)
-
+/**
+ * @brief reset all pins to the recommended default configuration 
+ * (port function, output direction, low)
+ */
+#define GPIO_RESET()                    { PORT_UNSEL_I(1); \
+                                          PORT_CFG_OUT_I(1); \
+                                          PORT_CLR_I(1); \
+                                          PORT_CLR_IFG_I(1); \
+                                          PORT_UNSEL_I(2); \
+                                          PORT_CFG_OUT_I(2); \
+                                          PORT_CLR_I(2); \
+                                          PORT_CLR_IFG_I(2); \
+                                          PORT_UNSEL_I(3); \
+                                          PORT_CFG_OUT_I(3); \
+                                          PORT_CLR_I(3); \
+                                          PORT_CFG_OUT_I(J); \
+                                          PORT_CLR_I(J); }
 
 #endif /* __GPIO_H__ */
 

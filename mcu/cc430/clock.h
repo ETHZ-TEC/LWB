@@ -50,7 +50,7 @@
 /* FLL is only required if one of the following clock sources is used: DCOCLK,
    DCOCLKDIV, FLLREFCLK */
 #ifndef CLOCK_CONF_FLL_ON
-#define CLOCK_CONF_FLL_ON    0
+#define CLOCK_CONF_FLL_ON    1
 #endif /* CLOCK_CONF_FLL_ON */
 
 #ifndef CLOCK_CONF_XT1_ON

@@ -447,7 +447,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static rtimer_clock_t t_now;
   static rtimer_clock_t t_start_lf;
   /* packet buffer: use uint16_t to force word boundary alignment */
-  static uint16_t glossy_payload[(LWB_CONF_MAX_PACKET_LEN + 1) / 2];
+  static uint16_t glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
   /* constant guard time for the host */
   static const uint32_t t_guard = LWB_CONF_T_GUARD; 
   static uint32_t t_slot = LWB_CONF_T_DATA;
@@ -657,7 +657,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static rtimer_clock_t t_ref;
   static rtimer_clock_t t_ref_lf;
   /* packet buffer: use uint16_t to force word boundary alignment */
-  static uint16_t glossy_payload[(LWB_CONF_MAX_PACKET_LEN + 1) / 2];
+  static uint16_t glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static uint32_t t_slot = LWB_CONF_T_DATA;
   static uint8_t slot_idx;

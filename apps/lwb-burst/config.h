@@ -57,8 +57,8 @@
 #define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */
 #define LWB_CONF_MAX_DATA_SLOTS         20
 #define LWB_CONF_MAX_N_STREAMS          5
-#define LWB_CONF_MAX_PACKET_LEN         128
-#define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PACKET_LEN)
+#define LWB_CONF_MAX_PKT_LEN            128
+#define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PKT_LEN)
 #define LWB_CONF_SCHED_SACK_BUFFER_SIZE LWB_CONF_MAX_N_STREAMS
 #if HOST_ID == NODE_ID
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS

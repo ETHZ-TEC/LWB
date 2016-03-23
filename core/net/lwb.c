@@ -79,14 +79,14 @@ typedef struct {
   union {
     struct {
       lwb_data_pkt_t data_pkt;
-      uint8_t reserved1[LWB_CONF_MAX_PACKET_LEN - LWB_CONF_MAX_DATA_PKT_LEN];
+      uint8_t reserved1[LWB_CONF_MAX_PKT_LEN - LWB_CONF_MAX_DATA_PKT_LEN];
     };
     struct {
       lwb_stream_req_t srq_pkt;
-      uint8_t reserved2[LWB_CONF_MAX_PACKET_LEN - LWB_STREAM_REQ_PKT_LEN];
+      uint8_t reserved2[LWB_CONF_MAX_PKT_LEN - LWB_STREAM_REQ_PKT_LEN];
     };
     lwb_stream_ack_t sack_pkt;
-    uint8_t raw_data[LWB_CONF_MAX_PACKET_LEN];
+    uint8_t raw_data[LWB_CONF_MAX_PKT_LEN];
   };
   uint8_t reserved3; /* extra byte (padding) */
 } glossy_payload_t;

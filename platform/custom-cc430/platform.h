@@ -76,9 +76,9 @@
 #define WATCHDOG_CONF_ON            0
 #endif /* WATCHDOG_CONF_ON */
 
-#ifndef LEDS_CONF_ON 
-#define LEDS_CONF_ON                1
-#endif /* LEDS_CONF_ON */
+#ifndef LED_CONF_ON 
+#define LED_CONF_ON                 1
+#endif /* LED_CONF_ON */
 
 /* this board does not have a crystal oscillator installed at XT1 */
 #define CLOCK_CONF_XT1_ON           0           
@@ -159,7 +159,6 @@
 #include "flash.h"
 #include "gpio.h"
 #include "pmm.h"
-#include "leds.h"
 #include "rf1a.h"        /* RF1A config must be included BEFORE rf1a.h */
 #include "rtimer.h"
 #include "spi.h"

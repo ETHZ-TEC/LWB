@@ -78,7 +78,7 @@ typedef enum {
 } sync_event_t; 
 /*---------------------------------------------------------------------------*/
 typedef struct {
-  uint8_t raw_data[LWB_CONF_MAX_PACKET_LEN];
+  uint8_t raw_data[LWB_CONF_MAX_PKT_LEN];
 } glossy_payload_t;
 /*---------------------------------------------------------------------------*/
 /**

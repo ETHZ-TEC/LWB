@@ -66,10 +66,10 @@
 #ifndef LWB_CONF_MAX_DATA_PKT_LEN
 /* max. length of a data packet incl. the LWB header (node + stream ID), 
  * determines T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, 
- * choose as small as possible; must be <= (LWB_CONF_MAX_PACKET_LEN - 5) 
- * NOTE: LWB_CONF_MAX_DATA_PKT_LEN must not exceed LWB_CONF_MAX_PACKET_LEN
+ * choose as small as possible; must be <= (LWB_CONF_MAX_PKT_LEN - 5) 
+ * NOTE: LWB_CONF_MAX_DATA_PKT_LEN must not exceed LWB_CONF_MAX_PKT_LEN
  * and the max. data payload length is LWB_CONF_MAX_DATA_PKT_LEN - 3 */
-#define LWB_CONF_MAX_DATA_PKT_LEN       16
+#define LWB_CONF_MAX_DATA_PKT_LEN       LWB_CONF_MAX_PKT_LEN
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
 /* set to 1 to skip the state QUASI_SYNCED and jump directly to SYNCED after 
@@ -118,7 +118,7 @@
 
 #ifndef LWB_CONF_T_SCHED
 /* length of a schedule slot: should be approx. 25 ms */
-#define LWB_CONF_T_SCHED                LWB_T_SLOT_MIN(LWB_CONF_MAX_PACKET_LEN)    
+#define LWB_CONF_T_SCHED                LWB_T_SLOT_MIN(LWB_CONF_MAX_PKT_LEN)    
 #endif /* LWB_CONF_T_SCHED */
   
 #ifndef LWB_CONF_T_DATA
@@ -158,7 +158,7 @@
 
 #ifndef LWB_CONF_MAX_DATA_SLOTS
 /* max. number of data slots per round, must not exceed MIN(63, 
- * (LWB_CONF_MAX_PACKET_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
+ * (LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
  * must be at least 2 */
 #define LWB_CONF_MAX_DATA_SLOTS         20        
 #endif /* LWB_CONF_MAX_DATA_SLOTS */
@@ -184,12 +184,12 @@
 #define LWB_CONF_STATS_NVMEM            1         
 #endif /* LWB_CONF_STATS_NVMEM */
 
-#ifndef LWB_CONF_MAX_PACKET_LEN
+#ifndef LWB_CONF_MAX_PKT_LEN
 /* the max. length of a packet (limits the message size as well as the max. 
  * size of a LWB packet and the schedule); do not change this value before
  * you have adjusted the radio module configuration! */
-#define LWB_CONF_MAX_PACKET_LEN         127
-#endif /* LWB_CONF_MAX_PACKET_LEN */
+#define LWB_CONF_MAX_PKT_LEN            127
+#endif /* LWB_CONF_MAX_PKT_LEN */
 
 #ifndef LWB_CONF_TX_CNT_SCHED
 /* max. number of TX phases for a schedule packet (how many times each node 
@@ -272,11 +272,9 @@
 #endif /* RF_CONF_TX_BITRATE */
 
 // -> defined in rf1a-core.h
-//#ifndef RF_CONF_MAX_PKT_LEN
-//#define RF_CONF_MAX_PKT_LEN             LWB_CONF_MAX_PACKET_LEN
-//#else /* RF_CONF_MAX_PKT_LEN */
-//#error "RF_CONF_MAX_PKT_LEN already defined!"
-//#endif /* RF_CONF_MAX_PKT_LEN */
+#ifndef RF_CONF_MAX_PKT_LEN
+#define RF_CONF_MAX_PKT_LEN             LWB_CONF_MAX_PKT_LEN
+#endif /* RF_CONF_MAX_PKT_LEN */
 
 /*---------------------------------------------------------------------------*/
 
@@ -369,7 +367,7 @@ lwb_conn_state_t lwb_get_state(void);
  * @brief schedule a packet for transmission over the LWB
  * @param data a pointer to the data packet to send
  * @param len the length of the data packet (must be less or equal 
- * LWB_MAX_PACKET_LEN)
+ * LWB_CONF_MAX_PKT_LEN)
  * @return 1 if successful, 0 otherwise (queue full)
  */
 #if LWB_VERSION == 2
@@ -386,7 +384,7 @@ uint8_t lwb_put_data(uint16_t recipient,
  * @brief get a data packet that have been received during the previous LWB
  * rounds
  * @param out_data A valid memory block that can hold one data packet. The 
- * buffer must be at least LWB_MAX_PACKET_LEN bytes long.
+ * buffer must be at least LWB_CONF_MAX_PKT_LEN bytes long.
  * @param out_node_id the ID of the node that sent the message (optional 
  * parameter, pass 0 if not interested in this data)
  * @param out_stream_id the stream ID (optional parameter, pass 0 if not 

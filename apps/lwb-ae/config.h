@@ -54,12 +54,11 @@
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
 #else
   #define RF_CONF_TX_CH                 10
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX       /* ~ +12 dBm */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
 #endif
 
 /* --- LWB config --- */
 
-#define LWB_CONF_USE_XMEM               0       /* don't use external memory */
 /* scheduler */
 #define LWB_VERSION                     2            /* use the modified LWB */
 #define LWB_SCHED_AE                               /* use the 'AE' scheduler */
@@ -67,8 +66,7 @@
 //#define LWB_CONF_SACK_SLOT            1           /* 1 = enable S-ACK slot */
 /* buffer sizes */
 #define LWB_CONF_MAX_DATA_SLOTS         10 /* equals the # nodes & # streams */
-#define LWB_CONF_MAX_PACKET_LEN         64
-#define LWB_CONF_MAX_DATA_PKT_LEN       (LWB_CONF_MAX_PACKET_LEN)
+#define LWB_CONF_MAX_PKT_LEN            63
 #define LWB_CONF_MAX_N_STREAMS          LWB_CONF_MAX_DATA_SLOTS 
 #if defined(FLOCKLAB) || HOST_ID == NODE_ID
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
@@ -98,11 +96,5 @@
   #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
   #define APP_TASK_ACT_PIN              FLOCKLAB_INT1
 #endif
-
-/* --- GENERAL config --- */
-
-#define FRAM_CONF_ON                    0
-#define BOLT_CONF_ON                    0
-#define CLOCK_CONF_FLL_ON               1
 
 #endif /* __CONFIG_H__ */

@@ -72,7 +72,7 @@
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200) /* 5ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
 #define LWB_CONF_MAX_DATA_PKT_LEN       180
-#define LWB_CONF_MAX_PACKET_LEN         180
+#define LWB_CONF_MAX_PKT_LEN            180
 
 #define RF_CONF_TX_CH                   10
 

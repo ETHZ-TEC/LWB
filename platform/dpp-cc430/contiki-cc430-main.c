@@ -109,31 +109,16 @@ main(int argc, char **argv)
   
   /* initialize hardware */
 
-  /* default config for all pins: port function, output direction */
-  PORT_UNSEL_I(1);
-  PORT_CFG_OUT_I(1);
-  PORT_CLR_I(1);
-  PORT_CLR_IFG_I(1);
-  PORT_UNSEL_I(2);
-  PORT_CFG_OUT_I(2);
-  PORT_CLR_I(2);
-  PORT_CLR_IFG_I(2);
-  PORT_UNSEL_I(3);
-  PORT_CFG_OUT_I(3);
-  PORT_CLR_I(3);
-  PORT_CFG_OUT_I(J);
-  PORT_CLR_I(J);
+  GPIO_RESET();       /* set default configuration for all GPIOs */
     
-  /* ---> board-specific optimal configuration of unused pins goes here <--- */
+  PIN_SET(LED_STATUS);
   
+  /* ---> board-specific optimal configuration of unused pins goes here <--- */
 #ifdef COM_MCU_SPARE1
   /* make sure pin P3.6 (Vcc for FRAM) is high! */
   PIN_SET(COM_MCU_SPARE1);
 #endif /* COM_MCU_SPARE1 */
 
-  LEDS_INIT;
-  LEDS_ON;
-  
 #ifdef DEBUG_SWITCH
   PIN_CFG_INT(DEBUG_SWITCH);
 #endif
@@ -174,10 +159,6 @@ main(int argc, char **argv)
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  printf("RF module configured (pwr=%sdBm, ch=%u/%u.%uMHz, len=%ub)\r\n",
-         rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
-         RF_CONF_TX_CH, RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
-         RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
   
   /* set the node ID */
@@ -227,8 +208,8 @@ main(int argc, char **argv)
   debug_print_init();  
   /* note: start debug process as last due to process_poll() execution order */
   
-  LEDS_OFF;     /* init done */
-  __eint();
+  PIN_CLR(LED_STATUS);     /* init done */
+  //__eint();
   
   while(1) {
     int r;

@@ -104,31 +104,13 @@ print_device_info(void)
 int
 main(int argc, char **argv)
 {
-  watchdog_stop();
   watchdog_init();
 
   /* initialize hardware */
 
-  /* default config for all pins: port function, output direction */
-  PORT_UNSEL_I(1);
-  PORT_CFG_OUT_I(1);
-  PORT_CLR_I(1);
-  PORT_CLR_IFG_I(1);
-  PORT_UNSEL_I(2);
-  PORT_CFG_OUT_I(2);
-  PORT_CLR_I(2);
-  PORT_CLR_IFG_I(2);
-  PORT_UNSEL_I(3);
-  PORT_CFG_OUT_I(3);
-  PORT_CLR_I(3);
-  PORT_CFG_OUT_I(J);
-  PORT_CLR_I(J);
-    
-  /* board-specific optimal configuration of unused pins */
-  // TODO
-
-  LEDS_INIT;
-  LEDS_ON;
+  GPIO_RESET();       /* set default configuration for all GPIOs */
+ 
+  PIN_SET(LED_STATUS);
   
 #ifdef DEBUG_SWITCH
   PIN_CFG_INT(DEBUG_SWITCH);
@@ -168,7 +150,6 @@ main(int argc, char **argv)
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
-  printf("RF module configured (gain: %sdB, channel: %u, packet len: %u B)\r\n", rf1a_tx_powers_to_string[RF_CONF_TX_POWER], RF_CONF_TX_CH, RF_CONF_MAX_PKT_LEN);
 #endif /* RF_CONF_ON */
 
 #if FRAM_CONF_ON
@@ -212,8 +193,8 @@ main(int argc, char **argv)
   watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
 
-  LEDS_OFF;     /* init done */
-  __eint();
+  PIN_CLR(LED_STATUS);     /* init done */
+  //__eint();
   
   /* start processes */
   debug_print_init();  

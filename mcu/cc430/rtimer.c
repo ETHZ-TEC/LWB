@@ -201,11 +201,11 @@ rtimer_update_enable(uint8_t enable)
   if(enable) {
     TA0CTL |= TAIE; 
     TA1CTL |= TAIE;
-    *(&TA0CCTL0 + LWB_CONF_RTIMER_ID) |= CCIE;
+    //*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) |= CCIE;
   } else {
     TA0CTL &= ~TAIE; 
     TA1CTL &= ~TAIE;
-    *(&TA0CCTL0 + LWB_CONF_RTIMER_ID) &= ~CCIE;
+    //*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) &= ~CCIE;
   }
 }
 /*---------------------------------------------------------------------------*/
