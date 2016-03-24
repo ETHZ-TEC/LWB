@@ -67,9 +67,31 @@
 #define LWB_CONF_SACK_SLOT          0
 #endif /* LWB_CONF_SACK_SLOT */
 
-#ifndef LWB_CONF_DRIFT_COMPENSATION
-#define LWB_CONF_DRIFT_COMPENSATION 0
-#endif /* LWB_CONF_DRIFT_COMPENSATION */
+/* indicates when this node is about to send a request */
+#ifdef LWB_REQ_IND_PIN
+  #define LWB_REQ_IND               { PIN_SET(LWB_REQ_IND_PIN); \
+                                      PIN_CLR(LWB_REQ_IND_PIN); }
+#else /* LWB_CONF_REQ_SENT_PIN */
+  #define LWB_REQ_IND
+#endif /* LWB_CONF_REQ_SENT_PIN */
+
+/* code that is executed upon detection of a contention */
+#ifndef LWB_REQ_DETECTED
+#define LWB_REQ_DETECTED
+#endif /* LWB_REQ_DETECTED */
+
+/* indicates when this node is about to send a data packet */ 
+#ifdef LWB_DATA_IND_PIN
+  #define LWB_DATA_IND              { PIN_SET(LWB_DATA_IND_PIN); \
+                                      PIN_CLR(LWB_DATA_IND_PIN); }
+#else /* LWB_CONF_DATA_IND_PIN */
+  #define LWB_DATA_IND
+#endif /* LWB_CONF_DATA_IND_PIN */
+
+/* is executed before each data slot */
+#ifndef LWB_DATA_SLOT_STARTS
+#define LWB_DATA_SLOT_STARTS
+#endif /* LWB_DATA_SLOT_STARTS */
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB on the source node */
 typedef enum {
@@ -522,13 +544,15 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
           }
         } else {
-          payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
           if(t_slot == LWB_CONF_T_CONT) {
             /* it's a request round */
             payload_len = LWB_CONF_SRQ_PKT_LEN;
-          } 
+          } else {
+            payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
+            LWB_DATA_SLOT_STARTS;
+          }
           /* wait until the data slot starts */
-          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard); 
+          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
           LWB_RCV_PACKET();  /* receive a data packet */
           payload_len = glossy_get_payload_len();
           if(LWB_DATA_RCVD) {
@@ -562,6 +586,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
       t_slot = LWB_CONF_T_CONT;
       payload_len = LWB_CONF_SRQ_PKT_LEN;
+      glossy_payload[0] = 0;
       /* wait until the slot starts, then receive the packet */
       LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
       LWB_RCV_PACKET();
@@ -575,6 +600,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         /* set the period to the min. value to notify the scheduler that at 
          * least one nodes wants to request a stream (has data to send) */
         schedule.period = 1;
+        LWB_REQ_DETECTED;
       }
     }
 
@@ -767,7 +793,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             if(!FIFO_EMPTY(&out_buffer)) {
               if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
                 /* it's a data round */
-                payload_len = lwb_out_buffer_get((uint8_t*)glossy_payload);  
+                payload_len = lwb_out_buffer_get((uint8_t*)glossy_payload);
+                LWB_DATA_IND;
               } else {
                 payload_len = 1;
               }
@@ -810,6 +837,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             *(uint8_t*)glossy_payload = (uint8_t)node_id; /* truncate */
           }
           /* wait until the contention slot starts */
+          LWB_REQ_IND;
           LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
           LWB_SEND_PACKET();
           DEBUG_PRINT_VERBOSE("request sent");
@@ -857,8 +885,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
       /* --- 2ND SCHEDULE --- */
       
-      if(schedule.period == LWB_CONF_SCHED_PERIOD_IDLE * 10) {
-        /* only send the 2nd schedule in idle (period = base period) */
+      if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
+        /* only rcv the 2nd schedule if there was a contention slot */
         payload_len = 2;  /* we expect exactly 2 bytes */
         LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
         LWB_RCV_PACKET();

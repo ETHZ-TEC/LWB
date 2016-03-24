@@ -171,28 +171,33 @@
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
-#define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
-#define GLOSSY_STOPPED      PIN_CLR(GLOSSY_START_PIN)
+  #define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
+  #define GLOSSY_STOPPED      PIN_CLR(GLOSSY_START_PIN)
 #else
-#define GLOSSY_STARTED
-#define GLOSSY_STOPPED
+  #define GLOSSY_STARTED
+  #define GLOSSY_STOPPED
 #endif
 
 #ifdef GLOSSY_RX_PIN 
-#define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
-#define GLOSSY_RX_STOPPED   PIN_CLR(GLOSSY_RX_PIN)
+  #define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
+  #define GLOSSY_RX_STOPPED   PIN_CLR(GLOSSY_RX_PIN)
 #else
-#define GLOSSY_RX_STARTED
-#define GLOSSY_RX_STOPPED
+  #define GLOSSY_RX_STARTED
+  #define GLOSSY_RX_STOPPED
 #endif
 
 #ifdef GLOSSY_TX_PIN
-#define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
-#define GLOSSY_TX_STOPPED   PIN_CLR(GLOSSY_TX_PIN)
+  #define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
+  #define GLOSSY_TX_STOPPED   PIN_CLR(GLOSSY_TX_PIN)
 #else
-#define GLOSSY_TX_STARTED
-#define GLOSSY_TX_STOPPED
+  #define GLOSSY_TX_STARTED
+  #define GLOSSY_TX_STOPPED
 #endif
+
+/* indicate the first successful reception */
+#ifndef GLOSSY_FIRST_RX
+#define GLOSSY_FIRST_RX
+#endif /* GLOSSY_FIRST_RX */
 
 /*---------------------------------------------------------------------------*/
 enum {
@@ -695,6 +700,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
     
     /* increment the reception counter */
     g.n_rx++;
+    GLOSSY_FIRST_RX;
 
     if((!IS_INITIATOR()) && (g.n_rx == 1)) {
       /* we are a receiver and this was our first packet reception: */

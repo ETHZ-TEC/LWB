@@ -46,6 +46,12 @@
 #include "contiki.h"
 #include "platform.h"
 
+#define PAYLOAD_LEN     15
+
+#if PAYLOAD_LEN > LWB_CONF_MAX_DATA_PKT_LEN
+#error "invalid payload length"
+#endif
+
 /*---------------------------------------------------------------------------*/
 #ifdef APP_TASK_ACT_PIN
 #define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
@@ -55,24 +61,22 @@
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
 #ifdef FLOCKLAB
-#warning "--------------------- COMPILED FOR FLOCKLAB ---------------------"
+#warning "----------------- COMPILED FOR FLOCKLAB -----------------"
 #endif 
 /*---------------------------------------------------------------------------*/
-static uint16_t events_sent = 0;
-static uint16_t acks_rcvd = 0;
+uint16_t slot_node_id = 0;       /* global variable, used for debugging only */
+/*---------------------------------------------------------------------------*/
+static uint16_t pkt_buffer[(LWB_CONF_MAX_DATA_PKT_LEN + 1) / 2];
+static uint16_t pkt_cnt = 0;
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
-{   
-  static uint16_t pkt_buffer[(LWB_CONF_MAX_DATA_PKT_LEN + 1) / 2];
-  static uint16_t round_cnt = 0;
-  
+{  
   PROCESS_BEGIN();
           
-  SVS_DISABLE;
-  
+  SVS_DISABLE;  
   /* all other necessary initialization is done in contiki-cc430-main.c */
     
   /* start the LWB thread */
@@ -85,6 +89,12 @@ PROCESS_THREAD(app_process, ev, data)
   PIN_PULLUP_EN(DEBUG_SWITCH); 
 #endif
   
+  if(node_id == 6 || node_id == 28 || node_id == 22) {
+    /* generate a dummy packet to 'register' this node at the host */
+    lwb_put_data((uint8_t*)&node_id, 2);
+    pkt_cnt++;
+  }
+  
   /* MAIN LOOP of this application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
@@ -95,7 +105,6 @@ PROCESS_THREAD(app_process, ev, data)
     if(HOST_ID == node_id) {
       /* HOST node */
       /* print out the received data */
-      static uint16_t pkt_cnt = 0;
       uint16_t cnt = 0;
       while(1) {
         uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer);
@@ -109,32 +118,30 @@ PROCESS_THREAD(app_process, ev, data)
         pkt_cnt += cnt;
         DEBUG_PRINT_INFO("rcvd=%u", pkt_cnt);
       }
+      /* make sure the debug pins are in 'idle' state */
+      PIN_CLR(FLOCKLAB_LED1);
+      PIN_CLR(FLOCKLAB_INT1);
+      PIN_CLR(FLOCKLAB_INT2);
+      
     } else {
+      static uint16_t acks_rcvd = 0;
       /* SOURCE node */
-      uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer);
-      if(pkt_len && *pkt_buffer == node_id) {
+      if(lwb_get_data((uint8_t*)pkt_buffer) && *pkt_buffer == node_id) {
         acks_rcvd++;
-        DEBUG_PRINT_INFO("sent=%u ack=%u", events_sent, acks_rcvd);
+        DEBUG_PRINT_INFO("ack=%u", acks_rcvd);
       } 
+      memset(pkt_buffer, 0xf0, PAYLOAD_LEN);
 #ifdef FLOCKLAB
-      if(round_cnt == 1 &&
-         (node_id == 6 || node_id == 28 || node_id == 22)) {
-        /* generate a dummy packet to 'register' this node at the host */
-        lwb_put_data((uint8_t*)&node_id, 2);
-        events_sent++;
-      }
-      //uint16_t elapsed_time = lwb_get_time(0);
       /* initiator nodes start to send data after a certain time */
       if((node_id == 6 || node_id == 28 || node_id == 22) && 
-         round_cnt > 12) {      /* (elapsed_time % 20 == 0) && */
+         lwb_get_time(0) >= 50) {
         /* generate an event */
-        lwb_put_data((uint8_t*)&node_id, 2);
-        events_sent++;
-        DEBUG_PRINT_INFO("sent=%u ack=%u", events_sent, acks_rcvd);
-      }      
+        lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        pkt_cnt++;
+        DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
+      }
 #endif /* FLOCKLAB */
     }
-    round_cnt++;
     
     /* IMPORTANT: This process must not run for more than a few hundred
      * milliseconds in order to enable proper operation of the LWB */
@@ -173,8 +180,8 @@ ISR(PORT1, port1_interrupt)
     if(!lwb_put_data((uint8_t*)&node_id, 2)) {
       DEBUG_PRINT_WARNING("can't queue data");
     }
-    events_sent++;
-    DEBUG_PRINT_INFO("event triggered");
+    pkt_cnt++;
+    DEBUG_PRINT_INFO("event triggered, sent=%u", pkt_cnt);
     PIN_CLR_IFG(DEBUG_SWITCH);
   } 
 }

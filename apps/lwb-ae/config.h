@@ -42,7 +42,7 @@
 
 /* --- ID config --- */
 
-#define HOST_ID    1
+#define HOST_ID                         1
 #ifndef FLOCKLAB
   #define NODE_ID                       1
 #endif
@@ -87,14 +87,47 @@
 #define DEBUG_PRINT_CONF_NUM_MSG        10
 #define DEBUG_CONF_STACK_GUARD          (SRAM_END - 0x01ff)
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+/* pins */
 #ifndef FLOCKLAB
   #define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
   #define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
   #define APP_TASK_ACT_PIN              PORT2, PIN6
 #else
-  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT1
-  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
-  #define APP_TASK_ACT_PIN              FLOCKLAB_INT1
-#endif
+  /* SOURCE node: generate a pulse before a request or data packet is sent */
+  #define LWB_REQ_IND_PIN               FLOCKLAB_LED1
+  #define LWB_DATA_IND_PIN              FLOCKLAB_LED1
+    
+  /* nasty hack, for debugging only; idea is to have 3 different pins (one for
+   * each source node) which all assert when a contention (request) is detected
+   * and deassert individually upon successful reception of the data packet 
+   * from that node */
+  /* code that will be executed...
+   * ... upon 1st successful packet reception during a glossy flood (all nodes)
+   * ... when a request was detected during a contention slot (host node only)
+   * ... before a data slot starts (host node only) */
+  #define GLOSSY_FIRST_RX               { if(slot_node_id == 6) {\
+                                            PIN_CLR(FLOCKLAB_LED1);\
+                                          } else if (slot_node_id == 22) {\
+                                            PIN_CLR(FLOCKLAB_INT1);\
+                                          } else if (slot_node_id == 28) {\
+                                            PIN_CLR(FLOCKLAB_INT2);\
+                                          }\
+                                          slot_node_id = 0;\
+                                        }  
+  #define LWB_REQ_DETECTED              { PIN_SET(FLOCKLAB_LED1);\
+                                          PIN_SET(FLOCKLAB_INT1);\
+                                          PIN_SET(FLOCKLAB_INT2); }
+  #define LWB_DATA_SLOT_STARTS          { slot_node_id = schedule.slot[i]; }
+  
+  #define GLOSSY_START_PIN              FLOCKLAB_LED3
+  //#define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT1
+  //#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
+  //#define APP_TASK_ACT_PIN              FLOCKLAB_INT1
+  //#define GLOSSY_START_PIN              FLOCKLAB_LED1
+  //#define RF_GDO2_PIN                   FLOCKLAB_INT2
+#endif /* FLOCKLAB */
+
+/* global variables */
+extern uint16_t slot_node_id;
 
 #endif /* __CONFIG_H__ */

@@ -219,7 +219,11 @@ write_data_to_register(uint8_t addr, uint8_t *buffer, uint16_t n_bytes)
 static inline void
 load_SmartRF_configuration(void)
 {
-
+  /* packet control */
+#ifdef SMARTRF_PKTCTRL0  
+  write_byte_to_register(PKTCTRL0, SMARTRF_PKTCTRL0);
+#endif /* SMARTRF_PKTCTRL0 */
+  
   /* frequency synthesizer */
 #ifdef SMARTRF_FSCTRL1
   write_byte_to_register(FSCTRL1, SMARTRF_FSCTRL1);
