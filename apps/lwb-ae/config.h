@@ -44,7 +44,7 @@
 
 #define HOST_ID                         1
 #ifndef FLOCKLAB
-  #define NODE_ID                       1
+  #define NODE_ID                       6
 #endif
 
 /* --- RF config --- */
@@ -65,15 +65,15 @@
 #define LWB_CONF_SCHED_PERIOD_IDLE      5   /* define the base period length */
 //#define LWB_CONF_SACK_SLOT            1           /* 1 = enable S-ACK slot */
 /* buffer sizes */
-#define LWB_CONF_MAX_DATA_SLOTS         10 /* equals the # nodes & # streams */
-#define LWB_CONF_MAX_PKT_LEN            63
+#define LWB_CONF_MAX_DATA_SLOTS         6  /* equals the # nodes & # streams */
+#define LWB_CONF_MAX_PKT_LEN            63 /* incl. Glossy hdr + length byte */
 #define LWB_CONF_MAX_N_STREAMS          LWB_CONF_MAX_DATA_SLOTS 
 #if defined(FLOCKLAB) || HOST_ID == NODE_ID
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
-  #define LWB_CONF_OUT_BUFFER_SIZE      1
+  #define LWB_CONF_OUT_BUFFER_SIZE      2
 #else
   #define LWB_CONF_IN_BUFFER_SIZE       1
-  #define LWB_CONF_OUT_BUFFER_SIZE      1 
+  #define LWB_CONF_OUT_BUFFER_SIZE      2 
 #endif
 /* slot durations and network parameters */
 #define LWB_CONF_TX_CNT_DATA            2
@@ -85,13 +85,15 @@
 /* --- DEBUG config --- */
 
 #define DEBUG_PRINT_CONF_NUM_MSG        10
-#define DEBUG_CONF_STACK_GUARD          (SRAM_END - 0x01ff)
+#define DEBUG_CONF_STACK_GUARD          (SRAM_END - 399)
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 /* pins */
 #ifndef FLOCKLAB
-  #define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
-  #define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
-  #define APP_TASK_ACT_PIN              PORT2, PIN6
+  //#define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
+  //#define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
+  //#define APP_TASK_ACT_PIN              PORT2, PIN6
+  #define GLOSSY_START_PIN              LED_0
+  //#define RF_GDO2_PIN                   FLOCKLAB_INT2
 #else
   /* SOURCE node: generate a pulse before a request or data packet is sent */
   #define LWB_REQ_IND_PIN               FLOCKLAB_LED1
@@ -105,25 +107,29 @@
    * ... upon 1st successful packet reception during a glossy flood (all nodes)
    * ... when a request was detected during a contention slot (host node only)
    * ... before a data slot starts (host node only) */
-  #define GLOSSY_FIRST_RX               { if(slot_node_id == 6) {\
-                                            PIN_CLR(FLOCKLAB_LED1);\
-                                          } else if (slot_node_id == 22) {\
-                                            PIN_CLR(FLOCKLAB_INT1);\
-                                          } else if (slot_node_id == 28) {\
-                                            PIN_CLR(FLOCKLAB_INT2);\
-                                          }\
-                                          slot_node_id = 0;\
-                                        }  
-  #define LWB_REQ_DETECTED              { PIN_SET(FLOCKLAB_LED1);\
-                                          PIN_SET(FLOCKLAB_INT1);\
-                                          PIN_SET(FLOCKLAB_INT2); }
-  #define LWB_DATA_SLOT_STARTS          { slot_node_id = schedule.slot[i]; }
+  #define GLOSSY_FIRST_RX      { if((slot_node_id) == 6) {\
+                                    PIN_CLR(FLOCKLAB_LED1);\
+                                  } else if ((slot_node_id) == 22) {\
+                                    PIN_CLR(FLOCKLAB_INT1);\
+                                  } else if ((slot_node_id) == 28) {\
+                                    PIN_CLR(FLOCKLAB_INT2);\
+                                  }\
+                                  slot_node_id = 0;\
+                                }  
+  #define LWB_REQ_DETECTED      { PIN_SET(FLOCKLAB_LED1);\
+                                  PIN_SET(FLOCKLAB_INT1);\
+                                  PIN_SET(FLOCKLAB_INT2); }
+  /* slot_node_id is only set when one pkt was already rcvd from that node */
+  #define LWB_DATA_SLOT_STARTS  { if((i > 0) && (schedule.slot[i - 1] \
+                                     == schedule.slot[i]) && LWB_DATA_RCVD) {\
+                                    slot_node_id = schedule.slot[i];\
+                                  }\
+                                }
   
   #define GLOSSY_START_PIN              FLOCKLAB_LED3
   //#define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT1
   //#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
   //#define APP_TASK_ACT_PIN              FLOCKLAB_INT1
-  //#define GLOSSY_START_PIN              FLOCKLAB_LED1
   //#define RF_GDO2_PIN                   FLOCKLAB_INT2
 #endif /* FLOCKLAB */
 

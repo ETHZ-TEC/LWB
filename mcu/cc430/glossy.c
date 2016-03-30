@@ -425,9 +425,12 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   
   if(IS_INITIATOR()) {
     /* Glossy initiator */
-    if(GET_SYNC(g.header.pkt_type) == GLOSSY_UNKNOWN_SYNC) {
+    if(GET_SYNC(g.header.pkt_type) == GLOSSY_UNKNOWN_SYNC ||
+       (g.payload_len + GLOSSY_HEADER_LEN(g.header.pkt_type) + 1) >
+       RF_CONF_MAX_PKT_LEN) {
       /* the initiator must know whether there will be synchronization or
-       * not! */
+       * not and the packet length may not exceed the max. length */
+      DEBUG_PRINT_ERROR("invalid parameters, Glossy stopped");
       glossy_stop();
     } else {
       /* start the first transmission */

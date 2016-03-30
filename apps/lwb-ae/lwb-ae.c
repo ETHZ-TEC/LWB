@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -35,20 +34,20 @@
 /**
  * @brief Low-Power Wireless Bus Test Application
  * 
- * The burst scheduler is used in this example. It is designed for scenarios
+ * The AE scheduler is used in this example. It is designed for scenarios
  * where most of the time no data is transmitted, but occasionally (upon an
- * event) a node needs to send a large amount of data to the host.
- * 
- * This demo application is not designed to run on Flocklab. 
+ * event) a node needs to send several data packets to the host (such as in
+ * event driven acoustic emission sensing).
  */
-
 
 #include "contiki.h"
 #include "platform.h"
 
-#define PAYLOAD_LEN     15
+#define PAYLOAD_LEN             58
 
-#if PAYLOAD_LEN > LWB_CONF_MAX_DATA_PKT_LEN
+/* glossy header + length byte must be added to payload length to get max.
+ * pkt length */
+#if (PAYLOAD_LEN + 5) > LWB_CONF_MAX_DATA_PKT_LEN
 #error "invalid payload length"
 #endif
 
@@ -130,17 +129,21 @@ PROCESS_THREAD(app_process, ev, data)
         acks_rcvd++;
         DEBUG_PRINT_INFO("ack=%u", acks_rcvd);
       } 
-      memset(pkt_buffer, 0xf0, PAYLOAD_LEN);
-#ifdef FLOCKLAB
+      //memset(pkt_buffer, 0xf0, PAYLOAD_LEN);
+      /* random data */
+      uint8_t i;
+      for(i = 0; i < PAYLOAD_LEN; i++) {
+        pkt_buffer[i] = (uint8_t)random_rand();  
+      }
       /* initiator nodes start to send data after a certain time */
       if((node_id == 6 || node_id == 28 || node_id == 22) && 
          lwb_get_time(0) >= 50) {
         /* generate an event */
         lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        pkt_cnt++;
+        lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        pkt_cnt += 2;
         DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
       }
-#endif /* FLOCKLAB */
     }
     
     /* IMPORTANT: This process must not run for more than a few hundred

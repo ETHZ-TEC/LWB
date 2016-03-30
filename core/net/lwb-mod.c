@@ -47,11 +47,10 @@
 #error "LWB_MOD only support the 'burst' and 'AE' scheduler"
 #endif
 
-#if LWB_CONF_TIME_SCALE != 1
-#warning "LWB_MOD does not support time scaling"
-#endif
-
 /*---------------------------------------------------------------------------*/
+#define LWB_CONF_PERIOD_SCALE       100         /* also change in sched-ae.c */
+#define LWB_CONF_PERIOD_MIN         4
+
 /* expected packet length of a slot request */         
 #ifndef LWB_CONF_SRQ_PKT_LEN
 #define LWB_CONF_SRQ_PKT_LEN        1 
@@ -527,10 +526,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         t_slot = LWB_CONF_T_DATA;
       } else {
         t_slot = LWB_CONF_T_CONT;
-        srq_cnt++;
       }
       for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
-        streams_to_update[i] = LWB_INVALID_STREAM_ID;
+        streams_to_update[i] = 0;
         /* is this our slot? Note: slots assigned to node ID 0 always belong 
          * to the host */
         if(schedule.slot[i] == 0 || schedule.slot[i] == node_id) {
@@ -558,12 +556,13 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
           if(LWB_DATA_RCVD) {
             if(t_slot == LWB_CONF_T_CONT) {
               /* stream request! */
-              lwb_sched_proc_srq((lwb_stream_req_t*)&schedule.slot[i]);
+              uint16_t srq[2] = { schedule.slot[i], glossy_payload[0] };
+              lwb_sched_proc_srq((lwb_stream_req_t*)srq);
             } else {
               /* measure the time it takes to process the received message */
               RTIMER_CAPTURE;
               streams_to_update[i] = 1;
-              DEBUG_PRINT_VERBOSE("data received from node %u (%u bytes)", 
+              DEBUG_PRINT_VERBOSE("data received from node %u (%ub)", 
                                   schedule.slot[i], payload_len);
               lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
               /* update statistics */
@@ -599,7 +598,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       if(glossy_get_n_rx_started()) {
         /* set the period to the min. value to notify the scheduler that at 
          * least one nodes wants to request a stream (has data to send) */
-        schedule.period = 1;
+        schedule.period = LWB_CONF_PERIOD_MIN;
+        srq_cnt++;
         LWB_REQ_DETECTED;
       }
     }
@@ -642,7 +642,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* print out some stats */
     DEBUG_PRINT_INFO("%lu T=%u n=%u|%u ts=%u srq=%u p=%u per=%d%% rssi=%ddBm", 
                      global_time,
-                     schedule.period / 10,
+                     schedule.period / LWB_CONF_PERIOD_SCALE,
                      schedule.n_slots & 0x3fff,
                      schedule.n_slots >> 14,
                      stats.t_sched_max, 
@@ -657,7 +657,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* poll the other processes to allow them to run after the LWB task was 
      * suspended (note: the polled processes will be executed in the inverse
      * order they were started/created) */
-    if(curr_period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
+    if(curr_period > LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE /2) {
       debug_print_poll();
       if(post_proc) {
         /* will be executed before the debug print task */
@@ -666,7 +666,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     }
     
     /* suspend this task and wait for the next round */
-    LWB_LF_WAIT_UNTIL(t_start_lf + curr_period * RTIMER_SECOND_LF / 10);
+    LWB_LF_WAIT_UNTIL(t_start_lf + curr_period * RTIMER_SECOND_LF / 
+                      LWB_CONF_PERIOD_SCALE);
   }
   
   PT_END(&lwb_pt);
@@ -721,7 +722,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } else {
       /* tell Glossy how many bytes we expect */
       payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
-      if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
+      if(schedule.period > 
+         LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE / 2) {
         payload_len = LWB_SCHED_PKT_HEADER_LEN;   /* empty schedule */
       }
       LWB_RCV_SCHED();  
@@ -739,7 +741,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       rtimer_clock_t hf_now;
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
-      if(schedule.period == LWB_CONF_SCHED_PERIOD_IDLE * 10) {
+      if(schedule.period == 
+         LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE) {
         /* only update the timestamp during the idle period */
         global_time = schedule.time;
         reception_timestamp = t_ref_lf;
@@ -749,14 +752,16 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       /* we can only estimate t_ref and t_ref_lf */
       if(sync_state == UNSYNCED) {
         t_ref_lf = reception_timestamp;
-        if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
+        if(schedule.period > 
+           LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE / 2) {
           t_ref_lf += LWB_CONF_SCHED_PERIOD_IDLE * RTIMER_SECOND_LF;
         }
-        schedule.period = LWB_CONF_SCHED_PERIOD_IDLE * 10;
+        schedule.period = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
       } else {
         /* since HF clock was off, we need a new timestamp; subtract a const.
          * processing offset to adjust (if needed) */
-        t_ref_lf += schedule.period * (RTIMER_SECOND_LF) / 10;
+        t_ref_lf += schedule.period * (RTIMER_SECOND_LF) /
+                    LWB_CONF_PERIOD_SCALE;
       }
     }
         
@@ -794,9 +799,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
                 /* it's a data round */
                 payload_len = lwb_out_buffer_get((uint8_t*)glossy_payload);
+                //if(payload_len == 0) { DEBUG_PRINT_WARNING("pkt_len = 0b"); }
                 LWB_DATA_IND;
               } else {
                 payload_len = 1;
+                /* request LWB_CONF_OUT_BUFFER_SIZE data slots */
+                *(uint8_t*)glossy_payload = (uint8_t)LWB_CONF_OUT_BUFFER_SIZE;
               }
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
@@ -904,14 +912,13 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* DRIFT compensation is not needed (see lwb-mod-burst.c if necessary) */
       
     /* print out some stats (note: takes approx. 2ms to compose this string) */
-    DEBUG_PRINT_INFO("%s %u %lu T=%u n=%u s=%u tp=%u p=%u r=%u b=%u "
+    DEBUG_PRINT_INFO("%s %u %lu T=%u n=%u tp=%u p=%u r=%u b=%u "
                      "u=%u per=%d%% snr=%ddbm", 
                      lwb_sync_state_to_string[sync_state], 
                      node_registered,
                      schedule.time, 
-                     schedule.period / 10, 
+                     schedule.period / LWB_CONF_PERIOD_SCALE, 
                      LWB_SCHED_N_SLOTS(&schedule), 
-                     LWB_STREAMS_ACTIVE, 
                      stats.t_proc_max,
                      stats.pck_cnt,
                      stats.relay_cnt, 
@@ -929,14 +936,16 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* poll the other processes to allow them to run after the LWB task was
      * suspended (note: the polled processes will be executed in the inverse
      * order they were started/created) */
-    if(schedule.period > LWB_CONF_SCHED_PERIOD_IDLE * 10 / 2) {
+    if(schedule.period > 
+       LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE / 2) {
       debug_print_poll();
       if(post_proc) {
         process_poll(post_proc);
       }
     }
     
-    LWB_LF_WAIT_UNTIL(t_ref_lf + schedule.period * (RTIMER_SECOND_LF) / 10 - 
+    LWB_LF_WAIT_UNTIL(t_ref_lf + schedule.period * RTIMER_SECOND_LF /
+                      LWB_CONF_PERIOD_SCALE - 
                       (t_guard / RTIMER_HF_LF_RATIO + LWB_CONF_LF_WAKEUP_OFS));
   }
 
