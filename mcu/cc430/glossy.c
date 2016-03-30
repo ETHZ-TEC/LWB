@@ -82,7 +82,7 @@
 /* MCU specific code for disabling undesired interrupts during a glossy flood.
  * All but the following interrupts will be disabled: 
  * radio, watchdog and the timer CCR needed for glossy */
-#ifndef GLOSSY_DISABLE_INTERRUPTS
+/*#ifndef GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_DISABLE_INTERRUPTS {\
     g.enabled_interrupts  = 0;\
     g.enabled_interrupts |= (CBINT & CBIIE) ? (1 << 0) : 0;\
@@ -98,21 +98,21 @@
     g.enabled_interrupts |= (TA1CTL & TAIE) ? (1 << 7) : 0;\
     TA0CTL &= ~TAIE;\
     TA1CTL &= ~TAIE;\
-    /*g.enabled_interrupts |= (TA0CCTL0 & CCIE) ? (1 << 8) : 0;*/\
+    g.enabled_interrupts |= (TA0CCTL0 & CCIE) ? (1 << 8) : 0;\
     g.enabled_interrupts |= (TA0CCTL1 & CCIE) ? (1 << 9) : 0;\
     g.enabled_interrupts |= (TA0CCTL2 & CCIE) ? (1 << 10) : 0;\
-    g.enabled_interrupts |= (TA0CCTL3 & CCIE) ? (1 << 11) : 0; */\
-    /*g.enabled_interrupts |= (TA0CCTL4 & CCIE) ? (1 << 12) : 0; */\
-    /*TA0CCTL0 &= ~CCIE;*/\
+    g.enabled_interrupts |= (TA0CCTL3 & CCIE) ? (1 << 11) : 0;\
+    g.enabled_interrupts |= (TA0CCTL4 & CCIE) ? (1 << 12) : 0;\
+    TA0CCTL0 &= ~CCIE;\
     TA0CCTL1 &= ~CCIE;\
     TA0CCTL2 &= ~CCIE;\
     TA0CCTL3 &= ~CCIE;\
-    /*TA0CCTL4 &= ~CCIE; -> required for radio */\
+    TA0CCTL4 &= ~CCIE;\
     g.enabled_interrupts |= (TA1CCTL0 & CCIE) ? (1 << 13) : 0;\
-    /*g.enabled_interrupts |= (TA1CCTL1 & CCIE) ? (1 << 14) : 0;*/\
+    g.enabled_interrupts |= (TA1CCTL1 & CCIE) ? (1 << 14) : 0;\
     g.enabled_interrupts |= (TA1CCTL2 & CCIE) ? (1 << 15) : 0;\
     TA1CCTL0 &= ~CCIE;\
-    /*TA1CCTL1 &= ~CCIE;*/\
+    TA1CCTL1 &= ~CCIE;\
     TA1CCTL2 &= ~CCIE;\
     g.enabled_interrupts |= (DMA0CTL & DMAIE) ? (1 << 16) : 0;\
     g.enabled_interrupts |= (DMA1CTL & DMAIE) ? (1 << 17) : 0;\
@@ -135,9 +135,9 @@
     P2IE = 0;\
     enabled_adc_interrupts = ADC12IE;\
     ADC12IE = 0;}
-#endif /* GLOSSY_DISABLE_INTERRUPTS */
+#endif*/ /* GLOSSY_DISABLE_INTERRUPTS */
 
-#ifndef GLOSSY_ENABLE_INTERRUPTS
+/*#ifndef GLOSSY_ENABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS {\
     if(g.enabled_interrupts & (1 << 0)) { CBINT |= CBIIE; }\
     if(g.enabled_interrupts & (1 << 1)) { CBINT |= CBIE; }\
@@ -167,32 +167,37 @@
     P2IE = enabled_port_interrupts & 0xff;\
     P1IE = (enabled_port_interrupts >> 8) & 0xff;\
     ADC12IE = enabled_adc_interrupts;}
-#endif /* GLOSSY_ENABLE_INTERRUPTS */
+#endif*/ /* GLOSSY_ENABLE_INTERRUPTS */
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
-#define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
-#define GLOSSY_STOPPED      PIN_CLR(GLOSSY_START_PIN)
+  #define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
+  #define GLOSSY_STOPPED      PIN_CLR(GLOSSY_START_PIN)
 #else
-#define GLOSSY_STARTED
-#define GLOSSY_STOPPED
+  #define GLOSSY_STARTED
+  #define GLOSSY_STOPPED
 #endif
 
 #ifdef GLOSSY_RX_PIN 
-#define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
-#define GLOSSY_RX_STOPPED   PIN_CLR(GLOSSY_RX_PIN)
+  #define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
+  #define GLOSSY_RX_STOPPED   PIN_CLR(GLOSSY_RX_PIN)
 #else
-#define GLOSSY_RX_STARTED
-#define GLOSSY_RX_STOPPED
+  #define GLOSSY_RX_STARTED
+  #define GLOSSY_RX_STOPPED
 #endif
 
 #ifdef GLOSSY_TX_PIN
-#define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
-#define GLOSSY_TX_STOPPED   PIN_CLR(GLOSSY_TX_PIN)
+  #define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
+  #define GLOSSY_TX_STOPPED   PIN_CLR(GLOSSY_TX_PIN)
 #else
-#define GLOSSY_TX_STARTED
-#define GLOSSY_TX_STOPPED
+  #define GLOSSY_TX_STARTED
+  #define GLOSSY_TX_STOPPED
 #endif
+
+/* indicate the first successful reception */
+#ifndef GLOSSY_FIRST_RX
+#define GLOSSY_FIRST_RX
+#endif /* GLOSSY_FIRST_RX */
 
 /*---------------------------------------------------------------------------*/
 enum {
@@ -420,9 +425,12 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   
   if(IS_INITIATOR()) {
     /* Glossy initiator */
-    if(GET_SYNC(g.header.pkt_type) == GLOSSY_UNKNOWN_SYNC) {
+    if(GET_SYNC(g.header.pkt_type) == GLOSSY_UNKNOWN_SYNC ||
+       (g.payload_len + GLOSSY_HEADER_LEN(g.header.pkt_type) + 1) >
+       RF_CONF_MAX_PKT_LEN) {
       /* the initiator must know whether there will be synchronization or
-       * not! */
+       * not and the packet length may not exceed the max. length */
+      DEBUG_PRINT_ERROR("invalid parameters, Glossy stopped");
       glossy_stop();
     } else {
       /* start the first transmission */
@@ -435,10 +443,13 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     }
   } else {
     /* Glossy receiver */
-    rf1a_start_rx();        
-    /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
-    __delay_cycles(MCLK_SPEED / 3000);    /* wait 0.33 ms */
-    g.rssi_noise = rf1a_get_rssi();       /* get RSSI of the noise floor */
+    rf1a_start_rx();      
+    /* measure the channel noise (but only if waiting for the schedule */
+    if(sync == GLOSSY_WITH_SYNC) {
+      /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
+      __delay_cycles(MCLK_SPEED / 3000);     /* wait 0.33 ms */
+      g.rssi_noise = rf1a_get_rssi();        /* get RSSI of the noise floor */      
+    }
   }
   /* note: RF_RDY bit must be cleared before entering LPM after a transition 
    * from idle to RX or TX. RF1ASTATB & 0x80  or  GDO0 */
@@ -692,6 +703,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
     
     /* increment the reception counter */
     g.n_rx++;
+    GLOSSY_FIRST_RX;
 
     if((!IS_INITIATOR()) && (g.n_rx == 1)) {
       /* we are a receiver and this was our first packet reception: */
