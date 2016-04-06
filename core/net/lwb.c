@@ -46,6 +46,32 @@
 #define LWB_DATA_PKT_PAYLOAD_LEN    (LWB_CONF_MAX_DATA_PKT_LEN - \
                                      LWB_DATA_PKT_HEADER_LEN)
 #define STREAM_REQ_PKT_SIZE         5
+
+/* indicates when this node is about to send a request */
+#ifdef LWB_REQ_IND_PIN
+  #define LWB_REQ_IND               { PIN_SET(LWB_REQ_IND_PIN); \
+                                      PIN_CLR(LWB_REQ_IND_PIN); }
+#else /* LWB_CONF_REQ_SENT_PIN */
+  #define LWB_REQ_IND
+#endif /* LWB_CONF_REQ_SENT_PIN */
+
+/* code that is executed upon detection of a contention */
+#ifndef LWB_REQ_DETECTED
+#define LWB_REQ_DETECTED
+#endif /* LWB_REQ_DETECTED */
+
+/* indicates when this node is about to send a data packet */ 
+#ifdef LWB_DATA_IND_PIN
+  #define LWB_DATA_IND              { PIN_SET(LWB_DATA_IND_PIN); \
+                                      PIN_CLR(LWB_DATA_IND_PIN); }
+#else /* LWB_CONF_DATA_IND_PIN */
+  #define LWB_DATA_IND
+#endif /* LWB_CONF_DATA_IND_PIN */
+
+/* is executed before each data slot */
+#ifndef LWB_DATA_SLOT_STARTS
+#define LWB_DATA_SLOT_STARTS
+#endif /* LWB_DATA_SLOT_STARTS */
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB on the source node */
 typedef enum {
@@ -218,7 +244,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #endif /* LWB_AFTER_DEEPSLEEP */
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
-static struct process*  pre_proc;
+static void*            pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   reception_timestamp;
@@ -537,7 +563,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
 #if LWB_CONF_T_PREPROCESS
     if(pre_proc) {
-      process_poll(pre_proc);
+      pre_proc();
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
@@ -614,6 +640,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
           }
         } else {        
           /* wait until the data slot starts */
+          LWB_DATA_SLOT_STARTS;
           LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard); 
           LWB_RCV_PACKET();  /* receive a data packet */
           payload_len = glossy_get_payload_len();
@@ -664,6 +691,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
       LWB_RCV_SRQ();
       if(LWB_DATA_RCVD) {
+        LWB_REQ_DETECTED;
         /* check the request */
         DEBUG_PRINT_VERBOSE("stream request from node %u (stream %u, IPI %u)", 
                             glossy_payload.srq_pkt.node_id, 
@@ -709,10 +737,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* suspend this task and wait for the next round */
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
-                      LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS);
+                      LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS *
+                      RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF /
-                   LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS);
+                   LWB_CONF_TIME_SCALE - 
+                   LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   }
   
@@ -760,7 +790,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
 #if LWB_CONF_T_PREPROCESS
     if(pre_proc) {
-      process_poll(pre_proc);
+      pre_proc();
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + schedule.period * RTIMER_SECOND_LF / 
@@ -917,6 +947,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               payload_len = lwb_out_buffer_get(glossy_payload.raw_data);
             }
             if(payload_len) {
+              LWB_DATA_IND;
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
               DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
@@ -973,6 +1004,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               rounds_to_wait = (random_rand() >> 1) % 8 + 1;        
               payload_len = sizeof(lwb_stream_req_t);
               /* wait until the contention slot starts */
+              LWB_REQ_IND;
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_SRQ();  
               DEBUG_PRINT_INFO("request for stream %u sent", 
@@ -1093,11 +1125,13 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       schedule.period * (RTIMER_SECOND_LF + drift_last) / 
                       LWB_CONF_TIME_SCALE - 
-                      (t_guard / RTIMER_HF_LF_RATIO) - LWB_CONF_T_PREPROCESS);
+                      t_guard / RTIMER_HF_LF_RATIO - 
+                      LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_ref + 
                    schedule.period * (RTIMER_SECOND_HF + drift_last) / 
-                   LWB_CONF_TIME_SCALE - t_guard - LWB_CONF_T_PREPROCESS);
+                   LWB_CONF_TIME_SCALE - t_guard - 
+                   LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   }
 
@@ -1167,9 +1201,9 @@ PROCESS_THREAD(lwb_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-lwb_start(void *pre_lwb_proc, void *post_lwb_proc)
+lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
 {
-  pre_proc = (struct process*)pre_lwb_proc;
+  pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s'\r\n", lwb_process.name);
     

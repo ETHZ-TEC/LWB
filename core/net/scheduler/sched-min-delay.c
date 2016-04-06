@@ -367,7 +367,7 @@ set_schedule:
   /* log the parameters of the new schedule */
   DEBUG_PRINT_INFO("schedule updated (s=%u T=%u n=%u|%u len=%u load=%u%%)", 
                    n_streams, sched->period, n_slots_assigned, 
-                   sched->n_slots >> 6, compressed_size,
+                   sched->n_slots >> 14, compressed_size,
                    (uint16_t)(used_bw * 100 / BANDWIDTH_LIMIT));
   
   return compressed_size + LWB_SCHED_PKT_HEADER_LEN;
