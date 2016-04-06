@@ -49,6 +49,30 @@ print_processes(struct process *const processes[])
   printf("\r\n");
 }
 /*---------------------------------------------------------------------------*/
+void
+enter_lpm3(void)
+{
+    PIN_CLR(LED_STATUS);     /* init done */
+    PIN_CLR(COM_MCU_SPARE1);
+    /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
+    TA0CTL &= ~MC_3; /* stop TA0 */
+    DISABLE_XT2();
+  #ifdef MUX_SEL_PIN
+    PIN_CLR(MUX_SEL_PIN);
+  #endif /* MUX_SEL_PIN */
+    P1SEL = 0; /* reconfigure GPIOs */
+    P1DIR |= (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+    /* dont clear BIT6 and 7 on olimex board (pullups!) */
+    P1OUT &= ~(BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+    /* UART RXD has a pull-up */
+    P1OUT |= BIT5;
+    /* set clock source to DCO */
+    UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
+     SetVCore(PMMCOREV_0);
+    __bis_status_register(SCG0 | SCG1 | CPUOFF);
+    __no_operation();
+}
+/*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
 print_device_info(void)
@@ -119,10 +143,6 @@ main(int argc, char **argv)
   PIN_SET(COM_MCU_SPARE1);
 #endif /* COM_MCU_SPARE1 */
 
-#ifdef DEBUG_SWITCH
-  PIN_CFG_INT(DEBUG_SWITCH);
-#endif
-
   /* pin mappings */
 #ifdef RF_GDO0_PIN
   PIN_MAP_AS_OUTPUT(RF_GDO0_PIN, PM_RFGDO0);
@@ -149,7 +169,7 @@ main(int argc, char **argv)
   PIN_SET(MUX_SEL_PIN);
 #endif 
   
-  clock_init();  
+  clock_init();
   rtimer_init();
   uart_init();
   uart_enable(1);
@@ -209,7 +229,6 @@ main(int argc, char **argv)
   /* note: start debug process as last due to process_poll() execution order */
   
   PIN_CLR(LED_STATUS);     /* init done */
-  //__eint();
   
   while(1) {
     int r;

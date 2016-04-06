@@ -38,7 +38,7 @@
  * application specific config file to override default settings
  */
 
-#define FLOCKLAB      /* uncomment to compile for FlockLab */
+//#define FLOCKLAB      /* uncomment to compile for FlockLab */
 
 /* --- ID config --- */
 
@@ -59,19 +59,31 @@
 
 /* --- LWB config --- */
 
+#define LWB_VERSION                     2  /* 1 = original LWB, 2 = modified */
+#define LWB_CONF_USE_LF_FOR_WAKEUP      1  /* do NOT change */
 /* scheduler */
-#define LWB_VERSION                     2            /* use the modified LWB */
-#define LWB_SCHED_AE                               /* use the 'AE' scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      5   /* define the base period length */
+#define LWB_CONF_SCHED_PERIOD_IDLE      5  /* define the base period length */
+#if LWB_VERSION == 1
+  #define LWB_SCHED_MIN_ENERGY
+  #define LWB_CONF_SCHED_PERIOD_MAX     LWB_CONF_SCHED_PERIOD_IDLE
+  #define LWB_CONF_SCHED_PERIOD_MIN     1
+  #define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  0
+  #define LWB_CONF_T_SCHED2_START       (RTIMER_SECOND_HF / 2)
+#else /* LWB_VERSION */
+  #define LWB_SCHED_AE                             /* use the 'AE' scheduler */
+#endif /* LWB_VERSION */
 //#define LWB_CONF_SACK_SLOT            1           /* 1 = enable S-ACK slot */
 /* buffer sizes */
-#define LWB_CONF_MAX_DATA_SLOTS         6  /* equals the # nodes & # streams */
+#define LWB_CONF_MAX_DATA_SLOTS         6
 #define LWB_CONF_MAX_PKT_LEN            63 /* incl. Glossy hdr + length byte */
-#define LWB_CONF_MAX_N_STREAMS          LWB_CONF_MAX_DATA_SLOTS 
+#define LWB_CONF_MAX_N_STREAMS          3    /* equals max.# number of nodes */ 
+#define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
 #if defined(FLOCKLAB) || HOST_ID == NODE_ID
+  /* on the desk */
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
   #define LWB_CONF_OUT_BUFFER_SIZE      2
 #else
+  #define LWB_CONF_T_PREPROCESS         20    /* ms */
   #define LWB_CONF_IN_BUFFER_SIZE       1
   #define LWB_CONF_OUT_BUFFER_SIZE      2 
 #endif
@@ -84,21 +96,26 @@
 
 /* --- DEBUG config --- */
 
+#define DEBUG_PRINT_CONF_ON             0
 #define DEBUG_PRINT_CONF_NUM_MSG        10
 #define DEBUG_CONF_STACK_GUARD          (SRAM_END - 399)
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#define DEBUG_TRACING_ON                0
 /* pins */
-#ifndef FLOCKLAB
-  //#define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
-  //#define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
-  //#define APP_TASK_ACT_PIN              PORT2, PIN6
-  #define GLOSSY_START_PIN              LED_0
-  //#define RF_GDO2_PIN                   FLOCKLAB_INT2
-#else
+#define GLOSSY_START_PIN                FLOCKLAB_LED1
+
+//#define RF_GDO2_PIN                   FLOCKLAB_LED3
+#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT1
+//#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
+//#define APP_TASK_ACT_PIN              FLOCKLAB_INT1
+//#define RF_GDO2_PIN                   FLOCKLAB_INT2
+
+/* tracing */
+#if DEBUG_TRACING_ON
   /* SOURCE node: generate a pulse before a request or data packet is sent */
   #define LWB_REQ_IND_PIN               FLOCKLAB_LED1
   #define LWB_DATA_IND_PIN              FLOCKLAB_LED1
-    
+  
   /* nasty hack, for debugging only; idea is to have 3 different pins (one for
    * each source node) which all assert when a contention (request) is detected
    * and deassert individually upon successful reception of the data packet 
@@ -107,7 +124,7 @@
    * ... upon 1st successful packet reception during a glossy flood (all nodes)
    * ... when a request was detected during a contention slot (host node only)
    * ... before a data slot starts (host node only) */
-  #define GLOSSY_FIRST_RX      { if((slot_node_id) == 6) {\
+  #define GLOSSY_FIRST_RX       { if((slot_node_id) == 6) {\
                                     PIN_CLR(FLOCKLAB_LED1);\
                                   } else if ((slot_node_id) == 22) {\
                                     PIN_CLR(FLOCKLAB_INT1);\
@@ -123,17 +140,17 @@
   #define LWB_DATA_SLOT_STARTS  { if((i > 0) && (schedule.slot[i - 1] \
                                      == schedule.slot[i]) && LWB_DATA_RCVD) {\
                                     slot_node_id = schedule.slot[i];\
-                                  }\
-                                }
-  
-  #define GLOSSY_START_PIN              FLOCKLAB_LED3
-  //#define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT1
-  //#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
-  //#define APP_TASK_ACT_PIN              FLOCKLAB_INT1
-  //#define RF_GDO2_PIN                   FLOCKLAB_INT2
+                                  } else {\
+                                    slot_node_id = 0;\
+                                  } }
+#endif /* DEBUG_TRACING_ON */
+
+#ifndef FLOCKLAB
+  #define BOLT_CONF_ON                  1
 #endif /* FLOCKLAB */
 
-/* global variables */
-extern uint16_t slot_node_id;
+/* --- GLOBAL variables --- */
+
+extern uint16_t slot_node_id;   /* for debugging/tracing only */
 
 #endif /* __CONFIG_H__ */

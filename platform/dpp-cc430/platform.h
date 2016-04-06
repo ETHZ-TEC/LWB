@@ -84,11 +84,16 @@
 #endif /* LEDS_CONF_ON */
 
 #ifndef FRAM_CONF_ON
-#define FRAM_CONF_ON                1
+#define FRAM_CONF_ON                0
 #endif /* FRAM_CONF_ON */
 
+#ifndef CLOCK_CONF_XT1_ON
 #define CLOCK_CONF_XT1_ON           1
+#endif /* CLOCK_CONF_XT1_ON */
+
+#ifndef CLOCK_CONF_FLL_ON
 #define CLOCK_CONF_FLL_ON           1
+#endif /* CLOCK_CONF_FLL_ON */
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -119,12 +124,16 @@
 #define MUX_SEL_PIN                 PORT2, PIN7
 
 //#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
-#define GLOSSY_START_PIN            LED_0  
+#ifndef GLOSSY_START_PIN
+  #define GLOSSY_START_PIN            LED_0
+#endif /* GLOSSY_START_PIN */
 //#define GLOSSY_RX_PIN               COM_MCU_INT1
 //#define GLOSSY_TX_PIN               COM_MCU_INT2
 //#define RF_GDO0_PIN                 COM_MCU_INT1
 //#define RF_GDO1_PIN                 COM_MCU_INT1
-#define RF_GDO2_PIN                 COM_MCU_INT1
+#ifndef RF_GDO2_PIN
+  //#define RF_GDO2_PIN                 COM_MCU_INT1
+#endif /* RF_GDO2_PIN */
 //#define MCLK_PIN                    COM_MCU_INT1
 //#define ACLK_PIN                    COM_MCU_INT1
 //#define SMCLK_PIN                   COM_MCU_INT1

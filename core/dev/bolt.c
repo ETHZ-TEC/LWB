@@ -189,9 +189,6 @@ bolt_acquire(bolt_op_mode_t mode)
     DEBUG_PRINT_ERROR("not in idle state, operation skipped");
     return 0;
   } 
-  
-  /* make sure SPI is enabled */
-  spi_enable(BOLT_CONF_SPI, 1);
 
   /* --- MODE --- */
   /* READ */
@@ -223,6 +220,10 @@ bolt_acquire(bolt_op_mode_t mode)
     DEBUG_PRINT_ERROR("access denied");
     return 0;
   }
+  
+  /* make sure SPI is enabled */
+  spi_enable(BOLT_CONF_SPI, 1);
+  
   bolt_state = (mode == BOLT_OP_READ) ? BOLT_STATE_READ : BOLT_STATE_WRITE;
 
   return 1;
@@ -237,7 +238,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
   DEBUG_PRINT_VERBOSE("starting data transfer... ");
   
   if(!data) {
-      return 0;
+    return 0;
   }
 
   /* WRITE OPERATION */
@@ -266,13 +267,13 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
 #if BOLT_CONF_USE_DMA
     dma_config_spi(BOLT_CONF_SPI, bolt_release);
     dma_start((uint16_t)data, 0, BOLT_MAX_MSG_LEN);
-#else
+#else /* BOLT_CONF_USE_DMA */
     /* first, clear the RX buffer */
     spi_read_byte(BOLT_CONF_SPI, 0);
-#if SPI_CONF_FAST_READ
+  #if SPI_CONF_FAST_READ
     /* transmit 1 byte ahead for faster read speed (fills RXBUF faster) */
     spi_write_byte(BOLT_CONF_SPI, 0x00);
-#endif
+  #endif
     while((count < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
       spi_write_byte(BOLT_CONF_SPI, 0x00);          /* generate the clock */
       *data = spi_read_byte(BOLT_CONF_SPI, 1);

@@ -135,13 +135,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
 {
   lwb_stream_list_t *s = 0;
   uint8_t exists = 0;
-  
-  if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
-    DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
-                        "reached", req->node_id);
-    return;
-  } 
-  
+    
   /* check if stream already exists */
   for(s = list_head(streams_list); s != 0; s = s->next) {
     if(req->node_id == s->node_id) {
@@ -157,7 +151,12 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
   }   
   if (!exists)
-  {
+  {      
+    if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
+      DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
+                          "reached", req->node_id);
+      return;
+    } 
     /* does not exist: add the new stream */
     s = memb_alloc(&streams_memb);
     if(s == 0) {
@@ -204,7 +203,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     if(sched->period == LWB_CONF_PERIOD_MIN) {
       /* LWB sets the period to LWB_CONF_PERIOD_MIN if at least a preamble and
        * sync word has been detected during the last contention slot! */
-      DEBUG_PRINT_INFO("initiating a request round");
+      DEBUG_PRINT_VERBOSE("initiating a request round");
       /* clear the content of the schedule */
       memset(sched->slot, 0, sizeof(sched->slot)); 
       /* every node gets one slot (a chance to request a stream) */
@@ -236,7 +235,6 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       while(curr_stream != NULL && 
             (n_slots_assigned < LWB_CONF_MAX_DATA_SLOTS)) {
         if(curr_stream->state) {
-    if(curr_stream->n_pkts == 0) { DEBUG_PRINT_ERROR("is zero!"); }
           uint8_t n = curr_stream->n_pkts;
           /* assign as many slots as the node requested */
           while(n && (n_slots_assigned < LWB_CONF_MAX_DATA_SLOTS)) {

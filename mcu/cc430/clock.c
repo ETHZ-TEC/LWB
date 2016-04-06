@@ -44,8 +44,8 @@ clock_init(void)
   /* ACLK      <- XT1 (low-frequency crystal, 32768 Hz) */
   /* MCLK      <- XT2 (high-frequency crystal, 26 MHz / 2 = 13 MHz) */
 
-  /* set the supply voltage to the maximum */
-  SetVCore(PMMCOREV_3);
+  /* set the supply voltage to the 3rd level (there are 4 levels) */
+  SetVCore(PMMCOREV_2);
 
   SFRIE1 &= ~OFIE;
 

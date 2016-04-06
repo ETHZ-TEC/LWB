@@ -66,7 +66,7 @@
 #define SPI_B0_RX_OVERRUN       (UCB0STAT & UCOE)
 /*---------------------------------------------------------------------------*/
 typedef enum {
-  SPI_REG_RXBUF,
+  SPI_REG_RXBUF = 0,
   SPI_REG_TXBUF,
   SPI_REG_IFG,
   SPI_REG_STAT,

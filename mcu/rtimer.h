@@ -205,13 +205,13 @@ inline void rtimer_update_enable(uint8_t enable);
 inline uint8_t rtimer_update_enabled();
 
 /**
- * @brief get the current timer value of TA0
+ * @brief get the current timer value of TA0 (high frequency)
  * @return timer value in timer clock ticks (timestamp)
  */
 rtimer_clock_t rtimer_now_hf(void);
 
 /**
- * @brief get the current timer value of TA1
+ * @brief get the current timer value of TA1 (low frequency)
  * @return timer value in timer clock ticks (timestamp)
  */
 rtimer_clock_t rtimer_now_lf(void);

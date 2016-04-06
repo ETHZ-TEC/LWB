@@ -707,13 +707,13 @@ set_schedule:
   if(n_pending_sack) {
     LWB_SCHED_SET_SACK_SLOT(sched);
   }
-  if((time < (sched_stats.t_last_req + LWB_CONF_SCHED_T_NO_REQ)) || 
-     (time >= (sched_stats.t_last_cont + LWB_CONF_SCHED_T_NO_REQ)) ||
-     !data_cnt) {
+  //if((time < (sched_stats.t_last_req + LWB_CONF_SCHED_T_NO_REQ)) || 
+  //   (time >= (sched_stats.t_last_cont + LWB_CONF_SCHED_T_NO_REQ)) ||
+  //   !data_cnt) {    -> always schedule a contention slot
     /* schedule a contention slot */
     sched_stats.t_last_cont = time;
     LWB_SCHED_SET_CONT_SLOT(sched);
-  }  
+  //}  
   
 #if LWB_CONF_SCHED_COMPRESS
   uint8_t len = lwb_sched_compress((uint8_t*)sched->slot, n_slots_assigned);
@@ -731,7 +731,7 @@ set_schedule:
   /* log the parameters of the new schedule */
   DEBUG_PRINT_INFO("schedule updated (s=%u T=%u n=%u|%u l=%u|%u)", 
                    n_streams, sched->period, n_slots_assigned, 
-                   sched->n_slots >> 6, len, n_slots_assigned * 2);
+                   sched->n_slots >> 14, len, n_slots_assigned * 2);
   
   return len + LWB_SCHED_PKT_HEADER_LEN;
 }

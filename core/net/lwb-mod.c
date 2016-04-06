@@ -47,6 +47,10 @@
 #error "LWB_MOD only support the 'burst' and 'AE' scheduler"
 #endif
 
+#if !LWB_CONF_USE_LF_FOR_WAKEUP
+#error "LWB_CONF_USE_LF_FOR_WAKEUP must be set to 1"
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
 /*---------------------------------------------------------------------------*/
 #define LWB_CONF_PERIOD_SCALE       100         /* also change in sched-ae.c */
 #define LWB_CONF_PERIOD_MIN         4
@@ -55,12 +59,6 @@
 #ifndef LWB_CONF_SRQ_PKT_LEN
 #define LWB_CONF_SRQ_PKT_LEN        1 
 #endif /* LWB_CONF_SRQ_PKT_LEN */
-
-/* how many LF clock ticks to wake up earlier when using the LF oscillator
- * btw. the rounds */
-#ifndef LWB_CONF_LF_WAKEUP_OFS
-#define LWB_CONF_LF_WAKEUP_OFS      5
-#endif /* LWB_CONF_LF_WAKEUP_OFS */
 
 #ifndef LWB_CONF_SACK_SLOT
 #define LWB_CONF_SACK_SLOT          0
@@ -214,8 +212,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #endif /* LWB_AFTER_DEEPSLEEP */
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
-static struct process*  pre_proc;
 static struct process*  post_proc;
+static void             (*pre_proc)(void);
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   reception_timestamp;
 static uint32_t         global_time;
@@ -471,6 +469,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static uint16_t glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
   /* constant guard time for the host */
   static const uint32_t t_guard = LWB_CONF_T_GUARD; 
+  static uint32_t t_preprocess = 0;
   static uint32_t t_slot = LWB_CONF_T_DATA;
   static uint16_t curr_period = 0;
   static uint16_t srq_cnt = 0;
@@ -496,9 +495,22 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   rt->time = rtimer_now_lf();
   
   while(1) {
-    
+      
     t_start_lf = rt->time; 
     rt->time = rtimer_now_hf();
+    
+  #if LWB_CONF_T_PREPROCESS
+    if(t_preprocess) {
+      if(pre_proc) {
+        pre_proc();
+      }
+      /* use the HF osc. here to schedule the next wakeup! */
+      LWB_WAIT_UNTIL(rt->time + 
+                     (LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000)); 
+      t_preprocess = 0; /* reset value */
+    }    
+  #endif /* LWB_CONF_T_PREPROCESS */
+    
     t_start = rt->time;
         
     /* --- COMMUNICATION ROUND STARTS --- */
@@ -654,6 +666,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
 #endif /* LWB_CONF_STATS_NVMEM */
+    
     /* poll the other processes to allow them to run after the LWB task was 
      * suspended (note: the polled processes will be executed in the inverse
      * order they were started/created) */
@@ -663,11 +676,14 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         /* will be executed before the debug print task */
         process_poll(post_proc);    
       }
+#if LWB_CONF_T_PREPROCESS
+      t_preprocess = (LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
+#endif /* LWB_CONF_T_PREPROCESS */
     }
     
     /* suspend this task and wait for the next round */
     LWB_LF_WAIT_UNTIL(t_start_lf + curr_period * RTIMER_SECOND_LF / 
-                      LWB_CONF_PERIOD_SCALE);
+                      LWB_CONF_PERIOD_SCALE - t_preprocess);
   }
   
   PT_END(&lwb_pt);
@@ -687,6 +703,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint16_t glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static uint32_t t_slot = LWB_CONF_T_DATA;
+  static uint32_t t_preprocess = 0;
   static uint8_t slot_idx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t payload_len;
@@ -702,10 +719,22 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   sync_state = BOOTSTRAP;
   
   while(1) {
-          
-    /* --- COMMUNICATION ROUND STARTS --- */
-        
+    
     rt->time = rtimer_now_hf();        /* overwrite LF with HF timestamp */
+    
+  #if LWB_CONF_T_PREPROCESS
+    if(t_preprocess) {
+      if(pre_proc) {
+        pre_proc();
+      }
+      /* use the HF osc. to schedule the next wakeup! */
+      LWB_WAIT_UNTIL(rt->time + 
+                     (LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000));
+      t_preprocess = 0;
+    }
+  #endif /* LWB_CONF_T_PREPROCESS */
+    
+    /* --- COMMUNICATION ROUND STARTS --- */
     
     if(sync_state == BOOTSTRAP) {
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
@@ -941,12 +970,15 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       debug_print_poll();
       if(post_proc) {
         process_poll(post_proc);
-      }
+      }      
+#if LWB_CONF_T_PREPROCESS
+      t_preprocess = (LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
+#endif /* LWB_CONF_T_PREPROCESS */
     }
     
-    LWB_LF_WAIT_UNTIL(t_ref_lf + schedule.period * RTIMER_SECOND_LF /
+    LWB_LF_WAIT_UNTIL(t_ref_lf + (schedule.period * RTIMER_SECOND_LF) /
                       LWB_CONF_PERIOD_SCALE - 
-                      (t_guard / RTIMER_HF_LF_RATIO + LWB_CONF_LF_WAKEUP_OFS));
+                      (t_guard / RTIMER_HF_LF_RATIO) - t_preprocess);
   }
 
   PT_END(&lwb_pt);
@@ -988,25 +1020,25 @@ PROCESS_THREAD(lwb_process, ev, data)
 #ifdef NODE_ID
   #if (NODE_ID == HOST_ID) && !LWB_CONF_RELAY_ONLY
     /* note: must add at least some clock ticks! */
-    rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
+    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
+                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
                     0, lwb_thread_host);
   #else
-    rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
+    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
+                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
                     0, lwb_thread_src);    
   #endif
 #else /* NODE_ID */
   if((node_id == HOST_ID) && !LWB_CONF_RELAY_ONLY) {
   #if !LWB_CONF_RELAY_ONLY
     /* note: must add at least some clock ticks! */
-    rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
+    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
+                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
                     0, lwb_thread_host);
   #endif /* LWB_CONF_RELAY_ONLY */
   } else {
-    rtimer_schedule(LWB_CONF_RTIMER_ID, 
-                    rtimer_now_hf() + RTIMER_SECOND_HF / 10,
+    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
+                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
                     0, lwb_thread_src);
   }
 #endif /* NODE_ID */
@@ -1015,9 +1047,9 @@ PROCESS_THREAD(lwb_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-lwb_start(void *pre_lwb_proc, void *post_lwb_proc)
+lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
 {
-  pre_proc = (struct process*)pre_lwb_proc;
+  pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s'\r\n", lwb_process.name);
     

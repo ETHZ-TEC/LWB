@@ -223,8 +223,7 @@
 #endif /* LWB_CONF_T_SCHED2_START */
 
 #ifndef LWB_CONF_T_PREPROCESS
-/* in LF clock ticks, set this to 0 to disable preprocessing before a LWB round
- * e.g. (RTIMER_SECOND_HF_LF / 100) = 10 ms */
+/* in milliseconds, set this to 0 to disable preprocessing before a LWB round*/
 #define LWB_CONF_T_PREPROCESS           0
 #endif /* LWB_CONF_T_PREPROCESS */
 
@@ -349,13 +348,13 @@ typedef enum {
 
 /**
  * @brief start the Low-Power Wireless Bus
- * @param pre_lwb_proc a pointer to the a task process that needs to be 
- * executed before an LWB round. Set LWB_T_PREPROCESS to the worst-case 
- * execution time of this task.
+ * @param pre_lwb_proc a pointer to a function that needs to be executed
+ * before an LWB round. Set LWB_T_PREPROCESS to the worst-case 
+ * execution time of this function.
  * @param pre_lwb_proc a pointer to the application task process control 
  * block (struct process)
  */
-void lwb_start(void *pre_lwb_proc, void *post_lwb_proc);
+void lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc);
 
 /**
  * @brief query the connection status of the LWB

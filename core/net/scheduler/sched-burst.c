@@ -138,11 +138,6 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     DEBUG_PRINT_WARNING("max. number of pending sack's reached, stream request"
                         " dropped");
     return;
-  }   
-  if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
-    DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
-                        "reached", req->node_id);
-    return;
   }
   
   /* check if stream already exists */
@@ -159,7 +154,12 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
   }   
   if (!exists)
-  {
+  {   
+    if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
+      DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
+                          "reached", req->node_id);
+      return;
+    }
     /* does not exist: add the new stream */
     s = memb_alloc(&streams_memb);
     if(s == 0) {

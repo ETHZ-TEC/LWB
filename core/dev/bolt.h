@@ -114,6 +114,7 @@
  */
 #define BOLT_READ(out_data, num_rcvd_bytes) \
   { \
+    num_rcvd_bytes = 0;\
     if(bolt_acquire(BOLT_OP_READ)) { \
       num_rcvd_bytes = bolt_start(out_data, 0); \
       bolt_release(); \
@@ -191,8 +192,7 @@ rtimer_clock_t bolt_handle_timereq(void);
  * @param func a pointer to the callback function. Pass 0 to disable the 
  * IND interrupt.
  */
-void
-bolt_set_ind_callback(void (*func)(void));
+void bolt_set_ind_callback(void (*func)(void));
 
 /**
  * @brief handles IRQs if there are pending interrupts
