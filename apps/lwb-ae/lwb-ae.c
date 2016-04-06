@@ -103,7 +103,7 @@ PROCESS_THREAD(app_process, ev, data)
 #endif*/
   
   /* start the LWB thread */
-#ifdef FLOCKLAB
+#if defined(FLOCKLAB) || !BOLT_CONF_ON
   lwb_start(0, &app_process);
 #else  /* FLOCKLAB */
   lwb_start(read_message, &app_process);

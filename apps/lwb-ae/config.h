@@ -83,7 +83,6 @@
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
   #define LWB_CONF_OUT_BUFFER_SIZE      2
 #else
-  #define LWB_CONF_T_PREPROCESS         20    /* ms */
   #define LWB_CONF_IN_BUFFER_SIZE       1
   #define LWB_CONF_OUT_BUFFER_SIZE      2 
 #endif
@@ -146,7 +145,9 @@
 #endif /* DEBUG_TRACING_ON */
 
 #ifndef FLOCKLAB
+  #define LWB_CONF_T_PREPROCESS         20    /* ms */
   #define BOLT_CONF_ON                  1
+  #define FRAM_CONF_ON                  1
 #endif /* FLOCKLAB */
 
 /* --- GLOBAL variables --- */
