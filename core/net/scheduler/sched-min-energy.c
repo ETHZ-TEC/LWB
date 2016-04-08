@@ -100,12 +100,13 @@ typedef struct stream_info {
 /*---------------------------------------------------------------------------*/
 uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots);
 /*---------------------------------------------------------------------------*/
-static uint8_t           period;
+static uint16_t          period;
 static uint32_t          time;               /* global time */
 static uint16_t          n_streams;          /* # streams */
 static lwb_sched_stats_t sched_stats = { 0 };
 static uint8_t           first_index;        /* offset for the stream list */
 static uint8_t           n_slots_assigned;   /* # assigned slots */
+static uint8_t           saturated = 0;
 static uint32_t          data_cnt;
 static uint16_t          data_ipi;
 static volatile uint8_t  n_pending_sack = 0;
@@ -230,6 +231,10 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   /* add and remove requests are implicitly given by the ipi
    * an ipi of 0 implies 'remove' */
   if(req->ipi > 0) { 
+    uint32_t last = 0;
+    if((int32_t)time + (int32_t)extra_data->t_offset > 0) {
+      last = (int32_t)time + (int32_t)extra_data->t_offset;
+    }
   
 #if !LWB_CONF_SCHED_USE_XMEM
     /* check if stream already exists */
@@ -238,7 +243,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
           /* already exists -> update the IPI */
           s->ipi = req->ipi;
-          s->last_assigned = time + extra_data->t_offset;
+          s->last_assigned = last;
           s->n_cons_missed = 0;         /* reset this counter */
           DEBUG_PRINT_VERBOSE("stream request %u.%u processed (IPI updated)",
                               req->node_id, req->stream_id);
@@ -255,9 +260,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
     s->node_id       = req->node_id;
     s->ipi           = req->ipi;
-    s->last_assigned = ((int32_t)time + (int32_t)extra_data->t_offset > 0) ?
-                        (time + extra_data->t_offset) : time;
-                        /* (time > req->ipi) ? (time - req->ipi) : time; */
+    s->last_assigned = last;
     s->stream_id     = req->stream_id;
     s->n_cons_missed = 0;
     /* insert the stream into the list, ordered by node id */
@@ -280,7 +283,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         if(req->node_id == s.node_id && req->stream_id == s.stream_id) {
           /* already exists -> update the IPI */
           s.ipi = req->ipi;
-          s.last_assigned = time + extra_data->t_offset;
+          s.last_assigned = last;
           s.n_cons_missed = 0;         /* reset this counter */
           /* insert into the list of pending S-ACKs */
           memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);
@@ -304,10 +307,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
     new_stream.node_id       = req->node_id;
     new_stream.ipi           = req->ipi;
-    new_stream.last_assigned = ((int32_t)time + 
-                                (int32_t)extra_data->t_offset > 0) ? 
-                                (time + extra_data->t_offset) : time;
-                            /* (time > req->ipi) ? (time - req->ipi) : time; */
+    new_stream.last_assigned = last;
     new_stream.stream_id     = req->stream_id;
     new_stream.n_cons_missed = 0;
     new_stream.next          = MEMBX_INVALID_ADDR;
@@ -428,6 +428,7 @@ lwb_sched_adapt_period(void)
   if(!data_cnt) {
     return LWB_CONF_SCHED_PERIOD_IDLE;     /* no streams */
   }
+  saturated = 0;
   uint16_t new_period = (uint16_t)(((uint32_t)data_ipi * 
                                     LWB_CONF_MAX_DATA_SLOTS) / data_cnt);
   /*new_period = (((uint32_t)data_ipi * LWB_CONF_MAX_DATA_SLOTS) / data_cnt) *
@@ -436,6 +437,7 @@ lwb_sched_adapt_period(void)
   if(new_period < LWB_CONF_SCHED_PERIOD_MIN) {
     /* T_opt is smaller than LWB_CONF_SCHED_PERIOD_MIN */
     DEBUG_PRINT_WARNING("network saturated!");
+    saturated = 1;
     return LWB_CONF_SCHED_PERIOD_MIN;
   }
   /* limit the period */
@@ -589,7 +591,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       /* the number of slots to assign to curr_stream */
       uint16_t to_assign = (time - curr_stream->last_assigned) / 
                            curr_stream->ipi;  /* elapsed time / period */
-      if(period == LWB_CONF_SCHED_PERIOD_MIN) {   /* if saturated */
+      if(saturated) {
         if((curr_stream->next == init_stream) || 
            (curr_stream->next == NULL && rand_init_pos == 0)) {
           /* last random stream: assign all possible slots */
@@ -607,7 +609,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           }
         }
       }
-      if(to_assign > LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned) {
+      if(to_assign > (LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned)) {
         to_assign = LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned;
       }
       curr_stream->last_assigned += to_assign * curr_stream->ipi;
@@ -654,7 +656,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       /* the number of slots to assign to curr_stream */
       uint16_t to_assign = (time - curr_stream.last_assigned) /
                            curr_stream.ipi;  /* elapsed time / period */
-      if(period == LWB_CONF_SCHED_PERIOD_MIN) {   /* if saturated */
+      if(saturated) {   /* if saturated */
         if((curr_stream.next == init_stream) || 
            (curr_stream.next == MEMBX_INVALID_ADDR && rand_init_pos == 0)) {
           /* last random stream: assign all possible slots */
@@ -672,7 +674,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           }
         }
       }
-      if(to_assign > LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned) {
+      if(to_assign > (LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned)) {
         to_assign = LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned;   /* limit */
       }
       curr_stream.last_assigned += to_assign * curr_stream.ipi;

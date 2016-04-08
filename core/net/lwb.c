@@ -693,10 +693,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       if(LWB_DATA_RCVD) {
         LWB_REQ_DETECTED;
         /* check the request */
-        DEBUG_PRINT_VERBOSE("stream request from node %u (stream %u, IPI %u)", 
-                            glossy_payload.srq_pkt.node_id, 
-                            glossy_payload.srq_pkt.stream_id, 
-                            glossy_payload.srq_pkt.ipi);
+        DEBUG_PRINT_INFO("stream request from node %u (stream %u, IPI %u)", 
+                         glossy_payload.srq_pkt.node_id, 
+                         glossy_payload.srq_pkt.stream_id, 
+                         glossy_payload.srq_pkt.ipi);
         lwb_sched_proc_srq(&glossy_payload.srq_pkt);
       }
     }
@@ -1000,8 +1000,11 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             /* try to join, send the stream request */
             if(lwb_stream_prepare_req(&glossy_payload.srq_pkt, 
                                       LWB_INVALID_STREAM_ID)) {
-              /* wait between 1 and 8 rounds */
-              rounds_to_wait = (random_rand() >> 1) % 8 + 1;        
+      #if LWB_CONF_MAX_CONT_BACKOFF
+              /* wait between 1 and LWB_CONF_MAX_CONT_BACKOFF rounds */
+              rounds_to_wait = (random_rand() >> 1) % 
+                               LWB_CONF_MAX_CONT_BACKOFF + 1;
+      #endif /* LWB_CONF_MAX_CONT_BACKOFF */
               payload_len = sizeof(lwb_stream_req_t);
               /* wait until the contention slot starts */
               LWB_REQ_IND;
@@ -1031,18 +1034,18 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #if !LWB_CONF_RELAY_ONLY
         }
   #endif /* LWB_CONF_RELAY_ONLY */ 
-      }  
-    
-      /* --- 2ND SCHEDULE --- */
-    
-      LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
-      LWB_RCV_SCHED();
-            
-      /* update the state machine and the guard time */
-      LWB_UPDATE_SYNC_STATE;
-      if(BOOTSTRAP == sync_state) {
-        continue;
       }
+    }  
+    
+    /* --- 2ND SCHEDULE --- */
+
+    LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
+    LWB_RCV_SCHED();
+        
+    /* update the state machine and the guard time */
+    LWB_UPDATE_SYNC_STATE;
+    if(BOOTSTRAP == sync_state) {
+      continue;
     }
     
     /* --- COMMUNICATION ROUND ENDS --- */    
