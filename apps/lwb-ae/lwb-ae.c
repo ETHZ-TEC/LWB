@@ -46,6 +46,9 @@
 
 #define PAYLOAD_LEN             16
 
+/* use 1 or 3 source nodes (event triggers) for the original LWB? */
+#define LWB_ORIG_USE_3_SRCNODES 1
+
 /* glossy header + length byte must be added to payload length to get max.
  * pkt length */
 #if (PAYLOAD_LEN + 5) > LWB_CONF_MAX_DATA_PKT_LEN
@@ -156,7 +159,14 @@ PROCESS_THREAD(app_process, ev, data)
     } else {
       /* generate an event every 5th round */
       static uint16_t round_cnt = 0;
-      if(((round_cnt % 5) == 0) && (node_id == 6)) {
+  #if LWB_ORIG_USE_3_SRCNODES
+      /* note: this only works if the nodes never fall back to bootstrap
+       * state (then the round_cnt will be different on the 3 nodes!) */
+      if(((round_cnt % 7) == 0) && 
+         (node_id == 6 || node_id == 22 || node_id == 28)) {
+  #else /* LWB_ORIG_USE_3_SRCNODES */
+      if(((round_cnt % 4) == 0) && (node_id == 6)) {
+  #endif /* LWB_ORIG_USE_3_SRCNODES */
         /* stream with ID 1 active? */
         if(lwb_stream_get_state(1) == LWB_STREAM_STATE_INACTIVE) {
           /* request a new stream with ID 1 and IPI 1 */
@@ -236,7 +246,7 @@ PROCESS_THREAD(app_process, ev, data)
       for(i = 0; i < PAYLOAD_LEN; i++) {
         pkt_buffer[i] = (uint8_t)random_rand();  
       }
-#ifdef FLOCKLAB
+  #ifdef FLOCKLAB
       /* initiator nodes start to send data after a certain time */
       if((node_id == 6 || node_id == 28 || node_id == 22) && 
          lwb_get_time(0) > (LWB_CONF_SCHED_PERIOD_IDLE * 4)) {
@@ -246,7 +256,7 @@ PROCESS_THREAD(app_process, ev, data)
         pkt_cnt += 2;
         DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
       }
-#else /* FLOCKLAB */
+  #else /* FLOCKLAB */
       //if(lwb_get_time(0) > 20 && lwb_get_time(0) % 15 == 0) {  
       /*
       static uint8_t msg[128];
@@ -259,7 +269,7 @@ PROCESS_THREAD(app_process, ev, data)
         pkt_cnt += 2;
         DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
       }*/
-#endif /* FLOCKLAB */
+  #endif /* FLOCKLAB */
     }
     
     /* IMPORTANT: This process must not run for more than a few hundred

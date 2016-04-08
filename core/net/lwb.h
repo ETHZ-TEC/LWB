@@ -253,6 +253,12 @@
 #define LWB_CONF_MAX_N_STREAMS          40 
 #endif /* N_STREAMS_MAX */
 
+/* max. number of rounds a node backs off after sending a stream request 
+ * before it tries again */
+#ifndef LWB_CONF_MAX_CONT_BACKOFF
+#define LWB_CONF_MAX_CONT_BACKOFF       8
+#endif /* LWB_CONF_MAX_CONT_BACKOFF */
+
 /*---------------------------------------------------------------------------*/
 
 #ifndef RF_CONF_TX_POWER                /* set the radio antenna gain */
