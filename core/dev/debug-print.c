@@ -149,7 +149,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
     }
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
     
-#ifdef DEBUG_CONF_STACK_GUARD
+#if DEBUG_CONF_STACK_GUARD
     /* check if the stack might be corrupt (check 8 bytes) */
     if(*(uint16_t*)DEBUG_CONF_STACK_GUARD != 0xaaaa       || 
        *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) != 0xaaaa || 
