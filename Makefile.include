@@ -30,7 +30,7 @@ else ifeq ($(TARGET),sky)
   MCUFOLDER = msp430f1611
   PLATFORM = sky
 else ifeq ($(TARGET),custom-cc430)
-  MCU = cc430f5137
+  MCU = cc430f5147
   MCUFOLDER = cc430
   PLATFORM = custom-cc430
 else ifeq ($(TARGET),dpp-cc430)

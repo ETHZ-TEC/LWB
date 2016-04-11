@@ -55,9 +55,9 @@
 /*
  * include MCU definitions
  */
-#include <cc430f5137.h>             /* or simply include <msp430.h> */
+#include <cc430f5147.h>             /* or simply include <msp430.h> */
 
-#define MCU_TYPE                    "CC430F5137"
+#define MCU_TYPE                    "CC430F5147"
 #define COMPILER_INFO               "GCC " __VERSION__
 #define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
 #define COMPILE_DATE                __DATE__
@@ -148,6 +148,33 @@
   PIN_CLR(MUX_SEL_PIN); \
   if(spi == SPI_0) { spi_reinit(SPI_0); }\
 }
+
+#define MCU_HAS_ADC10
+
+/* The application should define the following two macros for better
+ * performance (otherwise glossy will disable all active interrupts). */
+#define GLOSSY_DISABLE_INTERRUPTS
+#define GLOSSY_ENABLE_INTERRUPTS
+
+#define UART_ACTIVE                 (UCA0STAT & UCBUSY)
+
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+  #define LWB_AFTER_DEEPSLEEP()     {\
+                                    if(UCSCTL6 & XT2OFF) {\
+                                      SFRIE1  &= ~OFIE;\
+                                      ENABLE_XT2();\
+                                      WAIT_FOR_OSC();\
+                                      UCSCTL4  = SELA | SELS | SELM;\
+                                      UCSCTL7  = 0;\
+                                      SFRIE1  |= OFIE;\
+                                      TA0R    = 0;\
+                                      TA0CTL  |= MC_2;\
+                                      P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                                  BIT6);\
+                                      P1DIR   &= ~(BIT2 | BIT5);\
+                                    }}
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
 
 /*
  * include MCU specific drivers

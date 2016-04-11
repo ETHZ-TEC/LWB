@@ -105,6 +105,18 @@ adc_get_temp(void)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+int16_t
+adc_get_vcc(void)
+{    
+  if(ADC12CTL0 & ADC12ON) {
+    ADC12CTL0 |= ADC12ENC + ADC12SC; 
+    /* wait until sample / conversion operation has completed */
+    while (ADC12CTL0 & ADC12BUSY);    
+    return ADC12MEM1;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 #elif defined(MCU_HAS_ADC10)
 /*---------------------------------------------------------------------------*/
 void
@@ -115,15 +127,15 @@ adc_init(void)
   /* ADC10SHS_0 = start trigger is SC bit */
   ADC10CTL1 = ADC10SHP + ADC10SHS_0 + ADC10DIV_0 + ADC10CONSEQ_2 + ADC10SSEL_0;
   ADC10CTL2 |= ADC10RES;                    /* 10-bit resolution */
-  ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10 ; // A10, internal Vref+
+  ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10;  // A10, internal Vref+
   
   /* configure internal reference */
   while(REFCTL0 & REFGENBUSY);              /* wait if ref generator busy */                                         
-  REFCTL0 |= REFVSEL_2 + REFON;             /* select internal ref = 2.5V */
+  REFCTL0 |= REFVSEL_0 + REFON;             /* select internal ref = 1.5V */
                                                 
   /* values for the 2.5V reference, see datasheet p.105 */
   slope = (55 << 8) / 
-          (*(int16_t*)ADC_TEMP_2_5V_85 - *(int16_t*)ADC_TEMP_2_5V_30);
+          (*(int16_t*)ADC_TEMP_1_5V_85 - *(int16_t*)ADC_TEMP_1_5V_30);
             
   //ADC10IE |= ADC10IE0; 
   ADC10CTL0 |= ADC10ENC;
@@ -133,12 +145,26 @@ int16_t
 adc_get_temp(void)
 {  
   if(ADC10CTL0 & ADC10ON) {
+    ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10;
     ADC10CTL0 |= ADC10ENC + ADC10SC; 
     /* wait until sample / conversion operation has completed */
     while (ADC10CTL0 & ADC10BUSY);
     //ADC10CTL0 &= ~(ADC10ENC + ADC10SC);
-    return ((((int16_t)ADC10MEM0 - *(int16_t*)ADC_TEMP_2_5V_30) *
+    return ((((int16_t)ADC10MEM0 - *(int16_t*)ADC_TEMP_1_5V_30) *
             slope) >> 8) + 30;
+  }
+  return 0;  
+}
+/*---------------------------------------------------------------------------*/
+int16_t
+adc_get_vcc(void)
+{  
+  if(ADC10CTL0 & ADC10ON) {
+    ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_11;
+    ADC10CTL0 |= ADC10ENC + ADC10SC; 
+    /* wait until sample / conversion operation has completed */
+    while (ADC10CTL0 & ADC10BUSY);
+    return ADC10MEM0;
   }
   return 0;  
 }

@@ -31,56 +31,46 @@
  * Author:  Reto Da Forno
  */
 
-/**
- * @addtogroup  Platform
- * @{
- *
- * @defgroup    adc ADC
- * @{
- *
- * @file
- *
- * @brief configure the ADC to sample the battery voltage and temperature
+#ifndef __CONFIG_H__
+#define __CONFIG_H__
+
+/*
+ * application specific config file to override default settings
  */
 
-#ifndef __ADC_H__
-#define __ADC_H__
+//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
+#define HOST_ID    1
 
-/**
- * @brief initialize the ADC12 module for battery voltage and on-chip
- * temperature sensing
- */
-void adc_init(void);
+#ifdef FLOCKLAB
+  /* set the highest antenna gain if the program runs on FlockLAB */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
+  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
+  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
+  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
+  #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
+#else
+  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
+   * assigns node IDs); select an ID other than HOST_ID to compile the code 
+   * for a source node */
+  #define NODE_ID                       2
+  #define RF_CONF_TX_CH                 5       /* approx. 870 MHz */   
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm 
+#endif /* FLOCKLAB */
 
-/**
- * @brief get the battery voltage and temperature
- * @param[out] out_data the output buffer; the 1st byte will contain the
- * temperature, the 2nd the encoded voltage Venc (Vcc = Venc x 4 + 2000)
- */
-void adc_get_data(uint8_t *out_data);
+#define LWB_CONF_OUT_BUFFER_SIZE        2
+#define LWB_CONF_IN_BUFFER_SIZE         3
+#define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_MAX_PKT_LEN            31
+                                                       
+/* LWB configuration */
+#define LWB_SCHED_STATIC                         /* use the static scheduler */
+#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
+#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 
-/**
- * @brief get the internal temperature sensor value
- * @return the temperature
- * @note adc_init() must be called prior to this function
- * @remark this function will perform sample+conversion and blocks
- * until a result is available
- */
-int16_t adc_get_temp(void);
+/* BOLT */
+#define BOLT_CONF_ON                    1
 
-/**
- * @brief get the supply voltage
- * @return Vcc
- * @note adc_init() must be called prior to this function
- * @remark this function will perform sample+conversion and blocks
- * until a result is available
- */
-int16_t adc_get_vcc(void);
+/* debug config */
+#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 
-
-#endif /* __ADC_H__ */
-
-/**
- * @}
- * @}
- */
+#endif /* __CONFIG_H__ */
