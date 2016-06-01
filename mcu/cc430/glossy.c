@@ -238,7 +238,9 @@ typedef struct {
   uint16_t enabled_port_interrupts;
 #endif /* GLOSSY_DISABLE_INTERRUPTS */
   int16_t  rssi_sum;
-  int16_t  rssi_noise;
+  int8_t   rssi_noise;
+  uint8_t  rssi[3];
+  uint8_t  n_hops[3];
   uint32_t pkt_cnt;
   uint32_t crc_ok_cnt;
 } glossy_state_t;
@@ -403,6 +405,11 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   g.header.initiator_id = initiator_id;
   SET_PKT_TYPE(g.header.pkt_type, sync, n_tx_max);
   g.header.relay_cnt = 0;
+  
+  if(WITH_RELAY_CNT()) {
+    g.rssi[0] = g.rssi[1] = g.rssi[2] = 0;
+    g.n_hops[0] = g.n_hops[1] = g.n_hops[2] = 0;
+  }
 
   /* automatically switch to TX at the end of RX */
   rf1a_set_rxoff_mode(RF1A_OFF_MODE_TX);
@@ -544,19 +551,24 @@ glossy_get_n_header_fail(void)
 int8_t
 glossy_get_snr(void)
 {
-  /* RSSI values are only valid if at at least one packet was received */
+  /* RSSI values are only valid if at least one packet was received */
   if(g.n_rx == 0 || g.rssi_sum == 0 || g.rssi_noise == 0) {
-      return 0;
+    return 0;
   }
   return (int8_t)((g.rssi_sum / (int16_t)g.n_rx) - g.rssi_noise);
 }
 /*---------------------------------------------------------------------------*/
 int8_t
-glossy_get_rssi(void)
+glossy_get_rssi(int8_t* out_rssi)
 {
-  /* RSSI values are only valid if at at least one packet was received */
+  /* RSSI values are only valid if at least one packet was received */
   if(g.n_rx == 0 || g.rssi_sum == 0) {
-      return 0;
+    return 0;
+  }
+  if(out_rssi) {
+    out_rssi[0] = g.rssi[0];
+    out_rssi[1] = g.rssi[1];
+    out_rssi[2] = g.rssi[2];
   }
   return (int8_t)(g.rssi_sum / (int16_t)g.n_rx);
 }
@@ -591,6 +603,13 @@ glossy_get_relay_cnt_first_rx(void)
   return g.relay_cnt_first_rx;
 }
 /*---------------------------------------------------------------------------*/
+uint16_t 
+glossy_get_relay_cnt(void)
+{
+  return (uint16_t)(g.n_hops[0] & 0x0f) | ((uint16_t)(g.n_hops[1] & 0x0f) << 4)
+         | ((uint16_t)(g.n_hops[2] & 0x0f) << 8);
+}
+/*---------------------------------------------------------------------------*/
 uint8_t
 glossy_get_per(void)
 {
@@ -604,6 +623,12 @@ uint32_t
 glossy_get_n_pkts(void)
 {
   return g.pkt_cnt;
+}
+/*---------------------------------------------------------------------------*/
+uint32_t
+glossy_get_n_pkts_crcok(void)
+{
+    return g.crc_ok_cnt;
 }
 /*---------------------- RF1A callback implementation -----------------------*/
 void
@@ -699,6 +724,10 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
     }
 
     /* get the RSSI value */
+    if(WITH_RELAY_CNT() && g.n_rx < 3) {
+      g.rssi[g.n_rx] = rf1a_get_last_packet_rssi();
+      g.n_hops[g.n_rx] = g.header.relay_cnt - 1;
+    }
     g.rssi_sum += rf1a_get_last_packet_rssi();
     
     /* increment the reception counter */

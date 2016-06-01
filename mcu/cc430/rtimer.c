@@ -195,6 +195,17 @@ rtimer_stop(rtimer_id_t timer)
   }
 }
 /*---------------------------------------------------------------------------*/
+void
+rtimer_reset(void)
+{
+  TA0R = 0;
+  TA1R = 0;
+  TA0CTL &= ~TAIFG;
+  TA1CTL &= ~TAIFG;
+  ta0_sw_ext = 0;
+  ta1_sw_ext = 0;    
+}
+/*---------------------------------------------------------------------------*/
 inline void
 rtimer_update_enable(uint8_t enable)
 {

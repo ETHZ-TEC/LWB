@@ -32,6 +32,7 @@
  *          Federico Ferrari
  */
 
+#include "contiki.h"
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
@@ -107,6 +108,8 @@ clock_init(void)
 /*---------------------------------------------------------------------------*/
 ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
 {    
+  ENERGEST_ON(ENERGEST_TYPE_CPU);
+  
   PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
   switch (SYSUNIV) {
     case SYSUNIV_NMIIFG:        /* non-maskable interrupt */
@@ -122,5 +125,7 @@ ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
       break;
   }
   PIN_CLR(LED_ERROR);
+  
+  ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
 /*---------------------------------------------------------------------------*/

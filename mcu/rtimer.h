@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -69,6 +68,7 @@
 #ifndef RTIMER_CONF_LF_CLKSPEED
 #define RTIMER_CONF_LF_CLKSPEED     ACLK_SPEED
 #endif /* RTIMER_CONF_HF_CLKSRC */
+
 
 /**
  * @brief the number of timer ticks that (approx.) correspond to 1s
@@ -191,6 +191,11 @@ void rtimer_wait_for_event(rtimer_id_t timer, rtimer_callback_t func);
  * @param[in] timer the ID of the rtimer, must by of type rtimer_id_t
  */
 void rtimer_stop(rtimer_id_t timer);
+
+/**
+ * @brief resets the rtimer values (both LF and HF) to zero
+ */
+void rtimer_reset(void);
 
 /**
  * @brief enable or disable the overflow/update interrupts for both

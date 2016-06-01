@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -49,7 +48,6 @@
 #define CLIF
 #define CCIF
 
-
 #ifndef ENERGEST_CONF_ON
 #define ENERGEST_CONF_ON        0
 #endif /* ENERGEST_CONF_ON */
@@ -57,6 +55,11 @@
 #ifndef AUTOSTART_ENABLE
 #define AUTOSTART_ENABLE        1
 #endif /* AUTOSTART_ENABLE */
+
+#ifndef RTIMER_NOW
+/* LF clock is the default rtimer */
+#define RTIMER_NOW              rtimer_now_lf
+#endif
 
 extern volatile uint16_t node_id;
 
