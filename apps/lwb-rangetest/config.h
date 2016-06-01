@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -38,39 +37,44 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
 #define HOST_ID    1
 
-#ifdef FLOCKLAB
-  /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
-  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
-  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
-  #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
-#else
-  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
-   * assigns node IDs); select an ID other than HOST_ID to compile the code 
-   * for a source node */
-  #define NODE_ID                       2
-  #define RF_CONF_TX_CH                 5       /* approx. 870 MHz */   
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm 
-#endif /* FLOCKLAB */
+#define NODE_ID                         20050
+#define RF_CONF_TX_CH                   5       /* approx. 869 MHz */   
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm 
 
-#define LWB_CONF_OUT_BUFFER_SIZE        2
-#define LWB_CONF_IN_BUFFER_SIZE         3
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define LWB_CONF_MAX_PKT_LEN            31
+/* Contiki config */
+#define ENERGEST_CONF_ON                1
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
 #define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
+#define LWB_CONF_OUT_BUFFER_SIZE        10
+#define LWB_CONF_IN_BUFFER_SIZE         10
+#define LWB_CONF_MAX_PKT_LEN            63
+#define LWB_CONF_MAX_DATA_PKT_LEN       (31 + LWB_DATA_PKT_HEADER_LEN)
+#define LWB_CONF_USE_LF_FOR_WAKEUP      1
 
-/* BOLT */
-#define BOLT_CONF_ON                    1
+#define LWB_STREAM_ID_STATUS_MSG        1
+/* constant clock offset for timesync */
+#define LWB_CLOCK_OFS                   -1200       
+
+#define BOLT_CONF_MAX_MSG_LEN           48
+#define BOLT_CONF_TIMEREQ_ENABLE        1
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+
+/* 
+ * INCLUDES
+ */
+#include "packet.h"                    /* packet structure and message types */
+
+/* 
+ * GLOBALS
+ */
+extern void send_msg(message_type_t type, uint8_t* data, uint8_t len);
+/* the static scheduler implements the following function: */
+extern void lwb_sched_set_period(uint16_t period);
 
 #endif /* __CONFIG_H__ */
