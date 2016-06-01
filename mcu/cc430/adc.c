@@ -32,14 +32,17 @@
  */
 
 #include "platform.h"
+#include "contiki.h"
 
-static int16_t slope;    /* needed to transform the sampled values (ADC) */
+static int32_t slope;    /* needed to transform the sampled values (ADC) */
 
 /* calibration data, located in info memory */
 #define ADC_TEMP_1_5V_30   0x1a1a   /* value at 30°C for 1.5V ref */
 #define ADC_TEMP_1_5V_85   0x1a1c   /* value at 85°C for 1.5V ref */
-#define ADC_TEMP_2_5V_30   0x1a22   /* value at 30°C for 1.5V ref */
-#define ADC_TEMP_2_5V_85   0x1a24   /* value at 85°C for 1.5V ref */
+#define ADC_TEMP_2_5V_30   0x1a22   /* value at 30°C for 2.5V ref */
+#define ADC_TEMP_2_5V_85   0x1a24   /* value at 85°C for 2.5V ref */
+#define ADC_TEMP_2_0V_30   0x1a1e   /* value at 30°C for 2.0V ref */
+#define ADC_TEMP_2_0V_85   0x1a20   /* value at 85°C for 2.0V ref */
 /*---------------------------------------------------------------------------*/
 #ifdef MCU_HAS_ADC12
 /*---------------------------------------------------------------------------*/
@@ -68,7 +71,7 @@ adc_init(void)
   __delay_cycles(MCLK_SPEED / 25000);
 
   /* use calibration data stored in info memory */
-  slope = (55 << 8) / 
+  slope = (5500) / 
           (*(int16_t*)ADC_TEMP_1_5V_85 - *(int16_t*)ADC_TEMP_1_5V_30);
 }
 /*---------------------------------------------------------------------------*/
@@ -84,7 +87,7 @@ adc_get_data(uint8_t *out_data)
   /* read out and convert the sampled value */
   out_data[0] = (uint8_t)((int32_t)(
                  ((int32_t)ADC12MEM0 - (int32_t)*((int16_t *)ADC_TEMP_1_5V_30))
-                 * slope) >> 8) + 30;
+                 * slope) / 100) + 30;
   out_data[1] = (uint8_t)(
                 ((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2000) >> 2);
   /* another way to encode the voltage as percentage:
@@ -100,7 +103,19 @@ adc_get_temp(void)
     /* wait until sample / conversion operation has completed */
     while (ADC12CTL0 & ADC12BUSY);
     return (((int32_t)((int16_t)ADC12MEM0 - *(int16_t*)ADC_TEMP_1_5V_30) *
-            slope) >> 8) + 30;
+            slope)) + 3000;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+int16_t
+adc_get_vcc(void)
+{    
+  if(ADC12CTL0 & ADC12ON) {
+    ADC12CTL0 |= ADC12ENC + ADC12SC; 
+    /* wait until sample / conversion operation has completed */
+    while (ADC12CTL0 & ADC12BUSY);    
+    return ADC12MEM1;
   }
   return 0;
 }
@@ -111,34 +126,53 @@ void
 adc_init(void)
 {
   /* configure ADC10 - pulse sample mode */
-  ADC10CTL0 = ADC10SHT_3 + ADC10ON;     /* 32 ADC10CLKs sample and hold time */
+  ADC10CTL0 = ADC10SHT_8 + ADC10ON;    /* 256 ADC10CLKs sample and hold time */
+  /* for accurate readings, sampling time must be at least 30us (~150cycles) */
   /* ADC10SHS_0 = start trigger is SC bit */
+  /* ADC10SSEL_1 = ACLK, ADC10SSEL_0 = MODCLK (~4.8MHz) */
   ADC10CTL1 = ADC10SHP + ADC10SHS_0 + ADC10DIV_0 + ADC10CONSEQ_2 + ADC10SSEL_0;
   ADC10CTL2 |= ADC10RES;                    /* 10-bit resolution */
-  ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10 ; // A10, internal Vref+
+  ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10;  // A10, internal Vref+
   
   /* configure internal reference */
   while(REFCTL0 & REFGENBUSY);              /* wait if ref generator busy */                                         
-  REFCTL0 |= REFVSEL_2 + REFON;             /* select internal ref = 2.5V */
+  REFCTL0 |= REFVSEL_1 + REFON;             /* select internal ref = 2.0V */
                                                 
-  /* values for the 2.5V reference, see datasheet p.105 */
-  slope = (55 << 8) / 
-          (*(int16_t*)ADC_TEMP_2_5V_85 - *(int16_t*)ADC_TEMP_2_5V_30);
+  /* values for the 2.0V reference, see datasheet p.105 */
+  slope = ((int32_t)5500 * 32) / 
+          (*(int16_t*)ADC_TEMP_2_0V_85 - *(int16_t*)ADC_TEMP_2_0V_30);
             
   //ADC10IE |= ADC10IE0; 
-  ADC10CTL0 |= ADC10ENC;
 }
 /*---------------------------------------------------------------------------*/
 int16_t
 adc_get_temp(void)
 {  
   if(ADC10CTL0 & ADC10ON) {
+    ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10;
     ADC10CTL0 |= ADC10ENC + ADC10SC; 
     /* wait until sample / conversion operation has completed */
     while (ADC10CTL0 & ADC10BUSY);
-    //ADC10CTL0 &= ~(ADC10ENC + ADC10SC);
-    return ((((int16_t)ADC10MEM0 - *(int16_t*)ADC_TEMP_2_5V_30) *
-            slope) >> 8) + 30;
+    ADC10CTL0 &= ~ADC10ENC;
+    int16_t adcval = ADC10MEM0;
+    return (((int32_t)(adcval - *(int16_t*)ADC_TEMP_2_0V_30) *
+            slope) >> 5) + 3000;
+  }
+  return 0;  
+}
+/*---------------------------------------------------------------------------*/
+int16_t
+adc_get_vcc(void)
+{  
+  /* measured: (AVCC - AVSS) / 2 
+   * conversion: Vcc = 2 * Vref * ADC_VAL / 1024 */
+  if(ADC10CTL0 & ADC10ON) {
+    ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_11;
+    ADC10CTL0 |= ADC10ENC + ADC10SC; 
+    /* wait until sample / conversion operation has completed */
+    while (ADC10CTL0 & ADC10BUSY);
+    ADC10CTL0 &= ~ADC10ENC;
+    return ADC10MEM0;
   }
   return 0;  
 }
