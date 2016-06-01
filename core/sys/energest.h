@@ -28,6 +28,9 @@
  *
  * This file is part of the Contiki operating system.
  *
+ * Modified by rdaforno (allow several nested calls of ENERGEST_ON() without
+ * interrupting the counter). Necessary because interrupts could stop the
+ * counter.
  */
 
 /**
@@ -40,8 +43,9 @@
 #ifndef __ENERGEST_H__
 #define __ENERGEST_H__
 
-#include "contiki-conf.h"
+//#include "contiki-conf.h"
 //#include "rtimer.h"
+
 
 typedef struct {
   /*  unsigned long cumulative[2];*/
@@ -78,48 +82,54 @@ extern energest_t energest_leveldevice_current_leveltime[ENERGEST_CONF_LEVELDEVI
 #endif
 
 #define SET_ENERGEST_TIME() do { energest_time = RTIMER_NOW(); } while (0)
-#define ENERGEST_ON(type)  do { \
-                           /*++energest_total_count;*/ \
-                           energest_current_time[type] = RTIMER_NOW(); \
-			   energest_current_mode[type] = 1; \
-                           } while(0)
+#define ENERGEST_ON(type)   do { \
+                            if(energest_current_mode[type] == 0) { \
+                              /*++energest_total_count;*/ \
+                              energest_current_time[type] = RTIMER_NOW(); \
+                            }\
+                            energest_current_mode[type]++;\
+                            } while(0)
 #define ENERGEST_ON_AT_TIME(type)  do { \
-                           /*++energest_total_count;*/ \
-                           energest_current_time[type] = energest_time; \
-			   energest_current_mode[type] = 1; \
+                             /*++energest_total_count;*/ \
+                             energest_current_time[type] = energest_time; \
+                             energest_current_mode[type] = 1; \
                            } while(0)
 #ifdef __AVR__
 /* Handle 16 bit rtimer wraparound */
-#define ENERGEST_OFF(type) if(energest_current_mode[type] != 0) do {	\
-							if (RTIMER_NOW() < energest_current_time[type]) energest_total_time[type].current += RTIMER_ARCH_SECOND; \
-							energest_total_time[type].current += (rtimer_clock_t)(RTIMER_NOW() - \
-							energest_current_time[type]); \
-							energest_current_mode[type] = 0; \
+#define ENERGEST_OFF(type) if(energest_current_mode[type] != 0) do {    \
+                             if (RTIMER_NOW() < energest_current_time[type]) energest_total_time[type].current += RTIMER_ARCH_SECOND; \
+                             energest_total_time[type].current += (rtimer_clock_t)(RTIMER_NOW() - \
+                             energest_current_time[type]); \
+                             energest_current_mode[type] = 0; \
                            } while(0)
 
 #define ENERGEST_OFF_LEVEL(type,level) do { \
-										if (RTIMER_NOW() < energest_current_time[type]) energest_total_time[type].current += RTIMER_ARCH_SECOND; \
-										energest_leveldevice_current_leveltime[level].current += (rtimer_clock_t)(RTIMER_NOW() - \
-										energest_current_time[type]); \
-										energest_current_mode[type] = 0; \
+                                        if (RTIMER_NOW() < energest_current_time[type]) energest_total_time[type].current += RTIMER_ARCH_SECOND; \
+                                        energest_leveldevice_current_leveltime[level].current += (rtimer_clock_t)(RTIMER_NOW() - \
+                                        energest_current_time[type]); \
+                                        energest_current_mode[type] = 0; \
                                        } while(0)
 #else
-#define ENERGEST_OFF(type) if(energest_current_mode[type] != 0) do {	\
-                           energest_total_time[type].current += (rtimer_clock_t)(RTIMER_NOW() - \
-                           energest_current_time[type]); \
-			   energest_current_mode[type] = 0; \
+#define ENERGEST_OFF(type) do {\
+                             if(energest_current_mode[type] == 1) {    \
+                               energest_total_time[type].current += (rtimer_clock_t)(RTIMER_NOW() - \
+                               energest_current_time[type]); \
+                             }\
+                             if(energest_current_mode[type] > 0) {\
+                               energest_current_mode[type]--;\
+                             }\
                            } while(0)
-#define ENERGEST_OFF_AT_TIME(type) if(energest_current_mode[type] != 0) do {	\
+#define ENERGEST_OFF_AT_TIME(type) if(energest_current_mode[type] != 0) do {    \
                            energest_total_time[type].current += (rtimer_clock_t)(energest_time - \
                            energest_current_time[type]); \
-			   energest_current_mode[type] = 0; \
+                           energest_current_mode[type] = 0; \
                            } while(0)
 
 #define ENERGEST_OFF_LEVEL(type,level) do { \
-                                        energest_leveldevice_current_leveltime[level].current += (rtimer_clock_t)(RTIMER_NOW() - \
-			                energest_current_time[type]); \
-			   energest_current_mode[type] = 0; \
-                                        } while(0)
+                           energest_leveldevice_current_leveltime[level].current += (rtimer_clock_t)(RTIMER_NOW() - \
+                           energest_current_time[type]); \
+                           energest_current_mode[type] = 0; \
+                           } while(0)
 #endif
 
 

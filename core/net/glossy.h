@@ -160,8 +160,10 @@ int8_t glossy_get_snr(void);
 
 /**
  * @brief get the average RSSI value of the last flood
+ * @param out_rssi optional parameter, returns the individual RSSI values
+ * (buffer must be able to hold 3 bytes!)
  */
-int8_t glossy_get_rssi(void);
+int8_t glossy_get_rssi(int8_t* out_rssi);
 
 /**
  * @brief get the length of the payload of the received/transmitted packet
@@ -186,6 +188,12 @@ uint64_t glossy_get_t_ref(void);
 uint8_t glossy_get_relay_cnt_first_rx(void);
 
 /**
+ * @brief get the relay count of the last 3 packets (last flood)
+ * @return 3x 4 bits (relay counter of the received packets)
+ */
+uint16_t glossy_get_relay_cnt(void);
+
+/**
  * @brief get the packet error rate/ratio in percentages
  */
 uint8_t glossy_get_per(void);
@@ -194,6 +202,11 @@ uint8_t glossy_get_per(void);
  * @brief get the total number of received packets including corrupt packets
  */
 uint32_t glossy_get_n_pkts(void);
+
+/**
+ * @brief get the total number of received packets (with CRC ok only)
+ */
+uint32_t glossy_get_n_pkts_crcok(void);
 
 
 #endif /* __GLOSSY_H__ */
