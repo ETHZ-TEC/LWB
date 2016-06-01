@@ -55,9 +55,9 @@
 /*
  * include MCU definitions
  */
-#include <cc430f5147.h>             /* or simply include <msp430.h> */
+#include <cc430f5137.h>             /* or simply include <msp430.h> */
 
-#define MCU_TYPE                    "CC430F5147"
+#define MCU_TYPE                    "CC430F5137"
 #define COMPILER_INFO               "GCC " __VERSION__
 #define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
 #define COMPILE_DATE                __DATE__
@@ -116,7 +116,7 @@
 //#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
 #define LWB_CONF_TASK_ACT_PIN       PORT2, PIN1
 #define GLOSSY_START_PIN            LED_1  
-#define GLOSSY_RX_PIN               PORT2, PIN3
+//#define GLOSSY_RX_PIN               PORT2, PIN3
 #define GLOSSY_TX_PIN               PORT2, PIN4
 #define RF_GDO0_PIN                 PORT1, PIN2
 #define RF_GDO1_PIN                 PORT1, PIN3
@@ -149,7 +149,7 @@
   if(spi == SPI_0) { spi_reinit(SPI_0); }\
 }
 
-#define MCU_HAS_ADC10
+#define MCU_HAS_ADC12
 
 /* The application should define the following two macros for better
  * performance (otherwise glossy will disable all active interrupts). */

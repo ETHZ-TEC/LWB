@@ -168,7 +168,7 @@ main(int argc, char **argv)
   node_id = TOS_NODE_ID;
 #endif /* NODE_ID */
 
-  printf("\r\n" CONTIKI_VERSION_STRING " started. ");
+  printf(CONTIKI_VERSION_STRING " started. ");
   if(node_id > 0) {
     printf("Node ID is set to %u.\r\n", node_id);
   } else {
@@ -197,9 +197,9 @@ main(int argc, char **argv)
   //__eint();
   
   /* start processes */
-  debug_print_init();  
   print_processes(autostart_processes);
   autostart_start(autostart_processes);
+  debug_print_init();  
 
   LED_ON(LED_STATUS);
   

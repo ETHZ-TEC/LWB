@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -87,6 +86,10 @@
 #define FRAM_CONF_ON                0
 #endif /* FRAM_CONF_ON */
 
+#ifndef BOLT_CONF_ON
+#define BOLT_CONF_ON                1
+#endif /* BOLT_CONF_ON */
+
 #ifndef CLOCK_CONF_XT1_ON
 #define CLOCK_CONF_XT1_ON           1
 #endif /* CLOCK_CONF_XT1_ON */
@@ -110,6 +113,19 @@
 
 
 /*
+ * ERROR checks (verify parameters)
+ */
+#if !LWB_CONF_USE_XMEM && LWB_CONF_STATS_NVMEM
+/* logging to non volatile memory is only available if the external memory is
+ * used! */
+#error "must enable LWB_CONF_USE_XMEM in order to use LWB_CONF_STATS_NVMEM"
+#endif
+#if LWB_CONF_USE_XMEM && !FRAM_CONF_ON
+#error "LWB_CONF_USE_XMEM is not available if FRAM is disabled"
+#endif 
+
+
+/*
  * pin mapping
  */
 #define LED_0                       PORT3, PIN0
@@ -125,15 +141,13 @@
 
 //#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
 #ifndef GLOSSY_START_PIN
-  #define GLOSSY_START_PIN            LED_0
+  #define GLOSSY_START_PIN          LED_0
 #endif /* GLOSSY_START_PIN */
 //#define GLOSSY_RX_PIN               COM_MCU_INT1
 //#define GLOSSY_TX_PIN               COM_MCU_INT2
 //#define RF_GDO0_PIN                 COM_MCU_INT1
 //#define RF_GDO1_PIN                 COM_MCU_INT1
-#ifndef RF_GDO2_PIN
-  //#define RF_GDO2_PIN                 COM_MCU_INT1
-#endif /* RF_GDO2_PIN */
+//#define RF_GDO2_PIN                 COM_MCU_INT1
 //#define MCLK_PIN                    COM_MCU_INT1
 //#define ACLK_PIN                    COM_MCU_INT1
 //#define SMCLK_PIN                   COM_MCU_INT1
@@ -153,6 +167,9 @@
   #ifndef DEBUG_PRINT_CONF_NUM_MSG
   #define DEBUG_PRINT_CONF_NUM_MSG  20
   #endif /* DEBUG_PRINT_CONF_NUM_MSG */
+  #define FRAM_SLEEP                fram_sleep()
+#else /* FRAM_CONF_ON */
+  #define FRAM_SLEEP
 #endif /* FRAM_CONF_ON */
 
 #if BOLT_CONF_ON
@@ -183,22 +200,33 @@
 
 #define UART_ACTIVE                 (UCA0STAT & UCBUSY)
 
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-  #define LWB_AFTER_DEEPSLEEP()     {\
-                                    if(UCSCTL6 & XT2OFF) {\
-                                      SFRIE1  &= ~OFIE;\
-                                      ENABLE_XT2();\
-                                      WAIT_FOR_OSC();\
-                                      UCSCTL4  = SELA | SELS | SELM;\
-                                      UCSCTL7  = 0;\
-                                      SFRIE1  |= OFIE;\
-                                      TA0CTL  |= MC_2;\
-                                      P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                                  BIT6 | BIT7);\
-                                      P1DIR   &= ~(BIT2 | BIT5);\
-                                    }}
-                                    /*UCSCTL4  = SELA | SELS | SELM;*/
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+#define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) {\
+                                  SFRIE1  &= ~OFIE;\
+                                  ENABLE_XT2();\
+                                  WAIT_FOR_OSC();\
+                                  UCSCTL4  = SELA | SELS | SELM;\
+                                  UCSCTL7  = 0;\
+                                  SFRIE1  |= OFIE;\
+                                  TA0CTL  |= MC_2;\
+                                  P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                              BIT6 | BIT7);\
+                                  P1DIR   &= ~(BIT2 | BIT5);\
+                                }
+                                
+/* disable all peripherals, reconfigure the GPIOs and disable XT2 */
+#define LWB_BEFORE_DEEPSLEEP()  {\
+                                  FRAM_SLEEP;\
+                                  TA0CTL   &= ~MC_3; /* stop TA0 */\
+                                  DISABLE_XT2();\
+                                  PIN_SET(MUX_SEL_PIN);\
+                                  P1SEL = 0; /* reconfigure GPIOs */\
+                                  /* DPP has a pullup on P1.5! */\
+                                  P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7);\
+                                  P1OUT = 0; \
+                                  /* set clock source to DCO */\
+                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV |\
+                                            SELM__DCOCLKDIV;\
+                                }
 
 /* specify what needs to be done every time before SPI is enabled */
 #define SPI_BEFORE_ENABLE(spi) {\

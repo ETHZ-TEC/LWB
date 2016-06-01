@@ -133,15 +133,22 @@ main(int argc, char **argv)
   
   /* initialize hardware */
 
-  GPIO_RESET();       /* set default configuration for all GPIOs */
-    
-  PIN_SET(LED_STATUS);
+  /* set default configuration for all GPIOs */
+  GPIO_RESET();
   
-  /* ---> board-specific optimal configuration of unused pins goes here <--- */
-#ifdef COM_MCU_SPARE1
-  /* make sure pin P3.6 (Vcc for FRAM) is high! */
-  PIN_SET(COM_MCU_SPARE1);
-#endif /* COM_MCU_SPARE1 */
+  /* board-specific GPIO config */
+  
+  PIN_CFG_IN(BOLT_CONF_IND_PIN);
+  PIN_CFG_IN(BOLT_CONF_IND_OUT_PIN);
+  PIN_CFG_IN_I(1, 5);                   // UART RXD (has a pullup)
+  PIN_CFG_OUT(LED_STATUS);
+  PIN_SET(LED_STATUS);
+      
+#ifdef MUX_SEL_PIN
+  /* this board has a multiplexer (set it to UART) */
+  PIN_CFG_OUT(MUX_SEL_PIN);
+  PIN_SET(MUX_SEL_PIN);
+#endif 
 
   /* pin mappings */
 #ifdef RF_GDO0_PIN
@@ -162,12 +169,6 @@ main(int argc, char **argv)
 #ifdef ACLK_PIN
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
-      
-#ifdef MUX_SEL_PIN
-  /* this board has a multiplexer (set it to UART) */
-  PIN_CFG_OUT(MUX_SEL_PIN);
-  PIN_SET(MUX_SEL_PIN);
-#endif 
   
   clock_init();
   rtimer_init();
