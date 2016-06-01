@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -110,6 +109,11 @@
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
+/* error checking: can only use LFXT for wakeup if it's available on the PCB */
+#if LWB_CONF_USE_LF_FOR_WAKEUP && !CLOCK_CONF_XT1_ON
+#error "Can't use LF for wakeup (LWB)"
+#endif
+
 #ifndef LWB_CONF_T_REF_OFS
 /* constant time offset that is subtracted from t_ref in each round to align  
  * the glossy start pulses on host and source nodes */
@@ -181,7 +185,7 @@
 
 #ifndef LWB_CONF_STATS_NVMEM
 /* keep statistics in non-volatile memory? */
-#define LWB_CONF_STATS_NVMEM            1         
+#define LWB_CONF_STATS_NVMEM            0         
 #endif /* LWB_CONF_STATS_NVMEM */
 
 #ifndef LWB_CONF_MAX_PKT_LEN
@@ -203,16 +207,20 @@
 #endif
 
 #ifndef LWB_CONF_MAX_HOPS
-/* max. number of hops in the network to reach all nodes */
+/* max. number of hops in the network to reach all nodes (only used to 
+ * calculate T_SLOT_MIN) */
 #define LWB_CONF_MAX_HOPS               5
 #endif /* LWB_CONF_MAX_HOPS */
 
 #ifndef LWB_CONF_T_SILENT               /* set to 0 to disable this feature */
-/* threshold for the host fail-over policy in clock ticks (if no communication
- * within this time, we assume the host has failed and thus, a new host must 
- * be selected) */
-#define LWB_CONF_T_SILENT               0      
+/* if no communication happens within this time (i.e. no schedule received),
+ * the source node goes into deepsleep mode for LWB_CONF_T_DEEPSLEEP LF ticks*/
+#define LWB_CONF_T_SILENT               (180 * RTIMER_SECOND_HF)
 #endif /* LWB_CONF_T_SILENT */
+
+#ifndef LWB_CONF_T_DEEPSLEEP
+#define LWB_CONF_T_DEEPSLEEP            (RTIMER_SECOND_LF * 3600)      /* 1h */
+#endif /* LWB_CONF_T_DEEPSLEEP */
 
 #ifndef LWB_CONF_T_SCHED2_START
 /* start point (offset) of the second schedule at the end of a round
@@ -229,8 +237,12 @@
 
 #ifndef LWB_CONF_MAX_CLOCK_DEV
 /* the max. clock deviation (according to the specs of the oscillator), in 
- * HF timer ticks per second */
-#define LWB_CONF_MAX_CLOCK_DEV          500             
+ * clock ticks per second */
+ #if LWB_CONF_USE_LF_FOR_WAKEUP
+  #define LWB_CONF_MAX_CLOCK_DEV        10      /* LF clock ticks */     
+ #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  #define LWB_CONF_MAX_CLOCK_DEV        500     /* HF clock ticks */
+ #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_MAX_CLOCK_DEV */
 
 #ifndef LWB_CONF_RTIMER_ID
@@ -250,7 +262,7 @@
 
 #ifndef LWB_CONF_MAX_N_STREAMS
 /* max. number of streams (bounds the required memory on the host) */
-#define LWB_CONF_MAX_N_STREAMS          40 
+#define LWB_CONF_MAX_N_STREAMS          32 
 #endif /* N_STREAMS_MAX */
 
 /* max. number of rounds a node backs off after sending a stream request 
@@ -303,10 +315,9 @@
                                      (2 * LWB_CONF_TX_CNT_DATA) - 2) * \
                                      LWB_T_HOP(len))
                                                                          
-#define LWB_RECIPIENT_LOCAL         0x0000  /* localhost / loopback */
-#define LWB_RECIPIENT_HOST          0xfffd  /* to the host */
-#define LWB_RECIPIENT_SINK          0xfffe  /* to all sinks */
-#define LWB_RECIPIENT_BROADCAST     0xffff  /* to all receivers */
+#define LWB_RECIPIENT_HOST          0x0000  /* to the host */
+#define LWB_RECIPIENT_SINKS         0xfffe  /* to all sinks */
+#define LWB_RECIPIENT_BROADCAST     0xffff  /* to all nodes / sinks */
 
 #define LWB_RECIPIENT_GROUP_MASK    0xf000  /* group ID mask */
 #define LWB_RECIPIENT_NODE_MASK     0x0fff  /* node ID mask */
@@ -361,6 +372,18 @@ typedef enum {
  * block (struct process)
  */
 void lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc);
+
+
+/**
+ * @brief pause the LWB by stopping the rtimer
+ */
+void lwb_pause(void);
+
+/**
+ * @brief resume the LWB by scheduling the rtimer
+ */
+void lwb_resume(void);
+
 
 /**
  * @brief query the connection status of the LWB

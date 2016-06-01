@@ -186,7 +186,6 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #define LWB_LF_WAIT_UNTIL(time) \
 {\
   rtimer_schedule(LWB_CONF_LF_RTIMER_ID, time, 0, callback_func);\
-  LWB_BEFORE_DEEPSLEEP();\
   LWB_TASK_SUSPENDED;\
   PT_YIELD(&lwb_pt);\
   LWB_AFTER_DEEPSLEEP();\
@@ -492,7 +491,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   schedule_len = lwb_sched_init(&schedule);
   sync_state = SYNCED;  /* the host is always 'synced' */
   
-  rt->time = rtimer_now_lf();
+  rtimer_reset();
+  rt->time = 0; //rtimer_now_lf();
   
   while(1) {
       
@@ -520,7 +520,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
     LWB_SEND_SCHED();
    
-    glossy_rssi = glossy_get_rssi();
+    glossy_rssi = glossy_get_rssi(0);
     stats.relay_cnt = glossy_get_relay_cnt_first_rx();
     slot_idx = 0;     /* reset the packet counter */
     
@@ -744,6 +744,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       payload_len = LWB_SCHED_PKT_HEADER_LEN;   /* empty schedule */
       do {
         LWB_RCV_SCHED();
+        if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT) {
+          DEBUG_PRINT_MSG_NOW("communication timeout, going to sleep...");
+          LWB_BEFORE_DEEPSLEEP();
+          LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
+          t_ref = rtimer_now_hf();
+          DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
+          /* alternative: implement a host failover policy */
+        }
       } while(!glossy_is_t_ref_updated());
       /* schedule received! */
       putchar('\r');
