@@ -78,7 +78,7 @@ typedef struct stream_info {
 /*---------------------------------------------------------------------------*/
 uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots);
 /*---------------------------------------------------------------------------*/
-static uint8_t            period;
+static uint16_t           period;
 static uint32_t           time;                               /* global time */
 static uint16_t           n_streams;                            /* # streams */
 static uint8_t            first_index;         /* offset for the stream list */
@@ -240,6 +240,12 @@ lwb_sched_stream_in_list(uint16_t node_id,
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+void 
+lwb_sched_set_period(uint16_t p)
+{
+  if (p) { period = p; }
+}
+/*---------------------------------------------------------------------------*/
 uint16_t 
 lwb_sched_compute(lwb_schedule_t * const sched, 
                   const uint8_t * const streams_to_update, 
@@ -282,7 +288,6 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   }
   
   /* keep the round period constant */
-  period = LWB_CONF_SCHED_PERIOD_IDLE; 
 
   time += period;   /* increment time by the current period */
 

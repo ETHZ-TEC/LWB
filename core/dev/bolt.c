@@ -96,7 +96,7 @@ bolt_init(bolt_callback_t IND_line_callback)
   PIN_CFG_IN(BOLT_CONF_TIMEREQ_PIN);
   PIN_PULLDOWN_EN(BOLT_CONF_TIMEREQ_PIN);
   
-  /* configure TA1 CCR0 to capture the timestamp on an edge change on pin 2.1
+  /* configure TA1 CCR0 to capture the timestamp on rising edge of pin 2.1
      (do NOT enable interrupts!) */
   rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */

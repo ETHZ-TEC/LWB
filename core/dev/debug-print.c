@@ -132,7 +132,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
-      printf("%3u %7lu %s: %s\r\n", node_id, msg->time, 
+      printf("%2u %5lu %s: %s\r\n", node_id, msg->time, 
              debug_print_lvl_to_string[msg->level], msg->content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(0);
@@ -182,7 +182,7 @@ debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data)
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
      MEMBX_INVALID_ADDR != start_addr_msg) {
     /* compose the message struct */
-    msg.time = RTIMER_LF_TO_MS(timestamp);
+    msg.time = timestamp / RTIMER_SECOND_LF;
     msg.level = level;
     memcpy(msg.content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* write to external memory */
@@ -197,7 +197,7 @@ debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data)
   debug_print_t *msg = memb_alloc(&debug_print_memb);
   if(msg != NULL) {
     /* compose the message struct */
-    msg->time = RTIMER_LF_TO_MS(timestamp);
+    msg->time = timestamp / RTIMER_SECOND_LF;
     msg->level = level;
     memcpy(msg->content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* add it to the list of messages ready to print */

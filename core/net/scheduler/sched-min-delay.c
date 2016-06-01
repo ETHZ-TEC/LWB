@@ -83,7 +83,7 @@ typedef struct stream_info {
 /*---------------------------------------------------------------------------*/
 uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots);
 /*---------------------------------------------------------------------------*/
-static uint8_t            period;
+static uint16_t           period;
 static uint32_t           time;                               /* global time */
 static uint16_t           n_streams;                            /* # streams */
 static uint8_t            first_index;         /* offset for the stream list */

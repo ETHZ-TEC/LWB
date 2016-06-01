@@ -37,8 +37,8 @@
  *         Adam Dunkels <adam@sics.se>
  */
 
-#include "sys/energest.h"
-#include "contiki-conf.h"
+//#include "sys/energest.h"
+#include "contiki.h"
 
 #if ENERGEST_CONF_ON
 
