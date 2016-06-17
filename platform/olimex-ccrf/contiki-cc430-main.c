@@ -108,8 +108,14 @@ main(int argc, char **argv)
   watchdog_init();
 
   /* initialize hardware */
-  
-  GPIO_RESET();       /* set default configuration for all GPIOs */
+  P1DIR = (BIT0 | BIT1 | BIT2 | BIT3 | BIT4 | BIT5 | BIT7);
+  PORT_CLR_I(1);
+  PORT_CFG_OUT_I(2);
+  PORT_CLR_I(2);
+  PORT_CFG_OUT_I(3);
+  PORT_CLR_I(3);
+  PORT_CFG_OUT_I(J);
+  PORT_CLR_I(J);
     
   PIN_SET(LED_STATUS);
   

@@ -57,7 +57,7 @@
 
 #define LWB_CONF_OUT_BUFFER_SIZE        2
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define LWB_CONF_MAX_PKT_LEN            31
+#define LWB_CONF_MAX_PKT_LEN            63
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */

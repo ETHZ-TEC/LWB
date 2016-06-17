@@ -131,8 +131,8 @@ static const
 lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] = 
 {/* STATES:                                                                               EVENTS:           */
  /* BOOTSTRAP,  QUASISYNCED,  SYNCED,    SYNCED2,   MISSED,    UNSYNCED,  UNSYNCED2                         */
-  { AFTER_BOOT, SYNCED,       BOOTSTRAP, SYNCED,    SYNCED,    SYNCED,    SYNCED    }, /* 1st schedule rcvd */
-  { BOOTSTRAP,  QUASI_SYNCED, SYNCED_2,  BOOTSTRAP, BOOTSTRAP, BOOTSTRAP, BOOTSTRAP }, /* 2nd schedule rcvd */
+  { AFTER_BOOT, SYNCED,       BOOTSTRAP, SYNCED,    SYNCED,    BOOTSTRAP, SYNCED    }, /* 1st schedule rcvd */
+  { BOOTSTRAP,  QUASI_SYNCED, SYNCED_2,  BOOTSTRAP, BOOTSTRAP, SYNCED_2,  BOOTSTRAP }, /* 2nd schedule rcvd */
   { BOOTSTRAP,  BOOTSTRAP,    MISSED,    UNSYNCED,  UNSYNCED,  UNSYNCED2, BOOTSTRAP }  /* schedule missed   */
 };
 /* note: syn2 = already synced */
@@ -225,8 +225,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
   rtimer_schedule(LWB_CONF_LF_RTIMER_ID, time, 0, callback_func);\
   LWB_TASK_SUSPENDED;\
   PT_YIELD(&lwb_pt);\
-  LWB_AFTER_DEEPSLEEP();\
   LWB_TASK_RESUMED;\
+  LWB_AFTER_DEEPSLEEP();\
 }
 #define LWB_UPDATE_SYNC_STATE \
 {\
@@ -349,13 +349,13 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
     DEBUG_PRINT_WARNING("received data packet is too big"); 
   }
   /* received messages will have the max. length LWB_CONF_MAX_DATA_PKT_LEN */
-  uint32_t pkt_addr = fifo_put(&in_buffer);
-  if(FIFO_ERROR != pkt_addr) {
+  uint16_t pkt_addr = fifo_put(&in_buffer);
+  if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* copy the data into the queue */
-    memcpy((uint8_t*)((uint16_t)pkt_addr), data, len);
+    memcpy((uint8_t*)pkt_addr, data, len);
     /* last byte holds the payload length */
-    *(uint8_t*)((uint16_t)pkt_addr + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
+    *(uint8_t*)(pkt_addr + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
 #else /* LWB_CONF_USE_XMEM */
     /* write the data into the queue in the external memory */
     xmem_write(pkt_addr, len, data);
@@ -374,11 +374,11 @@ lwb_out_buffer_get(uint8_t* out_data)
 {   
   /* messages have the max. length LWB_CONF_MAX_DATA_PKT_LEN and are already
    * formatted according to glossy_payload_t */
-  uint32_t pkt_addr = fifo_get(&out_buffer);
-  if(FIFO_ERROR != pkt_addr) {
+  uint16_t pkt_addr = fifo_get(&out_buffer);
+  if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);  
+    uint8_t* next_msg = (uint8_t*)pkt_addr;  
     memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
 #else /* LWB_CONF_USE_XMEM */
@@ -404,11 +404,11 @@ lwb_put_data(uint16_t recipient,
   if(len > LWB_DATA_PKT_PAYLOAD_LEN || !data) {
     return 0;
   }
-  uint32_t pkt_addr = fifo_put(&out_buffer);
-  if(FIFO_ERROR != pkt_addr) {
+  uint16_t pkt_addr = fifo_put(&out_buffer);
+  if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);  
+    uint8_t* next_msg = (uint8_t*)pkt_addr;  
     *(next_msg) = (uint8_t)recipient;   /* recipient L */  
     *(next_msg + 1) = recipient >> 8;   /* recipient H */  
     *(next_msg + 2) = stream_id; 
@@ -440,11 +440,11 @@ lwb_get_data(uint8_t* out_data,
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
    * lwb header needs to be stripped off; payload has max. length
    * LWB_DATA_PKT_PAYLOAD_LEN */
-  uint32_t pkt_addr = fifo_get(&in_buffer);
-  if(FIFO_ERROR != pkt_addr) {
+  uint16_t pkt_addr = fifo_get(&in_buffer);
+  if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr); 
+    uint8_t* next_msg = (uint8_t*)pkt_addr; 
     uint8_t msg_len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) -
                       LWB_DATA_PKT_HEADER_LEN;
     memcpy(out_data, next_msg + LWB_DATA_PKT_HEADER_LEN, msg_len);
@@ -561,17 +561,16 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   
   while(1) {
-    
 #if LWB_CONF_T_PREPROCESS
     if(pre_proc) {
       pre_proc();
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
-                      LWB_CONF_TIME_SCALE);
+    LWB_LF_WAIT_UNTIL(rt->time + LWB_CONF_T_PREPROCESS *
+                      RTIMER_SECOND_LF / 1000);
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF / 
-                   LWB_CONF_TIME_SCALE)
+    LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_PREPROCESS *
+                   RTIMER_SECOND_HF / 1000)
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_T_PREPROCESS */
 
@@ -740,11 +739,13 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
     /* suspend this task and wait for the next round */
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_start_lf + schedule.period * RTIMER_SECOND_LF / 
+    LWB_LF_WAIT_UNTIL(t_start_lf + 
+                      (rtimer_clock_t)schedule.period * RTIMER_SECOND_LF / 
                       LWB_CONF_TIME_SCALE - LWB_CONF_T_PREPROCESS *
                       RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF /
+    LWB_WAIT_UNTIL(t_start + 
+                   (rtimer_clock_t)schedule.period * RTIMER_SECOND_HF /
                    LWB_CONF_TIME_SCALE - 
                    LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
@@ -769,7 +770,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_RELAY_ONLY */
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   static rtimer_clock_t t_ref_lf;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */            /* note: t_start != t_ref */
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static int32_t  drift = 0;
   static int32_t  drift_last = 0;  
@@ -787,7 +788,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state    = BOOTSTRAP;
+  sync_state        = BOOTSTRAP;
   stats.period_last = LWB_CONF_SCHED_PERIOD_MIN;
   
   while(1) {
@@ -797,11 +798,11 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       pre_proc();
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_LF_WAIT_UNTIL(t_ref_lf + schedule.period * RTIMER_SECOND_LF / 
-                      LWB_CONF_TIME_SCALE - (t_guard / RTIMER_HF_LF_RATIO));
+    LWB_LF_WAIT_UNTIL(rt->time + 
+                      LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    LWB_WAIT_UNTIL(t_start + schedule.period * RTIMER_SECOND_HF / 
-                   LWB_CONF_TIME_SCALE - t_guard)
+    LWB_WAIT_UNTIL(rt->time + 
+                   LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000)
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_T_PREPROCESS */
     
@@ -828,7 +829,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
           DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
           /* alternative: implement a host failover policy */
         }
-        /*putchar('.');*/
       } while(!glossy_is_t_ref_updated() || !LWB_SCHED_IS_1ST(&schedule));
       /* schedule received! */
       putchar('\r');
@@ -837,7 +837,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       LWB_RCV_SCHED();  
     }
     glossy_snr = glossy_get_snr();
-        
+
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
     xmem_wakeup();    
@@ -865,20 +865,20 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
+      t_ref += schedule.period * (RTIMER_SECOND_HF + drift_last) /
+               LWB_CONF_TIME_SCALE; 
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* since HF clock was off, we need a new timestamp; subtract a const.
        * processing offset to adjust (if needed) */
       t_ref_lf += (schedule.period * RTIMER_SECOND_LF + 
-                  (schedule.period * drift_last >> 8)) / LWB_CONF_TIME_SCALE;
-  #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-      t_ref += schedule.period * (RTIMER_SECOND_HF + drift_last) /
-               LWB_CONF_TIME_SCALE; 
+                  ((int32_t)schedule.period * drift_last >> 8)) /
+                  LWB_CONF_TIME_SCALE;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-      /* don't update the schedule.time here! */
+      /* don't update schedule.time here! */
     }
-    
+
     /* permission to participate in this round? */
-    if(sync_state == SYNCED || sync_state == MISSED) {
+    if(sync_state == SYNCED || sync_state == UNSYNCED) {
         
       static uint8_t i;  /* must be static */      
       slot_idx = 0;   /* reset the packet counter */
@@ -889,7 +889,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_SCHED_COMPRESS */
       
       /* --- S-ACK SLOT --- */
-      
+
       if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {   
         /* wait for the slot to start */
         LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(0) - t_guard);     
@@ -926,7 +926,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       }
       
       /* --- DATA SLOTS --- */
-      
+
       if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
   #if !LWB_CONF_RELAY_ONLY
@@ -993,7 +993,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       }
       
       /* --- CONTENTION SLOT --- */
-      
+
       /* is there a contention slot in this round? */
       if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
   #if !LWB_CONF_RELAY_ONLY
@@ -1044,7 +1044,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 
     LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
     LWB_RCV_SCHED();
-        
+  
     /* update the state machine and the guard time */
     LWB_UPDATE_SYNC_STATE;
     if(BOOTSTRAP == sync_state) {
@@ -1073,7 +1073,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     t_ref_last = t_ref_lf;     
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
-                      RTIMER_SECOND_HF)) * 16 / (int32_t)stats.period_last;
+                      RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_TIME_SCALE */
@@ -1098,14 +1098,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if LWB_CONF_USE_LF_FOR_WAKEUP
                      (int16_t)(drift_last / 8),       /* in ppm */
 #else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-                     (int16_t)(drift_last / 832),       /* in ppm */                     
+                     (int16_t)(drift_last * 100 / 325),       /* in ppm */                     
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
                      glossy_get_per(),
                      glossy_snr);
 #if (LWB_CONF_TIME_SCALE == 1)
     if(sync_state <= MISSED) {
-      if(((drift >> 8) < LWB_CONF_MAX_CLOCK_DEV) && 
-         ((drift >> 8) > -LWB_CONF_MAX_CLOCK_DEV)) {
+      if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
+         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
         drift_last = (drift_last + drift) / 2;
       } else if(drift_last) {  /* only if not zero */
         /* most probably a timer update overrun or a host failure
@@ -1116,7 +1116,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       }
     }
 #endif
-    
+
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
 #endif /* LWB_CONF_STATS_NVMEM */
@@ -1133,13 +1133,15 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
-                      (schedule.period * RTIMER_SECOND_LF + 
-                       (schedule.period * drift_last >> 8)) /
-                      LWB_CONF_TIME_SCALE - t_guard / RTIMER_HF_LF_RATIO - 
+                      ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 
+                       ((int32_t)schedule.period * drift_last / 256)) /
+                      LWB_CONF_TIME_SCALE - 
+                      t_guard / (uint32_t)RTIMER_HF_LF_RATIO - 
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_ref + 
-                   schedule.period * (RTIMER_SECOND_HF + drift_last) / 
+                   (rtimer_clock_t)schedule.period *
+                   (RTIMER_SECOND_HF + drift_last) / 
                    LWB_CONF_TIME_SCALE - t_guard - 
                    LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
