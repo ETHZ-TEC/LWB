@@ -212,11 +212,9 @@ rtimer_update_enable(uint8_t enable)
   if(enable) {
     TA0CTL |= TAIE; 
     TA1CTL |= TAIE;
-    //*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) |= CCIE;
   } else {
     TA0CTL &= ~TAIE; 
     TA1CTL &= ~TAIE;
-    //*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) &= ~CCIE;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -302,9 +300,8 @@ rtimer_now_lf(void)
 void
 rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
 {
-  /* NOTE: This function will only work properly if the CPU is running on the
-   * same clock source as the timer TA0 (HF) and this function can be executed 
-   * within one TA0 period (i.e. ~20ms @ 3.25 MHz). */
+  /* NOTE: This function will only work properly if the CPU and timer TA0 (HF)
+   * are running from the same clock source */
   if(hf_val && lf_val) {
     /* disable all interrupts */
     uint16_t interrupt_enabled = __get_interrupt_state() & GIE;//READ_SR & GIE;
@@ -313,7 +310,7 @@ rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
     /* take a snapshot of the SW extension */
     rtimer_clock_t sw_hf = ta0_sw_ext;
     rtimer_clock_t sw_lf = ta1_sw_ext;
-capture_values: ;
+capture_values:  ;
     uint16_t hw_hf = TA0R;
     uint16_t hw_lf = TA1R;
     uint16_t hw_lf2 = TA1R;

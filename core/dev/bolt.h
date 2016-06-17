@@ -111,6 +111,8 @@
 
 /**
  * @brief reads one message from the asynchronous interface
+ * @param out_data buffer for the read bytes, must be sufficiently large
+ * to hold BOLT_CONF_MAX_MSG_LEN bytes
  */
 #define BOLT_READ(out_data, num_rcvd_bytes) \
   { \

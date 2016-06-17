@@ -103,7 +103,7 @@
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_TRACING_ON                1
 /* pins */
-#define GLOSSY_START_PIN                FLOCKLAB_LED3
+//#define GLOSSY_START_PIN                FLOCKLAB_LED3
 
 //#define RF_GDO2_PIN                   FLOCKLAB_LED3
 //#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT1
@@ -139,7 +139,8 @@
                                      PIN_GET(FLOCKLAB_INT2) == 0) {\
                                   PIN_SET(FLOCKLAB_LED1);\
                                   PIN_SET(FLOCKLAB_INT1);\
-                                  PIN_SET(FLOCKLAB_INT2); }}
+                                  PIN_SET(FLOCKLAB_INT2);\
+                                  cont_det_cnt++; }}
   /* slot_node_id is only set when one pkt was already rcvd from that node */
   #define LWB_DATA_SLOT_STARTS  { if((i > 0) && (schedule.slot[i - 1] \
                                      == schedule.slot[i]) && LWB_DATA_RCVD) {\
@@ -158,5 +159,6 @@
 /* --- GLOBAL variables --- */
 
 extern uint16_t slot_node_id;   /* for debugging/tracing only */
+extern uint16_t cont_det_cnt;
 
 #endif /* __CONFIG_H__ */

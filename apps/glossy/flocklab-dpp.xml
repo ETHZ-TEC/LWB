@@ -6,7 +6,7 @@
         <name>DPP Glossy Test</name>
         <description>N=6, INI=1, PWR=+10, CH=10, T=100ms, T_SLOT=20ms, MAX_PKT_LEN=63b, PAYLOAD=8b, RETRANSM_TIMEOUT=YES</description>
         <scheduleAsap>
-            <durationSecs>1001</durationSecs>
+            <durationSecs>120</durationSecs>
         </scheduleAsap>
 <!-- 
         <scheduleAbsolute>

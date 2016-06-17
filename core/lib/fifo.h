@@ -93,6 +93,7 @@ static inline void
 fifo_init(struct fifo * const f, uint32_t start_addr)
 {
   f->start = start_addr;
+  FIFO_RESET(f);
 }
 
 /**

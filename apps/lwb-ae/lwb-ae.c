@@ -68,6 +68,7 @@
 #endif 
 /*---------------------------------------------------------------------------*/
 uint16_t slot_node_id = 0;       /* global variable, used for debugging only */
+uint16_t cont_det_cnt = 0;
 /*---------------------------------------------------------------------------*/
 static uint16_t pkt_buffer[(LWB_CONF_MAX_DATA_PKT_LEN + 1) / 2];
 static uint16_t pkt_cnt = 0;
@@ -80,6 +81,7 @@ read_message(void)
   uint8_t msg_len = 0;
   if(BOLT_DATA_AVAILABLE) {
     BOLT_READ(msg, msg_len);
+    (void)msg_len;
     //DEBUG_PRINT_INFO("message received from BOLT (%db)", msg_len);
     lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
     lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
@@ -213,21 +215,34 @@ PROCESS_THREAD(app_process, ev, data)
     TASK_ACTIVE;      /* application task runs now */
         
     if(HOST_ID == node_id) {
+      static uint16_t pkt_cnt_node1 = 0,
+                      pkt_cnt_node2 = 0,
+                      pkt_cnt_node3 = 0,
+                      round_cnt = 0;
       /* HOST node */
       /* print out the received data */
-      uint16_t cnt = 0;
+      static uint16_t pkt_cnt = 0;
       while(1) {
         uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer);
         if(pkt_len) {
-          cnt++;
+          if(pkt_buffer[0] == 6) { pkt_cnt_node1++; }
+          else if(pkt_buffer[0] == 22) { pkt_cnt_node2++; }
+          else if(pkt_buffer[0] == 28) { pkt_cnt_node3++; }
+          pkt_cnt++;
         } else {
           break;
         }
       }
-      if(cnt) {
-        pkt_cnt += cnt;
-        DEBUG_PRINT_INFO("rcvd=%u", pkt_cnt);
+      round_cnt++;
+      if(lwb_get_time(0) == (LWB_CONF_SCHED_PERIOD_IDLE * 4)) {
+        /* reset stats */
+        round_cnt = 0;
+        cont_det_cnt = 0;
       }
+      DEBUG_PRINT_INFO("rcvd1=%u rcvd2=%u rcvd3=%u rnd_cnt=%u cont_cnt=%u "
+                       "pkt_cnt=%u",
+                       pkt_cnt_node1, pkt_cnt_node2, pkt_cnt_node3, 
+                       round_cnt - 1, cont_det_cnt, pkt_cnt);
       /* make sure the debug pins are in 'idle' state */
       PIN_CLR(FLOCKLAB_LED1);
       PIN_CLR(FLOCKLAB_INT1);
@@ -246,6 +261,7 @@ PROCESS_THREAD(app_process, ev, data)
       for(i = 0; i < PAYLOAD_LEN; i++) {
         pkt_buffer[i] = (uint8_t)random_rand();  
       }
+      pkt_buffer[0] = node_id;  /* let the first byte be the node ID */
   #ifdef FLOCKLAB
       /* initiator nodes start to send data after a certain time */
       if((node_id == 6 || node_id == 28 || node_id == 22) && 
@@ -282,20 +298,20 @@ PROCESS_THREAD(app_process, ev, data)
     fram_sleep();
   #endif /* FRAM_CONF_ON */
     /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-    TA0CTL &= ~MC_3; /* stop TA0 */
-    DISABLE_XT2();
+    //TA0CTL &= ~MC_3; /* stop TA0 */
+    //DISABLE_XT2();
   #ifdef MUX_SEL_PIN
-    PIN_CLR(MUX_SEL_PIN);
+    //PIN_CLR(MUX_SEL_PIN);
   #endif /* MUX_SEL_PIN */
-    P1SEL = 0; /* reconfigure GPIOs */
-    P1DIR = 0xff;
+    //P1SEL = 0; /* reconfigure GPIOs */
+    //P1DIR = 0xff;
     /* dont clear BIT6 and 7 on olimex board */
     //P1OUT &= ~(BIT2 | BIT3 | BIT4 | BIT5);
-    P1OUT = 0;
+    //P1OUT = 0;
     /* note: DPP has a pullup on P1.5! */
-    P1OUT |= BIT5;
+    //P1OUT |= BIT5;
     /* set clock source to DCO */
-    UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
+    //UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
     
     TASK_SUSPENDED;
   }

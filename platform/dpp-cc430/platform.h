@@ -139,7 +139,7 @@
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7
 
-//#define DEBUG_PRINT_TASK_ACT_PIN    PORT2, PIN0
+//#define DEBUG_PRINT_CONF_TASK_ACT_PIN    PORT2, PIN0
 #ifndef GLOSSY_START_PIN
   #define GLOSSY_START_PIN          LED_0
 #endif /* GLOSSY_START_PIN */
@@ -201,31 +201,32 @@
 #define UART_ACTIVE                 (UCA0STAT & UCBUSY)
 
 #define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) {\
+                                  /*__delay_cycles(MCLK_SPEED / 10000);*/\
                                   SFRIE1  &= ~OFIE;\
                                   ENABLE_XT2();\
                                   WAIT_FOR_OSC();\
-                                  UCSCTL4  = SELA | SELS | SELM;\
-                                  UCSCTL7  = 0;\
+                                  /*UCSCTL4  = SELA | SELS | SELM;*/\
+                                  /*UCSCTL7  = 0;*/\
                                   SFRIE1  |= OFIE;\
                                   TA0CTL  |= MC_2;\
-                                  P1SEL   |= (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                  P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
                                               BIT6 | BIT7);\
-                                  P1DIR   &= ~(BIT2 | BIT5);\
                                 }
                                 
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
 #define LWB_BEFORE_DEEPSLEEP()  {\
                                   FRAM_SLEEP;\
-                                  TA0CTL   &= ~MC_3; /* stop TA0 */\
-                                  DISABLE_XT2();\
-                                  PIN_SET(MUX_SEL_PIN);\
+                                  TA0CTL &= ~MC_3; /* stop TA0 */\
+                                  PIN_CLR(MUX_SEL_PIN);\
                                   P1SEL = 0; /* reconfigure GPIOs */\
                                   /* DPP has a pullup on P1.5! */\
                                   P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7);\
                                   P1OUT = 0; \
                                   /* set clock source to DCO */\
-                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV |\
-                                            SELM__DCOCLKDIV;\
+                                  /*UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV |*/\
+                                  /*          SELM__DCOCLKDIV;*/\
+                                  UCSCTL7  = 0;\
+                                  DISABLE_XT2();\
                                 }
 
 /* specify what needs to be done every time before SPI is enabled */

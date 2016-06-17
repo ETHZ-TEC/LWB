@@ -154,7 +154,7 @@ uart_enable(uint8_t enable)
 ISR(USCI_A0, uart0_rx_interrupt) 
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-
+  
   uint8_t c;
   if(UCA0IFG & UCRXIFG) {    /* data received */
     if(UCA0STAT & UCRXERR) {

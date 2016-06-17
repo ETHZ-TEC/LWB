@@ -35,12 +35,11 @@
 /**
  * @file
  *
- * an implementation of the Low-Power Wireless Bus
+ * LWB code with minimal adjustments for the RF range test
  */
  
 #include "contiki.h"
 
-#if LWB_VERSION == 1
 /*---------------------------------------------------------------------------*/
 #define LWB_DATA_PKT_HEADER_LEN     3  
 #define LWB_DATA_PKT_PAYLOAD_LEN    (LWB_CONF_MAX_DATA_PKT_LEN - \
@@ -698,7 +697,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
                          glossy_payload.srq_pkt.node_id, 
                          glossy_payload.srq_pkt.stream_id, 
                          glossy_payload.srq_pkt.ipi);*/
+#if QUICK_CONFIG != 3
         lwb_sched_proc_srq(&glossy_payload.srq_pkt);
+#endif
       }
     }
 
@@ -1011,10 +1012,18 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               payload_len = sizeof(lwb_stream_req_t);
               /* wait until the contention slot starts */
               LWB_REQ_IND;
-              LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
+              
+              static int16_t forced_ofs = 0;
+      #if ADD_OFFSET
+              if(schedule.time >= 30) {  /* start after 30 seconds */
+                forced_ofs = ((int32_t)schedule.time - 30) / 10 - 15;
+              }
+              if(forced_ofs > 15) { forced_ofs = 0; }
+      #endif
+              LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) + forced_ofs);
               LWB_SEND_SRQ();  
-              DEBUG_PRINT_INFO("request for stream %u sent", 
-                               glossy_payload.srq_pkt.stream_id);
+              DEBUG_PRINT_INFO("request for stream %u sent (ofs: %d)", 
+                               glossy_payload.srq_pkt.stream_id, forced_ofs);
             } else {
               DEBUG_PRINT_ERROR("failed to prepare stream request packet");
             }
@@ -1248,5 +1257,3 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
-
-#endif /* LWB_VERSION */

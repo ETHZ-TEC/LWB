@@ -48,6 +48,7 @@ clock_init(void)
   /* set the supply voltage to the 3rd level (there are 4 levels) */
   SetVCore(PMMCOREV_2);
 
+  /* disable oscillator fault interrupt */
   SFRIE1 &= ~OFIE;
 
   /* enable XT2 and XT1 (ensures that they stay always on) */
@@ -58,19 +59,22 @@ clock_init(void)
   P5SEL |= BIT0 + BIT1;
   /* set internal load capacitor for XT1
    * note: the total capacitance seen by the crystal is (XCAP + 2pF) / 2 
-   * where XCAP can be 2 (XCAP_0), 6, 9 or 12pF (XCAP_3) */
-  //UCSCTL6 |= XCAP_0;
+   * where XCAP can be 2 (XCAP_0), 6, 9 or 12pF (XCAP_3)
+   * default value is 3 */
+  UCSCTL6 &= ~XCAP_3;
 #endif /* CLOCK_CONF_XT1_ON */
   
   /* initially, use the internal REFO and DCODIV clock sources */
   UCSCTL3 = SELREF__REFOCLK | FLLREFDIV_0;
-  UCSCTL4 = SELA__DCOCLKDIV | SELS__REFOCLK | SELM__DCOCLKDIV;
+  UCSCTL4 = SELA__REFOCLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
   /* wait until XT1, XT2, and DCO stabilize */
   WAIT_FOR_OSC();
   
 #if CLOCK_CONF_XT1_ON
-  /* XT1 is now stable: reduce its drive strength to save power */
+  /* XT1 is now stable: reduce its drive strength to save power
+   * for eff. load cap. btw. 6 and 9pF, use DRIVE_1 (see datasheet p.49) */
   UCSCTL6 &= ~XT1DRIVE_3;
+  UCSCTL6 |= XT1DRIVE_1;
 #endif /* CLOCK_CONF_XT1_ON */
 
   /* set the DCO frequency to 3.25 MHz */
@@ -98,6 +102,8 @@ clock_init(void)
   /* finally, use the desired clock sources and speeds */
   UCSCTL4 = SELA | SELS | SELM;
   UCSCTL5 = DIVA | DIVS | DIVM;
+  /* note: will automatically use DCOCLKDIV for SMCLK and MCLK if XT2CLK is 
+   * not available */
   
   /* oscillator fault flag may be set after switching the clock source */
   WAIT_FOR_OSC();
@@ -109,7 +115,7 @@ clock_init(void)
 ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
 {    
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-  
+    
   PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
   switch (SYSUNIV) {
     case SYSUNIV_NMIIFG:        /* non-maskable interrupt */

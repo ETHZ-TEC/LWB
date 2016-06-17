@@ -57,6 +57,20 @@
 #define LWB_CONF_SCHED_T_NO_REQ              LWB_CONF_SCHED_PERIOD_MIN * 2
 #endif /* LWB_CONF_SCHED_T_NO_REQ */
 
+#ifndef LWB_CONF_MAX_DATA_SLOTS
+/* max. number of data slots per round, must not exceed MIN(63, 
+ * (LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
+ * must be at least 2 */
+#define LWB_CONF_MAX_DATA_SLOTS              20        
+#endif /* LWB_CONF_MAX_DATA_SLOTS */
+
+/* error checking */
+#if LWB_CONF_MAX_DATA_SLOTS > \
+    ((LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2) || \
+    LWB_CONF_MAX_DATA_SLOTS > 63
+#error "LWB_CONF_MAX_DATA_SLOTS is invalid"
+#endif
+
 #ifndef LWB_CONF_SCHED_COMPRESS
 #define LWB_CONF_SCHED_COMPRESS              1
 #endif /* LWB_CONF_SCHED_COMPRESS */

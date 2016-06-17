@@ -403,13 +403,11 @@ lwb_get_data(uint8_t* out_data)
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
     uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr); 
-    memcpy(out_data, next_msg, 
-           *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
+    memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
 #else /* LWB_CONF_USE_XMEM */
     xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
-    memcpy(out_data, data_buffer, 
-           *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN));
+    memcpy(out_data, data_buffer, *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
 #endif /* LWB_CONF_USE_XMEM */
   }

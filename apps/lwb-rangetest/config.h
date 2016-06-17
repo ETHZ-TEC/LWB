@@ -37,33 +37,76 @@
  * application specific config file to override default settings
  */
 
-#define HOST_ID    1
+/* quick config: 
+ * 1 = test on rooftop
+ * 2 = flocklab
+ * 3 = offset / interference test
+ * 4 = linktest
+ * any other value: default settings */
+#define QUICK_CONFIG                    1
 
-#define NODE_ID                         20050
-#define RF_CONF_TX_CH                   5       /* approx. 869 MHz */   
+#if QUICK_CONFIG != 2
+  #define NODE_ID                       20042
+#endif
+
+/* set to 1 to enable the periodic health / status packets from source nodes */
+#if QUICK_CONFIG == 1   /* rooftop */
+  #define SEND_HEALTH_DATA              1
+  #define RF_CONF_TX_CH                 10 
+  #define ENERGEST_CONF_ON              1
+  #define LWB_CONF_SCHED_PERIOD_IDLE    30       /* define the period length */
+#elif QUICK_CONFIG == 2 /* flocklab */
+  #define FLOCKLAB
+  #define SEND_HEALTH_DATA              1
+  #define RF_CONF_TX_CH                 10
+  #define ENERGEST_CONF_ON              0
+  #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
+#elif QUICK_CONFIG == 3 /* offset test */
+  #define SEND_HEALTH_DATA              1       /* to force a stream request */
+  #define RF_CONF_TX_CH                 5
+  #define ENERGEST_CONF_ON              0
+  #if NODE_ID == 20034
+    #define ADD_OFFSET                  1
+  #else
+    #define ADD_OFFSET                  0
+  #endif
+  #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
+  #define LWB_CONF_MAX_CONT_BACKOFF     0      /* disable contention backoff */
+  #define LWB_REQ_DETECTED              DEBUG_PRINT_INFO("request detected (ofs: %d)", ((int16_t)schedule.time - 30) / 10 - 15)
+  //#define RF_GDO2_PIN                   COM_MCU_INT1
+#else   /* default settings */
+  #define SEND_HEALTH_DATA              0
+  #define RF_CONF_TX_CH                 5 
+  #define ENERGEST_CONF_ON              0
+  #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
+#endif
+
+#define HOST_ID                         1
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm 
-
-/* Contiki config */
-#define ENERGEST_CONF_ON                1
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
-#define LWB_CONF_OUT_BUFFER_SIZE        10
+#define LWB_VERSION                     0       /* use the custom version */
+#define LWB_CONF_OUT_BUFFER_SIZE        5
 #define LWB_CONF_IN_BUFFER_SIZE         10
 #define LWB_CONF_MAX_PKT_LEN            63
 #define LWB_CONF_MAX_DATA_PKT_LEN       (31 + LWB_DATA_PKT_HEADER_LEN)
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
+#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
 
 #define LWB_STREAM_ID_STATUS_MSG        1
 /* constant clock offset for timesync */
 #define LWB_CLOCK_OFS                   -1200       
 
-#define BOLT_CONF_MAX_MSG_LEN           48
+#define BOLT_CONF_MAX_MSG_LEN           32
 #define BOLT_CONF_TIMEREQ_ENABLE        1
+
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#define DEBUG_PRINT_CONF_NUM_MSG        8
+//#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
+//#define APP_TASK_ACT_PIN                COM_MCU_INT2
 
 /* 
  * INCLUDES
@@ -73,7 +116,6 @@
 /* 
  * GLOBALS
  */
-extern void send_msg(message_type_t type, uint8_t* data, uint8_t len);
 /* the static scheduler implements the following function: */
 extern void lwb_sched_set_period(uint16_t period);
 

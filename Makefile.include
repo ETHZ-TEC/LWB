@@ -37,6 +37,10 @@ else ifeq ($(TARGET),dpp-cc430)
   MCU = cc430f5147
   MCUFOLDER = cc430
   PLATFORM = dpp-cc430
+else ifeq ($(TARGET),dpp)
+  MCU = cc430f5147
+  MCUFOLDER = cc430
+  PLATFORM = dpp-cc430
 else
   MCU = cc430f5137
   MCUFOLDER = cc430

@@ -160,13 +160,6 @@
 #define LWB_CONF_T_GUARD_3              (RTIMER_SECOND_HF / 100)    /* 10 ms */
 #endif /* LWB_CONF_T_GUARD_3 */
 
-#ifndef LWB_CONF_MAX_DATA_SLOTS
-/* max. number of data slots per round, must not exceed MIN(63, 
- * (LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
- * must be at least 2 */
-#define LWB_CONF_MAX_DATA_SLOTS         20        
-#endif /* LWB_CONF_MAX_DATA_SLOTS */
-
 #ifndef LWB_CONF_IN_BUFFER_SIZE         
 /* size (#elements) of the internal data buffer/queue for incoming messages,
  * should be at least LWB_CONF_MAX_DATA_SLOTS */
@@ -239,7 +232,7 @@
 /* the max. clock deviation (according to the specs of the oscillator), in 
  * clock ticks per second */
  #if LWB_CONF_USE_LF_FOR_WAKEUP
-  #define LWB_CONF_MAX_CLOCK_DEV        10      /* LF clock ticks */     
+  #define LWB_CONF_MAX_CLOCK_DEV        2560      /* LF clock ticks * 256 */     
  #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
   #define LWB_CONF_MAX_CLOCK_DEV        500     /* HF clock ticks */
  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
@@ -247,7 +240,7 @@
 
 #ifndef LWB_CONF_RTIMER_ID
 /* ID of the rtimer used for the LWB, must be of type rtimer_t */
-#define LWB_CONF_RTIMER_ID              RTIMER_HF_0     
+#define LWB_CONF_RTIMER_ID              RTIMER_HF_1     
 #endif /* LWB_CONF_RTIMER_ID */
 
 #ifndef LWB_CONF_LF_RTIMER_ID

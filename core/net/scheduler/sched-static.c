@@ -146,7 +146,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     return;
   }
   
-  /* add and remove requests are implicitly given by the ipi
+  /* 'add' and 'remove' requests are implicitly given by the ipi, meaning
    * an ipi of 0 implies 'remove' */
   if(req->ipi > 0) { 
     /* check if stream already exists */
@@ -218,7 +218,7 @@ add_sack:
   /* use memcpy to avoid pointer misalignment errors */
   memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
   pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
-  n_pending_sack++;   
+  n_pending_sack++;
 }
 /*---------------------------------------------------------------------------*/
 static inline uint8_t 
@@ -352,7 +352,7 @@ set_schedule:
   uint8_t compressed_size;
 #if LWB_CONF_SCHED_COMPRESS
   compressed_size = lwb_sched_compress((uint8_t*)sched->slot, 
-                                               n_slots_assigned);
+                                       n_slots_assigned);
   if((compressed_size + LWB_SCHED_PKT_HEADER_LEN) > LWB_CONF_MAX_PKT_LEN) {
     DEBUG_PRINT_ERROR("compressed schedule is too big!");
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -36,9 +35,9 @@
 
 #if DEBUG_PRINT_CONF_ON
 /*---------------------------------------------------------------------------*/
-#ifdef DEBUG_PRINT_TASK_ACT_PIN
-#define DEBUG_PRINT_TASK_ACTIVE       PIN_SET(DEBUG_PRINT_TASK_ACT_PIN)
-#define DEBUG_PRINT_TASK_SUSPENDED    PIN_CLR(DEBUG_PRINT_TASK_ACT_PIN)
+#ifdef DEBUG_PRINT_CONF_TASK_ACT_PIN
+#define DEBUG_PRINT_TASK_ACTIVE       PIN_SET(DEBUG_PRINT_CONF_TASK_ACT_PIN)
+#define DEBUG_PRINT_TASK_SUSPENDED    PIN_CLR(DEBUG_PRINT_CONF_TASK_ACT_PIN)
 #else
 #define DEBUG_PRINT_TASK_ACTIVE
 #define DEBUG_PRINT_TASK_SUSPENDED
@@ -70,34 +69,35 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   if (!xmem_init()) {          /* init if not already done */
     DEBUG_PRINT_FATAL("ERROR: fram init failed");
   }
-  start_addr_msg =
-    xmem_alloc(DEBUG_PRINT_CONF_NUM_MSG * sizeof(debug_print_t));
-  msg.content[DEBUG_PRINT_CONF_MSG_LEN] = 0; /* enforce a proper string */
+  start_addr_msg = xmem_alloc(DEBUG_PRINT_CONF_NUM_MSG *sizeof(debug_print_t));
 #else  /* DEBUG_PRINT_CONF_USE_XMEM */
   memb_init(&debug_print_memb);
   list_init(debug_print_list);
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
   
-  uart_enable(1);       /* make sure UART is enabled */
-  
-#ifdef DEBUG_PRINT_TASK_ACT_PIN
-  PIN_CFG_OUT(DEBUG_PRINT_TASK_ACT_PIN);
+#ifdef DEBUG_PRINT_CONF_TASK_ACT_PIN
+  PIN_CFG_OUT(DEBUG_PRINT_CONF_TASK_ACT_PIN);
 #endif
+    
+  uart_enable(1);       /* make sure UART is enabled */
   
 #if DEBUG_CONF_STACK_GUARD
   *(uint16_t*)DEBUG_CONF_STACK_GUARD = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) = 0xaaaa;
-  printf("Stack guard enabled (max. stack size: %ub)\r\n", (SRAM_END - DEBUG_CONF_STACK_GUARD));
+  printf("Stack guard enabled (max. stack size: %ub)\r\n",
+         (SRAM_END - DEBUG_CONF_STACK_GUARD));
 #endif /* DEBUG_CONF_STACK_GUARD */
     
-  printf("Debug print task initialized (buffer size: %u)\r\n", DEBUG_PRINT_CONF_NUM_MSG);
+  printf("Debug print task initialized (buffer size: %u)\r\n",
+         DEBUG_PRINT_CONF_NUM_MSG);
   
   while(1) {
+    /* suspend this task */
     DEBUG_PRINT_TASK_SUSPENDED;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-    /* wait until we are polled by somebody */
+    /* wait until we get polled by another thread */
     DEBUG_PRINT_TASK_ACTIVE;
         
 #if DEBUG_PRINT_CONF_USE_XMEM
@@ -108,6 +108,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      msg.content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
       printf("%3u %7lu %s: %s\r\n", node_id, msg.time, 
              debug_print_lvl_to_string[msg.level], msg.content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
@@ -119,11 +120,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
          buffer / list data structure will be necessary!) */
       /* only let this task run when no other work is to do */
     }
-    if (buffer_full) {
-      printf("WARNING: Debug messages dropped (buffer full)!\r\n");
-      buffer_full = 0;
-    }
-    xmem_sleep();       // must be AFTER all the printf() statements
+    xmem_sleep();
 
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
     
@@ -132,6 +129,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      msg->content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
       printf("%2u %5lu %s: %s\r\n", node_id, msg->time, 
              debug_print_lvl_to_string[msg->level], msg->content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
@@ -142,13 +140,20 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       memb_free(&debug_print_memb, msg);
       /*DEBUG_PRINT_TASK_SUSPENDED;
         PROCESS_PAUSE();*/
-    }  
-    if (buffer_full) {
-      printf("WARNING: Debug messages dropped (buffer full)!\r\n");
-      buffer_full = 0;
     }
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
-    
+
+    if (buffer_full) { 
+#if DEBUG_PRINT_CONF_DISABLE_UART
+      uart_enable(1);
+#endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      printf("WARNING: Debug messages dropped (buffer full)!\r\n");
+#if DEBUG_PRINT_CONF_DISABLE_UART
+      uart_enable(0);
+#endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      buffer_full = 0;
+    }
+
 #if DEBUG_CONF_STACK_GUARD
     /* check if the stack might be corrupt (check 8 bytes) */
     if(*(uint16_t*)DEBUG_CONF_STACK_GUARD != 0xaaaa       || 
@@ -157,7 +162,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
        *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) != 0xaaaa) {
       DEBUG_PRINT_FATAL("FATAL ERROR: Stack overflow detected");
     }    
- #endif /* DEBUG_CONF_STACK_GUARD */
+#endif /* DEBUG_CONF_STACK_GUARD */
   }
   PROCESS_END();
 }

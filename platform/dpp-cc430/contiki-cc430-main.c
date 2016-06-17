@@ -134,7 +134,16 @@ main(int argc, char **argv)
   /* initialize hardware */
 
   /* set default configuration for all GPIOs */
-  GPIO_RESET();
+  /* don't set P1.6 (UART_TXD) and BOLT IND pins (P1.1 and P2.2) as outputs! */
+  P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT5 | BIT7);
+  PORT_CLR_I(1);
+  /* don't set the BOLT IND pins as outputs! */
+  P2DIR = (BIT0 | BIT1 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+  PORT_CLR_I(2);
+  PORT_CFG_OUT_I(3);
+  PORT_CLR_I(3);
+  PORT_CFG_OUT_I(J);
+  PORT_CLR_I(J);
   
   /* board-specific GPIO config */
   

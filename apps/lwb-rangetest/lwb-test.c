@@ -41,6 +41,11 @@
 #include "contiki.h"
 #include "platform.h"
 
+
+/*---------------------------------------------------------------------------*/
+#ifdef FLOCKLAB
+#warning "---------------------- COMPILED FOR FLOCKLAB ----------------------"
+#endif /* FLOCKLAB */
 /*---------------------------------------------------------------------------*/
 #ifdef APP_TASK_ACT_PIN
 #define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
@@ -52,6 +57,7 @@
 /*---------------------------------------------------------------------------*/
 static uint16_t  seq_no = 0;
 static message_t msg_buffer;
+static uint8_t   bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
 /*---------------------------------------------------------------------------*/
 /* FUNCTIONS */
 void
@@ -143,129 +149,146 @@ PROCESS_THREAD(app_process, ev, data)
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
 
-#if HOST_ID == NODE_ID
-    /* we are the host */
-    /* print out the received data */
-    uint16_t sender_id;
-    while(1) {
-      uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2, &sender_id, 0);
-      if(pkt_len) {
-        /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-        DEBUG_PRINT_MSG_NOW("data packet %u received from node %u",
-                            msg_buffer.header.seqnr,
-                            sender_id);
-        /* append the ID to the message */
-        msg_buffer.header.device_id = sender_id;
+    if(HOST_ID == node_id) {    /* HOST NODE */
+      /* we are the host */
+      /* print out the received data */
+      uint16_t sender_id;
+      while(1) {
+        uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2,
+                                       &sender_id, 0);
+        if(pkt_len) {
+          /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
+          DEBUG_PRINT_MSG_NOW("data packet #%u received from node %u",
+                              msg_buffer.header.seqnr,
+                              sender_id);
+          /* append the ID to the message */
+          msg_buffer.header.device_id = sender_id;
         
-        if(msg_buffer.header.type == MSG_TYPE_CC430_HEALTH) {
-          /* forward the packet: write it to BOLT */
-          BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN + 
-                     msg_buffer.header.payload_len);
-        } else {
-          if(msg_buffer.header.type == MSG_TYPE_ERROR) {
+          if(msg_buffer.header.type == MSG_TYPE_CC430_HEALTH) {
+            /* forward the packet: write it to BOLT */
+            BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN + 
+                       msg_buffer.header.payload_len);
+          } else if(msg_buffer.header.type == MSG_TYPE_ERROR) {
             DEBUG_PRINT_MSG_NOW("error message rcvd from node %u (code 0x%x)",
                                 sender_id, msg_buffer.payload16[0]);
           }
-        }
-      } else {
-        break;
-      }
-    } 
-    /* handle timestamp requests */
-    uint64_t time_last_req = bolt_handle_timereq();
-    if(time_last_req) {
-      /* write the timestamp to BOLT (convert to us) */
-      msg_buffer.header.type            = MSG_TYPE_TIMESTAMP;
-      msg_buffer.header.generation_time = time_last_req * 1000000 /
-                                          ACLK_SPEED + LWB_CLOCK_OFS;
-      msg_buffer.header.payload_len     = 0;
-      msg_buffer.header.seqnr           = seq_no++;
-      BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN);
-      //DEBUG_PRINT_MSG_NOW("time request handled");
-    }
-    /* msg available from BOLT? */
-    while(BOLT_DATA_AVAILABLE) {
-      uint8_t msg_len = 0;
-      BOLT_READ((uint8_t*)&msg_buffer, msg_len);
-      if(msg_len) {
-        DEBUG_PRINT_INFO("message received over BOLT");
-        if(msg_buffer.header.type == MSG_TYPE_LWB_CMD) {
-          if(msg_buffer.payload16[0] == LWB_CMD_SET_SCHED_PERIOD) {
-            /* adjust the period */
-            lwb_sched_set_period(msg_buffer.payload16[1]);
-            DEBUG_PRINT_INFO("LWB period set to %us", msg_buffer.payload16[1]);
-          } else if (msg_buffer.payload16[0] == LWB_CMD_SET_STATUS_PERIOD) {
-            /* broadcast the message */
-            DEBUG_PRINT_INFO("broadcasting message");
-            lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, 
-                         (uint8_t*)&msg_buffer + 2, 
-                         MSG_HDR_LEN + msg_buffer.header.payload_len - 2);              
-          } else if(msg_buffer.payload16[0] == LWB_CMD_PAUSE) {
-            /* stop */            
-            while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
-              BOLT_READ((uint8_t*)&msg_buffer, msg_len);
-            }
-            /* configure a port interrupt for the IND pin */
-            __dint();
-            PIN_IES_RISING(BOLT_CONF_IND_PIN);
-            PIN_CLR_IFG(BOLT_CONF_IND_PIN);
-            PIN_INT_EN(BOLT_CONF_IND_PIN);
-            if(BOLT_DATA_AVAILABLE) {
-              DEBUG_PRINT_MSG_NOW("failed to stop LWB");   
-              __eint();
-            } else {
-              lwb_pause();
-              DEBUG_PRINT_MSG_NOW("LWB paused");
-              //LWB_BEFORE_DEEPSLEEP();
-              TASK_SUSPENDED;
-              __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
-              __no_operation();
-              DEBUG_PRINT_MSG_NOW("LWB resumed");
-              lwb_resume();
-              continue;
-            }
-          }
-        }
-      }
-    }
-#else 
-    /* we are a source node */
-    static uint8_t stream_state = 0;
-    
-    if(stream_state != LWB_STREAM_STATE_ACTIVE) {
-      stream_state = lwb_stream_get_state(1);
-      if(stream_state == LWB_STREAM_STATE_INACTIVE) {
-        /* request a stream with ID LWB_STREAM_ID_STATUS_MSG and an IPI
-        * (inter packet interval) of LWB_CONF_SCHED_PERIOD_IDLE seconds */
-        lwb_stream_req_t my_stream =
-          { node_id, 0, LWB_STREAM_ID_STATUS_MSG, LWB_CONF_SCHED_PERIOD_IDLE };
-        if(!lwb_request_stream(&my_stream, 0)) {
-          DEBUG_PRINT_ERROR("stream request failed");
-        }
-      }
-    } else {
-      /* generate a node health packet */
-      send_msg(MSG_TYPE_CC430_HEALTH, 
-               (uint8_t*)get_node_health(), sizeof(health_msg_t));
-      /* is there a packet to read? */      
-      while(1) {
-        uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2, 0, 0);
-        if(pkt_len) {
-          DEBUG_PRINT_INFO("packet received (%ub)", pkt_len);
-          if(msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
-             msg_buffer.payload16[0] == LWB_CMD_SET_STATUS_PERIOD) {
-            // change health/status report interval
-            lwb_stream_req_t my_stream =
-             { node_id, 0, LWB_STREAM_ID_STATUS_MSG, msg_buffer.payload16[1] };
-            lwb_request_stream(&my_stream, 0);
-          }          
         } else {
           break;
         }
       }
-    }
-#endif
+        
+      /* handle timestamp requests */
+      uint64_t time_last_req = bolt_handle_timereq();
+      if(time_last_req) {
+        /* write the timestamp to BOLT (convert to us) */
+        msg_buffer.header.type            = MSG_TYPE_TIMESTAMP;
+        msg_buffer.header.generation_time = time_last_req * 1000000 /
+                                            ACLK_SPEED + LWB_CLOCK_OFS;
+        msg_buffer.header.payload_len     = 0;
+        msg_buffer.header.seqnr           = seq_no++;
+        BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN);
+        //DEBUG_PRINT_MSG_NOW("time request handled");
+      }
+      /* msg available from BOLT? */
+      while(BOLT_DATA_AVAILABLE) {
+        uint8_t msg_len = 0;
+        BOLT_READ(bolt_buffer, msg_len);
+        if(msg_len) {
+          memcpy(&msg_buffer, bolt_buffer, MSG_MAX_LEN);
+          DEBUG_PRINT_INFO("BOLT message rcvd");
+          if(msg_buffer.header.type == MSG_TYPE_LWB_CMD) {
+            if(msg_buffer.payload16[0] == LWB_CMD_SET_SCHED_PERIOD) {
+              /* adjust the period */
+              lwb_sched_set_period(msg_buffer.payload16[1]);
+              DEBUG_PRINT_INFO("LWB period set to %us", 
+                               msg_buffer.payload16[1]);
+            } else if(msg_buffer.payload16[0] == LWB_CMD_SET_STATUS_PERIOD) {
+              /* broadcast the message */
+              uint16_t recipient = LWB_RECIPIENT_BROADCAST;
+              if(msg_buffer.header.payload_len > 4) {
+                recipient = msg_buffer.payload16[2];
+              }
+              DEBUG_PRINT_INFO("sending message to node %u", recipient);
+              lwb_put_data(recipient, 0,
+                           (uint8_t*)&msg_buffer + 2, 
+                           MSG_HDR_LEN + msg_buffer.header.payload_len - 2);              
+            } else if(msg_buffer.payload16[0] == LWB_CMD_PAUSE) {
+              /* stop */            
+              while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
+                BOLT_READ(bolt_buffer, msg_len);
+              }
+              /* configure a port interrupt for the IND pin */
+              __dint();
+              PIN_IES_RISING(BOLT_CONF_IND_PIN);
+              PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+              PIN_INT_EN(BOLT_CONF_IND_PIN);
+              if(BOLT_DATA_AVAILABLE) {
+                DEBUG_PRINT_MSG_NOW("failed to stop LWB");   
+                __eint();
+              } else {
+                lwb_pause();
+                DEBUG_PRINT_MSG_NOW("LWB paused");
+                //LWB_BEFORE_DEEPSLEEP();
+                TASK_SUSPENDED;
+                __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
+                __no_operation();
+                DEBUG_PRINT_MSG_NOW("LWB resumed");
+                lwb_resume();
+                continue;
+              }
+            }
+          }
+        }
+      }
+    } else {  /* SOURCE NODE */
+
+    #if SEND_HEALTH_DATA
+      static uint8_t stream_state = 0;
     
+      if(stream_state != LWB_STREAM_STATE_ACTIVE) {
+        stream_state = lwb_stream_get_state(1);
+        if(stream_state == LWB_STREAM_STATE_INACTIVE) {
+          /* request a stream with ID LWB_STREAM_ID_STATUS_MSG and an IPI
+          * (inter packet interval) of LWB_CONF_SCHED_PERIOD_IDLE seconds */
+          lwb_stream_req_t my_stream = { node_id, 0, LWB_STREAM_ID_STATUS_MSG,
+                                         LWB_CONF_SCHED_PERIOD_IDLE };
+          if(!lwb_request_stream(&my_stream, 0)) {
+            DEBUG_PRINT_ERROR("stream request failed");
+          }
+        }
+      } else {
+        /* generate a node health packet */
+        send_msg(MSG_TYPE_CC430_HEALTH, 
+                 (uint8_t*)get_node_health(), sizeof(health_msg_t));
+        DEBUG_PRINT_INFO("message #%u generated", seq_no - 1);
+        /* is there a packet to read? */      
+        while(1) {
+          uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2, 0, 0);
+          if(pkt_len) {
+            DEBUG_PRINT_INFO("packet received (%ub)", pkt_len);
+            if(msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
+               msg_buffer.payload16[0] == LWB_CMD_SET_STATUS_PERIOD) {
+              // change health/status report interval
+              lwb_stream_req_t my_stream = { node_id, 0, 
+                                             LWB_STREAM_ID_STATUS_MSG, 
+                                             msg_buffer.payload16[1] };
+              lwb_request_stream(&my_stream, 0);
+            }          
+          } else {
+            break;
+          }
+        }
+      }
+  #endif /* SEND_HEALTH_DATA */
+  
+    }
+    /* print out some useful stats */
+    int8_t rssi[3];
+    glossy_get_rssi(rssi);
+    DEBUG_PRINT_INFO("n_rx=%u relay=0x%x rssi1=%d rssi2=%d rssi3=%d", 
+                     glossy_get_n_rx(), glossy_get_relay_cnt(), 
+                     rssi[0], rssi[1], rssi[2]);
+  
     /* since this process is only executed at the end of an LWB round, we 
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */
@@ -281,11 +304,14 @@ PROCESS_THREAD(app_process, ev, data)
 /*---------------------------------------------------------------------------*/
 ISR(PORT2, port2_interrupt) 
 {
+  ENERGEST_ON(ENERGEST_TYPE_CPU);
+  
   if(PIN_IFG(BOLT_CONF_IND_PIN)) {
     while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
       uint8_t msg_len = 0;
-      BOLT_READ((uint8_t*)&msg_buffer, msg_len);
-      if(msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
+      BOLT_READ(bolt_buffer, msg_len);
+      if(msg_len && 
+         msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
          msg_buffer.payload16[0] == LWB_CMD_RESUME) {
         /* resume the LWB */
         PIN_INT_OFF(BOLT_CONF_IND_PIN);
@@ -295,4 +321,49 @@ ISR(PORT2, port2_interrupt)
     }
     PIN_CLR_IFG(BOLT_CONF_IND_PIN);
   }
+  
+  ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
+/*---------------------------------------------------------------------------*/
+/* for debugging: define all unused ISRs */
+ISR(SYSNMI, sysnmi_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 10); }
+}
+ISR(AES, aes_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 20); }    
+}
+ISR(RTC, rtc_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 30); }   
+}
+ISR(PORT1, p1_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 40); }   
+}
+ISR(ADC10, adc_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 50); }    
+}
+ISR(USCI_B0, ucb0_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 60); }    
+}
+ISR(WDT, wdt_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 70); }    
+}
+ISR(COMP_B, comp_interrupt)
+{
+  PIN_SET(LED_0); 
+  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 80); }    
+}
+/*---------------------------------------------------------------------------*/
