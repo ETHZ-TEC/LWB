@@ -35,7 +35,9 @@
 
 /*---------------------------------------------------------------------------*/
 uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
+#ifndef NODE_ID
 volatile uint16_t node_id;
+#endif /* NODE_ID */
 /*---------------------------------------------------------------------------*/
 void
 print_processes(struct process *const processes[])
@@ -123,6 +125,9 @@ print_device_info(void)
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
   printf("Compiler: " COMPILER_INFO "\r\nDate: " COMPILE_DATE "\r\n");
+#if FW_VERSION
+  printf("Firmware: %u.%03u\r\n", FW_VERSION >> 8, FW_VERSION & 0xff);
+#endif /* FW_VERSION */
   // don't disable UART module
 }
 /*---------------------------------------------------------------------------*/
@@ -137,7 +142,7 @@ main(int argc, char **argv)
   /* don't set P1.6 (UART_TXD) and BOLT IND pins (P1.1 and P2.2) as outputs! */
   P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT5 | BIT7);
   PORT_CLR_I(1);
-  /* don't set the BOLT IND pins as outputs! */
+  /* don't set the BOLT IND pin as outputs! */
   P2DIR = (BIT0 | BIT1 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
   PORT_CLR_I(2);
   PORT_CFG_OUT_I(3);
@@ -192,19 +197,14 @@ main(int argc, char **argv)
 #endif /* RF_CONF_ON */
   
   /* set the node ID */
-#ifdef NODE_ID
-  node_id = NODE_ID;
-#else
+#ifndef NODE_ID
   node_id = TOS_NODE_ID;
+  printf(CONTIKI_VERSION_STRING " started. Node ID not set.\r\n");
+#else /* NODE_ID */
+  printf(CONTIKI_VERSION_STRING " started. Node ID is set to %u.\r\n",
+         node_id);
 #endif /* NODE_ID */
 
-  if(node_id > 0) {
-    printf(CONTIKI_VERSION_STRING " started. Node ID is set to %u.\r\n",
-           node_id);
-  } else {
-    printf(CONTIKI_VERSION_STRING " started. Node ID is not set.\r\n");
-  }
-  
 #if FRAM_CONF_ON
   if (!fram_init()) {
     DEBUG_PRINT_FATAL("ERROR: FRAM failure");

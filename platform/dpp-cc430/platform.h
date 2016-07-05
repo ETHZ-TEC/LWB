@@ -70,6 +70,11 @@
  */
 #include "config.h"                 /* application specific configuration */
 
+
+#ifndef FW_VERSION
+#define FW_VERSION                  0x0000
+#endif /* FW_VERSION */
+
 /*
  * configuration and definitions (default values, may be overwritten
  * in config.h)
@@ -161,9 +166,9 @@
   #define FRAM_CONF_CTRL_PIN        PORT2, PIN0
   #define FRAM_CONF_SIZE            0x20000     /* 1 Mbit */
   #define FRAM_CONF_SPI             SPI_0       
-  #ifndef DEBUG_PRINT_CONF_USE_XMEM
-  #define DEBUG_PRINT_CONF_USE_XMEM 1
-  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+  //#ifndef DEBUG_PRINT_CONF_USE_XMEM
+  //#define DEBUG_PRINT_CONF_USE_XMEM 1
+  //#endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #ifndef DEBUG_PRINT_CONF_NUM_MSG
   #define DEBUG_PRINT_CONF_NUM_MSG  20
   #endif /* DEBUG_PRINT_CONF_NUM_MSG */
@@ -187,8 +192,8 @@
 
 /* specify what needs to be done every time before UART is enabled */
 #define UART_BEFORE_ENABLE {\
-  PIN_SET(MUX_SEL_PIN);\
   uart_reinit();\
+  PIN_SET(MUX_SEL_PIN);\
 }
 
 /*
@@ -231,8 +236,8 @@
 
 /* specify what needs to be done every time before SPI is enabled */
 #define SPI_BEFORE_ENABLE(spi) {\
-  PIN_CLR(MUX_SEL_PIN); \
   if(spi == SPI_0) { spi_reinit(SPI_0); }\
+  PIN_CLR(MUX_SEL_PIN); \
 }
 
 /*
