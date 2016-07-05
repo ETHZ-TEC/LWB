@@ -748,17 +748,19 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   /* all variables must be static */
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   static lwb_schedule_t schedule;
-  static rtimer_clock_t t_ref, 
-                        t_ref_last;
 #if !LWB_CONF_RELAY_ONLY
   static rtimer_clock_t t_now; 
 #endif /* LWB_CONF_RELAY_ONLY */
+  static rtimer_clock_t t_ref;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   static rtimer_clock_t t_ref_lf;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-  static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
+#if LWB_CONF_TIME_SCALE == 1
+  static rtimer_clock_t t_ref_last;
   static int32_t  drift = 0;
+#endif /* LWB_CONF_TIME_SCALE == 1 */
   static int32_t  drift_last = 0;  
+  static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static uint8_t  slot_idx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
