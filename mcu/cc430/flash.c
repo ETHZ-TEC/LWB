@@ -33,6 +33,7 @@
 
 #include "platform.h"
 
+#define FLASH_CTRL_BASE_REG     0x0140
 /*---------------------------------------------------------------------------*/
 uint16_t
 flash_code_size(void)
@@ -45,5 +46,85 @@ flash_code_size(void)
     curr_addr--;
   }
   return (uint16_t)curr_addr - FLASH_START + 2;
+}
+/*---------------------------------------------------------------------------*/
+void
+flash_erase_segment(uint8_t* addr)
+{
+  /* verify the address */
+  if(addr < (uint8_t*)FLASH_START || addr > (uint8_t*)FLASH_END) {
+    return;
+  }
+  /* unlock and set the erase bit */
+  FCTL3 = FWKEY;
+  FCTL1 = FWKEY + ERASE;
+  *addr = 0;                    /* dummy write */
+  while(FCTL3 & 1);             /* wait until done */
+  FCTL1 = FWKEY;
+  FCTL3 = FWKEY + LOCK;
+}
+/*---------------------------------------------------------------------------*/
+void 
+flash_erase_bank(void)  /* there's only one flash bank */
+{
+  FCTL3 = FWKEY;                        /* unlock */
+  while(FCTL3 & 1);                     /* wait for BUSY flag */
+  FCTL1 = FWKEY + MERAS;                /* set mass erase bit */
+  *((uint16_t*)FLASH_START) = 0;        /* dummy write */
+  while(FCTL3 & 1);                     /* wait for BUSY flag */
+  FCTL1 = FWKEY;                        /* clear mass erase bit */
+  FCTL3 = FWKEY + LOCK;                 /* lock the module */
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+flash_erase_check(uint8_t* start_addr, uint16_t num_bytes)
+{
+  if(start_addr == 0) {
+    start_addr = (uint8_t*)FLASH_START;
+    num_bytes  = FLASH_SIZE;
+  } else if(num_bytes == 0) {
+    num_bytes = FLASH_SEG_SIZE;
+  }
+  while(num_bytes) {
+    if(*start_addr != 0xff) {
+      return 0;
+    }
+    start_addr++;
+    num_bytes--;
+  }
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
+void
+flash_write(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes)
+{
+  FCTL3 = FWKEY;
+  FCTL1 = FWKEY + WRT;
+  while(num_bytes) {
+    while(FCTL3 & 1);
+    *flash_addr++ = *data++;
+    num_bytes--;
+  }
+  FCTL1 = FWKEY;
+  FCTL3 = FWKEY + LOCK;
+}
+/*---------------------------------------------------------------------------*/
+void 
+flash_erase_bank_from_sram(void)  /* there's only one flash bank */
+{
+  /* disable all interrupts for the following procedure */
+  uint16_t interrupt_enabled = __get_interrupt_state() & GIE;
+  __dint(); __nop();
+    
+  /* can only erase the whole bank if no code is being executed from the 
+   * flash memory, hence the current code must be copied into the SRAM */
+  uint16_t var = 0;
+  void (*jump_to_sram)(void) = (void*)(&var - 256);
+  memcpy(&var, flash_erase_bank, 256);
+  jump_to_sram();
+  
+  if(interrupt_enabled) {
+    __eint(); __nop();
+  }
 }
 /*---------------------------------------------------------------------------*/

@@ -90,10 +90,10 @@ spi_init(spi_module_t spi, uint32_t bclk_speed)
     PIN_SEL(SPI_A0_SOMI);
     PIN_SEL(SPI_A0_SIMO);
     PIN_SEL(SPI_A0_CLK);
-    PIN_CFG_IN(SPI_A0_SOMI);
+    //PIN_CFG_IN(SPI_A0_SOMI);
     /* PIN_RESISTOR_EN(SPI_A0_SOMI); */
-    PIN_CFG_OUT(SPI_A0_SIMO);
-    PIN_CFG_OUT(SPI_A0_CLK);
+    //PIN_CFG_OUT(SPI_A0_SIMO);
+    //PIN_CFG_OUT(SPI_A0_CLK);
 
     while(SPI_A0_ACTIVE); /* busy wait, just in case the SPI is still active */
 
@@ -116,10 +116,10 @@ spi_init(spi_module_t spi, uint32_t bclk_speed)
     PIN_SEL(SPI_B0_SOMI);
     PIN_SEL(SPI_B0_SIMO);
     PIN_SEL(SPI_B0_CLK);
-    PIN_CFG_IN(SPI_B0_SOMI);
+    //PIN_CFG_IN(SPI_B0_SOMI);
     /* PIN_RESISTOR_EN(SPI_B0_SOMI); */
-    PIN_CFG_OUT(SPI_B0_SIMO);
-    PIN_CFG_OUT(SPI_B0_CLK);
+    //PIN_CFG_OUT(SPI_B0_SIMO);
+    //PIN_CFG_OUT(SPI_B0_CLK);
 
     while(SPI_B0_ACTIVE); /* busy wait, just in case the SPI is still active */
 
