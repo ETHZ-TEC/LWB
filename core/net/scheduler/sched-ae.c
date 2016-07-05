@@ -99,7 +99,7 @@
  */
 typedef struct stream_info {
   struct stream_info *next;
-  uint16_t            node_id;
+  uint16_t            id;
   uint8_t             state;
   uint8_t             n_pkts;
 } lwb_stream_list_t;
@@ -138,12 +138,12 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     
   /* check if stream already exists */
   for(s = list_head(streams_list); s != 0; s = s->next) {
-    if(req->node_id == s->node_id) {
+    if(req->id == s->id) {
       if(!s->state) {
         n_streams++;
         s->state = 1;
         DEBUG_PRINT_VERBOSE("stream of node %u reactivated (%u pkts %u)", 
-                            req->node_id, req->reserved, req->stream_id);
+                            req->id, req->reserved, req->stream_id);
       }
       s->n_pkts = MAX(1, req->reserved); /* # packets the node wants to send */
       exists = 1;
@@ -154,7 +154,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   {      
     if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
       DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
-                          "reached", req->node_id);
+                          "reached", req->id);
       return;
     } 
     /* does not exist: add the new stream */
@@ -163,20 +163,20 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       DEBUG_PRINT_ERROR("out of memory: stream request dropped");
       return;
     }
-    s->node_id = req->node_id;
+    s->id = req->id;
     s->n_pkts  = req->reserved;         /* # packets the node wants to send */
     s->state   = 1;
     /* insert the stream into the list, ordered by node id */
     lwb_stream_list_t *prev;
     for(prev = list_head(streams_list); prev != NULL; prev = prev->next) {
-      if((req->node_id >= prev->node_id) && ((prev->next == NULL) || 
-         (req->node_id < prev->next->node_id))) {
+      if((req->id >= prev->id) && ((prev->next == NULL) || 
+         (req->id < prev->next->id))) {
         break;
       }
     }
     list_insert(streams_list, prev, s);   
     n_streams++;
-    DEBUG_PRINT_INFO("stream of node %u added", req->node_id);         
+    DEBUG_PRINT_INFO("stream of node %u added", req->id);         
   }
   /* no need to send a stream acknowledgement */
 }
@@ -209,7 +209,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       /* every node gets one slot (a chance to request a stream) */
       lwb_stream_list_t *curr_stream = list_head(streams_list);
       while(curr_stream != NULL) {
-        sched->slot[n_slots_assigned] = curr_stream->node_id;
+        sched->slot[n_slots_assigned] = curr_stream->id;
         n_slots_assigned++;
         /* go to the next stream in the list */
         curr_stream = curr_stream->next;
@@ -238,7 +238,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           uint8_t n = curr_stream->n_pkts;
           /* assign as many slots as the node requested */
           while(n && (n_slots_assigned < LWB_CONF_MAX_DATA_SLOTS)) {
-            sched->slot[n_slots_assigned++] = curr_stream->node_id;
+            sched->slot[n_slots_assigned++] = curr_stream->id;
             n--; 
           }
         }
@@ -264,11 +264,11 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     lwb_stream_list_t* curr_stream = NULL;
     while(i < LWB_SCHED_N_SLOTS(sched)) {
       /* the node IDs will be in order */
-      if(!curr_stream || (sched->slot[i] != curr_stream->node_id)) {
+      if(!curr_stream || (sched->slot[i] != curr_stream->id)) {
         /* find the stream with this node ID in the list */
         curr_stream = list_head(streams_list);
         while(curr_stream != NULL) {
-          if(sched->slot[i] == curr_stream->node_id) {
+          if(sched->slot[i] == curr_stream->id) {
             break;
           }
           curr_stream = curr_stream->next;
@@ -281,7 +281,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           curr_stream->n_pkts--;
           if(curr_stream->n_pkts == 0) {
             /* schedule an S-ACK and deactivate the stream */
-            pending_sack[n_pending_sack] = curr_stream->node_id;
+            pending_sack[n_pending_sack] = curr_stream->id;
             n_pending_sack++;
             curr_stream->state = 0;
             if(n_streams == 0) {

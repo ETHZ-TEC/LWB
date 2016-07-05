@@ -44,7 +44,7 @@
  * @brief compress / uncompress routines for the schedule
  *
  * @remarks
- * - each slot must be a uint8 variable, i.e. an integer betw. 0 and 255
+ * - each slot must be a uint16 variable
  * - the node IDs must be sorted in increasing order, otherwise this algorithm
  *   will not work
  * - the number of slots must not be higher than 255
@@ -60,10 +60,8 @@
 /* 3 bits are reserved to store the number of bits needed for the length
  * (i.e. 0 to 7 bits) */
 #define GET_L_BITS()       (compressed_data[2] & 0x07)  
-#define SET_D_L_BITS(d, l) (compressed_data[2] = (d << 3) | (l & 0x07))
-#define COMPR_SLOT(a)      (compressed_data[3 + a])
-/*---------------------------------------------------------------------------*/
-static uint16_t slots_buffer[LWB_CONF_MAX_DATA_SLOTS];
+#define SET_D_L_BITS(d, l) (compressed_data[2] = ((d) << 3) | ((l) & 0x07))
+#define COMPR_SLOT(a)      (compressed_data[3 + (a)])
 /*---------------------------------------------------------------------------*/
 static inline uint8_t 
 get_min_bits(uint16_t a) 
@@ -87,6 +85,11 @@ get_min_bits(uint16_t a)
 uint16_t 
 lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots) 
 {  
+  uint16_t slots_buffer[LWB_CONF_MAX_DATA_SLOTS];
+
+  if(n_slots > LWB_CONF_MAX_DATA_SLOTS) {
+    return 0;
+  }  
   if(n_slots < 2) {  /* don't do anything in case there is only 0 or 1 slot */
     return n_slots * 2;
   }
@@ -94,21 +97,21 @@ lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots)
   memcpy(slots_buffer, compressed_data, n_slots * 2);
   /* clear the output data buffer (except for the first slot!) */
   memset(compressed_data + 2, 0, LWB_CONF_MAX_DATA_SLOTS * 2 - 2);
-
+  
   /* Note: the first slot holds the first node ID */
   
   uint8_t  n_runs = 0;    /* how many times the delta has changed */
-  uint16_t  d[n_slots - 1];
+  uint16_t d[n_slots - 1];
   d[n_runs] = slots_buffer[1] - slots_buffer[0];  /* delta (step size) */
-  uint8_t  d_max = d[n_runs];
+  uint16_t d_max = d[n_runs];
   /* length (how many consecutive slots with step size d) */
-  uint16_t  l[n_slots - 1];  
+  uint16_t l[n_slots - 1];
   l[n_runs] = 0;
   uint8_t  l_max = l[n_runs];
   uint8_t  idx;
 
   for(idx = 1; idx < n_slots - 1; idx++) {
-    if(slots_buffer[idx + 1] - slots_buffer[idx] == d[n_runs]) {
+    if((slots_buffer[idx + 1] - slots_buffer[idx]) == d[n_runs]) {
       l[n_runs]++;
     } else {
       if(l[n_runs] > l_max) {
@@ -132,16 +135,17 @@ lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots)
     l_max = l[n_runs];
   }
   n_runs++;
-
+  
   uint8_t d_bits = get_min_bits(d_max);
   uint8_t l_bits = get_min_bits(l_max);
   /* required bits for each delta + length */
-  uint8_t run_bits = d_bits + l_bits; 
-
+  uint16_t run_bits = d_bits + l_bits; 
+  
   for(idx = 0; idx < n_runs; idx++) {    
+      //DEBUG_PRINT_INFO("dbits: %u lbits: %u delta: %u len: %u", d_bits, l_bits, d[idx], l[idx]);
     uint16_t offset_bits = run_bits * idx;
     /* store the current and the following 3 bytes in a 32-bit variable */
-    uint32_t tmp = COMPR_SLOT(offset_bits / 8) | 
+    uint32_t tmp = (uint32_t)COMPR_SLOT(offset_bits / 8) | 
                    ((uint32_t)COMPR_SLOT(offset_bits / 8 + 1) << 8)  |
                    ((uint32_t)COMPR_SLOT(offset_bits / 8 + 2) << 16) |
                    ((uint32_t)COMPR_SLOT(offset_bits / 8 + 3) << 24);
@@ -153,7 +157,7 @@ lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots)
     COMPR_SLOT(offset_bits / 8 + 3) = (uint8_t)(tmp >> 24);
   }
   SET_D_L_BITS(d_bits, l_bits);   /* store the number of bits for d and l */
-    
+  
   /* return the size of the compressed schedule */
   return 3 + ((((uint16_t)n_runs * run_bits) + 7) >> 3);
 }
@@ -168,27 +172,32 @@ lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots)
 uint8_t
 lwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots) 
 {
-  if(n_slots < 2) {  /* don't do anything in case there is only 0 or 1 slot */
+  uint16_t slots_buffer[LWB_CONF_MAX_DATA_SLOTS];
+  
+  if(n_slots > LWB_CONF_MAX_DATA_SLOTS) {
     return 0;
+  }  
+  if(n_slots < 2) {  /* don't do anything in case there is only 0 or 1 slot */
+    return 1;
   }
-  /* safer to use memcpy due to pointer alignment problems */
-  memcpy(slots_buffer, compressed_data, 2);
+  
+  slots_buffer[0] = (uint16_t)compressed_data[1] << 8 | compressed_data[0];
 
   uint8_t d_bits = GET_D_BITS();
   uint8_t l_bits = GET_L_BITS();
-  uint8_t run_bits = d_bits + l_bits;
+  uint16_t run_bits = d_bits + l_bits;
   
   /* check whether the values make sense */
-  if(d_bits == 0 || d_bits > 8 || l_bits == 0) {
+  if(d_bits == 0 || d_bits > 16 || l_bits == 0) {
     return 0; /* invalid d or l bits */
   }
   
   uint8_t slot_idx = 1, idx;
-  uint32_t mask = ((1 << run_bits) - 1);
+  uint32_t mask = (((uint32_t)1 << run_bits) - 1);
   for(idx = 0; slot_idx < n_slots; idx++) {
     /* extract d and l of this run */
     uint16_t offset_bits = run_bits * idx;
-    uint32_t tmp = COMPR_SLOT(offset_bits / 8) |
+    uint32_t tmp = (uint32_t)COMPR_SLOT(offset_bits / 8) |
                    ((uint32_t)COMPR_SLOT(offset_bits / 8 + 1) << 8)  |
                    ((uint32_t)COMPR_SLOT(offset_bits / 8 + 2) << 16) | 
                    ((uint32_t)COMPR_SLOT(offset_bits / 8 + 3) << 24);

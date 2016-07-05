@@ -265,31 +265,6 @@ FIFO(in_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_IN_BUFFER_SIZE);
 FIFO(out_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_OUT_BUFFER_SIZE);
 #endif /* LWB_CONF_RELAY_ONLY */
 /*---------------------------------------------------------------------------*/
-#if LWB_CONF_USE_XMEM   /* to get rid of a compiler warning */
-static uint16_t 
-calc_crc16(const uint8_t* data, uint8_t num_bytes) 
-{
-  uint16_t crc  = 0,
-           mask = 0xa001;
-  while(num_bytes) {
-    uint8_t ch = *data;
-    int8_t bit = 0;
-    while(bit < 8) {
-      if((crc & 1) ^ (ch & 1)) {
-        crc = (crc >> 1) ^ mask;
-      } else {
-        crc >>= 1;
-      }
-      ch >>= 1; 
-      bit += 1;
-    }
-    data++;
-    num_bytes--;
-  }
-  return crc;
-}
-#endif /* LWB_CONF_USE_XMEM */
-/*---------------------------------------------------------------------------*/
 uint8_t
 lwb_stats_load(void) 
 {
@@ -305,7 +280,7 @@ lwb_stats_load(void)
   }
   crc = stats.crc;
   stats.crc = 0;
-  if(calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t)) != crc) {
+  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t)) != crc) {
     DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset");
     memset(&stats, 0, sizeof(lwb_statistics_t));
   }
@@ -322,7 +297,7 @@ lwb_stats_save(void)
 {
 #if LWB_CONF_USE_XMEM
   stats.crc = 0;    /* necessary */
-  stats.crc = calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t));
+  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t));
   if(!xmem_write(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_WARNING("failed to write stats");
   }
@@ -349,13 +324,13 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
     DEBUG_PRINT_WARNING("received data packet is too big"); 
   }
   /* received messages will have the max. length LWB_CONF_MAX_DATA_PKT_LEN */
-  uint16_t pkt_addr = fifo_put(&in_buffer);
+  uint32_t pkt_addr = fifo_put(&in_buffer);
   if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* copy the data into the queue */
-    memcpy((uint8_t*)pkt_addr, data, len);
+    memcpy((uint8_t*)(uint16_t)pkt_addr, data, len);
     /* last byte holds the payload length */
-    *(uint8_t*)(pkt_addr + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
+    *(uint8_t*)((uint16_t)pkt_addr + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
 #else /* LWB_CONF_USE_XMEM */
     /* write the data into the queue in the external memory */
     xmem_write(pkt_addr, len, data);
@@ -374,18 +349,29 @@ lwb_out_buffer_get(uint8_t* out_data)
 {   
   /* messages have the max. length LWB_CONF_MAX_DATA_PKT_LEN and are already
    * formatted according to glossy_payload_t */
-  uint16_t pkt_addr = fifo_get(&out_buffer);
+  uint32_t pkt_addr = fifo_get(&out_buffer);
   if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
-    uint8_t* next_msg = (uint8_t*)pkt_addr;  
-    memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
-    return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
+    uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr;
+    /* check the length */
+    uint8_t len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
+    if(len > LWB_CONF_MAX_DATA_PKT_LEN) {
+      DEBUG_PRINT_WARNING("invalid message length detected");
+      len = LWB_CONF_MAX_DATA_PKT_LEN;  /* truncate */
+    }
+    memcpy(out_data, next_msg, len);
 #else /* LWB_CONF_USE_XMEM */
     xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
-    memcpy(out_data, data_buffer, *(out_data + LWB_CONF_MAX_DATA_PKT_LEN));
-    return *(out_data + LWB_CONF_MAX_DATA_PKT_LEN);
+    /* check the length */
+    uint8_t len = *(out_data + LWB_CONF_MAX_DATA_PKT_LEN);
+    if(len > LWB_CONF_MAX_DATA_PKT_LEN) {
+      DEBUG_PRINT_WARNING("invalid message length detected");
+      len = LWB_CONF_MAX_DATA_PKT_LEN;  /* truncate */
+    }
+    memcpy(out_data, data_buffer, len);
 #endif /* LWB_CONF_USE_XMEM */
+    return len;
   }
   DEBUG_PRINT_VERBOSE("out queue empty");
   return 0;
@@ -404,11 +390,11 @@ lwb_put_data(uint16_t recipient,
   if(len > LWB_DATA_PKT_PAYLOAD_LEN || !data) {
     return 0;
   }
-  uint16_t pkt_addr = fifo_put(&out_buffer);
+  uint32_t pkt_addr = fifo_put(&out_buffer);
   if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    uint8_t* next_msg = (uint8_t*)pkt_addr;  
+    uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr;  
     *(next_msg) = (uint8_t)recipient;   /* recipient L */  
     *(next_msg + 1) = recipient >> 8;   /* recipient H */  
     *(next_msg + 2) = stream_id; 
@@ -440,11 +426,11 @@ lwb_get_data(uint8_t* out_data,
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
    * lwb header needs to be stripped off; payload has max. length
    * LWB_DATA_PKT_PAYLOAD_LEN */
-  uint16_t pkt_addr = fifo_get(&in_buffer);
+  uint32_t pkt_addr = fifo_get(&in_buffer);
   if((FIFO_ERROR & 0xffff) != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    uint8_t* next_msg = (uint8_t*)pkt_addr; 
+    uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr; 
     uint8_t msg_len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) -
                       LWB_DATA_PKT_HEADER_LEN;
     memcpy(out_data, next_msg + LWB_DATA_PKT_HEADER_LEN, msg_len);
@@ -455,7 +441,6 @@ lwb_get_data(uint8_t* out_data,
     if(out_stream_id) {
       *out_stream_id = next_msg[2];
     }
-    return msg_len;
 #else /* LWB_CONF_USE_XMEM */
     xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
     uint8_t msg_len = *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) -
@@ -467,8 +452,8 @@ lwb_get_data(uint8_t* out_data,
     if(out_stream_id) {
       *out_stream_id = data_buffer[2];
     }
-    return msg_len;
 #endif /* LWB_CONF_USE_XMEM */
+    return msg_len;
   }
   DEBUG_PRINT_VERBOSE("in queue empty");
   return 0;
@@ -483,7 +468,7 @@ lwb_get_rcv_buffer_state(void)
 uint8_t
 lwb_get_send_buffer_state(void)
 {
-  return !FIFO_EMPTY(&out_buffer);
+  return out_buffer.count; /* !FIFO_EMPTY(&out_buffer); */
 }
 #endif /* LWB_CONF_RELAY_ONLY */
 /*---------------------------------------------------------------------------*/
@@ -653,7 +638,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
               /* is it a stream request? (piggyback on data packet) */
               if(LWB_INVALID_STREAM_ID == glossy_payload.data_pkt.stream_id) {
                 DEBUG_PRINT_VERBOSE("piggyback stream request from node %u", 
-                                 glossy_payload.srq_pkt.node_id);
+                                 glossy_payload.srq_pkt.id);
                 lwb_sched_proc_srq((lwb_stream_req_t*)
                                    &glossy_payload.raw_data[3]);
               } else 
@@ -695,7 +680,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         LWB_REQ_DETECTED;
         /* check the request */
         /*DEBUG_PRINT_INFO("stream request from node %u (stream %u, IPI %u)", 
-                         glossy_payload.srq_pkt.node_id, 
+                         glossy_payload.srq_pkt.id, 
                          glossy_payload.srq_pkt.stream_id, 
                          glossy_payload.srq_pkt.ipi);*/
         lwb_sched_proc_srq(&glossy_payload.srq_pkt);
@@ -1168,23 +1153,12 @@ lwb_resume(void)
     rtimer_id_t timer_id = LWB_CONF_RTIMER_ID;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
-#ifdef NODE_ID
-  #if (NODE_ID == HOST_ID) && !LWB_CONF_RELAY_ONLY
+  if(node_id == HOST_ID) {
     /* note: must add at least some clock ticks! */
     rtimer_schedule(timer_id, start_time, 0, lwb_thread_host);
-  #else
-    rtimer_schedule(timer_id, start_time, 0, lwb_thread_src);    
-  #endif
-#else /* NODE_ID */
-  if((node_id == HOST_ID) && !LWB_CONF_RELAY_ONLY) {
-  #if !LWB_CONF_RELAY_ONLY
-    /* note: must add at least some clock ticks! */
-    rtimer_schedule(timer_id, start_time, 0, lwb_thread_host);
-  #endif /* LWB_CONF_RELAY_ONLY */
   } else {
     rtimer_schedule(timer_id, start_time, 0, lwb_thread_src);
   }
-#endif /* NODE_ID */
 }
 /*---------------------------------------------------------------------------*/
 /* define the process control block */
@@ -1230,8 +1204,9 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
 {
   pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
-  printf("Starting '%s'\r\n", lwb_process.name);
-    
+  
+  uart_enable(1);
+  printf("Starting '%s'\r\n", lwb_process.name);    
   printf("t_sched=%ums, t_data=%ums, t_cont=%ums, t_round=%ums, "
          "data=%ub, slots=%u, tx=%u, hop=%u\r\n", 
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),

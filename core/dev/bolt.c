@@ -182,11 +182,11 @@ bolt_acquire(bolt_op_mode_t mode)
   }
   if(PIN_GET(BOLT_CONF_REQ_PIN) || 
      PIN_GET(BOLT_CONF_ACK_PIN)) {
-    DEBUG_PRINT_ERROR("request failed (REQ or ACK still high)");
+    DEBUG_PRINT_ERROR("BOLT request failed (REQ or ACK still high)");
     return 0;
   }
   if(BOLT_STATE_IDLE != bolt_state) {
-    DEBUG_PRINT_ERROR("not in idle state, operation skipped");
+    DEBUG_PRINT_ERROR("BOLT not in idle state, operation skipped");
     return 0;
   } 
 
@@ -194,7 +194,7 @@ bolt_acquire(bolt_op_mode_t mode)
   /* READ */
   if(BOLT_OP_READ == mode) {
     if(!BOLT_DATA_AVAILABLE) {
-      DEBUG_PRINT_WARNING("no data available, read operation skipped");
+      DEBUG_PRINT_WARNING("BOLT no data available, op skipped");
       return 0;
     }
     PIN_CLR(BOLT_CONF_MODE_PIN); /* 0 = READ */
@@ -217,7 +217,7 @@ bolt_acquire(bolt_op_mode_t mode)
     /* ack is still low -> failed */
     bolt_state = BOLT_STATE_IDLE;
     PIN_CLR(BOLT_CONF_REQ_PIN);
-    DEBUG_PRINT_ERROR("access denied");
+    DEBUG_PRINT_ERROR("BOLT access denied (queue full?)");
     return 0;
   }
   

@@ -74,7 +74,7 @@
  */
 typedef struct stream_info {
   struct stream_info *next;
-  uint16_t node_id;
+  uint16_t id;
   uint16_t ipi;
   uint32_t last_assigned;
   uint8_t  stream_id;
@@ -110,7 +110,7 @@ lwb_sched_del_stream(lwb_stream_list_t* stream)
   if(0 == stream) {    
     return;  /* entry not found, don't do anything */
   }
-  uint16_t node   = stream->node_id;
+  uint16_t node   = stream->id;
   uint8_t  stream_id = stream->stream_id;
   if(!used_bw) {
     DEBUG_PRINT_ERROR("something went wrong, used_bw < 0");
@@ -157,13 +157,13 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     /* check if stream already exists */
     if(n_streams) {
       for(s = list_head(streams_list); s != 0; s = s->next) {
-        if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
+        if(req->id == s->id && req->stream_id == s->stream_id) {
           /* already exists -> update the IPI... */
           s->ipi = req->ipi;
           s->last_assigned = time;
           s->n_cons_missed = 0;         /* reset this counter */
           DEBUG_PRINT_INFO("stream %u.%u updated (IPI %u)", 
-                              req->node_id, req->stream_id, req->ipi);
+                              req->id, req->stream_id, req->ipi);
           goto add_sack;
         }
       }  
@@ -172,13 +172,13 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     /* does not exist: add the new stream */
     if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
       DEBUG_PRINT_WARNING("stream request %u.%u dropped, max #streams reached", 
-                        req->node_id, req->stream_id);
+                        req->id, req->stream_id);
       return;
     }
     /* check whether the scheduler can support the requested ipi */
     if(used_bw >= BANDWIDTH_LIMIT) {
       DEBUG_PRINT_WARNING("stream request %u.%u dropped, network saturated", 
-                        req->node_id, req->stream_id);
+                        req->id, req->stream_id);
       return;
     }
     used_bw++;
@@ -187,7 +187,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       DEBUG_PRINT_ERROR("out of memory: stream request dropped");
       return;
     }
-    s->node_id       = req->node_id;
+    s->id       = req->id;
     s->ipi           = req->ipi;
     s->last_assigned = time;
     s->stream_id     = req->stream_id;
@@ -195,19 +195,19 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     /* insert the stream into the list, ordered by node id */
     lwb_stream_list_t *prev;
     for(prev = list_head(streams_list); prev != NULL; prev = prev->next) {
-      if((req->node_id >= prev->node_id) && ((prev->next == NULL) || 
-         (req->node_id < prev->next->node_id))) {
+      if((req->id >= prev->id) && ((prev->next == NULL) || 
+         (req->id < prev->next->id))) {
         break;
       }
     }
     list_insert(streams_list, prev, s);   
     n_streams++;
-    DEBUG_PRINT_INFO("stream %u.%u added (IPI %u)", req->node_id, 
+    DEBUG_PRINT_INFO("stream %u.%u added (IPI %u)", req->id, 
                      req->stream_id, req->ipi);         
   } else {
     /* remove this stream */
     for(s = list_head(streams_list); s != 0; s = s->next) {
-      if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
+      if(req->id == s->id && req->stream_id == s->stream_id) {
         break;
       }
     }
@@ -217,21 +217,21 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
 add_sack:
   /* insert into the list of pending S-ACKs */
   /* use memcpy to avoid pointer misalignment errors */
-  memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
+  memcpy(pending_sack + n_pending_sack * 4, &req->id, 2);  
   pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
   n_pending_sack++;   
 }
 /*---------------------------------------------------------------------------*/
 static inline uint8_t 
-lwb_sched_stream_in_list(uint16_t node_id, 
+lwb_sched_stream_in_list(uint16_t id, 
                          uint8_t stream_id, 
                          const uint16_t* node_list, 
                          const uint8_t* stream_list, 
                          uint8_t list_len) 
 {
   /* assume that the node IDs in node_list are sorted in increasing order */
-  while(list_len && *node_list <= node_id) {
-    if(*node_list == node_id && *stream_list == stream_id) {
+  while(list_len && *node_list <= id) {
+    if(*node_list == id && *stream_list == stream_id) {
       return 1;
     }
     node_list++;
@@ -256,7 +256,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   lwb_stream_list_t *curr_stream = list_head(streams_list);
   /* loop through all the streams in the list */
   while(curr_stream != NULL) {
-    if(lwb_sched_stream_in_list(curr_stream->node_id, curr_stream->stream_id, 
+    if(lwb_sched_stream_in_list(curr_stream->id, curr_stream->stream_id, 
         sched->slot, streams_to_update, LWB_SCHED_N_SLOTS(sched))) {
       curr_stream->n_cons_missed = 0;
     } else if(curr_stream->n_cons_missed & 0x80) {
@@ -318,7 +318,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       }
       curr_stream->last_assigned += to_assign * curr_stream->ipi;
       for(; to_assign > 0; to_assign--, n_slots_assigned++) {
-        slots_tmp[n_slots_assigned] = curr_stream->node_id;
+        slots_tmp[n_slots_assigned] = curr_stream->id;
         streams[n_slots_assigned] = curr_stream;
       }
       /* set the last bit, we are expecting a packet from this stream in 

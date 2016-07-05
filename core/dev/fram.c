@@ -138,6 +138,7 @@ fram_init(void)
       }
       c++;
     }
+    DEBUG_PRINT_MSG_NOW("FRAM initialized");
     fram_initialized = 1;
   }
   return 1;
@@ -285,7 +286,7 @@ fram_alloc(uint16_t size)
                       "(requested block size: %db)", size);
     return FRAM_ALLOC_ERROR;
   }
-  DEBUG_PRINT_MSG_NOW("memory allocated (block: %d, len: %db, ofs: %lu)",
+  DEBUG_PRINT_MSG_NOW("Memory allocated (block: %d, len: %db, ofs: %lu)",
                       fram_num_alloc_blocks, size, fram_curr_offset);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
@@ -324,5 +325,35 @@ inline uint8_t xmem_write(uint32_t start_address, uint16_t num_bytes,
   return fram_write(start_address, num_bytes, data);
 }
 /*---------------------------------------------------------------------------*/
+inline uint8_t xmem_erase(uint32_t start_address, uint16_t num_bytes) 
+{
+  return fram_fill(start_address, num_bytes, 0);
+}
+/*---------------------------------------------------------------------------*/
 
 #endif
+
+/*---------------------------------------------------------------------------*/
+uint16_t 
+crc16(const uint8_t* data, uint8_t num_bytes, uint16_t init_value) 
+{
+  uint16_t crc  = init_value,
+           mask = 0xa001;
+  while(num_bytes) {
+    uint8_t ch = *data;
+    int8_t bit = 0;
+    while(bit < 8) {
+      if((crc & 1) ^ (ch & 1)) {
+        crc = (crc >> 1) ^ mask;
+      } else {
+        crc >>= 1;
+      }
+      ch >>= 1; 
+      bit += 1;
+    }
+    data++;
+    num_bytes--;
+  }
+  return crc;
+}
+/*---------------------------------------------------------------------------*/

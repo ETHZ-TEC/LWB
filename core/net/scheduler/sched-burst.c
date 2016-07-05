@@ -98,7 +98,7 @@
  */
 typedef struct stream_info {
   struct stream_info *next;
-  uint16_t            node_id;
+  uint16_t            id;
   uint8_t             n_cons_missed;
   uint8_t             state;
 } lwb_stream_list_t;
@@ -142,12 +142,12 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   
   /* check if stream already exists */
   for(s = list_head(streams_list); s != 0; s = s->next) {
-    if(req->node_id == s->node_id) {
+    if(req->id == s->id) {
       s->n_cons_missed = 0;          /* reset this counter */
       if(!s->state) {
         n_streams++;
         s->state = 1;
-        DEBUG_PRINT_INFO("stream of node %u reactivated", req->node_id);
+        DEBUG_PRINT_INFO("stream of node %u reactivated", req->id);
       }
       exists = 1;                    /* already exists */
       break;
@@ -157,7 +157,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   {   
     if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
       DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
-                          "reached", req->node_id);
+                          "reached", req->id);
       return;
     }
     /* does not exist: add the new stream */
@@ -166,25 +166,25 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       DEBUG_PRINT_ERROR("out of memory: stream request dropped");
       return;
     }
-    s->node_id       = req->node_id;
+    s->id       = req->id;
     s->n_cons_missed = 0;
     s->state         = 1;
     /* insert the stream into the list, ordered by node id */
     lwb_stream_list_t *prev;
     for(prev = list_head(streams_list); prev != NULL; prev = prev->next) {
-      if((req->node_id >= prev->node_id) && ((prev->next == NULL) || 
-         (req->node_id < prev->next->node_id))) {
+      if((req->id >= prev->id) && ((prev->next == NULL) || 
+         (req->id < prev->next->id))) {
         break;
       }
     }
     list_insert(streams_list, prev, s);   
     n_streams++;
-    DEBUG_PRINT_INFO("stream of node %u added", req->node_id);         
+    DEBUG_PRINT_INFO("stream of node %u added", req->id);         
   }
 
   /* insert into the list of pending S-ACKs */
   /* use memcpy to avoid pointer misalignment errors */
-  memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);  
+  memcpy(pending_sack + n_pending_sack * 4, &req->id, 2);  
   pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
   n_pending_sack++;
 }
@@ -210,7 +210,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
      * a stream) */
     lwb_stream_list_t *curr_stream = list_head(streams_list);
     while(curr_stream != NULL) {
-      sched->slot[n_slots_assigned] = curr_stream->node_id;
+      sched->slot[n_slots_assigned] = curr_stream->id;
       n_slots_assigned++;
       /* go to the next stream in the list */
       curr_stream = curr_stream->next;
@@ -229,7 +229,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       /* find the stream with this node ID in the list */
       lwb_stream_list_t *curr_stream = list_head(streams_list);
       while(curr_stream != NULL) {
-        if(sched->slot[i] == curr_stream->node_id) {
+        if(sched->slot[i] == curr_stream->id) {
           break;
         }
         curr_stream = curr_stream->next;
@@ -252,7 +252,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           /* too many consecutive slots without reception: remove stream */
           curr_stream->state = 0;
           n_streams--;
-          DEBUG_PRINT_INFO("stream of node %u removed", curr_stream->node_id);
+          DEBUG_PRINT_INFO("stream of node %u removed", curr_stream->id);
         }
       } else {
         /* this is not supposed to happen */
@@ -285,7 +285,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
           uint8_t to_assign = MIN((LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned),
                                   n_slots_per_stream);
           do {
-            sched->slot[n_slots_assigned] = curr_stream->node_id;
+            sched->slot[n_slots_assigned] = curr_stream->id;
             n_slots_assigned++;
             to_assign--;
           } while (to_assign);

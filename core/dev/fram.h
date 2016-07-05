@@ -115,6 +115,10 @@
 #define FRAM_ALLOC_ERROR        0xffffffff  /* this address indicates a memory
                                                allocation error */
 
+#ifndef XMEM_SIZE
+#define XMEM_SIZE               FRAM_CONF_SIZE
+#endif /* XMEM_SIZE */
+
 /**
  * @brief checks whether the control pin is high
  */
@@ -123,7 +127,6 @@
  * @brief wait until the data transfer is complete and the control pin is high
  */
 #define FRAM_WAIT_COMPLETE          while(!PIN_GET_INPUT_BIT(FRAM_CTRL))
-
 
 
 /**
@@ -216,6 +219,14 @@ uint8_t fram_fill(uint32_t start_address,
 uint32_t fram_alloc(uint16_t size);
 
 #endif /* FRAM_CONF_ON */
+
+
+/**
+ * @brief calculates the 16-bit CRC of a memory block
+ * @note this function does not utilize the hardware CRC module
+ */
+uint16_t crc16(const uint8_t* data, uint8_t num_bytes, uint16_t init_value); 
+
 
 #endif /* __FRAM_H__ */
 

@@ -71,6 +71,13 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       LWB_CONF_MAX_PKT_LEN
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
+#ifndef LWB_CONF_MAX_DATA_SLOTS
+/* max. number of data slots per round, must not exceed MIN(63, 
+ * (LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
+ * must be at least 2 */
+#define LWB_CONF_MAX_DATA_SLOTS         20        
+#endif /* LWB_CONF_MAX_DATA_SLOTS */
+
 /* set to 1 to skip the state QUASI_SYNCED and jump directly to SYNCED after 
  * BOOTSTRAP; reduces the delay to the first slot */
 #ifndef LWB_CONF_SKIP_QUASI_SYNCED
@@ -89,7 +96,7 @@
  * (= generate) packets, and therefore require less memory */
 #ifndef LWB_CONF_RELAY_ONLY
 #define LWB_CONF_RELAY_ONLY             0
-#endif /* LWB_CONF_RELAY_NODE_ONLY */
+#endif /* LWB_CONF_RELAY_ONLY */
 
 #if !LWB_CONF_TIME_SCALE
 #error "invalid value for LWB_CONF_TIME_SCALE"
@@ -264,6 +271,10 @@
 #define LWB_CONF_MAX_CONT_BACKOFF       8
 #endif /* LWB_CONF_MAX_CONT_BACKOFF */
 
+#ifndef LWB_CONF_DATA_ACK
+#define LWB_CONF_DATA_ACK               0
+#endif /* LWB_CONF_DATA_ACK */
+
 /*---------------------------------------------------------------------------*/
 
 #ifndef RF_CONF_TX_POWER                /* set the radio antenna gain */
@@ -290,10 +301,12 @@
 
 /* important values, do not modify */
 
-#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 2) * \
+#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 2 + \
+                                      LWB_CONF_DATA_ACK) * \
                                      (LWB_CONF_T_DATA + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_SCHED + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_CONT + LWB_CONF_T_GAP))
+
 /* min. duration of 1 packet transmission with glossy (approx. values, taken 
  * from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b 
  * packets just over 2ms */
@@ -430,7 +443,7 @@ uint8_t lwb_get_rcv_buffer_state(void);
 
 /**
  * @brief check the status of the send buffer (outgoing messages)
- * @return 1 if there is at least 1 message in the queue, 0 otherwise
+ * @return the number of remaining packets in the queue
  */
 uint8_t lwb_get_send_buffer_state(void);
 
