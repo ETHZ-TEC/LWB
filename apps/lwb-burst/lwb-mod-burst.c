@@ -643,7 +643,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
               /* is it a stream request? (piggyback on data packet) */
               if(LWB_INVALID_STREAM_ID == glossy_payload.data_pkt.stream_id) {
                 DEBUG_PRINT_VERBOSE("piggyback stream request from node %u", 
-                                 glossy_payload.srq_pkt.node_id);
+                                 glossy_payload.srq_pkt.id);
                 lwb_sched_proc_srq((lwb_stream_req_t*)
                                    &glossy_payload.raw_data[3]);
               } else {
@@ -688,7 +688,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       if(LWB_DATA_RCVD) {
         /* check the request */
         DEBUG_PRINT_VERBOSE("stream request from node %u", 
-                            glossy_payload.srq_pkt.node_id);
+                            glossy_payload.srq_pkt.id);
         lwb_sched_proc_srq(&glossy_payload.srq_pkt);
       }  
       if(glossy_get_n_rx_started() && !LWB_SCHED_N_SLOTS(&schedule)) {

@@ -107,7 +107,8 @@ PROCESS_THREAD(app_process, ev, data)
         }
       } else {
         /* generate a dummy packet */
-        if(!lwb_put_data(0, 1, (uint8_t*)&node_id, 2)) {
+        uint16_t data = 0xaa;
+        if(!lwb_put_data(0, 1, (uint8_t*)&data, 2)) {
           DEBUG_PRINT_WARNING("out queue full, packet dropped");
         } /* else: data packet successfully passed to the LWB */
       }

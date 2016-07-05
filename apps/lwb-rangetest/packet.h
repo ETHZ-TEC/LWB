@@ -40,6 +40,10 @@
 #define MSG_HDR_LEN             14          /* bytes */
 #define MSG_PAYLOAD_LEN         (MSG_MAX_LEN - MSG_HDR_LEN)
 
+/* extended message type */
+#define MSG_EXT_HDR_LEN         6           /* without timestamp */
+#define MSG_EXT_PAYLOAD_LEN     (MSG_MAX_LEN - MSG_EXT_HDR_LEN)
+
 typedef enum {
   MSG_TYPE_INVALID = 0,
   MSG_TYPE_TIMESTAMP,
@@ -48,15 +52,30 @@ typedef enum {
   MSG_TYPE_WARNING,
   MSG_TYPE_INFO,
   MSG_TYPE_LWB_CMD,
+  MSG_TYPE_FW_INFO,
+  MSG_TYPE_FW_DATA,
+  MSG_TYPE_FW_VALIDATE,
+  MSG_TYPE_FW_UPDATE,
+  MSG_TYPE_FW_ROLLBACK,
+  MSG_TYPE_FW_REQ_DATA,
 } message_type_t;
 
-typedef enum
-{
-    LWB_CMD_RESUME = 0,
-    LWB_CMD_PAUSE,
-    LWB_CMD_SET_SCHED_PERIOD,
-    LWB_CMD_SET_STATUS_PERIOD,
+typedef enum {
+  LWB_CMD_RESUME = 0,
+  LWB_CMD_PAUSE,
+  LWB_CMD_SET_SCHED_PERIOD,
+  LWB_CMD_SET_STATUS_PERIOD,
 } lwb_cmd_t;
+
+typedef enum {
+  FW_STATUS_INIT,
+  FW_STATUS_RECEIVING,
+  FW_STATUS_VALIDATED,
+  FW_STATUS_UPDATING,
+  FW_STATUS_UPDATED,
+} fw_status_type_t;
+    
+    
 
 #pragma pack(1)         /* force alignment to 1 byte */
 
@@ -72,6 +91,7 @@ typedef struct {
   int8_t   rssi[3];   /* RSSI values of the last Glossy flood */
 } health_msg_t;
 
+/* application layer packet format (a packet is called 'message') */
 typedef struct {
   struct {
     uint16_t       device_id;
@@ -86,6 +106,32 @@ typedef struct {
     health_msg_t   health;
   };
 } message_t;
+
+typedef struct {
+  uint16_t         version;
+  uint16_t         len;         /* total length in bytes */
+  fw_status_type_t status : 8;
+  uint8_t          block_size;  /* must be equal to FW_BLOCK_SIZE */
+  uint16_t         data_crc;    /* CRC over payload of all data packets */
+  uint16_t         crc;         /* CRC over this info block */
+} fw_info_t;
+
+/* container for any kind of data */
+typedef struct {
+  uint16_t         pktnr;       /* packet number (offset) */
+  uint8_t          payload[MSG_EXT_PAYLOAD_LEN - 2];
+} data_t;
+
+/* alternate packet format */
+typedef struct {
+  struct {
+    uint16_t       device_id;
+    message_type_t type : 8;
+    uint8_t        payload_len;
+    uint16_t       seqnr;
+  } header;
+  data_t           data;
+} message_ext_t;
 
 #pragma pack()
 

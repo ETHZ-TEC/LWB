@@ -40,6 +40,7 @@
 
 #include "contiki.h"
 #include "platform.h"
+#include "log.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -58,6 +59,10 @@
 static uint16_t  seq_no = 0;
 static message_t msg_buffer;
 static uint8_t   bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
+#if FW_CONF_ON
+static fw_info_t fw = { 0 };
+static uint8_t fw_block_info[FW_BLOCK_INFO_SIZE] = { 0 };
+#endif /* FW_CONF_ON */
 /*---------------------------------------------------------------------------*/
 /* FUNCTIONS */
 void
@@ -82,8 +87,10 @@ send_msg(message_type_t type, uint8_t* data, uint8_t len)
   if(!lwb_put_data(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG, 
                    (uint8_t*)&msg_buffer + 2, 
                    MSG_HDR_LEN + msg_buffer.header.payload_len - 2)) {
-    DEBUG_PRINT_WARNING("lwb_put_data() failed (queue full?)");
-  } /* else: data packet successfully passed to the LWB */
+    DEBUG_PRINT_WARNING("message #%u dropped (queue full?)", seq_no - 1);
+  } else {
+    DEBUG_PRINT_INFO("message #%u added to TX queue", seq_no - 1);   
+  }
 }
 /*---------------------------------------------------------------------------*/
 health_msg_t* 
@@ -120,6 +127,85 @@ get_node_health(void)
   return &health;
 }
 /*---------------------------------------------------------------------------*/
+uint8_t
+fw_validate(void)
+{
+  /* verify the received FW data */
+  /* first, check the info struct */
+  if(crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0) != fw.crc) {
+    return 1;
+  }
+  uint16_t n_blocks = 0, i = 0;
+  while(i < FW_BLOCK_INFO_SIZE) {
+    if(fw_block_info[i] == 0xff) {
+      n_blocks += 8;
+      i++;
+    } else {
+      /* these are the last blocks */
+      for(i = 0; i < 8; i++) {
+        if(fw_block_info[i] & (1 << i)) {
+          n_blocks++;
+        }
+      }
+      break;  /* stop here */
+    }                    
+  }
+  if(((fw.len + (fw.block_size - 1)) / fw.block_size) != 
+     n_blocks) {
+    return 2;
+  }
+  /* received all blocks! -> now check CRC */
+  uint16_t crc = 0, len = 0;
+  uint8_t buffer[128];
+  while(len < fw.len) {
+    uint16_t block_size = 128;
+    if(!xmem_read(FW_DATA_START + len, block_size, buffer)) {
+      return 3;
+    }
+    if((fw.len - len) < 128) {
+      block_size = fw.len - len;
+    }
+    crc = crc16(buffer, block_size, crc);  
+    len += 128;
+  }
+  if(crc != fw.data_crc) {
+      return 4;
+  }
+ 
+  return 0;     /* success! */
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+fw_backup(void)
+{
+  /* start at address 0, copy the whole flash content into the external 
+   * memory */
+  if(!xmem_write(FW_BACKUP_ADDR_XMEM, FW_SIZE_XMEM, (uint8_t*)FLASH_START)) {
+    return 1;
+  }  
+  /* verify the content */
+  uint32_t xmem_addr = FW_BACKUP_ADDR_XMEM;
+  uint16_t flash_addr = CODE_START,
+           read_bytes = 0;
+  uint8_t buffer[256];  
+  while(read_bytes < FW_SIZE_XMEM) { 
+    /* load a block of data into the RAM */
+    if(!xmem_read(xmem_addr, 256, buffer)) {
+      return 2;
+    }
+    uint16_t i;
+    for(i = 0; i < 256; i++) {
+      if(buffer[i] != *((uint8_t*)flash_addr + i)) {
+        return 3;
+      }
+    }
+    flash_addr += 256;
+    xmem_addr += 256;
+    read_bytes += 256;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
@@ -131,14 +217,49 @@ PROCESS_THREAD(app_process, ev, data)
   SVS_DISABLE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   /* all other necessary initialization is done in contiki-cc430-main.c */
-  
+    
 #if HOST_ID != NODE_ID
   /* SOURCE node only */
   /* init the ADC */
   adc_init();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
-#endif 
+
+  /* erase an info memory segment */
+  /*uint8_t* info_addr = (uint8_t*)(INFO_START + 128);
+  flash_erase_segment(info_addr);
+  if(flash_erase_check(info_addr, 128)) {
+    flash_write([data], info_addr, [num_bytes]);
+  }*/
   
+ #if FW_CONF_ON
+  /* quick error check */
+  if((FW_BACKUP_ADDR_XMEM + FW_SIZE_XMEM) > FRAM_CONF_SIZE) {
+    DEBUG_PRINT_MSG_NOW("ERROR: data exceeds FRAM size!");
+    while(1);
+  }
+  /* TODO: move this code to the very beginning of the main() */
+  /* verify integrity of the FW info block */
+  if(xmem_read(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw)) {
+    if(fw.crc != crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0)) {
+      DEBUG_PRINT_MSG_NOW("ERROR: FW info block integrity test failed");
+      /* clear the data */
+      memset(&fw, 0, sizeof(fw_info_t));
+      fw.crc = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
+      xmem_write(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw);
+    } else {
+      DEBUG_PRINT_MSG_NOW("FW OK (status: %u)", fw.status);
+    }
+  } else {
+    DEBUG_PRINT_MSG_NOW("ERROR: failed to read FW info block");
+  }
+ #endif /* FW_CONF_ON */
+#endif /* HOST_ID != NODE_ID */
+
+#if LOG_CONF_ON
+  log_init();
+  log_print(0);         /* print out all log messages */
+#endif /* LOG_CONF_ON */
+      
   /* start the LWB thread */
   lwb_start(0, &app_process);
   
@@ -148,6 +269,8 @@ PROCESS_THREAD(app_process, ev, data)
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
+    
+    LOG(LOG_EVENT_CONTEXT_SWITCH, 0x01, 0x00);
 
     if(HOST_ID == node_id) {    /* HOST NODE */
       /* we are the host */
@@ -176,7 +299,56 @@ PROCESS_THREAD(app_process, ev, data)
           break;
         }
       }
-        
+      
+  #if FW_CONF_ON
+      /* send a big chunk of data */
+      static uint16_t sent_pkts = 0, crc = 0, state = 0;
+      if(state == 0 && lwb_get_time(0) > 30) {
+        msg_buffer.header.type        = MSG_TYPE_FW_INFO;
+        msg_buffer.header.seqnr       = seq_no++;
+        msg_buffer.header.payload_len = sizeof(fw_info_t);
+        fw.version = 1001;
+        fw.len = 230;
+        fw.block_size = FW_BLOCK_SIZE;
+        fw.data_crc = 0xf9c5;
+        fw.crc = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
+        memcpy(msg_buffer.payload, &fw, sizeof(fw_info_t));
+        lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2, 
+                     MSG_HDR_LEN + msg_buffer.header.payload_len - 2);
+        state = 1;
+      } else if(state == 1) {
+        while(sent_pkts < 10) {
+          /* fill the output buffer */
+          message_ext_t* msg_data      = (message_ext_t*)&msg_buffer;
+          msg_data->header.type        = MSG_TYPE_FW_DATA;
+          msg_data->header.seqnr       = seq_no++;
+          msg_data->data.pktnr         = sent_pkts++;
+          msg_data->header.payload_len = MSG_EXT_PAYLOAD_LEN;      
+          memset(msg_data->data.payload, 'a', MSG_EXT_PAYLOAD_LEN - 2);
+          if(lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)msg_data + 2, 
+                         MSG_EXT_HDR_LEN + msg_data->header.payload_len - 2)) {
+            crc = crc16(msg_data->data.payload, MSG_EXT_PAYLOAD_LEN - 2, crc);
+            DEBUG_PRINT_MSG_NOW("pkt %u, crc 0x%04x", sent_pkts - 1, crc);
+          } else {
+            seq_no--;
+            sent_pkts--;
+            break;
+          }
+        }
+        if(sent_pkts >= 10) {
+          state = 2; 
+        }
+      } else if(state == 2) {
+        msg_buffer.header.type        = MSG_TYPE_FW_VALIDATE;
+        msg_buffer.header.seqnr       = seq_no++;
+        msg_buffer.header.payload_len = 0;      
+        lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2, 
+                     MSG_HDR_LEN + msg_buffer.header.payload_len - 2);
+        state = 3;
+      }
+         
+  #endif /* FW_CONF_ON */
+
       /* handle timestamp requests */
       uint64_t time_last_req = bolt_handle_timereq();
       if(time_last_req) {
@@ -191,6 +363,7 @@ PROCESS_THREAD(app_process, ev, data)
       }
       /* msg available from BOLT? */
       while(BOLT_DATA_AVAILABLE) {
+        DEBUG_PRINT_INFO("BOLT: data is available");
         uint8_t msg_len = 0;
         BOLT_READ(bolt_buffer, msg_len);
         if(msg_len) {
@@ -260,7 +433,6 @@ PROCESS_THREAD(app_process, ev, data)
         /* generate a node health packet */
         send_msg(MSG_TYPE_CC430_HEALTH, 
                  (uint8_t*)get_node_health(), sizeof(health_msg_t));
-        DEBUG_PRINT_INFO("message #%u generated", seq_no - 1);
         /* is there a packet to read? */      
         while(1) {
           uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2, 0, 0);
@@ -273,8 +445,63 @@ PROCESS_THREAD(app_process, ev, data)
                                              LWB_STREAM_ID_STATUS_MSG, 
                                              msg_buffer.payload16[1] };
               lwb_request_stream(&my_stream, 0);
-            }          
+            }            
+  #if FW_CONF_ON
+            else if(msg_buffer.header.type == MSG_TYPE_FW_INFO) {
+              /* make sure the block size is valid */
+              memcpy(&fw, msg_buffer.payload, sizeof(fw_info_t));
+              if(FW_BLOCK_SIZE != fw.block_size ||
+                 crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0) != fw.crc) {
+                xmem_read(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw);
+                DEBUG_PRINT_ERROR("FW info validation failed");
+              } else {
+                /* store the info */
+                fw.status = FW_STATUS_RECEIVING;
+                fw.crc    = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
+                if(!xmem_write(FW_ADDR_XMEM, sizeof(fw_info_t),
+                               (uint8_t*)&fw)) {
+                  DEBUG_PRINT_ERROR("failed to store FW info in XMEM");
+                }
+                DEBUG_PRINT_INFO("FW info updated (vs: %u, len: %u, block: %u)",
+                                 fw.version, fw.len, fw.block_size);
+                /* erase the FW block info */
+                memset(fw_block_info, 0, FW_BLOCK_INFO_SIZE);
+                xmem_erase(FW_ADDR_XMEM + sizeof(fw_info_t),
+                           FW_BLOCK_INFO_SIZE);                
+              }  
+            } else if(msg_buffer.header.type == MSG_TYPE_FW_DATA) {
+              message_ext_t* msg_data = (message_ext_t*)&msg_buffer;
+              xmem_write(FW_DATA_START + msg_data->data.pktnr * FW_BLOCK_SIZE,
+                         FW_BLOCK_SIZE,
+                         msg_data->data.payload);
+              /* mark this block as received */
+              fw_block_info[msg_data->data.pktnr / 8] |= 
+                                          (1 << (msg_data->data.pktnr & 0x07));
+              xmem_write(FW_ADDR_XMEM + sizeof(fw_info_t), 1, 
+                         &fw_block_info[msg_data->data.pktnr / 8]);
+              
+            } else if(msg_buffer.header.type == MSG_TYPE_FW_VALIDATE) {
+              uint64_t start_time = rtimer_now_lf();
+              uint8_t res = fw_validate();
+              if(res == 0) {
+                /* now backup the current FW */
+                res = fw_backup();
+                if(res == 0) {
+                  /* validation/preparation successful, update the state */
+                  fw.status = FW_STATUS_VALIDATED;
+                  fw.crc    = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
+                  xmem_write(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw);
+                  DEBUG_PRINT_INFO("FW validation successful (took %lums)", (uint32_t)((rtimer_now_lf() - start_time) * 1000 / RTIMER_SECOND_LF));
+                } else {  
+                  DEBUG_PRINT_ERROR("FW backup failed (code 0x%02x)", res);
+                }
+              } else {
+                DEBUG_PRINT_ERROR("FW validation failed (code 0x%02x)", res);   
+              }               
+            }
+  #endif /* FW_CONF_ON */
           } else {
+            /* invalid packet length: abort */
             break;
           }
         }
@@ -282,13 +509,15 @@ PROCESS_THREAD(app_process, ev, data)
   #endif /* SEND_HEALTH_DATA */
   
     }
+  #if QUICK_CONFIG == 4
     /* print out some useful stats */
-    int8_t rssi[3];
+    int8_t rssi[3] = { 0 };
     glossy_get_rssi(rssi);
     DEBUG_PRINT_INFO("n_rx=%u relay=0x%x rssi1=%d rssi2=%d rssi3=%d", 
                      glossy_get_n_rx(), glossy_get_relay_cnt(), 
                      rssi[0], rssi[1], rssi[2]);
-  
+  #endif
+    
     /* since this process is only executed at the end of an LWB round, we 
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */

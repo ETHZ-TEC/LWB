@@ -117,7 +117,8 @@ PROCESS_THREAD(app_process, ev, data)
           DEBUG_PRINT_ERROR("low stream request failed");
         }
         /* request a stream once and send a dummy packet with the node ID */
-        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);  
+        uint16_t id = node_id;
+        lwb_put_data(0, 1, (uint8_t*)&id, 2);  
       } else if(round_cnt == 5) {
         /* request a stream */
         lwb_stream_drop(1);     /* drop the stream with ID 1 */

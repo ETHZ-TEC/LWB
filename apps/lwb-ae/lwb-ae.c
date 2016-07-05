@@ -117,7 +117,7 @@ PROCESS_THREAD(app_process, ev, data)
 #if LWB_VERSION == 1
   
   static lwb_stream_req_t my_stream;
-  my_stream.node_id = node_id;
+  my_stream.id = node_id;
   my_stream.stream_id = 1;
   my_stream.ipi = 1;
   *my_stream.extra_data = -1;
@@ -203,7 +203,8 @@ PROCESS_THREAD(app_process, ev, data)
   
   if(node_id == 6 || node_id == 28 || node_id == 22) {
     /* generate a dummy packet to 'register' this node at the host */
-    lwb_put_data((uint8_t*)&node_id, 2);
+    uint16_t id = node_id;
+    lwb_put_data((uint8_t*)&id, 2);
     pkt_cnt++;
   }
   
@@ -319,18 +320,4 @@ PROCESS_THREAD(app_process, ev, data)
 
   PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
-/*
-ISR(PORT1, port1_interrupt) 
-{
-  if(PIN_IFG(DEBUG_SWITCH)) {
-    if(!lwb_put_data((uint8_t*)&node_id, 2)) {
-      DEBUG_PRINT_WARNING("can't queue data");
-    }
-    pkt_cnt++;
-    DEBUG_PRINT_INFO("event triggered, sent=%u", pkt_cnt);
-    PIN_CLR_IFG(DEBUG_SWITCH);
-  } 
-}
-*/
 /*---------------------------------------------------------------------------*/

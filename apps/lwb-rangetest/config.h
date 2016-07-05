@@ -30,6 +30,12 @@
  * Author:  Reto Da Forno
  */
 
+/**
+ * Firmware version change history:
+ * 
+ * 
+ */
+
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
@@ -42,25 +48,39 @@
  * 2 = flocklab
  * 3 = offset / interference test
  * 4 = linktest
+ * 5 = data transfer test (host to source)
  * any other value: default settings */
-#define QUICK_CONFIG                    1
+#define QUICK_CONFIG                    6
 
 #if QUICK_CONFIG != 2
-  #define NODE_ID                       20042
+  #define NODE_ID                       1
 #endif
+
+/* first byte is major version, 2nd byte is minor version */
+#define FW_VERSION                      0x0101
 
 /* set to 1 to enable the periodic health / status packets from source nodes */
 #if QUICK_CONFIG == 1   /* rooftop */
+  #if NODE_ID == 20042
+    #define FRAM_CONF_ON                1
+    #define LOG_CONF_ON                 1
+    #define DEBUG_PRINT_CONF_ON         0
+  #endif
   #define SEND_HEALTH_DATA              1
   #define RF_CONF_TX_CH                 10 
   #define ENERGEST_CONF_ON              1
   #define LWB_CONF_SCHED_PERIOD_IDLE    30       /* define the period length */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
+  #define LWB_CONF_DATA_ACK             0       /* use data ACKs? */
+  
 #elif QUICK_CONFIG == 2 /* flocklab */
   #define FLOCKLAB
   #define SEND_HEALTH_DATA              1
   #define RF_CONF_TX_CH                 10
   #define ENERGEST_CONF_ON              0
   #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm 
+  
 #elif QUICK_CONFIG == 3 /* offset test */
   #define SEND_HEALTH_DATA              1       /* to force a stream request */
   #define RF_CONF_TX_CH                 5
@@ -74,29 +94,61 @@
   #define LWB_CONF_MAX_CONT_BACKOFF     0      /* disable contention backoff */
   #define LWB_REQ_DETECTED              DEBUG_PRINT_INFO("request detected (ofs: %d)", ((int16_t)schedule.time - 30) / 10 - 15)
   //#define RF_GDO2_PIN                   COM_MCU_INT1
-#else   /* default settings */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm 
+  
+#elif QUICK_CONFIG == 4 /* linktest */
   #define SEND_HEALTH_DATA              0
-  #define RF_CONF_TX_CH                 5 
+  #define RF_CONF_TX_CH                 10 
   #define ENERGEST_CONF_ON              0
   #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
+  
+#elif QUICK_CONFIG == 5 /* data transfer test */
+  #define FW_CONF_ON                    1
+  #if NODE_ID == 20042
+    #define FRAM_CONF_ON                1
+  #endif 
+  #define LOG_CONF_ON                   0 /* make sure logging is disabled (we need the xmem for other data) */
+  #define SEND_HEALTH_DATA              1
+  #define RF_CONF_TX_CH                 10 
+  #define ENERGEST_CONF_ON              0       /* takes ~5kB of ROM space */
+  #define LWB_CONF_SCHED_PERIOD_IDLE    5        /* define the period length */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
+  #define LWB_CONF_DATA_ACK             1        /* use data ACKs? */
+  #define FW_ADDR_XMEM                  2048
+  #define FW_SIZE_XMEM                  32768    /* do not change */
+  #define FW_BLOCK_SIZE                 (sizeof(data_t) - 2)
+  #define FW_NUM_BLOCKS                 ((FW_SIZE_XMEM + FW_BLOCK_SIZE - 1) / FW_BLOCK_SIZE)
+  #define FW_BLOCK_INFO_SIZE            ((FW_NUM_BLOCKS + 7) / 8)
+  #define FW_DATA_START                 (FW_ADDR_XMEM + sizeof(fw_info_t) + FW_BLOCK_INFO_SIZE)
+  #define FW_BACKUP_ADDR_XMEM           (FW_DATA_START + FW_SIZE_XMEM)
+  
+#else   /* default settings for tests on the desk */
+  #define SEND_HEALTH_DATA              1
+  #define RF_CONF_TX_CH                 10 
+  #define ENERGEST_CONF_ON              1
+  #define LWB_CONF_SCHED_PERIOD_IDLE    5        /* define the period length */
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
+  #define LWB_CONF_DATA_ACK             1        /* use data ACKs? */
 #endif
 
 #define HOST_ID                         1
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm 
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_VERSION                     0       /* use the custom version */
-#define LWB_CONF_OUT_BUFFER_SIZE        5
+#define LWB_CONF_OUT_BUFFER_SIZE        3
 #define LWB_CONF_IN_BUFFER_SIZE         10
 #define LWB_CONF_MAX_PKT_LEN            63
 #define LWB_CONF_MAX_DATA_PKT_LEN       (31 + LWB_DATA_PKT_HEADER_LEN)
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
 
+
 #define LWB_STREAM_ID_STATUS_MSG        1
 /* constant clock offset for timesync */
-#define LWB_CLOCK_OFS                   -1200       
+#define LWB_CLOCK_OFS                   -1200
+
 
 #define BOLT_CONF_MAX_MSG_LEN           32
 #define BOLT_CONF_TIMEREQ_ENABLE        1
@@ -104,9 +156,15 @@
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG        8
+#endif /* DEBUG_PRINT_CONF_NUM_MSG */
 //#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 //#define APP_TASK_ACT_PIN                COM_MCU_INT2
+
+#ifndef FW_CONF_ON
+#define FW_CONF_ON                      0
+#endif /* FW_CONF_ON */
 
 /* 
  * INCLUDES
