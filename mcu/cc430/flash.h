@@ -48,12 +48,14 @@
 
 /* memory definitions */
 #define FLASH_START         0x8000
-#define FLASH_END           0xff7f      /* last byte of the flash memory (note:
-                                           the last 128 bytes are used for the
-                                           interrupt vectors!) */
-#define FLASH_LAST_SEG      0xfe00      /* last erasable segment (do not touch
-                                           the very last segment!) */
-#define FLASH_SIZE          0x7f80      /* 32640 B */
+#define FLASH_END           0xffff      /* last byte of the flash memory */
+#define FLASH_SIZE          0x8000      /* 32 kB */    
+#define FLASH_SEG_SIZE      0x0200      /* 512 B */
+#define CODE_START          FLASH_START
+#define CODE_END            (FLASH_END - INT_VECT_TABLE_SIZE)
+#define CODE_SIZE           0x7f80      /* 32640 B */
+#define INT_TABLE_START     0xff80      /* interrupt vector table */
+#define INT_TABLE_SIZE      0x0080      /* 128 B */
 #define INFO_START          0x1800
 #define INFO_END            0x19ff
 #define INFO_SIZE           0x0200      /* 512 B */
@@ -68,6 +70,35 @@
  * @return the code size (.text section) in the flash memory
  */
 uint16_t flash_code_size(void);
+
+/**
+ * @brief erase a flash segment
+ * @param addr address of the flash segment to erase
+ */
+void flash_erase_segment(uint8_t* addr);
+
+/**
+ * @brief erase the whole flash memory bank
+ */
+void flash_erase_bank(void);
+
+/**
+ * @brief check whether the flash erase operation was successful
+ * @param addr start address in the flash memory (pass 0 to check the whole 
+ * flash memory bank)
+ * @param num_bytes number of bytes to check (may be 0)
+ * @return 1 if successful, 0 otherwise
+ */
+uint8_t flash_erase_check(uint8_t* addr, uint16_t num_bytes);
+
+/**
+ * @brief write data words into the flash memory
+ * @param data pointer to the data
+ * @param flash_addr start address of the destination in flash memory
+ * @param num_bytes number of bytes to program
+ */
+void flash_write(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes);
+
 
 #endif /* __FLASH_H__ */
 

@@ -78,6 +78,7 @@ struct fifo {
 #define FIFO_RESET(f)       ((f)->read = (f)->write = (f)->count = 0)
 #define FIFO_EMPTY(f)       ((f)->count == 0)
 #define FIFO_FULL(f)        ((f)->count > (f)->last)
+#define FIFO_FREE_SPACE(f)  ((f)->last + 1 - (f)->count)
 #define FIFO_READ_ADDR(f)   ((f)->start + \
                              ((uint32_t)(f)->read * (uint32_t)(f)->size))
 #define FIFO_WRITE_ADDR(f)  ((f)->start + \
@@ -125,6 +126,56 @@ fifo_put(struct fifo * const f)
   FIFO_INCR_WRITE(f);
   f->count++;
   return next_write;
+}
+
+/**
+ * @brief restore n elements of the queue (if not yet overwritten)
+ * @param n number of elements to restore, the read pointer will be shifted
+ * backwards by n elements
+ * @note this function doesn't check whether there is actually meaningful
+ * data at the new reading position
+ */
+static inline void
+fifo_restore(struct fifo * const f, uint16_t n) 
+{
+  /* check whether n is valid */
+  if(n > FIFO_FREE_SPACE(f)) {
+    n = FIFO_FREE_SPACE(f);
+  }
+  if(n > f->read) {
+    f->read = f->read + f->last - n + 1;
+  } else {
+    f->read -= n;
+  }
+  f->count += n;
+}
+
+/**
+ * @brief drops n elements of the queue
+ * @param n the number of elements to drop; the read pointer will be
+ * shifted by this number, but at most by as many elements as there are 
+ * currently in the queue
+ */
+static inline void
+fifo_drop(struct fifo * const f, uint16_t n) 
+{
+  if(n > f->count) {
+    n = f->count;
+  }
+  f->read += n;
+  if(f->read > f->last) { f->read -= (f->last + 1); }
+  f->count -= n;
+}
+
+/**
+ * @brief get the address of an element in the FIFO
+ * @param elem element number, zero based (modulo f->last + 1 will be applied)
+ */
+static inline uint32_t
+fifo_elem_addr(struct fifo * const f, uint16_t elem) 
+{
+  if(elem > f->last) { elem = elem % (f->last + 1); }
+  return f->start + ((uint32_t)elem * (uint32_t)f->size);
 }
 
 

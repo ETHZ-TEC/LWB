@@ -61,8 +61,11 @@
 #define RTIMER_NOW              rtimer_now_lf
 #endif
 
+#ifdef NODE_ID
+#define node_id         NODE_ID
+#else /* NODE_ID */
 extern volatile uint16_t node_id;
-
+#endif /* NODE_ID */
 
 /* Contiki requires the definition of the following data types: */
 typedef uint32_t clock_time_t;

@@ -134,7 +134,7 @@ typedef struct {
 #define LWB_STREAM_REQ_PKT_LEN     (LWB_STREAM_REQ_HEADER_LEN + \
                                     LWB_CONF_STREAM_EXTRA_DATA_LEN)
 typedef struct {
-    uint16_t node_id;       /* ID of this node */
+    uint16_t id;            /* ID of this node */
     uint8_t  reserved;      /* padding for alignment to 16-bit
                              * or use #pragma pack(1) [...] #pragma pack() */
     uint8_t  stream_id;     /* stream ID (chosen by the source node) */
@@ -146,13 +146,12 @@ typedef struct {
 
 #define LWB_SACK_MIN_PKT_LEN       4
 typedef struct {                    
-    uint16_t node_id;              
+    uint16_t id;              
     uint8_t  stream_id;            
     uint8_t  n_extra;   /* number of additional sack's in this packet */
     /* additional sack's */
     uint8_t  extra[LWB_CONF_MAX_PKT_LEN - LWB_SACK_MIN_PKT_LEN];  
 } lwb_stream_ack_t;     /* stream acknowledgement */
-
 
 /* error checking */
 #if LWB_CONF_MAX_DATA_SLOTS > \
@@ -181,7 +180,7 @@ typedef struct {
 /**
  * @brief returns the number of data slots from schedule
  */
-#define LWB_SCHED_N_SLOTS(s)          ((s)->n_slots & 0x3fff)
+#define LWB_SCHED_N_SLOTS(s)          ((s)->n_slots & 0x1fff)
 /**
  * @brief checks whether schedule has data slots
  */
@@ -195,6 +194,10 @@ typedef struct {
  */
 #define LWB_SCHED_HAS_SACK_SLOT(s)    (((s)->n_slots & 0x8000) > 0)
 /**
+ * @brief checks whether schedule has a D-ACK slot
+ */
+#define LWB_SCHED_HAS_DACK_SLOT(s)    (((s)->n_slots & 0x2000) > 0)
+/**
  * @brief marks schedule to have a contention slot
  */
 #define LWB_SCHED_SET_CONT_SLOT(s)    ((s)->n_slots |= 0x4000)
@@ -202,6 +205,10 @@ typedef struct {
  * @brief marks schedule to have an S-ACK slot
  */
 #define LWB_SCHED_SET_SACK_SLOT(s)    ((s)->n_slots |= 0x8000)
+/**
+ * @brief marks schedule to have a D-ACK slot
+ */
+#define LWB_SCHED_SET_DACK_SLOT(s)    ((s)->n_slots |= 0x2000)
 
 
 /**

@@ -91,7 +91,7 @@ typedef struct stream_info {
 #else
   uint32_t next;      
 #endif /* LWB_CONF_SCHED_USE_XMEM */
-  uint16_t node_id;
+  uint16_t id;
   uint16_t ipi;
   uint32_t last_assigned;
   uint8_t  stream_id;
@@ -139,13 +139,13 @@ lwb_sched_del_stream(lwb_stream_list_t* stream)
   if(0 == stream) {    
     return;  /* entry not found, don't do anything */
   }
-  uint16_t node_id  = stream->node_id;
+  uint16_t id  = stream->id;
   uint8_t  stream_id  = stream->stream_id;
   list_remove(streams_list, stream);
   memb_free(&streams_memb, stream);
   n_streams--;
   sched_stats.n_deleted++;  
-  DEBUG_PRINT_INFO("stream %u.%u removed", node_id, stream_id);
+  DEBUG_PRINT_INFO("stream %u.%u removed", id, stream_id);
 }
 #else
 static void 
@@ -160,7 +160,7 @@ lwb_sched_del_stream(uint32_t stream_addr)
   xmem_read(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&stream);
   uint32_t next_addr = (uint32_t)stream.next; 
   if(streams_list == stream_addr) {  /* special case: it's the first element */
-    node  = stream.node_id;
+    node  = stream.id;
     stream_id  = stream.stream_id;
     streams_list = next_addr; 
   } else {
@@ -168,7 +168,7 @@ lwb_sched_del_stream(uint32_t stream_addr)
     do {
       xmem_read(prev_addr, sizeof(lwb_stream_list_t), (uint8_t*)&stream);
       if(stream.next == stream_addr) {
-        node  = stream.node_id;
+        node  = stream.id;
         stream_id  = stream.stream_id;
         break;
       }
@@ -240,13 +240,13 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     /* check if stream already exists */
     if(n_streams) {
       for(s = list_head(streams_list); s != 0; s = s->next) {
-        if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
+        if(req->id == s->id && req->stream_id == s->stream_id) {
           /* already exists -> update the IPI */
           s->ipi = req->ipi;
           s->last_assigned = last;
           s->n_cons_missed = 0;         /* reset this counter */
           DEBUG_PRINT_VERBOSE("stream request %u.%u processed (IPI updated)",
-                              req->node_id, req->stream_id);
+                              req->id, req->stream_id);
           goto add_sack;
         }
       }  
@@ -258,7 +258,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       sched_stats.n_no_space++;  /* no space for new streams */
       return;
     }
-    s->node_id       = req->node_id;
+    s->id       = req->id;
     s->ipi           = req->ipi;
     s->last_assigned = last;
     s->stream_id     = req->stream_id;
@@ -266,8 +266,8 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     /* insert the stream into the list, ordered by node id */
     lwb_stream_list_t *prev;
     for(prev = list_head(streams_list); prev != NULL; prev = prev->next) {
-      if((req->node_id >= prev->node_id) && 
-         ((prev->next == NULL) || (req->node_id < prev->next->node_id))) {
+      if((req->id >= prev->id) && 
+         ((prev->next == NULL) || (req->id < prev->next->id))) {
         break;
       }
     }
@@ -280,17 +280,17 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         /* load the first block */
         xmem_read(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&s);
         /* check the ID */
-        if(req->node_id == s.node_id && req->stream_id == s.stream_id) {
+        if(req->id == s.id && req->stream_id == s.stream_id) {
           /* already exists -> update the IPI */
           s.ipi = req->ipi;
           s.last_assigned = last;
           s.n_cons_missed = 0;         /* reset this counter */
           /* insert into the list of pending S-ACKs */
-          memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);
+          memcpy(pending_sack + n_pending_sack * 4, &req->id, 2);
           pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
           n_pending_sack++;
           DEBUG_PRINT_VERBOSE("stream %u.%u updated (IPI %u)", 
-                              req->node_id, req->stream_id, req->ipi);
+                              req->id, req->stream_id, req->ipi);
           /* save the changes */
           xmem_write(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&s);
           return;
@@ -305,7 +305,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       sched_stats.n_no_space++;  /* no space for new streams */
       return;
     }
-    new_stream.node_id       = req->node_id;
+    new_stream.id       = req->id;
     new_stream.ipi           = req->ipi;
     new_stream.last_assigned = last;
     new_stream.stream_id     = req->stream_id;
@@ -319,7 +319,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       do {
         xmem_read(prev_addr, sizeof(lwb_stream_list_t), (uint8_t*)&s);
         /* check the ID */
-        if(req->node_id <= s.node_id || s.next == MEMBX_INVALID_ADDR) { 
+        if(req->id <= s.id || s.next == MEMBX_INVALID_ADDR) { 
           /* the element is inserted at the head of the list */
           if(streams_list == prev_addr) { 
             streams_list = stream_addr;
@@ -338,13 +338,13 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
 #endif /* LWB_CONF_SCHED_USE_XMEM */
     n_streams++;
     sched_stats.n_added++;     
-    DEBUG_PRINT_VERBOSE("stream %u.%u added", req->node_id, req->stream_id);
+    DEBUG_PRINT_VERBOSE("stream %u.%u added", req->id, req->stream_id);
 
   } else {
 #if !LWB_CONF_SCHED_USE_XMEM  
     /* remove this stream */
     for(s = list_head(streams_list); s != 0; s = s->next) {
-      if(req->node_id == s->node_id && req->stream_id == s->stream_id) {
+      if(req->id == s->id && req->stream_id == s->stream_id) {
         break;
       }
     }
@@ -353,7 +353,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     stream_addr = streams_list;
     while(stream_addr != MEMBX_INVALID_ADDR) {
       xmem_read(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&s);
-      if(req->node_id == s.node_id && req->stream_id == s.stream_id) {
+      if(req->id == s.id && req->stream_id == s.stream_id) {
         break;
       }
       stream_addr = s.next;  /* go to the next address */ 
@@ -363,7 +363,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   }
 add_sack:
   /* insert into the list of pending S-ACKs */
-  memcpy(pending_sack + n_pending_sack * 4, &req->node_id, 2);
+  memcpy(pending_sack + n_pending_sack * 4, &req->id, 2);
   pending_sack[n_pending_sack * 4 + 2] = req->stream_id;
   n_pending_sack++;   
 }
@@ -448,25 +448,25 @@ lwb_sched_adapt_period(void)
 }
 /*---------------------------------------------------------------------------*/
 /**
- * @brief searches the list node_list/stream_list for the node_id/stream_id
- * @param[in] node_id the node ID to search for
+ * @brief searches the list node_list/stream_list for the id/stream_id
+ * @param[in] id the node ID to search for
  * @param[in] stream_id the stream ID to search for
  * @param[in] node_list the list of node IDs to search
  * @param[in] stream_list the list of stream IDs to search
  * @param[in] list_len the number of entries in the node and stream list
- * @return one if the node_id/stream_id exists in the list, zero otherwise
+ * @return one if the id/stream_id exists in the list, zero otherwise
  * @remark this search could be optimized as the node ids in the list are 
  * supposed to be sorted in increasing order
  */
 static inline uint8_t 
-lwb_sched_stream_in_list(uint16_t node_id, 
+lwb_sched_stream_in_list(uint16_t id, 
                          uint8_t stream_id, 
                          const uint16_t* node_list, 
                          const uint8_t* stream_list, 
                          uint8_t list_len) 
 {
   while(list_len) {
-    if(*node_list == node_id && *stream_list == stream_id) {
+    if(*node_list == id && *stream_list == stream_id) {
       return 1;
     }
     node_list++;
@@ -487,14 +487,13 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   data_cnt = 0;
   first_index = 0; 
   n_slots_assigned = 0;
-  /*sched->host_id = node_id;  -> not necessary */
   
   /* loop through all the streams in the list */
 #if !LWB_CONF_SCHED_USE_XMEM
   memset(streams, 0, sizeof(streams)); /* clear content of the stream list */
   lwb_stream_list_t *curr_stream = list_head(streams_list);
   while(curr_stream != NULL) {
-    if(lwb_sched_stream_in_list(curr_stream->node_id, 
+    if(lwb_sched_stream_in_list(curr_stream->id, 
                                 curr_stream->stream_id, 
                                 sched->slot, 
                                 streams_to_update, 
@@ -524,7 +523,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   lwb_stream_list_t curr_stream;
   while(stream_addr != MEMBX_INVALID_ADDR) {
     xmem_read(stream_addr, sizeof(lwb_stream_list_t), (uint8_t*)&curr_stream);
-    if(lwb_sched_stream_in_list(curr_stream.node_id, 
+    if(lwb_sched_stream_in_list(curr_stream.id, 
                                 curr_stream.stream_id, 
                                 sched->slot, 
                                 streams_to_update, 
@@ -614,7 +613,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       }
       curr_stream->last_assigned += to_assign * curr_stream->ipi;
       for(; to_assign > 0; to_assign--, n_slots_assigned++) {
-        slots_tmp[n_slots_assigned] = curr_stream->node_id;
+        slots_tmp[n_slots_assigned] = curr_stream->id;
         streams[n_slots_assigned] = curr_stream;
       }
       /* set the last bit, we are expecting a packet from this stream in the
@@ -679,7 +678,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       }
       curr_stream.last_assigned += to_assign * curr_stream.ipi;
       for(; to_assign > 0; to_assign--, n_slots_assigned++) {
-        slots_tmp[n_slots_assigned] = curr_stream.node_id;
+        slots_tmp[n_slots_assigned] = curr_stream.id;
       }
       /* set the last bit, we are expecting a packet from this stream in the 
        * next round and save the changes */

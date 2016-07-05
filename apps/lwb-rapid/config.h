@@ -43,8 +43,8 @@
 /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
 * assigns node IDs); select an ID other than HOST_ID to compile the code 
 * for a source node */
-#define NODE_ID                       2
-#define LWB_CONF_TASK_ACT_PIN         PORT2, PIN6
+#define NODE_ID                         2
+#define LWB_CONF_TASK_ACT_PIN           PORT2, PIN6
 //#define DEBUG_PRINT_TASK_ACT_PIN      PORT2, PIN6
 //#define APP_TASK_ACT_PIN              PORT2, PIN6
 

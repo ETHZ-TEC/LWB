@@ -37,7 +37,9 @@
 
 /*---------------------------------------------------------------------------*/
 uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
+#ifndef NODE_ID
 volatile uint16_t node_id;
+#endif /* NODE_ID */
 /*---------------------------------------------------------------------------*/
 void
 print_processes(struct process *const processes[])
@@ -163,9 +165,7 @@ main(int argc, char **argv)
 #endif /* RF_CONF_ON */
 
   /* set the node ID */
-#ifdef NODE_ID
-  node_id = NODE_ID;
-#else
+#ifndef NODE_ID
   node_id = TOS_NODE_ID;
 #endif /* NODE_ID */
 

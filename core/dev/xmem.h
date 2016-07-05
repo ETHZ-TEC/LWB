@@ -71,6 +71,12 @@ inline uint8_t xmem_write(uint32_t start_address, uint16_t num_bytes,
                           const uint8_t *data);
 
 /**
+ * @brief prototype for the erase function, must be implemented in a file
+ * in the platform directory
+ */
+inline uint8_t xmem_erase(uint32_t start_address, uint16_t num_bytes);
+
+/**
  * @brief prototype for the memory allocation routine, must be implemented 
  * in a file in the platform directory
  */

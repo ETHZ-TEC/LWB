@@ -110,7 +110,8 @@ PROCESS_THREAD(app_process, ev, data)
       }
       if((round_cnt % 10) == 0) {
         /* generate a dummy packet (just send the 16-bit node ID) */
-        lwb_put_data(0, 1, (uint8_t*)&node_id, 2);
+        uint16_t id = node_id;
+        lwb_put_data(0, 1, (uint8_t*)&id, 2);
       }
       /* allocate a high data-rate stream after 5 idle rounds */
       if(round_cnt > 5 && round_cnt < 20) {
