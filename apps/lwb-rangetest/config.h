@@ -50,7 +50,7 @@
  * 4 = linktest
  * 5 = data transfer test (host to source)
  * any other value: default settings */
-#define QUICK_CONFIG                    6
+#define QUICK_CONFIG                    5
 
 #if QUICK_CONFIG != 2
   #define NODE_ID                       1
@@ -115,13 +115,6 @@
   #define LWB_CONF_SCHED_PERIOD_IDLE    5        /* define the period length */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
   #define LWB_CONF_DATA_ACK             1        /* use data ACKs? */
-  #define FW_ADDR_XMEM                  2048
-  #define FW_SIZE_XMEM                  32768    /* do not change */
-  #define FW_BLOCK_SIZE                 (sizeof(data_t) - 2)
-  #define FW_NUM_BLOCKS                 ((FW_SIZE_XMEM + FW_BLOCK_SIZE - 1) / FW_BLOCK_SIZE)
-  #define FW_BLOCK_INFO_SIZE            ((FW_NUM_BLOCKS + 7) / 8)
-  #define FW_DATA_START                 (FW_ADDR_XMEM + sizeof(fw_info_t) + FW_BLOCK_INFO_SIZE)
-  #define FW_BACKUP_ADDR_XMEM           (FW_DATA_START + FW_SIZE_XMEM)
   
 #else   /* default settings for tests on the desk */
   #define SEND_HEALTH_DATA              1
@@ -137,7 +130,7 @@
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_VERSION                     0       /* use the custom version */
-#define LWB_CONF_OUT_BUFFER_SIZE        3
+#define LWB_CONF_OUT_BUFFER_SIZE        4
 #define LWB_CONF_IN_BUFFER_SIZE         10
 #define LWB_CONF_MAX_PKT_LEN            63
 #define LWB_CONF_MAX_DATA_PKT_LEN       (31 + LWB_DATA_PKT_HEADER_LEN)
@@ -162,9 +155,14 @@
 //#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 //#define APP_TASK_ACT_PIN                COM_MCU_INT2
 
+/* use port2 interrupt to print out debug information? */
+#define DEBUG_PORT2_INT                 1
+
 #ifndef FW_CONF_ON
 #define FW_CONF_ON                      0
 #endif /* FW_CONF_ON */
+
+#define SET_PROGRAM_STATE(s)            (program_state = s)
 
 /* 
  * INCLUDES
@@ -176,5 +174,8 @@
  */
 /* the static scheduler implements the following function: */
 extern void lwb_sched_set_period(uint16_t period);
+
+extern uint16_t program_state;
+
 
 #endif /* __CONFIG_H__ */

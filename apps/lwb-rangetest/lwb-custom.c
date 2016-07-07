@@ -850,6 +850,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_T_PREPROCESS */
     
     /* --- COMMUNICATION ROUND STARTS --- */
+    SET_PROGRAM_STATE(2);
     
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     rt->time = rtimer_now_hf();        /* overwrite LF with HF timestamp */
@@ -886,6 +887,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       LWB_RCV_SCHED();  
     }
     glossy_snr = glossy_get_snr();
+    SET_PROGRAM_STATE(3);
 
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
@@ -926,6 +928,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       /* don't update schedule.time here! */
     }
+    SET_PROGRAM_STATE(4);
 
     /* permission to participate in this round? */
     if(sync_state == SYNCED || sync_state == UNSYNCED) {
@@ -976,6 +979,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       }
       
       /* --- DATA SLOTS --- */
+      SET_PROGRAM_STATE(5);
 
       if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
@@ -1052,6 +1056,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             
   #if LWB_CONF_DATA_ACK  
       /* --- D-ACK SLOT --- */
+      SET_PROGRAM_STATE(6);
       
       if(LWB_SCHED_HAS_DACK_SLOT(&schedule)) {
         static uint16_t s;
@@ -1102,6 +1107,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #endif /* LWB_CONF_DATA_ACK */
       
       /* --- CONTENTION SLOT --- */
+      SET_PROGRAM_STATE(7);
 
       /* is there a contention slot in this round? */
       if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
@@ -1158,9 +1164,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     }  
     
     /* --- 2ND SCHEDULE --- */
+    SET_PROGRAM_STATE(8);
 
     LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
     LWB_RCV_SCHED();
+    
+    SET_PROGRAM_STATE(9);
   
     /* update the state machine and the guard time */
     LWB_UPDATE_SYNC_STATE;
@@ -1239,6 +1248,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_STATS_NVMEM */
     /* erase the schedule (slot allocations only) */
     memset(&schedule.slot, 0, sizeof(schedule.slot));
+    
+    SET_PROGRAM_STATE(10);
 
     /* poll the other processes to allow them to run after the LWB task was
      * suspended (note: the polled processes will be executed in the inverse

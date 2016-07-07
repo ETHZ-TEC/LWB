@@ -55,9 +55,10 @@ typedef enum {
   MSG_TYPE_FW_INFO,
   MSG_TYPE_FW_DATA,
   MSG_TYPE_FW_VALIDATE,
+  MSG_TYPE_FW_READY,
+  MSG_TYPE_FW_REQ_DATA,
   MSG_TYPE_FW_UPDATE,
   MSG_TYPE_FW_ROLLBACK,
-  MSG_TYPE_FW_REQ_DATA,
 } message_type_t;
 
 typedef enum {
@@ -106,15 +107,6 @@ typedef struct {
     health_msg_t   health;
   };
 } message_t;
-
-typedef struct {
-  uint16_t         version;
-  uint16_t         len;         /* total length in bytes */
-  fw_status_type_t status : 8;
-  uint8_t          block_size;  /* must be equal to FW_BLOCK_SIZE */
-  uint16_t         data_crc;    /* CRC over payload of all data packets */
-  uint16_t         crc;         /* CRC over this info block */
-} fw_info_t;
 
 /* container for any kind of data */
 typedef struct {

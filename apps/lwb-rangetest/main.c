@@ -29,7 +29,7 @@
  *
  * Author:  Reto Da Forno
  */
- 
+
 /**
  * @brief Low-Power Wireless Bus Test Application
  * 
@@ -41,6 +41,8 @@
 #include "contiki.h"
 #include "platform.h"
 #include "log.h"
+#include "flash-logger.h"
+#include "fw.h"
 
 
 /*---------------------------------------------------------------------------*/
@@ -56,13 +58,10 @@
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
+uint16_t program_state  = 0;
 static uint16_t  seq_no = 0;
 static message_t msg_buffer;
 static uint8_t   bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
-#if FW_CONF_ON
-static fw_info_t fw = { 0 };
-static uint8_t fw_block_info[FW_BLOCK_INFO_SIZE] = { 0 };
-#endif /* FW_CONF_ON */
 /*---------------------------------------------------------------------------*/
 /* FUNCTIONS */
 void
@@ -127,83 +126,32 @@ get_node_health(void)
   return &health;
 }
 /*---------------------------------------------------------------------------*/
-uint8_t
-fw_validate(void)
+/* the following code demonstrates how to copy a function into SRAM and 
+ * execute it */
+void
+blink_led(void)
 {
-  /* verify the received FW data */
-  /* first, check the info struct */
-  if(crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0) != fw.crc) {
-    return 1;
+  while(1) {
+    PIN_XOR(LED_0);
+    __delay_cycles(MCLK_SPEED / 2);
   }
-  uint16_t n_blocks = 0, i = 0;
-  while(i < FW_BLOCK_INFO_SIZE) {
-    if(fw_block_info[i] == 0xff) {
-      n_blocks += 8;
-      i++;
-    } else {
-      /* these are the last blocks */
-      for(i = 0; i < 8; i++) {
-        if(fw_block_info[i] & (1 << i)) {
-          n_blocks++;
-        }
-      }
-      break;  /* stop here */
-    }                    
-  }
-  if(((fw.len + (fw.block_size - 1)) / fw.block_size) != 
-     n_blocks) {
-    return 2;
-  }
-  /* received all blocks! -> now check CRC */
-  uint16_t crc = 0, len = 0;
-  uint8_t buffer[128];
-  while(len < fw.len) {
-    uint16_t block_size = 128;
-    if(!xmem_read(FW_DATA_START + len, block_size, buffer)) {
-      return 3;
-    }
-    if((fw.len - len) < 128) {
-      block_size = fw.len - len;
-    }
-    crc = crc16(buffer, block_size, crc);  
-    len += 128;
-  }
-  if(crc != fw.data_crc) {
-      return 4;
-  }
- 
-  return 0;     /* success! */
 }
-/*---------------------------------------------------------------------------*/
-uint8_t
-fw_backup(void)
+void
+execute_from_sram(void)
 {
-  /* start at address 0, copy the whole flash content into the external 
-   * memory */
-  if(!xmem_write(FW_BACKUP_ADDR_XMEM, FW_SIZE_XMEM, (uint8_t*)FLASH_START)) {
-    return 1;
-  }  
-  /* verify the content */
-  uint32_t xmem_addr = FW_BACKUP_ADDR_XMEM;
-  uint16_t flash_addr = CODE_START,
-           read_bytes = 0;
-  uint8_t buffer[256];  
-  while(read_bytes < FW_SIZE_XMEM) { 
-    /* load a block of data into the RAM */
-    if(!xmem_read(xmem_addr, 256, buffer)) {
-      return 2;
-    }
-    uint16_t i;
-    for(i = 0; i < 256; i++) {
-      if(buffer[i] != *((uint8_t*)flash_addr + i)) {
-        return 3;
-      }
-    }
-    flash_addr += 256;
-    xmem_addr += 256;
-    read_bytes += 256;
-  }
-  return 0;
+#define FUNC_ADDR  0xd91a       /* must be updated! */
+#define FUNC_SIZE  24           /* update if necessary */
+#define MARGIN     100          /* a safety margin for memcpy() */
+  uint16_t stack_addr;
+  void (*blinky)(void) = (void*)((uint8_t*)&stack_addr - FUNC_SIZE - MARGIN);
+  /* copy function into RAM */  
+  memcpy((uint8_t*)&stack_addr - FUNC_SIZE - MARGIN, (uint8_t*)FUNC_ADDR,
+         FUNC_SIZE);
+  /* jump to the function */
+  blinky();    
+  /* trick the linker such that the function doesn't get removed! */
+  volatile uint8_t a = 0;
+  if(a) { blink_led(); }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
@@ -211,8 +159,10 @@ AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
 {   
+  static flash_logger_block_t stats;
+  
   PROCESS_BEGIN();
-          
+            
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   SVS_DISABLE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
@@ -223,37 +173,28 @@ PROCESS_THREAD(app_process, ev, data)
   /* init the ADC */
   adc_init();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
-
-  /* erase an info memory segment */
-  /*uint8_t* info_addr = (uint8_t*)(INFO_START + 128);
-  flash_erase_segment(info_addr);
-  if(flash_erase_check(info_addr, 128)) {
-    flash_write([data], info_addr, [num_bytes]);
-  }*/
+  
+ #if DEBUG_PORT2_INT
+  /* enable ISR for debugging! */
+  PIN_IES_RISING(BOLT_CONF_IND_PIN);
+  PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+  PIN_INT_EN(BOLT_CONF_IND_PIN);
+ #endif /* DEBUG_PORT2_INT */
   
  #if FW_CONF_ON
-  /* quick error check */
-  if((FW_BACKUP_ADDR_XMEM + FW_SIZE_XMEM) > FRAM_CONF_SIZE) {
-    DEBUG_PRINT_MSG_NOW("ERROR: data exceeds FRAM size!");
-    while(1);
-  }
-  /* TODO: move this code to the very beginning of the main() */
-  /* verify integrity of the FW info block */
-  if(xmem_read(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw)) {
-    if(fw.crc != crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0)) {
-      DEBUG_PRINT_MSG_NOW("ERROR: FW info block integrity test failed");
-      /* clear the data */
-      memset(&fw, 0, sizeof(fw_info_t));
-      fw.crc = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
-      xmem_write(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw);
-    } else {
-      DEBUG_PRINT_MSG_NOW("FW OK (status: %u)", fw.status);
-    }
-  } else {
-    DEBUG_PRINT_MSG_NOW("ERROR: failed to read FW info block");
+  if(fw_init() != 0) {
+    DEBUG_PRINT_MSG_NOW("WARNING: FW data in xmem is corrupted");
   }
  #endif /* FW_CONF_ON */
 #endif /* HOST_ID != NODE_ID */
+
+  if(flash_logger_load(&stats)) {
+    DEBUG_PRINT_MSG_NOW("Reset count: %u", stats.reset_cnt);
+  } else {
+    DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted");
+  }
+  stats.reset_cnt++;
+  flash_logger_save(&stats);
 
 #if LOG_CONF_ON
   log_init();
@@ -263,7 +204,7 @@ PROCESS_THREAD(app_process, ev, data)
   /* start the LWB thread */
   lwb_start(0, &app_process);
   
-  /* main loop of this application task */
+  /* --- start of application main loop --- */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
@@ -272,38 +213,13 @@ PROCESS_THREAD(app_process, ev, data)
     
     LOG(LOG_EVENT_CONTEXT_SWITCH, 0x01, 0x00);
 
-    if(HOST_ID == node_id) {    /* HOST NODE */
-      /* we are the host */
-      /* print out the received data */
-      uint16_t sender_id;
-      while(1) {
-        uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2,
-                                       &sender_id, 0);
-        if(pkt_len) {
-          /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-          DEBUG_PRINT_MSG_NOW("data packet #%u received from node %u",
-                              msg_buffer.header.seqnr,
-                              sender_id);
-          /* append the ID to the message */
-          msg_buffer.header.device_id = sender_id;
-        
-          if(msg_buffer.header.type == MSG_TYPE_CC430_HEALTH) {
-            /* forward the packet: write it to BOLT */
-            BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN + 
-                       msg_buffer.header.payload_len);
-          } else if(msg_buffer.header.type == MSG_TYPE_ERROR) {
-            DEBUG_PRINT_MSG_NOW("error message rcvd from node %u (code 0x%x)",
-                                sender_id, msg_buffer.payload16[0]);
-          }
-        } else {
-          break;
-        }
-      }
-      
+    if(HOST_ID == node_id) {    /* --------- HOST NODE --------- */  
+
   #if FW_CONF_ON
       /* send a big chunk of data */
       static uint16_t sent_pkts = 0, crc = 0, state = 0;
       if(state == 0 && lwb_get_time(0) > 30) {
+        fw_info_t fw;
         msg_buffer.header.type        = MSG_TYPE_FW_INFO;
         msg_buffer.header.seqnr       = seq_no++;
         msg_buffer.header.payload_len = sizeof(fw_info_t);
@@ -318,6 +234,7 @@ PROCESS_THREAD(app_process, ev, data)
         state = 1;
       } else if(state == 1) {
         while(sent_pkts < 10) {
+          if(sent_pkts == 5) { sent_pkts++; }   /* skip no. 5 */
           /* fill the output buffer */
           message_ext_t* msg_data      = (message_ext_t*)&msg_buffer;
           msg_data->header.type        = MSG_TYPE_FW_DATA;
@@ -346,9 +263,68 @@ PROCESS_THREAD(app_process, ev, data)
                      MSG_HDR_LEN + msg_buffer.header.payload_len - 2);
         state = 3;
       }
-         
   #endif /* FW_CONF_ON */
-
+      
+      /* analyze and print the received data */
+      while(1) {
+        uint16_t sender_id;
+        uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2,
+                                       &sender_id, 0);
+        if(pkt_len) {
+          /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
+          DEBUG_PRINT_MSG_NOW("data packet #%u received from node %u",
+                              msg_buffer.header.seqnr,
+                              sender_id);
+          /* append the ID to the message */
+          msg_buffer.header.device_id = sender_id;
+        
+          if(msg_buffer.header.type == MSG_TYPE_CC430_HEALTH) {
+            /* forward the packet: write it to BOLT */
+            BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN + 
+                       msg_buffer.header.payload_len);
+          } else if(msg_buffer.header.type == MSG_TYPE_ERROR) {
+            DEBUG_PRINT_MSG_NOW("error message rcvd from node %u (code 0x%x)",
+                                sender_id, msg_buffer.payload16[0]);
+          }
+  #if FW_CONF_ON
+          else if(msg_buffer.header.type == MSG_TYPE_FW_DATA ||
+                  msg_buffer.header.type == MSG_TYPE_FW_INFO) {
+            /* simply forward the packets */
+            lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2, 
+                         MSG_EXT_HDR_LEN + msg_buffer.header.payload_len - 2);
+            DEBUG_PRINT_MSG_NOW("pkt forwarded (broadcast)");
+          } else if(msg_buffer.header.type == MSG_TYPE_FW_REQ_DATA) {
+            /* copy the data into a local buffer */
+            uint16_t pkt_ids[MSG_PAYLOAD_LEN / 2];
+            uint8_t  n_pkts = msg_buffer.header.payload_len / 2;
+            memcpy(pkt_ids, msg_buffer.payload, 
+                   msg_buffer.header.payload_len);
+            DEBUG_PRINT_MSG_NOW("node %u requested %u FW pkts",
+                                sender_id, n_pkts);
+            uint8_t i;
+            for(i = 0; i < n_pkts; i++) {
+              /* a node requests data blocks of the FW */
+              message_ext_t* msg_data      = (message_ext_t*)&msg_buffer;
+              msg_data->header.type        = MSG_TYPE_FW_DATA;
+              msg_data->header.seqnr       = seq_no++;
+              msg_data->data.pktnr         = pkt_ids[i];
+              msg_data->header.payload_len = MSG_EXT_PAYLOAD_LEN;      
+              memset(msg_data->data.payload, 'a', MSG_EXT_PAYLOAD_LEN - 2);
+              if(lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, 
+                              (uint8_t*)msg_data + 2, MSG_EXT_HDR_LEN +
+                              msg_data->header.payload_len - 2)) {
+                DEBUG_PRINT_MSG_NOW("pkt %u resent", pkt_ids[i]);
+              } else {
+                break;  /* stop here, the output buffer is full */
+              }
+            }
+            state = 2;  /* resend validation request */
+          }
+  #endif /* FW_CONF_ON */
+        } else {
+          break;
+        }
+      }
       /* handle timestamp requests */
       uint64_t time_last_req = bolt_handle_timereq();
       if(time_last_req) {
@@ -413,7 +389,9 @@ PROCESS_THREAD(app_process, ev, data)
           }
         }
       }
-    } else {  /* SOURCE NODE */
+    } else {                    /* --------- SOURCE NODE --------- */
+      
+      SET_PROGRAM_STATE(11);
 
     #if SEND_HEALTH_DATA
       static uint8_t stream_state = 0;
@@ -448,56 +426,42 @@ PROCESS_THREAD(app_process, ev, data)
             }            
   #if FW_CONF_ON
             else if(msg_buffer.header.type == MSG_TYPE_FW_INFO) {
-              /* make sure the block size is valid */
-              memcpy(&fw, msg_buffer.payload, sizeof(fw_info_t));
-              if(FW_BLOCK_SIZE != fw.block_size ||
-                 crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0) != fw.crc) {
-                xmem_read(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw);
-                DEBUG_PRINT_ERROR("FW info validation failed");
+              fw_info_t* ptr = (fw_info_t*)&msg_buffer.payload;
+              if(fw_reset(ptr) == 0) {
+                DEBUG_PRINT_INFO("FW info updated (vs: %u, len: %u)",
+                                 ptr->version, ptr->len);
               } else {
-                /* store the info */
-                fw.status = FW_STATUS_RECEIVING;
-                fw.crc    = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
-                if(!xmem_write(FW_ADDR_XMEM, sizeof(fw_info_t),
-                               (uint8_t*)&fw)) {
-                  DEBUG_PRINT_ERROR("failed to store FW info in XMEM");
-                }
-                DEBUG_PRINT_INFO("FW info updated (vs: %u, len: %u, block: %u)",
-                                 fw.version, fw.len, fw.block_size);
-                /* erase the FW block info */
-                memset(fw_block_info, 0, FW_BLOCK_INFO_SIZE);
-                xmem_erase(FW_ADDR_XMEM + sizeof(fw_info_t),
-                           FW_BLOCK_INFO_SIZE);                
-              }  
+                DEBUG_PRINT_ERROR("failed to update FW info");
+              }
             } else if(msg_buffer.header.type == MSG_TYPE_FW_DATA) {
-              message_ext_t* msg_data = (message_ext_t*)&msg_buffer;
-              xmem_write(FW_DATA_START + msg_data->data.pktnr * FW_BLOCK_SIZE,
-                         FW_BLOCK_SIZE,
-                         msg_data->data.payload);
-              /* mark this block as received */
-              fw_block_info[msg_data->data.pktnr / 8] |= 
-                                          (1 << (msg_data->data.pktnr & 0x07));
-              xmem_write(FW_ADDR_XMEM + sizeof(fw_info_t), 1, 
-                         &fw_block_info[msg_data->data.pktnr / 8]);
-              
+              fw_store_data(&(((message_ext_t*)&msg_buffer)->data));              
             } else if(msg_buffer.header.type == MSG_TYPE_FW_VALIDATE) {
               uint64_t start_time = rtimer_now_lf();
               uint8_t res = fw_validate();
               if(res == 0) {
-                /* now backup the current FW */
-                res = fw_backup();
+                res = fw_backup();  /* now backup the current FW */
                 if(res == 0) {
-                  /* validation/preparation successful, update the state */
-                  fw.status = FW_STATUS_VALIDATED;
-                  fw.crc    = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
-                  xmem_write(FW_ADDR_XMEM, sizeof(fw_info_t), (uint8_t*)&fw);
-                  DEBUG_PRINT_INFO("FW validation successful (took %lums)", (uint32_t)((rtimer_now_lf() - start_time) * 1000 / RTIMER_SECOND_LF));
+                  DEBUG_PRINT_INFO("FW validation successful (took %lums)",
+                                   (uint32_t)((rtimer_now_lf() - start_time) * 
+                                    1000 / RTIMER_SECOND_LF));
+                  /* send the confirmation to the host */
+                  send_msg(MSG_TYPE_FW_READY, 0, 0);
                 } else {  
                   DEBUG_PRINT_ERROR("FW backup failed (code 0x%02x)", res);
                 }
+              } else if(res == 2) {
+                /* some data blocks are still missing, request them */
+                uint16_t tmp[MSG_PAYLOAD_LEN / 2];
+                res = fw_get_missing_block_ids((uint16_t*)tmp, 
+                                               MSG_PAYLOAD_LEN / 2);
+                if(res) {
+                  send_msg(MSG_TYPE_FW_REQ_DATA, (uint8_t*)tmp, res * 2);
+                  DEBUG_PRINT_INFO("requesting %u missing FW data blocks", 
+                                   res);
+                }
               } else {
-                DEBUG_PRINT_ERROR("FW validation failed (code 0x%02x)", res);   
-              }               
+                DEBUG_PRINT_ERROR("FW validation failed (code 0x%02x)", res);
+              }              
             }
   #endif /* FW_CONF_ON */
           } else {
@@ -505,9 +469,9 @@ PROCESS_THREAD(app_process, ev, data)
             break;
           }
         }
-      }
+      }        
+      SET_PROGRAM_STATE(12);
   #endif /* SEND_HEALTH_DATA */
-  
     }
   #if QUICK_CONFIG == 4
     /* print out some useful stats */
@@ -526,23 +490,85 @@ PROCESS_THREAD(app_process, ev, data)
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
     TASK_SUSPENDED;
-  }
+  } /* --- end of application main loop --- */
 
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
+#if DEBUG_PORT2_INT
 ISR(PORT2, port2_interrupt) 
 {
+  execute_from_sram();    
+    
+  /* 
+   * collect and print debugging info:
+   * - stack address / size
+   * - return address and status register before ISR (last 32 bits on stack)
+   * - whether or not timers are still running and CCR interrupts enabled
+   * - state of the global/static variables
+   * - some registers, e.g. enabled peripherals
+   */
+  #define REGISTER_BYTES_ON_STACK       16       /* see lwb.dis file! */
+  #define MAX_BSS_SIZE                  3072
+    
+  uint16_t stack_addr;
+  uint16_t stack_size = SRAM_END - (uint16_t)&stack_addr + 1;
+  uint8_t peripherals = ((UCA0CTL1 & UCSWRST) << 7) | 
+                        ((UCB0CTL1 & UCSWRST) << 6) | 
+                        (TA0CTL & (MC_3 | TAIE))    |
+                        ((TA1CTL & MC_3) >> 2)      |
+                        ((TA1CTL & TAIE) >> 1);
+
+  /* look into the assembly code to find out how many registers have been 
+   * put onto the stack since this function has been entered */
+  uint16_t sr_addr  = (uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK;
+  
+  /* status register bits:
+   * 8 = arithmetic overflow
+   * 7 = SCG1 (system clock generator 1 off)
+   * 6 = SCG0
+   * 5 = OSCOFF (oscillator off, turns off LFXT)
+   * 4 = CPUOFF
+   * 3 = GIE
+   * 2 = N (result of last operation was negative)
+   * 1 = Z (set if result of last operation was zero)
+   * 0 = C (carry bit, set if result of last operation produced a carry) */
+  
+  /* print out the information */
+  uart_enable(1);
+  printf("stack: %u, ret: 0x%04x, sr: 0x%04x, peri: 0x%02x, lwb_ccr: 0x%x, "
+         "state: %u\r\n",
+         stack_size, 
+         *(volatile uint16_t*)sr_addr, 
+         *(volatile uint16_t*)(sr_addr + 2), 
+         peripherals,
+         ((*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) & CCIE) >> 3) |
+           ((*(&TA1CCTL0 + LWB_CONF_LF_RTIMER_ID - RTIMER_LF_0) & CCIE) >> 4),
+         program_state);
+  
+  /* print out the content of the bss section (global & static variables),
+   * use objdump -t lwb.exe | grep "\.bss" to map addresses to variables! */
+  uint16_t i;
+  for(i = SRAM_START; i < MAX_BSS_SIZE + SRAM_START; i++) {
+    if((i & 0x000f) == 0) {
+      printf("\r\n0x%04x:", i);
+    }
+    printf(" %02x", *(uint8_t*)i);
+  }
+  
+  
+  PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+    
+  /*
   ENERGEST_ON(ENERGEST_TYPE_CPU);
   
   if(PIN_IFG(BOLT_CONF_IND_PIN)) {
-    while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
+    while(BOLT_DATA_AVAILABLE) {
       uint8_t msg_len = 0;
       BOLT_READ(bolt_buffer, msg_len);
       if(msg_len && 
          msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
          msg_buffer.payload16[0] == LWB_CMD_RESUME) {
-        /* resume the LWB */
         PIN_INT_OFF(BOLT_CONF_IND_PIN);
         __bic_status_register_on_exit(SCG0 | SCG1 | CPUOFF);
         break;
@@ -552,7 +578,9 @@ ISR(PORT2, port2_interrupt)
   }
   
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  */
 }
+#endif /* DEBUG_PORT2_INT */
 /*---------------------------------------------------------------------------*/
 /* for debugging: define all unused ISRs */
 ISR(SYSNMI, sysnmi_interrupt)
