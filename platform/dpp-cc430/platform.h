@@ -152,7 +152,7 @@
 //#define GLOSSY_TX_PIN               COM_MCU_INT2
 //#define RF_GDO0_PIN                 COM_MCU_INT1
 //#define RF_GDO1_PIN                 COM_MCU_INT1
-//#define RF_GDO2_PIN                 COM_MCU_INT1
+#define RF_GDO2_PIN                 COM_MCU_INT1
 //#define MCLK_PIN                    COM_MCU_INT1
 //#define ACLK_PIN                    COM_MCU_INT1
 //#define SMCLK_PIN                   COM_MCU_INT1

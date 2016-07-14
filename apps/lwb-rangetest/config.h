@@ -50,7 +50,7 @@
  * 4 = linktest
  * 5 = data transfer test (host to source)
  * any other value: default settings */
-#define QUICK_CONFIG                    5
+#define QUICK_CONFIG                    6
 
 #if QUICK_CONFIG != 2
   #define NODE_ID                       1
@@ -93,7 +93,6 @@
   #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
   #define LWB_CONF_MAX_CONT_BACKOFF     0      /* disable contention backoff */
   #define LWB_REQ_DETECTED              DEBUG_PRINT_INFO("request detected (ofs: %d)", ((int16_t)schedule.time - 30) / 10 - 15)
-  //#define RF_GDO2_PIN                   COM_MCU_INT1
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm 
   
 #elif QUICK_CONFIG == 4 /* linktest */
@@ -105,9 +104,7 @@
   
 #elif QUICK_CONFIG == 5 /* data transfer test */
   #define FW_CONF_ON                    1
-  #if NODE_ID == 20042
-    #define FRAM_CONF_ON                1
-  #endif 
+  #define FRAM_CONF_ON                  1
   #define LOG_CONF_ON                   0 /* make sure logging is disabled (we need the xmem for other data) */
   #define SEND_HEALTH_DATA              1
   #define RF_CONF_TX_CH                 10 

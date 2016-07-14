@@ -44,7 +44,6 @@
 #include "flash-logger.h"
 #include "fw.h"
 
-
 /*---------------------------------------------------------------------------*/
 #ifdef FLOCKLAB
 #warning "---------------------- COMPILED FOR FLOCKLAB ----------------------"
@@ -126,34 +125,6 @@ get_node_health(void)
   return &health;
 }
 /*---------------------------------------------------------------------------*/
-/* the following code demonstrates how to copy a function into SRAM and 
- * execute it */
-void
-blink_led(void)
-{
-  while(1) {
-    PIN_XOR(LED_0);
-    __delay_cycles(MCLK_SPEED / 2);
-  }
-}
-void
-execute_from_sram(void)
-{
-#define FUNC_ADDR  0xd91a       /* must be updated! */
-#define FUNC_SIZE  24           /* update if necessary */
-#define MARGIN     100          /* a safety margin for memcpy() */
-  uint16_t stack_addr;
-  void (*blinky)(void) = (void*)((uint8_t*)&stack_addr - FUNC_SIZE - MARGIN);
-  /* copy function into RAM */  
-  memcpy((uint8_t*)&stack_addr - FUNC_SIZE - MARGIN, (uint8_t*)FUNC_ADDR,
-         FUNC_SIZE);
-  /* jump to the function */
-  blinky();    
-  /* trick the linker such that the function doesn't get removed! */
-  volatile uint8_t a = 0;
-  if(a) { blink_led(); }
-}
-/*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
@@ -180,14 +151,14 @@ PROCESS_THREAD(app_process, ev, data)
   PIN_CLR_IFG(BOLT_CONF_IND_PIN);
   PIN_INT_EN(BOLT_CONF_IND_PIN);
  #endif /* DEBUG_PORT2_INT */
-  
+#endif /* HOST_ID != NODE_ID */
+
  #if FW_CONF_ON
   if(fw_init() != 0) {
     DEBUG_PRINT_MSG_NOW("WARNING: FW data in xmem is corrupted");
   }
  #endif /* FW_CONF_ON */
-#endif /* HOST_ID != NODE_ID */
-
+ 
   if(flash_logger_load(&stats)) {
     DEBUG_PRINT_MSG_NOW("Reset count: %u", stats.reset_cnt);
   } else {
@@ -225,7 +196,7 @@ PROCESS_THREAD(app_process, ev, data)
         msg_buffer.header.payload_len = sizeof(fw_info_t);
         fw.version = 1001;
         fw.len = 230;
-        fw.block_size = FW_BLOCK_SIZE;
+        fw.block_size = sizeof(data_t) - 2;
         fw.data_crc = 0xf9c5;
         fw.crc = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
         memcpy(msg_buffer.payload, &fw, sizeof(fw_info_t));
@@ -287,13 +258,7 @@ PROCESS_THREAD(app_process, ev, data)
                                 sender_id, msg_buffer.payload16[0]);
           }
   #if FW_CONF_ON
-          else if(msg_buffer.header.type == MSG_TYPE_FW_DATA ||
-                  msg_buffer.header.type == MSG_TYPE_FW_INFO) {
-            /* simply forward the packets */
-            lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2, 
-                         MSG_EXT_HDR_LEN + msg_buffer.header.payload_len - 2);
-            DEBUG_PRINT_MSG_NOW("pkt forwarded (broadcast)");
-          } else if(msg_buffer.header.type == MSG_TYPE_FW_REQ_DATA) {
+          else if(msg_buffer.header.type == MSG_TYPE_FW_REQ_DATA) {
             /* copy the data into a local buffer */
             uint16_t pkt_ids[MSG_PAYLOAD_LEN / 2];
             uint8_t  n_pkts = msg_buffer.header.payload_len / 2;
@@ -338,13 +303,13 @@ PROCESS_THREAD(app_process, ev, data)
         //DEBUG_PRINT_MSG_NOW("time request handled");
       }
       /* msg available from BOLT? */
+      uint16_t msg_cnt = 0;
       while(BOLT_DATA_AVAILABLE) {
-        DEBUG_PRINT_INFO("BOLT: data is available");
         uint8_t msg_len = 0;
         BOLT_READ(bolt_buffer, msg_len);
         if(msg_len) {
+          msg_cnt++;
           memcpy(&msg_buffer, bolt_buffer, MSG_MAX_LEN);
-          DEBUG_PRINT_INFO("BOLT message rcvd");
           if(msg_buffer.header.type == MSG_TYPE_LWB_CMD) {
             if(msg_buffer.payload16[0] == LWB_CMD_SET_SCHED_PERIOD) {
               /* adjust the period */
@@ -387,8 +352,64 @@ PROCESS_THREAD(app_process, ev, data)
               }
             }
           }
+    #if FW_CONF_ON
+          /* FW packets received over BOLT */
+          else if(msg_buffer.header.type == MSG_TYPE_FW_INFO) {
+            fw_info_t* ptr = (fw_info_t*)&msg_buffer.payload;
+            if(fw_reset(ptr) == 0) {
+              DEBUG_PRINT_INFO("FW info updated (vs: %u, len: %u, crc: %04x)",
+                               ptr->version, ptr->len, ptr->data_crc);
+            } else {
+              DEBUG_PRINT_ERROR("failed to update FW info");
+            }
+          } else if(msg_buffer.header.type == MSG_TYPE_FW_DATA) {
+            fw_store_data(&(((message_ext_t*)&msg_buffer)->data));              
+          } else if(msg_buffer.header.type == MSG_TYPE_FW_VALIDATE) {
+            uint64_t start_time = rtimer_now_lf();
+            uint8_t res = fw_validate();
+            if(res == 0) {
+              res = fw_backup();  /* now backup the current FW */
+              if(res == 0) {
+                DEBUG_PRINT_INFO("FW validation successful (took %lums)",
+                                 (uint32_t)((rtimer_now_lf() - start_time) * 
+                                  1000 / RTIMER_SECOND_LF));
+                /* reply to the APP processor */
+                msg_buffer.header.type        = MSG_TYPE_FW_READY;
+                msg_buffer.header.payload_len = 0;
+                msg_buffer.header.seqnr       = seq_no++;
+                BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN);
+              } else {
+                DEBUG_PRINT_ERROR("FW backup failed (code 0x%02x)", res);
+              }
+            } else if(res == 2) {
+              /* some data blocks are still missing, request them */
+              uint16_t tmp[MSG_PAYLOAD_LEN / 2];
+              res = fw_get_missing_block_ids((uint16_t*)tmp, 
+                                             MSG_PAYLOAD_LEN / 2);
+              if(res) {
+                /* should not happen, communication over BOLT is reliable */
+                msg_buffer.header.type        = MSG_TYPE_FW_REQ_DATA;
+                msg_buffer.header.payload_len = 0;
+                msg_buffer.header.seqnr       = seq_no++;
+                memcpy(msg_buffer.payload, (uint8_t*)tmp, res * 2);
+                BOLT_WRITE((uint8_t*)&msg_buffer, MSG_HDR_LEN);
+                DEBUG_PRINT_INFO("requesting %u missing FW data blocks", res);
+              } // else: no missing blocks found
+            } else {
+              DEBUG_PRINT_ERROR("FW validation failed (code 0x%02x)", res);
+            }              
+          } else if(msg_buffer.header.type == MSG_TYPE_FW_UPDATE) {
+            DEBUG_PRINT_MSG_NOW("firmware update in progress...");
+            fw_update();
+            DEBUG_PRINT_MSG_NOW("ERROR: update failed");
+          }          
+    #endif /* FW_CONF_ON */
         }
       }
+      if(msg_cnt) {
+        DEBUG_PRINT_MSG_NOW("%u messages read from BOLT", msg_cnt);
+      }
+      
     } else {                    /* --------- SOURCE NODE --------- */
       
       SET_PROGRAM_STATE(11);
@@ -458,7 +479,7 @@ PROCESS_THREAD(app_process, ev, data)
                   send_msg(MSG_TYPE_FW_REQ_DATA, (uint8_t*)tmp, res * 2);
                   DEBUG_PRINT_INFO("requesting %u missing FW data blocks", 
                                    res);
-                }
+                } // else: no missing blocks found
               } else {
                 DEBUG_PRINT_ERROR("FW validation failed (code 0x%02x)", res);
               }              
@@ -497,9 +518,7 @@ PROCESS_THREAD(app_process, ev, data)
 /*---------------------------------------------------------------------------*/
 #if DEBUG_PORT2_INT
 ISR(PORT2, port2_interrupt) 
-{
-  execute_from_sram();    
-    
+{    
   /* 
    * collect and print debugging info:
    * - stack address / size

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -56,24 +55,40 @@ flash_erase_segment(uint8_t* addr)
     return;
   }
   /* unlock and set the erase bit */
-  FCTL3 = FWKEY;
-  FCTL1 = FWKEY + ERASE;
+  FCTL3 = FWPW;
+  FCTL1 = FWPW + ERASE;
   *addr = 0;                    /* dummy write */
   while(FCTL3 & 1);             /* wait until done */
-  FCTL1 = FWKEY;
-  FCTL3 = FWKEY + LOCK;
+  FCTL1 = FWPW;
+  FCTL3 = FWPW + LOCK;
+}
+/*---------------------------------------------------------------------------*/
+void
+flash_erase_info_segment(uint8_t* addr)
+{
+  /* verify the address */
+  if(addr < (uint8_t*)INFO_START || addr > (uint8_t*)INFO_END) {
+    return;
+  }
+  /* unlock and set the erase bit */
+  FCTL3 = FWPW + LOCKA;         /* set LOCKA to change lock state of infomem */
+  FCTL1 = FWPW + ERASE;
+  *addr = 0;                    /* dummy write */
+  while(FCTL3 & 1);             /* wait until done */
+  FCTL1 = FWPW;
+  FCTL3 = FWPW + LOCK + LOCKA;
 }
 /*---------------------------------------------------------------------------*/
 void 
 flash_erase_bank(void)  /* there's only one flash bank */
 {
-  FCTL3 = FWKEY;                        /* unlock */
-  while(FCTL3 & 1);                     /* wait for BUSY flag */
-  FCTL1 = FWKEY + MERAS;                /* set mass erase bit */
-  *((uint16_t*)FLASH_START) = 0;        /* dummy write */
-  while(FCTL3 & 1);                     /* wait for BUSY flag */
-  FCTL1 = FWKEY;                        /* clear mass erase bit */
-  FCTL3 = FWKEY + LOCK;                 /* lock the module */
+  FCTL3 = FWPW;                        /* unlock */
+  while(FCTL3 & 1);                    /* wait for BUSY flag */
+  FCTL1 = FWPW + MERAS;                /* set mass erase bit */
+  *((uint16_t*)FLASH_START) = 0;       /* dummy write */
+  while(FCTL3 & 1);                    /* wait for BUSY flag */
+  FCTL1 = FWPW;                        /* clear mass erase bit */
+  FCTL3 = FWPW + LOCK;                 /* lock the module */
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -98,15 +113,16 @@ flash_erase_check(uint8_t* start_addr, uint16_t num_bytes)
 void
 flash_write(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes)
 {
-  FCTL3 = FWKEY;
-  FCTL1 = FWKEY + WRT;
+  FCTL3 = FWPW + LOCKA;
+  FCTL1 = FWPW + WRT;
   while(num_bytes) {
-    while(FCTL3 & 1);
+    while(!(FCTL3 & 0x08));  /* bit 3 set? -> ready for next write operation */
     *flash_addr++ = *data++;
     num_bytes--;
   }
-  FCTL1 = FWKEY;
-  FCTL3 = FWKEY + LOCK;
+  while(!(FCTL3 & 0x08));
+  FCTL1 = FWPW;
+  FCTL3 = FWPW + LOCK + LOCKA;
 }
 /*---------------------------------------------------------------------------*/
 void 

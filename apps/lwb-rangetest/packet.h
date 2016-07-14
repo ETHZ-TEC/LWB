@@ -66,16 +66,7 @@ typedef enum {
   LWB_CMD_PAUSE,
   LWB_CMD_SET_SCHED_PERIOD,
   LWB_CMD_SET_STATUS_PERIOD,
-} lwb_cmd_t;
-
-typedef enum {
-  FW_STATUS_INIT,
-  FW_STATUS_RECEIVING,
-  FW_STATUS_VALIDATED,
-  FW_STATUS_UPDATING,
-  FW_STATUS_UPDATED,
-} fw_status_type_t;
-    
+} lwb_cmd_t;    
     
 
 #pragma pack(1)         /* force alignment to 1 byte */

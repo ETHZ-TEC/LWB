@@ -56,14 +56,21 @@
 #endif /* FW_ADDR_XMEM */
 
 #define FW_MAX_SIZE                   32768    /* do not change */
-#define FW_BLOCK_SIZE                 (sizeof(data_t) - 2)
-#define FW_NUM_BLOCKS                 ((FW_MAX_SIZE + FW_BLOCK_SIZE - 1) \
-                                       / FW_BLOCK_SIZE)
-#define FW_BLOCK_INFO_SIZE            ((FW_NUM_BLOCKS + 7) / 8)
+#define FW_MIN_BLOCK_SIZE             16
+#define FW_MAX_NUM_BLOCKS             ((FW_MAX_SIZE + FW_MIN_BLOCK_SIZE - 1) \
+                                       / FW_MIN_BLOCK_SIZE)
+#define FW_BLOCK_INFO_SIZE            ((FW_MAX_NUM_BLOCKS + 7) / 8)
 #define FW_DATA_START                 (FW_ADDR_XMEM + sizeof(fw_info_t) + \
                                        FW_BLOCK_INFO_SIZE)
 #define FW_BACKUP_ADDR_XMEM           (FW_DATA_START + FW_MAX_SIZE)
 
+
+typedef enum {
+  FW_STATUS_INIT,
+  FW_STATUS_RECEIVING,
+  FW_STATUS_VALIDATED,
+  FW_STATUS_UPDATING,
+} fw_status_type_t;
 
 typedef struct {
   uint16_t         version;
@@ -115,6 +122,12 @@ uint8_t fw_validate(void);
  * @return 0 if successful, error code otherwise
  */
 uint8_t fw_backup(void);
+
+/**
+ * @brief initiate the FW update
+ * @note function will only return if the FW data is invalid
+ */
+void fw_update(void);
 
 
 #endif /* __FW_UPDATER_H__ */

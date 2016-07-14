@@ -301,7 +301,7 @@
 
 /* important values, do not modify */
 
-#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 2 + \
+#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 1 + \
                                       LWB_CONF_DATA_ACK) * \
                                      (LWB_CONF_T_DATA + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_SCHED + LWB_CONF_T_GAP) + \
