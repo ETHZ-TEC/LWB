@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -51,6 +50,7 @@
 #define FLASH_END           0xffff      /* last byte of the flash memory */
 #define FLASH_SIZE          0x8000      /* 32 kB */    
 #define FLASH_SEG_SIZE      0x0200      /* 512 B */
+#define FLASH_INVALID       0x0000      /* invalid address (indicate errors) */
 #define CODE_START          FLASH_START
 #define CODE_END            (FLASH_END - INT_VECT_TABLE_SIZE)
 #define CODE_SIZE           0x7f80      /* 32640 B */
@@ -58,6 +58,7 @@
 #define INT_TABLE_SIZE      0x0080      /* 128 B */
 #define INFO_START          0x1800
 #define INFO_END            0x19ff
+#define INFO_SEG_SIZE       0x0080      /* 128 B */
 #define INFO_SIZE           0x0200      /* 512 B */
 #define BSL_START           0x1000
 #define BSL_END             0x17ff
@@ -72,13 +73,21 @@
 uint16_t flash_code_size(void);
 
 /**
- * @brief erase a flash segment
+ * @brief erase a flash segment (main memory)
  * @param addr address of the flash segment to erase
  */
 void flash_erase_segment(uint8_t* addr);
 
+
 /**
- * @brief erase the whole flash memory bank
+ * @brief erase a flash segment of the information memory
+ * @param addr address of the flash segment to erase
+ */
+void flash_erase_info_segment(uint8_t* addr);
+
+/**
+ * @brief erase the whole flash memory bank (mass erase, main memory only,
+ * info memory is not touched)
  */
 void flash_erase_bank(void);
 
