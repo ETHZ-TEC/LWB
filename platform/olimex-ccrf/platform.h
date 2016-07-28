@@ -125,10 +125,10 @@
   #define FRAM_CONF_SPI             SPI_1
   #ifndef DEBUG_PRINT_CONF_USE_XMEM
   #define DEBUG_PRINT_CONF_USE_XMEM 1
-  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #ifndef DEBUG_PRINT_CONF_NUM_MSG
   #define DEBUG_PRINT_CONF_NUM_MSG  20
   #endif /* DEBUG_PRINT_CONF_NUM_MSG */
+  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 #endif /* FRAM_CONF_ON */
 
 #if BOLT_CONF_ON

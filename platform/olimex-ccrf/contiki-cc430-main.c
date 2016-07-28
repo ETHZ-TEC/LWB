@@ -110,7 +110,7 @@ main(int argc, char **argv)
   watchdog_init();
 
   /* initialize hardware */
-  P1DIR = (BIT0 | BIT1 | BIT2 | BIT3 | BIT4 | BIT5 | BIT7);
+  P1DIR = (BIT0 | BIT1);                  /* don't set other pins as outputs */
   PORT_CLR_I(1);
   PORT_CFG_OUT_I(2);
   PORT_CLR_I(2);
@@ -202,13 +202,13 @@ main(int argc, char **argv)
 #if WATCHDOG_CONF_ON
   watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
-  
+
   /* start processes */
   print_processes(autostart_processes);
   autostart_start(autostart_processes);
   debug_print_init();  
   /* note: start debug process as last due to process_poll() execution order */
-  
+
   /* init done */
   PIN_CLR(LED_STATUS);     
   //__eint();

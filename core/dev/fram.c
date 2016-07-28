@@ -132,7 +132,6 @@ fram_init(void)
     }
     while(c < 6) {
       if(0x7f != dev_id[c]) {
-        DEBUG_PRINT_MSG_NOW("ERROR: Invalid FRAM ID %x-%x-%x-%x-%x-%x", dev_id[0], dev_id[1], dev_id[2], dev_id[3],dev_id[4], dev_id[5]);
         DEBUG_PRINT_MSG_NOW("ERROR: FRAM init failed (disconnected?)");
         return 0;
       }

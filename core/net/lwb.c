@@ -280,7 +280,7 @@ lwb_stats_load(void)
   }
   crc = stats.crc;
   stats.crc = 0;
-  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t)) != crc) {
+  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t), 0) != crc) {
     DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset");
     memset(&stats, 0, sizeof(lwb_statistics_t));
   }
@@ -297,7 +297,7 @@ lwb_stats_save(void)
 {
 #if LWB_CONF_USE_XMEM
   stats.crc = 0;    /* necessary */
-  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t));
+  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t), 0);
   if(!xmem_write(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_WARNING("failed to write stats");
   }
@@ -325,7 +325,7 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
   }
   /* received messages will have the max. length LWB_CONF_MAX_DATA_PKT_LEN */
   uint32_t pkt_addr = fifo_put(&in_buffer);
-  if((FIFO_ERROR & 0xffff) != pkt_addr) {
+  if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* copy the data into the queue */
     memcpy((uint8_t*)(uint16_t)pkt_addr, data, len);
@@ -350,7 +350,7 @@ lwb_out_buffer_get(uint8_t* out_data)
   /* messages have the max. length LWB_CONF_MAX_DATA_PKT_LEN and are already
    * formatted according to glossy_payload_t */
   uint32_t pkt_addr = fifo_get(&out_buffer);
-  if((FIFO_ERROR & 0xffff) != pkt_addr) {
+  if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
     uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr;
@@ -391,7 +391,7 @@ lwb_put_data(uint16_t recipient,
     return 0;
   }
   uint32_t pkt_addr = fifo_put(&out_buffer);
-  if((FIFO_ERROR & 0xffff) != pkt_addr) {
+  if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
     uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr;  
@@ -427,7 +427,7 @@ lwb_get_data(uint8_t* out_data,
    * lwb header needs to be stripped off; payload has max. length
    * LWB_DATA_PKT_PAYLOAD_LEN */
   uint32_t pkt_addr = fifo_get(&in_buffer);
-  if((FIFO_ERROR & 0xffff) != pkt_addr) {
+  if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
     uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr; 
@@ -1148,11 +1148,11 @@ void
 lwb_resume(void)
 {
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-    rtimer_clock_t start_time = rtimer_now_lf() + RTIMER_SECOND_LF / 10;
-    rtimer_id_t timer_id = LWB_CONF_LF_RTIMER_ID;
+  rtimer_clock_t start_time = rtimer_now_lf() + RTIMER_SECOND_LF / 10;
+  rtimer_id_t timer_id = LWB_CONF_LF_RTIMER_ID;
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    rtimer_clock_t start_time = rtimer_now_hf() + RTIMER_SECOND_HF / 10;
-    rtimer_id_t timer_id = LWB_CONF_RTIMER_ID;
+  rtimer_clock_t start_time = rtimer_now_hf() + RTIMER_SECOND_HF / 10;
+  rtimer_id_t timer_id = LWB_CONF_RTIMER_ID;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
   if(node_id == HOST_ID) {

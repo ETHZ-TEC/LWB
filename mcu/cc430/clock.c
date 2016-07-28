@@ -82,9 +82,9 @@ clock_init(void)
   DISABLE_FLL();
 
 #if CLOCK_CONF_FLL_ON
-#if CLOCK_CONF_XT1_ON
+ #if CLOCK_CONF_XT1_ON
   UCSCTL3 = SELREF__XT1CLK | FLLREFDIV_0; /* use XT1 as FLL reference */
-#endif /* CLOCK_CONF_XT1_ON */
+ #endif /* CLOCK_CONF_XT1_ON */
   /* set the lowest possible DCOx, MODx */
   UCSCTL0 = 0;
   /* select the suitable DCO frequency range */
@@ -108,8 +108,9 @@ clock_init(void)
   /* oscillator fault flag may be set after switching the clock source */
   WAIT_FOR_OSC();
   
-  /* enable oscillator fault interrupt (NMI) */
-  SFRIE1 = OFIE;
+  /* enable oscillator fault interrupt (NMI) as well as vacant memory access
+   * interrupt (VMAIE) and flash controller access violation int. (ACCVIE) */
+  SFRIE1 = OFIE | VMAIE | ACCVIE;
 }
 /*---------------------------------------------------------------------------*/
 ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
@@ -119,14 +120,14 @@ ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
   PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
   switch (SYSUNIV) {
     case SYSUNIV_NMIIFG:        /* non-maskable interrupt */
+      while(1);
       break;
     case SYSUNIV_OFIFG:         /* oscillator fault */
       WAIT_FOR_OSC();           /* try to clear the fault flag */
       break;
     case SYSUNIV_ACCVIFG:       /* Access Violation */
+      while(1);
       break;
-    case SYSUNIV_SYSBERRIV:
-      break;                    /* Bus Error */
     default:
       break;
   }
