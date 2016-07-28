@@ -13,11 +13,11 @@ include $(CONTIKI)/Makefile.include
 
 flocklab:
 # embed image
-	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).$(TARGET).b64
+	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).flocklab.b64
 	@sed -i -n '1h;1!H;$${ g;s/<data>.*<\/data>/<data>\n<\/data>/;p}' flocklab-cc430.xml
-	@sed -i '/<data>/r $(CONTIKI_PROJECT).$(TARGET).b64' flocklab-cc430.xml
-	@rm $(CONTIKI_PROJECT).$(TARGET).b64
+	@sed -i '/<data>/r $(CONTIKI_PROJECT).flocklab.b64' flocklab-cc430.xml
+	@rm $(CONTIKI_PROJECT).flocklab.b64
 
-upload: 
+upload:
 	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update

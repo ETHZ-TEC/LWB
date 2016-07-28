@@ -39,8 +39,8 @@
  */
 
 #define FLOCKLAB                           /* uncomment to run on FlockLAB */
-#define HOST_ID    2
- 
+#define HOST_ID    1
+
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
@@ -52,7 +52,7 @@
   /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
-  #define NODE_ID                       2
+  #define NODE_ID                       1
 #endif /* FLOCKLAB */
 
 #define LWB_CONF_OUT_BUFFER_SIZE        2
@@ -61,7 +61,6 @@
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_STREAM_EXTRA_DATA_LEN  0     /* length of extra stream info */
 #define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 
 /* debug config */

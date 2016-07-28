@@ -78,6 +78,10 @@
 #define LWB_CONF_MAX_DATA_SLOTS         20        
 #endif /* LWB_CONF_MAX_DATA_SLOTS */
 
+#ifndef LWB_CONF_HEADER_LEN
+#define LWB_CONF_HEADER_LEN             3       /* default header size */
+#endif /* LWB_CONF_HEADER_LEN */
+
 /* set to 1 to skip the state QUASI_SYNCED and jump directly to SYNCED after 
  * BOOTSTRAP; reduces the delay to the first slot */
 #ifndef LWB_CONF_SKIP_QUASI_SYNCED
@@ -301,7 +305,7 @@
 
 /* important values, do not modify */
 
-#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 2 + \
+#define LWB_T_ROUND_MAX             ((LWB_CONF_MAX_DATA_SLOTS + 1 + \
                                       LWB_CONF_DATA_ACK) * \
                                      (LWB_CONF_T_DATA + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_SCHED + LWB_CONF_T_GAP) + \

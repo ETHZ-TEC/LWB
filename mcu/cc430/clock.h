@@ -117,6 +117,7 @@
 { \
     UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
     SFRIFG1 &= ~OFIFG; \
+    PIN_XOR(LED_STATUS); \
 } while (SFRIFG1 & OFIFG)
 
 /**
