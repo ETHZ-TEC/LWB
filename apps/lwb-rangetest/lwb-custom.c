@@ -35,7 +35,8 @@
 /**
  * @file
  *
- * LWB code with minimal adjustments for the RF range test
+ * LWB code with minimal adjustments for the RF range test and an additional
+ * data ACK slot
  */
  
 #include "contiki.h"
@@ -226,8 +227,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
   LWB_TASK_SUSPENDED;\
   PT_YIELD(&lwb_pt);\
   LWB_TASK_RESUMED;\
-  LOG(LOG_EVENT_CONTEXT_SWITCH, 0x01, 0x00);\
   LWB_AFTER_DEEPSLEEP();\
+  LOG(LOG_EVENT_CONTEXT_SWITCH, 0x01, 0x00);\
 }
 #define LWB_UPDATE_SYNC_STATE \
 {\

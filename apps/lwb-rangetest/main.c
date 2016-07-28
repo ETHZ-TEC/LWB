@@ -97,9 +97,12 @@ get_node_health(void)
   static int16_t temp = 0;
   static health_msg_t health;
   static rtimer_clock_t last_energest_rst = 0;
-
+  
+  while(REFCTL0 & REFGENBUSY);
   REFCTL0 |= REFON;
-  __delay_cycles(MCLK_SPEED / 25000);                /* let REF settle */
+  while(REFCTL0 & REFGENBUSY);
+  //__delay_cycles(MCLK_SPEED / 25000);                /* let REF settle */
+  
   temp = (temp + adc_get_temp()) / 2;    /* moving average (LP filter) */
   health.temp = temp;
   health.vcc  = adc_get_vcc();
@@ -519,6 +522,8 @@ PROCESS_THREAD(app_process, ev, data)
 #if DEBUG_PORT2_INT
 ISR(PORT2, port2_interrupt) 
 {    
+  PIN_XOR(LED_STATUS);  /* toggle LED */
+  
   /* 
    * collect and print debugging info:
    * - stack address / size
@@ -604,7 +609,14 @@ ISR(PORT2, port2_interrupt)
 /* for debugging: define all unused ISRs */
 ISR(SYSNMI, sysnmi_interrupt)
 {
-  PIN_SET(LED_0); 
+  PIN_SET(LED_0);
+  switch (SYSSNIV) {
+    case SYSSNIV_VMAIFG:
+      while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 15); }
+      break;
+    default:
+        break;
+  }
   while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 10); }
 }
 ISR(AES, aes_interrupt)

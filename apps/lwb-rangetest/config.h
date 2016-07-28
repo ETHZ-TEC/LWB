@@ -50,10 +50,10 @@
  * 4 = linktest
  * 5 = data transfer test (host to source)
  * any other value: default settings */
-#define QUICK_CONFIG                    6
+#define QUICK_CONFIG                    1
 
 #if QUICK_CONFIG != 2
-  #define NODE_ID                       1
+  #define NODE_ID                       20050
 #endif
 
 /* first byte is major version, 2nd byte is minor version */
@@ -61,17 +61,12 @@
 
 /* set to 1 to enable the periodic health / status packets from source nodes */
 #if QUICK_CONFIG == 1   /* rooftop */
-  #if NODE_ID == 20042
-    #define FRAM_CONF_ON                1
-    #define LOG_CONF_ON                 1
-    #define DEBUG_PRINT_CONF_ON         0
-  #endif
   #define SEND_HEALTH_DATA              1
   #define RF_CONF_TX_CH                 10 
   #define ENERGEST_CONF_ON              1
   #define LWB_CONF_SCHED_PERIOD_IDLE    30       /* define the period length */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
-  #define LWB_CONF_DATA_ACK             0       /* use data ACKs? */
+  #define LWB_CONF_DATA_ACK             0                  /* use data ACKs? */
   
 #elif QUICK_CONFIG == 2 /* flocklab */
   #define FLOCKLAB
@@ -92,7 +87,8 @@
   #endif
   #define LWB_CONF_SCHED_PERIOD_IDLE    1        /* define the period length */
   #define LWB_CONF_MAX_CONT_BACKOFF     0      /* disable contention backoff */
-  #define LWB_REQ_DETECTED              DEBUG_PRINT_INFO("request detected (ofs: %d)", ((int16_t)schedule.time - 30) / 10 - 15)
+  #define LWB_REQ_DETECTED              DEBUG_PRINT_INFO(\
+         "request detected (ofs: %d)", ((int16_t)schedule.time - 30) / 10 - 15)
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm 
   
 #elif QUICK_CONFIG == 4 /* linktest */
@@ -105,10 +101,10 @@
 #elif QUICK_CONFIG == 5 /* data transfer test */
   #define FW_CONF_ON                    1
   #define FRAM_CONF_ON                  1
-  #define LOG_CONF_ON                   0 /* make sure logging is disabled (we need the xmem for other data) */
+  #define LOG_CONF_ON                   0   /* make sure logging is disabled */
   #define SEND_HEALTH_DATA              1
   #define RF_CONF_TX_CH                 10 
-  #define ENERGEST_CONF_ON              0       /* takes ~5kB of ROM space */
+  #define ENERGEST_CONF_ON              0         /* takes ~5kB of ROM space */
   #define LWB_CONF_SCHED_PERIOD_IDLE    5        /* define the period length */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
   #define LWB_CONF_DATA_ACK             1        /* use data ACKs? */
@@ -126,7 +122,7 @@
                                                        
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_VERSION                     0       /* use the custom version */
+#define LWB_VERSION                     0          /* use the custom version */
 #define LWB_CONF_OUT_BUFFER_SIZE        4
 #define LWB_CONF_IN_BUFFER_SIZE         10
 #define LWB_CONF_MAX_PKT_LEN            63

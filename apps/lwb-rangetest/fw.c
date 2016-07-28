@@ -30,6 +30,14 @@
  * Author:  Reto Da Forno
  */
 
+/* 
+ * TODO
+ * - instead of copying the update routine into SRAM, one could use a
+ *   dedicated flash memory segment for the update routine
+ * - to make it more robust, one could add a bootloader which checks the
+ *   integritiy of the memory before the program execution starts
+ */
+
 #include "contiki.h"
 #include "platform.h"
 #include "fw.h"
@@ -227,6 +235,10 @@ fw_update_routine(uint16_t fw_size)
    * the heap may not be accessed at this point and interrupts are disabled!
    * note that this function is tailored to a specific architecture / MCU! */
   
+  /* Note: if this routine resides in a memory segment outside of the region
+   * that needs to be programmed, then it is not necessary to move this 
+   * routine into SRAM (use segment erase instead of mass erase */
+  
 #define FW_UPDATE_SIMULATE      0
 
   PIN_SET(LED_0);       /* to indicate the start */
@@ -239,7 +251,7 @@ fw_update_routine(uint16_t fw_size)
   PIN_CLR(MUX_SEL_PIN);
   UCA0CTL1 &= ~UCSWRST;
   
-#if !FW_UPDATE_SIMULATE
+#if !FW_UPDATE_SIMULATE && FW_UPDATE_MASS_ERASE
   /* mass erase */
   FCTL3 = FWPW;                        /* unlock */
   while(FCTL3 & 1);                    /* wait for BUSY flag */
@@ -274,6 +286,16 @@ fw_update_routine(uint16_t fw_size)
     PIN_CLR(MUX_SEL_PIN);
     UCA0CTL1 &= ~UCSWRST;
     __delay_cycles(MCLK_SPEED / 1000);
+#else
+  #if !FW_UPDATE_MASS_ERASE
+    /* erase this segment */
+    FCTL3 = FWPW;
+    FCTL1 = FWPW + ERASE;
+    *(uint8_t*)flash_addr = 0;    /* dummy write */
+    while(FCTL3 & 1);             /* wait until done */
+    FCTL1 = FWPW;
+    FCTL3 = FWPW + LOCK;
+  #endif /* FW_UPDATE_MASS_ERASE */
 #endif /* FW_UPDATE_SIMULATE */
   
     /* read from external memory */

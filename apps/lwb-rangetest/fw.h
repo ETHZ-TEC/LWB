@@ -64,6 +64,8 @@
                                        FW_BLOCK_INFO_SIZE)
 #define FW_BACKUP_ADDR_XMEM           (FW_DATA_START + FW_MAX_SIZE)
 
+#define FW_UPDATE_MASS_ERASE          1         /* use mass erase? */
+
 
 typedef enum {
   FW_STATUS_INIT,
