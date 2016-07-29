@@ -62,7 +62,7 @@
 #endif
 
 #ifdef NODE_ID
-#define node_id         NODE_ID
+#define node_id                 NODE_ID
 #else /* NODE_ID */
 extern volatile uint16_t node_id;
 #endif /* NODE_ID */

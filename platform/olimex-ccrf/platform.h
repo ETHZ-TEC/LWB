@@ -82,6 +82,7 @@
 #endif /* LED_CONF_ON */
 
 #define CLOCK_CONF_XT1_ON           1
+#define CLOCK_CONF_XT1_CAP          XCAP_3
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -129,6 +130,11 @@
   #define DEBUG_PRINT_CONF_NUM_MSG  20
   #endif /* DEBUG_PRINT_CONF_NUM_MSG */
   #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+ #ifdef FLOCKLAB
+  /* remap the SPI pins! */
+  #define SPI_CONF_B0_SIMO          PORT2, PIN0         /* instead of P1.3 */ 
+  #define SPI_CONF_B0_CLK           PORT2, PIN1         /* instead of P1.4 */ 
+ #endif /* FLOCKLAB */
 #endif /* FRAM_CONF_ON */
 
 #if BOLT_CONF_ON
@@ -151,18 +157,9 @@
 #define FLOCKLAB_SIG2               PORT1, PIN4  /* target actuation */
 #define FLOCKLAB_INT1               PORT3, PIN6  /* for GPIO tracing */
 #define FLOCKLAB_INT2               PORT3, PIN7  /* for GPIO tracing */
+/* Important note: P1.3 and P1.4 are used as target actuation pin on Flocklab 
+ * and can therefore not be used for the SPI B0 interface! */
 
-#ifndef FLOCKLAB
- #ifndef GLOSSY_START_PIN
-  #define GLOSSY_START_PIN          LED_0
- #endif /* GLOSSY_START_PIN */
- #ifndef RF_GDO2_PIN
-  #define RF_GDO2_PIN               PORT2, PIN7
- #endif /* RF_GDO2_PIN */
-#endif /* FLOCKLAB */
-
-/*#define DEBUG_PRINT_TASK_ACT_PIN  PORT2, PIN0*/
-/*#define LWB_CONF_TASK_ACT_PIN     PORT2, PIN1*/
 /*#define GLOSSY_RX_PIN             PORT2, PIN3*/
 /*#define GLOSSY_TX_PIN             PORT2, PIN4*/
 /*#define RF_GDO0_PIN               PORT1, PIN2 */

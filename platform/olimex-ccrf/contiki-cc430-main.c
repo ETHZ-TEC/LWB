@@ -36,8 +36,8 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
 #ifndef NODE_ID
+uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
 volatile uint16_t node_id;
 #endif /* NODE_ID */
 /*---------------------------------------------------------------------------*/
@@ -110,8 +110,8 @@ main(int argc, char **argv)
   watchdog_init();
 
   /* initialize hardware */
-  P1DIR = (BIT0 | BIT1);                  /* don't set other pins as outputs */
-  PORT_CLR_I(1);
+  P1DIR = BIT0;                  /* don't set other pins as outputs */
+  //PORT_CLR_I(1);
   PORT_CFG_OUT_I(2);
   PORT_CLR_I(2);
   PORT_CFG_OUT_I(3);
@@ -123,10 +123,10 @@ main(int argc, char **argv)
   
   /* board-specific optimal configuration of unused pins */
 #ifndef FLOCKLAB
-  PIN_SET_I(1, 1);    /* push-button, tied to 3V */
+  //PIN_SET_I(1, 1);    /* push-button, tied to 3V */
 #endif /* FLOCKLAB */
-  PIN_SET_I(1, 6);    /* UART TX, set high if pin is in use */
-  PIN_SET_I(1, 7);    /* SPI B0 STE (is tied to 3V) */
+  //PIN_SET_I(1, 6);    /* UART TX, set high if pin is in use */
+  //PIN_SET_I(1, 7);    /* SPI B0 STE (is tied to 3V) */
  
   /* pin mappings */
 #ifdef RF_GDO0_PIN
@@ -181,6 +181,7 @@ main(int argc, char **argv)
     DEBUG_PRINT_FATAL("ERROR: FRAM failure");
   }
 #endif
+
 #if BOLT_CONF_ON
   bolt_init(0);
 #endif /* BOLT_CONF_ON */  

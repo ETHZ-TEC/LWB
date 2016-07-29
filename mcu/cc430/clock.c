@@ -62,6 +62,7 @@ clock_init(void)
    * where XCAP can be 2 (XCAP_0), 6, 9 or 12pF (XCAP_3)
    * default value is 3 */
   UCSCTL6 &= ~XCAP_3;
+  UCSCTL6 |= CLOCK_CONF_XT1_CAP;
 #endif /* CLOCK_CONF_XT1_ON */
   
   /* initially, use the internal REFO and DCODIV clock sources */
