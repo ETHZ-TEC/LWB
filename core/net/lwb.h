@@ -179,7 +179,7 @@
 
 #ifndef LWB_CONF_OUT_BUFFER_SIZE         
 /* size (#elements) of the internal data buffer/queue for outgoing messages */
-#define LWB_CONF_OUT_BUFFER_SIZE        10
+#define LWB_CONF_OUT_BUFFER_SIZE        3
 #endif /* LWB_CONF_IN_BUFFER_SIZE */
 
 /* ensure that the buffer can at least hold one data packet */

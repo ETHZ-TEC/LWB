@@ -57,6 +57,10 @@
 #define CLOCK_CONF_XT1_ON    1
 #endif /* CLOCK_CONF_XT1_ON */
 
+#ifndef CLOCK_CONF_XT1_CAP
+#define CLOCK_CONF_XT1_CAP   XCAP_0  
+#endif /* CLOCK_CONF_XT1_CAP */
+
 /* speed of XT1 (low-frequency crystal) */
 #define XT1CLK_SPEED    32768
 
@@ -117,7 +121,6 @@
 { \
     UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
     SFRIFG1 &= ~OFIFG; \
-    PIN_XOR(LED_STATUS); \
 } while (SFRIFG1 & OFIFG)
 
 /**

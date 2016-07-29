@@ -87,9 +87,21 @@ spi_init(spi_module_t spi, uint32_t bclk_speed)
 {
   if(SPI_0 == spi) {
     /* configure the GPIO pins */
-    PIN_SEL(SPI_A0_SOMI);
-    PIN_SEL(SPI_A0_SIMO);
-    PIN_SEL(SPI_A0_CLK);
+  #ifdef SPI_CONF_A0_SOMI /* remap pin? */
+    PIN_MAP_AS_OUTPUT(SPI_CONF_A0_SOMI, PM_UCA0SOMI);
+  #else
+    PIN_SEL(SPI_A0_SOMI);       /* default config */
+  #endif /* SPI_CONF_A0_SOMI */  
+  #ifdef SPI_CONF_A0_SIMO /* remap pin? */
+    PIN_MAP_AS_OUTPUT(SPI_CONF_A0_SIMO, PM_UCA0SIMO);
+  #else
+    PIN_SEL(SPI_A0_SIMO);       /* default config */
+  #endif /* SPI_CONF_A0_SIMO */
+  #ifdef SPI_CONF_A0_CLK /* remap pin? */
+    PIN_MAP_AS_OUTPUT(SPI_CONF_A0_CLK, PM_UCA0CLK);
+  #else
+    PIN_SEL(SPI_A0_CLK);       /* default config */
+  #endif /* SPI_CONF_A0_CLK */
     //PIN_CFG_IN(SPI_A0_SOMI);
     /* PIN_RESISTOR_EN(SPI_A0_SOMI); */
     //PIN_CFG_OUT(SPI_A0_SIMO);
@@ -113,13 +125,21 @@ spi_init(spi_module_t spi, uint32_t bclk_speed)
     
   } else if(SPI_1 == spi) {
     /* GPIO configuration */
-    PIN_SEL(SPI_B0_SOMI);
-    PIN_SEL(SPI_B0_SIMO);
-    PIN_SEL(SPI_B0_CLK);
-    //PIN_CFG_IN(SPI_B0_SOMI);
-    /* PIN_RESISTOR_EN(SPI_B0_SOMI); */
-    //PIN_CFG_OUT(SPI_B0_SIMO);
-    //PIN_CFG_OUT(SPI_B0_CLK);
+  #ifdef SPI_CONF_B0_SOMI /* remap pin? */
+    PIN_MAP_AS_OUTPUT(SPI_CONF_B0_SOMI, PM_UCB0SOMI);
+  #else
+    PIN_SEL(SPI_B0_SOMI);       /* default config */
+  #endif /* SPI_CONF_B0_SOMI */
+  #ifdef SPI_CONF_B0_SIMO /* remap pin? */
+    PIN_MAP_AS_OUTPUT(SPI_CONF_B0_SIMO, PM_UCB0SIMO);
+  #else
+    PIN_SEL(SPI_B0_SIMO);       /* default config */
+  #endif /* SPI_CONF_B0_SIMO */
+  #ifdef SPI_CONF_B0_CLK /* remap pin? */
+    PIN_MAP_AS_OUTPUT(SPI_CONF_B0_CLK, PM_UCB0CLK);
+  #else
+    PIN_SEL(SPI_B0_CLK);       /* default config */
+  #endif /* SPI_CONF_B0_CLK */
 
     while(SPI_B0_ACTIVE); /* busy wait, just in case the SPI is still active */
 
