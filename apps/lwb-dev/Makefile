@@ -4,11 +4,10 @@
 # and the system-wide Contiki makefile, which contains the definitions of the Contiki core system 
 # and points out to the specific Makefile of our target platform. Makefile.include must always be 
 # located in the root folder of the Contiki source tree.
-CONTIKI = .
-CONTIKI_PROJECT = lwb-dev
-APPDIR = ./apps/$(CONTIKI_PROJECT)
+CONTIKI = ../..
+CONTIKI_PROJECT = lwb
 
-SRCS = ${shell find $(APPDIR) -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
+SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
 include $(CONTIKI)/Makefile.include
 

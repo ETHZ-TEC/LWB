@@ -122,7 +122,7 @@
 
 #if FRAM_CONF_ON
   #define FRAM_CONF_CTRL_PIN        PORT1, PIN7
-  #define FRAM_CONF_SIZE            0x20000
+  #define FRAM_CONF_SIZE            125000      /* 1 Mbit */
   #define FRAM_CONF_SPI             SPI_1
   #ifndef DEBUG_PRINT_CONF_USE_XMEM
   #define DEBUG_PRINT_CONF_USE_XMEM 1
