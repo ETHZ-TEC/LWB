@@ -436,6 +436,9 @@ lwb_get_data(uint8_t* out_data,
     uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr; 
     uint8_t msg_len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) -
                       LWB_CONF_HEADER_LEN;
+    if(msg_len > LWB_CONF_MAX_DATA_PKT_LEN) {
+      msg_len = LWB_CONF_MAX_DATA_PKT_LEN;
+    }
     memcpy(out_data, next_msg + LWB_CONF_HEADER_LEN, msg_len);
     if(out_node_id) {
       /* cant just treat next_msg as 16-bit value due to misalignment */

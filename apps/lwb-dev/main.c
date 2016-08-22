@@ -38,10 +38,8 @@
  */
 
 
-#include "../lwb-dev/main.h"
+#include "main.h"
 
-#include "contiki.h"
-#include "platform.h"
 /*---------------------------------------------------------------------------*/
 #ifdef FLOCKLAB
 #warning "---------------------- COMPILED FOR FLOCKLAB ----------------------"

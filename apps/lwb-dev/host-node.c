@@ -38,10 +38,8 @@
  */
 
 
-#include "contiki.h"
-#include "platform.h"
+#include "main.h"
 
-#include "../lwb-dev/packet.h"                    /* packet structure and message types */
 /*---------------------------------------------------------------------------*/
 void
 send_msg(uint16_t recipient, const message_t* data, uint8_t len)
@@ -52,7 +50,6 @@ send_msg(uint16_t recipient, const message_t* data, uint8_t len)
   tl.header.device_id               = node_id;
   tl.header.target_id               = recipient;
   tl.header.payload_len             = len;
-  //msg_buffer.header.seqnr           = seq_no++;
   if(data) {
     memcpy(&tl.message, data, len);
   }
@@ -73,7 +70,7 @@ host_init(void)
 
   DEBUG_PRINT_MSG_NOW("msg: %u, tl: %u, lwb: %u",
                       sizeof(message_t), sizeof(tl_packet_t),
-            LWB_CONF_MAX_DATA_PKT_LEN);
+                      LWB_CONF_MAX_DATA_PKT_LEN);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -100,15 +97,15 @@ host_run(void)
     }
   } while(pkt_len);
 
+
   /* handle timestamp requests */
   uint64_t time_last_req = bolt_handle_timereq();
   if(time_last_req) {
     /* write the timestamp to BOLT (convert to us) */
     bolt_msg.header.type = MSG_TYPE_TIMESTAMP;
-    uint64_t timestamp     = time_last_req * 1000000 /
-                              ACLK_SPEED + LWB_CLOCK_OFS;
+    uint64_t timestamp = time_last_req * 1000000 / ACLK_SPEED + LWB_CLOCK_OFS;
     memcpy(bolt_msg.payload, &timestamp, sizeof(uint64_t));
-    BOLT_WRITE((uint8_t*)&bolt_msg, MSG_HDR_LEN);
+    BOLT_WRITE((uint8_t*)&bolt_msg, MSG_HDR_LEN + sizeof(timestamp_t));
   }
   /* msg available from BOLT? */
   uint16_t msg_cnt = 0;
@@ -122,8 +119,7 @@ host_run(void)
         if(bolt_msg.payload[0] == LWB_CMD_SET_SCHED_PERIOD) {
           /* adjust the period */
           lwb_sched_set_period(bolt_msg.payload[1]);
-          DEBUG_PRINT_INFO("LWB period set to %us",
-              bolt_msg.payload[1]);
+          DEBUG_PRINT_INFO("LWB period set to %us", bolt_msg.payload[1]);
         } else if(bolt_msg.payload[0] == LWB_CMD_SET_STATUS_PERIOD) {
           /* broadcast the message */
           send_msg(bolt_msg.payload[4], &bolt_msg, MSG_HDR_LEN + 4);

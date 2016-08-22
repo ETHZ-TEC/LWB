@@ -50,7 +50,8 @@ typedef enum {
   LWB_CMD_SET_SCHED_PERIOD,
   LWB_CMD_SET_STATUS_PERIOD,
 } lwb_cmd_t;    
-    
+
+typedef uint64_t timestamp_t;
 
 #pragma pack(1)         /* force alignment to 1 byte */
 
@@ -107,6 +108,7 @@ typedef struct {
   union {
     uint8_t        payload[MSG_PKT_LEN - MSG_HDR_LEN];
     cc430_health_t cc430_health;
+    timestamp_t    timestamp;
     /* add all other application specific packet formats here */
   };
 } message_t;

@@ -47,7 +47,7 @@
   #define NODE_ID                       20050
 #endif
 
-/* first 4 bit are major version, rest is minor version */
+/* first 4 bits reserved for major version */
 #define FW_VERSION                      0x0200
 
 #define SEND_HEALTH_DATA                1
@@ -59,7 +59,7 @@
 
 
 #define HOST_ID                         1
-                                                       
+
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_VERSION                     0          /* use the custom version */
@@ -73,8 +73,8 @@
 /* constant clock offset for timesync */
 #define LWB_CLOCK_OFS                   -1200
 
-
-#define BOLT_CONF_MAX_MSG_LEN           32
+/* BOLT config */
+#define BOLT_CONF_MAX_MSG_LEN           64
 #define BOLT_CONF_TIMEREQ_ENABLE        1
 
 
@@ -89,14 +89,6 @@
 /* use port2 interrupt to print out debug information? */
 #define DEBUG_PORT2_INT                 1
 
-
-/* 
- * GLOBALS
- */
-/* the static scheduler implements the following function: */
-extern void lwb_sched_set_period(uint16_t period);
-
-extern uint16_t program_state;
 
 
 #endif /* __CONFIG_H__ */

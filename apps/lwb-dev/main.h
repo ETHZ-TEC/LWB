@@ -37,11 +37,18 @@
 #define __MAIN_H__
 
 
+#include "contiki.h"
+#include "platform.h"
+#include "packet.h"                    /* packet structure and message types */
+
+
 void host_init(void);
 void source_init(void);
 void host_run(void);
 void source_run(void);
 
+/* the static scheduler implements the following function: */
+void lwb_sched_set_period(uint16_t period);
 
 
 #endif /* __MAIN_H__ */
