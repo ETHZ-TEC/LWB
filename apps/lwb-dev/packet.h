@@ -67,6 +67,7 @@ typedef struct {
   uint8_t  per;       /* total packet error rate in percentage */
   uint8_t  snr;       /* signal-to-noise ratio of the last reception */
   int8_t   rssi[3];   /* RSSI values of the last Glossy flood */
+  uint8_t  success;   /* percentage of floods that were successful */
   uint32_t local_time;/* in 32kHz ticks, rollover of ~36h */
 } cc430_health_t;
 

@@ -81,6 +81,7 @@ get_node_health(message_t* out_msg)
   out_msg->cc430_health.per       = glossy_get_per();
   out_msg->cc430_health.n_rx_hops = glossy_get_n_rx() |
                                     (glossy_get_relay_cnt() << 4);
+  out_msg->cc430_health.success   = glossy_get_success_rate();
   rtimer_clock_t now = rtimer_now_lf();
   out_msg->cc430_health.cpu_dc = (uint16_t)
                                  (energest_type_time(ENERGEST_TYPE_CPU) *

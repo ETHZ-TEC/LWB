@@ -243,6 +243,8 @@ typedef struct {
   uint8_t  n_hops[3];
   uint32_t pkt_cnt;
   uint32_t crc_ok_cnt;
+  uint32_t n_floods;
+  uint32_t n_successful_floods;
 } glossy_state_t;
 /*---------------------------------------------------------------------------*/
 static glossy_state_t g;
@@ -505,6 +507,20 @@ glossy_stop(void)
       DEBUG_PRINT_VERBOSE("Glossy stopped");
     }
 
+    /* stats */
+    if(!IS_INITIATOR()) {
+      /* only count if not initiator! */
+      if(g.n_rx_started) {
+        /* only count it as flood if at least the start of a packet was
+         * detected (otherwise e.g. contention slots would be treated as
+         * failed floods!) */
+        g.n_floods++;
+      }
+      if(g.n_rx) {
+        g.n_successful_floods++;
+      }
+    }
+
     /* re-enable interrupts */
     GLOSSY_ENABLE_INTERRUPTS;
     rtimer_update_enable(1);  /* make sure the overflow interrupt is enabled */
@@ -618,6 +634,13 @@ glossy_get_per(void)
     return 100 - (g.crc_ok_cnt * 100 / g.pkt_cnt);
   }
   return 0;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_success_rate(void)
+{
+  /* round mathematically: 99.5 shall be 100%, and 99.4 -> 99 */
+  return (uint8_t)(200 * g.n_successful_floods / g.n_floods + 1) / 2;
 }
 /*---------------------------------------------------------------------------*/
 uint32_t

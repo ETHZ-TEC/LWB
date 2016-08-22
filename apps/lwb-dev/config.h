@@ -43,22 +43,15 @@
  * application specific config file to override default settings
  */
 
-#if QUICK_CONFIG != 2
-  #define NODE_ID                       20050
-#endif
-
-/* first 4 bits reserved for major version */
-#define FW_VERSION                      0x0200
+#define NODE_ID                         1
+#define HOST_ID                         1
 
 #define SEND_HEALTH_DATA                1
 #define RF_CONF_TX_CH                   10 
 #define ENERGEST_CONF_ON                1
-#define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
+#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 #define LWB_CONF_DATA_ACK               0                  /* use data ACKs? */
-
-
-#define HOST_ID                         1
 
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
@@ -87,7 +80,7 @@
 //#define APP_TASK_ACT_PIN                COM_MCU_INT2
 
 /* use port2 interrupt to print out debug information? */
-#define DEBUG_PORT2_INT                 1
+#define DEBUG_PORT2_INT                 0
 
 
 

@@ -96,9 +96,9 @@ PROCESS_THREAD(app_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
+#if DEBUG_PORT2_INT
 ISR(PORT2, port2_interrupt) 
 {    
-#if DEBUG_PORT2_INT
   PIN_XOR(LED_STATUS);  /* toggle LED */
   
   /* 
@@ -156,30 +156,8 @@ ISR(PORT2, port2_interrupt)
   }
 
   PIN_CLR_IFG(BOLT_CONF_IND_PIN);
-  
-#else /* DEBUG_PORT2_INT */
-  
-  ENERGEST_ON(ENERGEST_TYPE_CPU);
-  
-  if(PIN_IFG(BOLT_CONF_IND_PIN)) {
-    while(BOLT_DATA_AVAILABLE) {
-      uint8_t msg_len = 0;
-      BOLT_READ(bolt_buffer, msg_len);
-      if(msg_len && 
-         msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
-         msg_buffer.payload16[0] == LWB_CMD_RESUME) {
-        PIN_INT_OFF(BOLT_CONF_IND_PIN);
-        __bic_status_register_on_exit(SCG0 | SCG1 | CPUOFF);
-        break;
-      }
-    }
-    PIN_CLR_IFG(BOLT_CONF_IND_PIN);
-  }
-  
-  ENERGEST_OFF(ENERGEST_TYPE_CPU);
-
-#endif /* DEBUG_PORT2_INT */
 }
+#endif /* DEBUG_PORT2_INT */
 /*---------------------------------------------------------------------------*/
 /* for debugging: define all unused ISRs */
 ISR(SYSNMI, sysnmi_interrupt)

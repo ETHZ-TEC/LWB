@@ -199,6 +199,13 @@ uint16_t glossy_get_relay_cnt(void);
 uint8_t glossy_get_per(void);
 
 /**
+ * @brief the number of successful floods, not counting floods where no
+ * communication was detected (absence of preamble + sync byte) and the
+ * initiated floods
+ */
+uint8_t glossy_get_success_rate(void);
+
+/**
  * @brief get the total number of received packets including corrupt packets
  */
 uint32_t glossy_get_n_pkts(void);

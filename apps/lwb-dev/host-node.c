@@ -40,6 +40,7 @@
 
 #include "main.h"
 
+uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];  /* tmp buffer to read from BOLT */
 /*---------------------------------------------------------------------------*/
 void
 send_msg(uint16_t recipient, const message_t* data, uint8_t len)
@@ -77,7 +78,6 @@ void
 host_run(void)
 {
   /* for BOLT messages */
-  uint8_t   bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
   message_t bolt_msg;
 
   /* analyze and print the received data */
@@ -153,4 +153,28 @@ host_run(void)
     DEBUG_PRINT_MSG_NOW("%u messages read from BOLT", msg_cnt);
   }
 }
+/*---------------------------------------------------------------------------*/
+#if !DEBUG_PORT2_INT
+ISR(PORT2, port2_interrupt)
+{
+  ENERGEST_ON(ENERGEST_TYPE_CPU);
+
+  if(PIN_IFG(BOLT_CONF_IND_PIN)) {
+    while(BOLT_DATA_AVAILABLE) {
+      uint8_t msg_len = 0;
+      BOLT_READ(bolt_buffer, msg_len);
+      message_t* msg = (message_t*)bolt_buffer;
+      if(msg_len && msg->header.type == MSG_TYPE_LWB_CMD &&
+        msg->payload[0] == LWB_CMD_RESUME) {
+        PIN_INT_OFF(BOLT_CONF_IND_PIN);
+        __bic_status_register_on_exit(SCG0 | SCG1 | CPUOFF);
+        break;
+      }
+    }
+    PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+  }
+
+  ENERGEST_OFF(ENERGEST_TYPE_CPU);
+}
+#endif /* DEBUG_PORT2_INT */
 /*---------------------------------------------------------------------------*/
