@@ -43,19 +43,29 @@
 uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];  /* tmp buffer to read from BOLT */
 /*---------------------------------------------------------------------------*/
 void
-send_msg(uint16_t recipient, const message_t* data, uint8_t len)
+send_msg(uint16_t recipient,
+         const uint8_t* data,
+         uint8_t len,
+         message_type_t type)
 {
 #define LWB_STREAM_ID_STATUS_MSG        1
 
-  tl_packet_t tl;
-  tl.header.device_id               = node_id;
-  tl.header.target_id               = recipient;
-  tl.header.payload_len             = len;
+  /* TODO use different stream IDs for different message types */
+
+  static uint16_t seq_no = 0;
+
+  message_t msg;
+  msg.header.device_id   = node_id;
+  msg.header.type        = type;
+  msg.header.payload_len = len;
+  msg.header.seqnr       = seq_no++;
+  MSG_SET_CRC16(&msg, crc16(data, len, 0));
+
   if(data) {
-    memcpy(&tl.message, data, len);
+    memcpy(msg.payload, data, len);
   }
-  if(!lwb_put_data(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
-                   (uint8_t*)&tl, TL_HDR_LEN + tl.header.payload_len)) {
+  if(!lwb_send_pkt(recipient, LWB_STREAM_ID_STATUS_MSG,
+                   (uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN)) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
   } else {
     DEBUG_PRINT_INFO("message for node %u added to TX queue", recipient);
@@ -69,9 +79,7 @@ host_init(void)
   SVS_DISABLE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
-  DEBUG_PRINT_MSG_NOW("msg: %u, tl: %u, lwb: %u",
-                      sizeof(message_t), sizeof(tl_packet_t),
-                      LWB_CONF_MAX_DATA_PKT_LEN);
+  DEBUG_PRINT_MSG_NOW("crc: 0x%04x", crc16((uint8_t*)"hello world!", 12, 0));
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -82,18 +90,14 @@ host_run(void)
 
   /* analyze and print the received data */
   uint8_t pkt_len = 0;
-  tl_packet_t pkt;
+  message_t msg;
   do {
-    uint8_t pkt_len = lwb_get_data((uint8_t*)&pkt, 0, 0);
-    if(pkt_len) {
-      message_t* msg = (message_t*)pkt.payload;
+    if(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
       /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-      DEBUG_PRINT_MSG_NOW("data packet received from node %u",
-                          pkt.header.device_id);
-      if(msg->header.type == MSG_TYPE_CC430_HEALTH) {
-        /* forward the packet: write it to BOLT */
-        BOLT_WRITE(pkt.payload, pkt.header.payload_len);
-      }
+      DEBUG_PRINT_MSG_NOW("data packet received from node %u (timestamp: %lu)",
+                          msg.header.device_id, msg.cc430_health.lfxt_ticks);
+      /* forward the packet: write it to BOLT */
+      BOLT_WRITE((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN);
     }
   } while(pkt_len);
 
@@ -103,8 +107,7 @@ host_run(void)
   if(time_last_req) {
     /* write the timestamp to BOLT (convert to us) */
     bolt_msg.header.type = MSG_TYPE_TIMESTAMP;
-    uint64_t timestamp = time_last_req * 1000000 / ACLK_SPEED + LWB_CLOCK_OFS;
-    memcpy(bolt_msg.payload, &timestamp, sizeof(uint64_t));
+    bolt_msg.timestamp = time_last_req * 1000000 / ACLK_SPEED + LWB_CLOCK_OFS;
     BOLT_WRITE((uint8_t*)&bolt_msg, MSG_HDR_LEN + sizeof(timestamp_t));
   }
   /* msg available from BOLT? */
@@ -116,14 +119,15 @@ host_run(void)
       msg_cnt++;
       memcpy(&bolt_msg, bolt_buffer, MSG_PKT_LEN);
       if(bolt_msg.header.type == MSG_TYPE_LWB_CMD) {
-        if(bolt_msg.payload[0] == LWB_CMD_SET_SCHED_PERIOD) {
+        if(bolt_msg.lwb_cmd.type == LWB_CMD_SET_SCHED_PERIOD) {
           /* adjust the period */
-          lwb_sched_set_period(bolt_msg.payload[1]);
-          DEBUG_PRINT_INFO("LWB period set to %us", bolt_msg.payload[1]);
-        } else if(bolt_msg.payload[0] == LWB_CMD_SET_STATUS_PERIOD) {
+          lwb_sched_set_period(bolt_msg.lwb_cmd.value);
+          DEBUG_PRINT_INFO("LWB period set to %us", bolt_msg.lwb_cmd.value);
+        } else if(bolt_msg.lwb_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
           /* broadcast the message */
-          send_msg(bolt_msg.payload[4], &bolt_msg, MSG_HDR_LEN + 4);
-        } else if(bolt_msg.payload[0] == LWB_CMD_PAUSE) {
+          send_msg(bolt_msg.lwb_cmd.target_id, bolt_msg.payload,
+                   sizeof(lwb_cmd_t), MSG_TYPE_LWB_CMD);
+        } else if(bolt_msg.lwb_cmd.type == LWB_CMD_PAUSE) {
           /* stop */
           while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
             BOLT_READ(bolt_buffer, msg_len);
@@ -165,7 +169,7 @@ ISR(PORT2, port2_interrupt)
       BOLT_READ(bolt_buffer, msg_len);
       message_t* msg = (message_t*)bolt_buffer;
       if(msg_len && msg->header.type == MSG_TYPE_LWB_CMD &&
-        msg->payload[0] == LWB_CMD_RESUME) {
+         msg->lwb_cmd.type == LWB_CMD_RESUME) {
         PIN_INT_OFF(BOLT_CONF_IND_PIN);
         __bic_status_register_on_exit(SCG0 | SCG1 | CPUOFF);
         break;

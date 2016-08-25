@@ -59,6 +59,7 @@
 #endif /* FLOCKLAB */
 
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_MAX_DATA_SLOTS         10
 #define CLOCK_CONF_FLL_ON               1
 #define FRAM_CONF_ON                    0
 #define BOLT_CONF_ON                    1

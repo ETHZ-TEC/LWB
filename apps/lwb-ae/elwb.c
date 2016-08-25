@@ -34,7 +34,8 @@
 /**
  * @file
  *
- * a modified implementation of the Low-Power Wireless Bus
+ * a modified implementation of the Low-Power Wireless Bus called e-LWB
+ * (event-based/triggered LWB)
  */
  
 #include "contiki.h"
@@ -361,7 +362,7 @@ lwb_out_buffer_get(uint8_t* out_data)
 /* puts a message into the outgoing queue, returns 1 if successful, 
  * 0 otherwise */
 uint8_t
-lwb_put_data(const uint8_t * const data, 
+lwb_send_pkt(const uint8_t * const data,
              uint8_t len)
 {
   /* data has the max. length LWB_CONF_MAX_DATA_PKT_LEN, lwb header needs 
@@ -391,7 +392,7 @@ lwb_put_data(const uint8_t * const data,
 /* copies the oldest received message in the queue into out_data and returns 
  * the message size (in bytes) */
 uint8_t
-lwb_get_data(uint8_t* out_data)
+lwb_rcv_pkt(uint8_t* out_data)
 { 
   if(!out_data) { return 0; }
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
@@ -575,7 +576,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
                                   schedule.slot[i], payload_len);
               lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
               /* update statistics */
-              stats.data_tot += payload_len;
+              stats.rx_total += payload_len;
               stats.pck_cnt++;
               /* measure time (must always be smaller than LWB_CONF_T_GAP!) */
               stats.t_proc_max = MAX((uint16_t)RTIMER_ELAPSED, 
@@ -857,7 +858,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             /* receive a data packet */
             LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
             LWB_RCV_PACKET();
-            stats.data_tot += glossy_get_payload_len(); 
+            stats.rx_total += glossy_get_payload_len();
             stats.pck_cnt++;
           }
         }

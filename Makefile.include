@@ -12,12 +12,12 @@ endif
 
 
 
-ifndef TARGET
+ifndef TARGET 
   ifdef target
     TARGET=$(target)
   else
     TARGET = olimex
-    ${warning WARNING: TARGET not defined (set to olimex)}
+    #${warning WARNING: TARGET not defined (set to olimex)}
   endif
 endif
 

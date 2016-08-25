@@ -35,22 +35,30 @@
 #include "main.h"
 
 /*---------------------------------------------------------------------------*/
-/* transport layer: generates tl_packet_t */
+/* send a data packet to all sinks */
 void
-send_msg_to_host(const message_t* data, uint8_t len)
+send_pkt(const uint8_t* data,
+         uint8_t len,
+         message_type_t type)
 {
 #define LWB_STREAM_ID_STATUS_MSG        1
 
-  tl_packet_t tl;
-  tl.header.device_id               = node_id;
-  tl.header.target_id               = LWB_RECIPIENT_HOST;
-  tl.header.payload_len             = len;
-  //msg_buffer.header.seqnr           = seq_no++;
+  /* TODO use different stream IDs for different message types */
+
+  static uint16_t seq_no = 0;
+
+  message_t msg;
+  msg.header.device_id   = node_id;
+  msg.header.type        = type;
+  msg.header.payload_len = len;
+  msg.header.seqnr       = seq_no++;
+  MSG_SET_CRC16(&msg, crc16(data, len, 0));
+
   if(data) {
-    memcpy(&tl.message, data, len);
+    memcpy(msg.payload, data, len);
   }
-  if(!lwb_put_data(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
-                   (uint8_t*)&tl, TL_HDR_LEN + tl.header.payload_len)) {
+  if(!lwb_send_pkt(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
+                   (uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN)) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
   } else {
     DEBUG_PRINT_INFO("message added to TX queue");
@@ -58,12 +66,13 @@ send_msg_to_host(const message_t* data, uint8_t len)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-get_node_health(message_t* out_msg)
+get_node_health(cc430_health_t* out_data)
 {
-  static int16_t        temp = 0;
-  static rtimer_clock_t last_energest_rst = 0;
-
-  out_msg->header.type = MSG_TYPE_CC430_HEALTH;
+  static int16_t          temp = 0;
+  static rtimer_clock_t   last_energest_rst = 0;
+  static uint16_t         last_rx_drop = 0,
+                          last_tx_drop = 0;
+  const lwb_statistics_t* lwb_stats = lwb_get_stats();
 
   while(REFCTL0 & REFGENBUSY);
   REFCTL0 |= REFON;
@@ -71,39 +80,48 @@ get_node_health(message_t* out_msg)
   __delay_cycles(MCLK_SPEED / 25000);                /* let REF settle */
 
   temp = (temp + adc_get_temp()) / 2;      /* moving average (LP filter) */
-  out_msg->cc430_health.temp = temp;
-  out_msg->cc430_health.vcc  = adc_get_vcc();
+  out_data->temp = temp;
+  out_data->vcc  = adc_get_vcc();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
 
-  glossy_get_rssi(out_msg->cc430_health.rssi);
-  out_msg->cc430_health.snr       = glossy_get_snr();
-  out_msg->cc430_health.rx_cnt    = glossy_get_n_pkts_crcok();
-  out_msg->cc430_health.per       = glossy_get_per();
-  out_msg->cc430_health.n_rx_hops = glossy_get_n_rx() |
-                                    (glossy_get_relay_cnt() << 4);
-  out_msg->cc430_health.success   = glossy_get_success_rate();
-  rtimer_clock_t now = rtimer_now_lf();
-  out_msg->cc430_health.cpu_dc = (uint16_t)
-                                 (energest_type_time(ENERGEST_TYPE_CPU) *
-                                  1000 / (now - last_energest_rst));
-  out_msg->cc430_health.rf_dc = (uint16_t)
-                                ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
-                                 energest_type_time(ENERGEST_TYPE_LISTEN)) *
-                                 1000 / (now - last_energest_rst));
+  glossy_get_rssi(out_data->lwb_rssi);
+  out_data->rf_snr        = glossy_get_snr();
+  out_data->lwb_rx_cnt    = glossy_get_n_pkts_crcok();
+  out_data->rf_per        = glossy_get_per();
+  out_data->lwb_n_rx_hops = glossy_get_n_rx() |
+                            (glossy_get_relay_cnt() << 4);
+  out_data->lwb_fsr       = glossy_get_success_rate();
+  rtimer_clock_t now      = rtimer_now_lf();
+  out_data->cpu_dc        = (uint16_t)
+                            (energest_type_time(ENERGEST_TYPE_CPU) *
+                            1000 / (now - last_energest_rst));
+  out_data->rf_dc         = (uint16_t)
+                            ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
+                            energest_type_time(ENERGEST_TYPE_LISTEN)) *
+                            1000 / (now - last_energest_rst));
+  out_data->lwb_tx_buf    = lwb_send_buffer_state();
+  out_data->lwb_rx_buf    = lwb_rcv_buffer_state();
+  out_data->lwb_tx_drop   = lwb_stats->txbuf_drop - last_tx_drop;
+  out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
+  out_data->lfxt_ticks    = rtimer_now_lf();
+  out_data->uptime        = rtimer_now_lf() / XT1CLK_SPEED;
+
 
   /* calculate the timestamp */
   rtimer_clock_t round_start;
   uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
   /* convert to microseconds */
   round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
-  out_msg->cc430_health.generation_time = lwb_time_seconds * 1000000 +
+  out_data->generation_time = lwb_time_seconds * 1000000 +
                                         round_start;
 
-  // reset values
+  /* reset values */
   last_energest_rst  = now;
   energest_type_set(ENERGEST_TYPE_CPU, 0);
   energest_type_set(ENERGEST_TYPE_TRANSMIT, 0);
   energest_type_set(ENERGEST_TYPE_LISTEN, 0);
+  last_rx_drop = lwb_stats->rxbuf_drop;
+  last_tx_drop = lwb_stats->txbuf_drop;
 
   return (sizeof(cc430_health_t) + MSG_HDR_LEN);
 }
@@ -126,10 +144,6 @@ source_init(void)
   PIN_CLR_IFG(BOLT_CONF_IND_PIN);
   PIN_INT_EN(BOLT_CONF_IND_PIN);
  #endif /* DEBUG_PORT2_INT */
-
-  DEBUG_PRINT_MSG_NOW("msg: %u, tl: %u, lwb: %u",
-		  	  	  	  sizeof(message_t), sizeof(tl_packet_t),
-					  LWB_CONF_MAX_DATA_PKT_LEN);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -137,8 +151,6 @@ source_run(void)
 {
 #if SEND_HEALTH_DATA
   static uint8_t stream_state = 0;
-  message_t msg_buffer;
-
   if(stream_state != LWB_STREAM_STATE_ACTIVE) {
 	  stream_state = lwb_stream_get_state(1);
 	  if(stream_state == LWB_STREAM_STATE_INACTIVE) {
@@ -152,12 +164,17 @@ source_run(void)
     }
   } else {
     /* generate a node health packet and schedule it for transmission */
-    send_msg_to_host(&msg_buffer, get_node_health(&msg_buffer));
+    cc430_health_t node_health;
+    if(get_node_health(&node_health)) {
+       send_pkt((const uint8_t*)&node_health, sizeof(cc430_health_t),
+                MSG_TYPE_CC430_HEALTH);
+    }
 
     /* is there a packet to read? */
-    uint8_t pkt_len = 0;
+    message_t msg_buffer;
+    uint8_t   pkt_len = 0;
     do {
-      uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer, 0, 0);
+      uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
       if(pkt_len) {
         DEBUG_PRINT_INFO("packet received (%ub)", pkt_len);
         if(msg_buffer.header.type == MSG_TYPE_LWB_CMD &&

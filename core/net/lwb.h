@@ -265,8 +265,9 @@
 #endif /* LWB_CONF_MAX_STREAM_CNT_PER_NODE */
 
 #ifndef LWB_CONF_MAX_N_STREAMS
-/* max. number of streams (bounds the required memory on the host) */
-#define LWB_CONF_MAX_N_STREAMS          32 
+/* max. number of streams (bounds the required memory on the host), must
+ * not exceed 32! */
+#define LWB_CONF_MAX_N_STREAMS          5
 #endif /* N_STREAMS_MAX */
 
 /* max. number of rounds a node backs off after sending a stream request 
@@ -347,11 +348,14 @@ typedef struct {
     uint8_t  bootstrap_cnt;
     uint16_t reset_cnt;
     uint16_t pck_cnt;     /* total number of received packets */
-    uint16_t t_sched_max; /* max. time needed to calculate the new schedule */
-    uint16_t t_proc_max;  /* max. time needed to process the rcvd data pkts */
-    uint16_t crc;         /* crc of this struct (with crc set to 0!) */
+    uint16_t t_sched_max; /* max. time needed to calc new schedule */
+    uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */
     uint32_t t_slot_last; /* last slot assignment (in seconds) */
-    uint32_t data_tot;
+    uint32_t rx_total;    /* total amount of received bytes (payload) */
+    uint16_t rxbuf_drop;  /* packets dropped due to input buffer full */
+    uint16_t txbuf_drop;  /* packets dropped due to output buffer full */
+    /* crc must be the last element! */
+    uint16_t crc;         /* crc of this struct (without the crc) */
 } lwb_statistics_t;
 
 /**
@@ -375,13 +379,14 @@ typedef enum {
 
 /**
  * @brief start the Low-Power Wireless Bus
- * @param pre_lwb_proc a pointer to a function that needs to be executed
+ * @param pre_lwb_func a pointer to a function that needs to be executed
  * before an LWB round. Set LWB_T_PREPROCESS to the worst-case 
  * execution time of this function.
- * @param pre_lwb_proc a pointer to the application task process control 
- * block (struct process)
+ * @param post_lwb_proc a pointer to the application task process control
+ * block (struct process), this process will be called (polled) at the end
+ * of an LWB round
  */
-void lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc);
+void lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc);
 
 
 /**
@@ -409,13 +414,13 @@ lwb_conn_state_t lwb_get_state(void);
  * @return 1 if successful, 0 otherwise (queue full)
  */
 #if LWB_VERSION == 2
-uint8_t lwb_put_data(const uint8_t * const data, 
-                     uint8_t len);
+uint8_t lwb_send_pkt(const uint8_t * const data,
+                      uint8_t len);
 #else
-uint8_t lwb_put_data(uint16_t recipient, 
-                     uint8_t stream_id, 
-                     const uint8_t * const data, 
-                     uint8_t len);
+uint8_t lwb_send_pkt(uint16_t recipient,
+                      uint8_t stream_id,
+                      const uint8_t * const data,
+                      uint8_t len);
 #endif
 
 /** 
@@ -432,24 +437,24 @@ uint8_t lwb_put_data(uint16_t recipient,
  * buffer
  */
 #if LWB_VERSION == 2
-uint8_t lwb_get_data(uint8_t* out_data);
+uint8_t lwb_rcv_pkt(uint8_t* out_data);
 #else
-uint8_t lwb_get_data(uint8_t* out_data, 
-                     uint16_t * const out_node_id, 
-                     uint8_t * const out_stream_id);
+uint8_t lwb_rcv_pkt(uint8_t* out_data,
+                    uint16_t * const out_node_id,
+                    uint8_t * const out_stream_id);
 #endif
 
 /**
  * @brief check the status of the receive buffer (incoming messages)
- * @return 1 if there is at least 1 message in the queue, 0 otherwise
+ * @return the number of packets in the queue
  */
-uint8_t lwb_get_rcv_buffer_state(void);
+uint8_t lwb_rcv_buffer_state(void);
 
 /**
  * @brief check the status of the send buffer (outgoing messages)
  * @return the number of remaining packets in the queue
  */
-uint8_t lwb_get_send_buffer_state(void);
+uint8_t lwb_send_buffer_state(void);
 
 /**
  * @brief schedules a stream request to be sent during the contention slot

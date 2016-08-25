@@ -82,7 +82,7 @@ send_msg(message_type_t type, uint8_t* data, uint8_t len)
     memcpy((char*)msg_buffer.payload, data, len);
   }
 
-  if(!lwb_put_data(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG, 
+  if(!lwb_send_pkt(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
                    (uint8_t*)&msg_buffer + 2, 
                    MSG_HDR_LEN + msg_buffer.header.payload_len - 2)) {
     DEBUG_PRINT_WARNING("message #%u dropped (queue full?)", seq_no - 1);
@@ -203,7 +203,7 @@ PROCESS_THREAD(app_process, ev, data)
         fw.data_crc = 0xf9c5;
         fw.crc = crc16((uint8_t*)&fw, sizeof(fw_info_t) - 2, 0);
         memcpy(msg_buffer.payload, &fw, sizeof(fw_info_t));
-        lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2, 
+        lwb_send_pkt(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2,
                      MSG_HDR_LEN + msg_buffer.header.payload_len - 2);
         state = 1;
       } else if(state == 1) {
@@ -216,7 +216,7 @@ PROCESS_THREAD(app_process, ev, data)
           msg_data->data.pktnr         = sent_pkts++;
           msg_data->header.payload_len = MSG_EXT_PAYLOAD_LEN;      
           memset(msg_data->data.payload, 'a', MSG_EXT_PAYLOAD_LEN - 2);
-          if(lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)msg_data + 2, 
+          if(lwb_send_pkt(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)msg_data + 2,
                          MSG_EXT_HDR_LEN + msg_data->header.payload_len - 2)) {
             crc = crc16(msg_data->data.payload, MSG_EXT_PAYLOAD_LEN - 2, crc);
             DEBUG_PRINT_MSG_NOW("pkt %u, crc 0x%04x", sent_pkts - 1, crc);
@@ -233,7 +233,7 @@ PROCESS_THREAD(app_process, ev, data)
         msg_buffer.header.type        = MSG_TYPE_FW_VALIDATE;
         msg_buffer.header.seqnr       = seq_no++;
         msg_buffer.header.payload_len = 0;      
-        lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2, 
+        lwb_send_pkt(LWB_RECIPIENT_BROADCAST, 0, (uint8_t*)&msg_buffer + 2,
                      MSG_HDR_LEN + msg_buffer.header.payload_len - 2);
         state = 3;
       }
@@ -242,8 +242,8 @@ PROCESS_THREAD(app_process, ev, data)
       /* analyze and print the received data */
       while(1) {
         uint16_t sender_id;
-        uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2,
-                                       &sender_id, 0);
+        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer + 2,
+                                      &sender_id, 0);
         if(pkt_len) {
           /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
           DEBUG_PRINT_MSG_NOW("data packet #%u received from node %u",
@@ -278,7 +278,7 @@ PROCESS_THREAD(app_process, ev, data)
               msg_data->data.pktnr         = pkt_ids[i];
               msg_data->header.payload_len = MSG_EXT_PAYLOAD_LEN;      
               memset(msg_data->data.payload, 'a', MSG_EXT_PAYLOAD_LEN - 2);
-              if(lwb_put_data(LWB_RECIPIENT_BROADCAST, 0, 
+              if(lwb_send_pkt(LWB_RECIPIENT_BROADCAST, 0,
                               (uint8_t*)msg_data + 2, MSG_EXT_HDR_LEN +
                               msg_data->header.payload_len - 2)) {
                 DEBUG_PRINT_MSG_NOW("pkt %u resent", pkt_ids[i]);
@@ -326,7 +326,7 @@ PROCESS_THREAD(app_process, ev, data)
                 recipient = msg_buffer.payload16[2];
               }
               DEBUG_PRINT_INFO("sending message to node %u", recipient);
-              lwb_put_data(recipient, 0,
+              lwb_send_pkt(recipient, 0,
                            (uint8_t*)&msg_buffer + 2, 
                            MSG_HDR_LEN + msg_buffer.header.payload_len - 2);              
             } else if(msg_buffer.payload16[0] == LWB_CMD_PAUSE) {
@@ -437,7 +437,7 @@ PROCESS_THREAD(app_process, ev, data)
                  (uint8_t*)get_node_health(), sizeof(health_msg_t));
         /* is there a packet to read? */      
         while(1) {
-          uint8_t pkt_len = lwb_get_data((uint8_t*)&msg_buffer + 2, 0, 0);
+          uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer + 2, 0, 0);
           if(pkt_len) {
             DEBUG_PRINT_INFO("packet received (%ub)", pkt_len);
             if(msg_buffer.header.type == MSG_TYPE_LWB_CMD &&

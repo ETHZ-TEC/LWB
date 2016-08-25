@@ -38,10 +38,8 @@
 #define __PACKET_H__
 
 
-#define TL_PKT_LEN      (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
-#define TL_HDR_LEN      5
-#define MSG_PKT_LEN     (TL_PKT_LEN - TL_HDR_LEN)
-#define MSG_HDR_LEN     1
+#define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
+#define MSG_HDR_LEN     6
 
 
 typedef enum {
@@ -49,28 +47,7 @@ typedef enum {
   LWB_CMD_PAUSE,
   LWB_CMD_SET_SCHED_PERIOD,
   LWB_CMD_SET_STATUS_PERIOD,
-} lwb_cmd_t;    
-
-typedef uint64_t timestamp_t;
-
-#pragma pack(1)         /* force alignment to 1 byte */
-
-
-typedef struct {
-  uint64_t generation_time;
-  int16_t  temp;      /* temperature value in 100x °C */
-  uint16_t vcc;       /* supply voltage (raw ADC value) */
-  uint16_t cpu_dc;    /* cpu duty cycle in per thousands */
-  uint16_t rf_dc;     /* radio duty cycle in per thousands */
-  uint16_t rx_cnt;    /* reception counter (total # successfully rcvd pkts) */
-  uint16_t n_rx_hops; /* RX count (CRC ok) + hop cnts of last Glossy flood */
-  uint8_t  per;       /* total packet error rate in percentage */
-  uint8_t  snr;       /* signal-to-noise ratio of the last reception */
-  int8_t   rssi[3];   /* RSSI values of the last Glossy flood */
-  uint8_t  success;   /* percentage of floods that were successful */
-  uint32_t local_time;/* in 32kHz ticks, rollover of ~36h */
-} cc430_health_t;
-
+} lwb_cmd_type_t;
 
 /* there are 4 message classes (2 bits required to encode) */
 typedef enum {
@@ -78,7 +55,7 @@ typedef enum {
   MSG_CLASS_STATUS,
   MSG_CLASS_DATA,
   MSG_CLASS_CMD,
-} message_class_t;
+} message_class_type_t;
 
 /* the message type (6 bits available -> 64 different types for each class) */
 typedef enum {
@@ -99,35 +76,66 @@ typedef enum {
 } message_type_t;
 
 
-/* application layer packet format (a packet is called 'message') */
+typedef uint64_t timestamp_t;
+
+
+#pragma pack(1)         /* force alignment to 1 byte */
+
+#define MSG_LEN_CC430_HEALTH  36  /* bytes */
+typedef struct {
+  uint64_t generation_time;
+  uint32_t uptime;        /* in seconds */
+  int16_t  temp;          /* temperature value in 100x °C */
+  uint16_t vcc;           /* supply voltage (raw ADC value) */
+  uint16_t cpu_dc;        /* cpu duty cycle in per thousands */
+  uint16_t rf_dc;         /* radio duty cycle in per thousands */
+  uint16_t lwb_rx_cnt;    /* reception counter (total # successfully rcvd pkts) */
+  uint16_t lwb_n_rx_hops; /* RX count (CRC ok) + hop cnts of last Glossy flood */
+  uint8_t  rf_per;        /* total packet error rate in percentage */
+  uint8_t  rf_snr;        /* signal-to-noise ratio of the last reception */
+  int8_t   lwb_rssi[3];   /* RSSI values of the last Glossy flood */
+  uint8_t  lwb_fsr;       /* LWB flood success rate */
+  uint8_t  lwb_tx_buf;    /* number of packets in the transmit buffer */
+  uint8_t  lwb_rx_buf;    /* number of packets in the receive buffer */
+  uint8_t  lwb_tx_drop;   /* dropped tx packets since last health message */
+  uint8_t  lwb_rx_drop;   /* dropped rx packets since last health message */
+  uint32_t lfxt_ticks;    /* in 32kHz ticks, rollover of ~36h */
+} cc430_health_t;
+
 
 typedef struct {
-  struct {
-    message_type_t type : 8;    /* force 1 byte */
-    /* payload length not necessary, implicitly given by message type */
-  } header;
-  union {
-    uint8_t        payload[MSG_PKT_LEN - MSG_HDR_LEN];
-    cc430_health_t cc430_health;
-    timestamp_t    timestamp;
-    /* add all other application specific packet formats here */
-  };
-} message_t;
+  lwb_cmd_type_t  type : 8;
+  uint16_t        target_id;
+  uint16_t        value;
+} lwb_cmd_t;
 
 
-/* transport layer packet format */
+/* application layer packet format (a packet is called 'message') */
 
+/* crc is calculated over the whole structure and appended to the message */
 typedef struct {
   struct {
     uint16_t       device_id;   /* sender node ID */
-    uint16_t       target_id;   /* destination node ID */
+    message_type_t type : 8;    /* force 1 byte */
     uint8_t        payload_len;
+    uint16_t       seqnr;
+    /* payload length not necessary, implicitly given by message type */
   } header;
   union {
-    uint8_t        payload[TL_PKT_LEN - TL_HDR_LEN];  /* any data */
-    message_t      message;
+    cc430_health_t cc430_health;
+    lwb_cmd_t      lwb_cmd;
+    timestamp_t    timestamp;
+    uint8_t        payload[MSG_PKT_LEN - MSG_HDR_LEN];  /* raw bytes */
   };
-} tl_packet_t;
+} message_t;
+
+#define MSG_SET_CRC16(msg, crc) \
+  (msg)->payload[(msg)->header.payload_len] = crc & 0xff; \
+  (msg)->payload[(msg)->header.payload_len + 1] = (crc >> 8) & 0xff;
+#define MSG_GET_CRC16(msg)      \
+  ((uint16_t)(msg)->payload[(msg)->header.payload_len] | \
+   (uint16_t)(msg)->payload[(msg)->header.payload_len + 1] << 8)
+
 
 #pragma pack()
 

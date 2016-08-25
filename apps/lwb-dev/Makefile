@@ -19,6 +19,12 @@ flocklab:
 	@sed -i 's/<datacc430>/<data>/' flocklab-dpp.xml
 	@rm $(CONTIKI_PROJECT).b64
 
-upload: 
-	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
+upload:
+ifdef dev
+	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update -d $(dev)
+else
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
+endif
+	
+
+	

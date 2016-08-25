@@ -94,7 +94,7 @@ PROCESS_THREAD(app_process, ev, data)
       uint8_t pkt_cnt = 0;
       uint16_t num_bytes = 0;
       while(1) {
-        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, &stream_id);
+        uint8_t pkt_len = lwb_rcv_pkt(pkt_buffer, &sender_id, &stream_id);
         if(pkt_len) {
           pkt_cnt++;
           num_bytes += pkt_len;
@@ -118,7 +118,7 @@ PROCESS_THREAD(app_process, ev, data)
         }
         /* request a stream once and send a dummy packet with the node ID */
         uint16_t id = node_id;
-        lwb_put_data(0, 1, (uint8_t*)&id, 2);  
+        lwb_send_pkt(0, 1, (uint8_t*)&id, 2);
       } else if(round_cnt == 5) {
         /* request a stream */
         lwb_stream_drop(1);     /* drop the stream with ID 1 */
@@ -128,7 +128,7 @@ PROCESS_THREAD(app_process, ev, data)
         /* we are a source node */
         static uint8_t data_pkt[LWB_CONF_MAX_DATA_PKT_LEN - 3];
         /* generate some data, keep the buffer filled */
-        while(lwb_put_data(0, 2, (uint8_t*)data_pkt,
+        while(lwb_send_pkt(0, 2, (uint8_t*)data_pkt,
                            LWB_CONF_MAX_DATA_PKT_LEN - 3));
       }
     }

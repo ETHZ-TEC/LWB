@@ -83,8 +83,8 @@ read_message(void)
     BOLT_READ(msg, msg_len);
     (void)msg_len;
     //DEBUG_PRINT_INFO("message received from BOLT (%db)", msg_len);
-    lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-    lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+    lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+    lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
     pkt_cnt += 2;
     //DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
   }
@@ -134,7 +134,7 @@ PROCESS_THREAD(app_process, ev, data)
       /* print out the received data */
       uint16_t cnt = 0;
       while(1) {
-        uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer, 0, 0);
+        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)pkt_buffer, 0, 0);
         if(pkt_len) {
           cnt++;
         } else {
@@ -181,8 +181,8 @@ PROCESS_THREAD(app_process, ev, data)
             pkt_buffer[i] = (uint8_t)random_rand();  
           }
           /* generate an event (2 packets) */
-          lwb_put_data(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-          lwb_put_data(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
+          lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
+          lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
           pkt_cnt += 2;
           DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
         } else {
@@ -204,7 +204,7 @@ PROCESS_THREAD(app_process, ev, data)
   if(node_id == 6 || node_id == 28 || node_id == 22) {
     /* generate a dummy packet to 'register' this node at the host */
     uint16_t id = node_id;
-    lwb_put_data((uint8_t*)&id, 2);
+    lwb_send_pkt((uint8_t*)&id, 2);
     pkt_cnt++;
   }
   
@@ -224,7 +224,7 @@ PROCESS_THREAD(app_process, ev, data)
       /* print out the received data */
       static uint16_t pkt_cnt = 0;
       while(1) {
-        uint8_t pkt_len = lwb_get_data((uint8_t*)pkt_buffer);
+        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)pkt_buffer);
         if(pkt_len) {
           if(pkt_buffer[0] == 6) { pkt_cnt_node1++; }
           else if(pkt_buffer[0] == 22) { pkt_cnt_node2++; }
@@ -252,7 +252,7 @@ PROCESS_THREAD(app_process, ev, data)
     } else {
       static uint16_t acks_rcvd = 0;
       /* SOURCE node */
-      if(lwb_get_data((uint8_t*)pkt_buffer) && *pkt_buffer == node_id) {
+      if(lwb_rcv_pkt((uint8_t*)pkt_buffer) && *pkt_buffer == node_id) {
         acks_rcvd++;
         DEBUG_PRINT_INFO("ack=%u", acks_rcvd);
       } 
@@ -268,8 +268,8 @@ PROCESS_THREAD(app_process, ev, data)
       if((node_id == 6 || node_id == 28 || node_id == 22) && 
          lwb_get_time(0) > (LWB_CONF_SCHED_PERIOD_IDLE * 4)) {
         /* generate an event */
-        lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
         pkt_cnt += 2;
         DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
       }
@@ -281,8 +281,8 @@ PROCESS_THREAD(app_process, ev, data)
       if(BOLT_DATA_AVAILABLE) {
         BOLT_READ(msg, msg_len);
         DEBUG_PRINT_INFO("message received from BOLT (%db)", msg_len);
-        lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        lwb_put_data((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
         pkt_cnt += 2;
         DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
       }*/

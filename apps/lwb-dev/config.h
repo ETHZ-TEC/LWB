@@ -43,7 +43,7 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         1
+#define NODE_ID                         1 //20040
 #define HOST_ID                         1
 
 #define SEND_HEALTH_DATA                1

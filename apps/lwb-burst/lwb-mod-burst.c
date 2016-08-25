@@ -269,7 +269,6 @@ uint8_t
 lwb_stats_load(void) 
 {
 #if LWB_CONF_USE_XMEM
-  uint16_t crc;
   if(!xmem_init()) { /* make sure external memory is accessible */
     return 0;
   }
@@ -278,9 +277,7 @@ lwb_stats_load(void)
      !xmem_read(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_MSG_NOW("WARNING: failed to load stats");
   }
-  crc = stats.crc;
-  stats.crc = 0;
-  if(calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t)) != crc) {
+  if(calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2) != stats.crc) {
     DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset");
     memset(&stats, 0, sizeof(lwb_statistics_t));
   }
@@ -296,8 +293,7 @@ void
 lwb_stats_save(void) 
 {
 #if LWB_CONF_USE_XMEM
-  stats.crc = 0;    /* necessary */
-  stats.crc = calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t));
+  stats.crc = calc_crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2);
   if(!xmem_write(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_WARNING("failed to write stats");
   }
@@ -661,7 +657,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
               DEBUG_PRINT_VERBOSE("packet dropped, not destined for me");      
             }
             /* update statistics */
-            stats.data_tot += pkt_len;
+            stats.rx_total += pkt_len;
             stats.pck_cnt++;
             rcvd_data_pkts++;
             /* measure time (must always be smaller than LWB_CONF_T_GAP!) */
@@ -821,15 +817,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       /* synchronize first! wait for the first schedule... */
       do {
         LWB_RCV_SCHED();
-  #if LWB_CONF_T_SILENT
-        if(rt->time - t_ref > LWB_CONF_T_SILENT) {
-          DEBUG_PRINT_MSG_NOW("no communication for %lus, enabling fail-over"
-                              " policy..", (uint32_t)
-                              (LWB_CONF_T_SILENT / RTIMER_SECOND_HF));
-          /* TODO: implement host fail-over, i.e. a source node takes over the
-           * role of the host */
-        }
-  #endif /* LWB_CONF_T_SILENT */
+        /* TODO: implement host fail-over, i.e. a source node takes over the
+         * role of the host */
         /*putchar('.');*/
       } while(!glossy_is_t_ref_updated());
       /* schedule received! */
@@ -1003,7 +992,7 @@ skip_sync:      /* add a label */
                                      stats.t_proc_max); 
             } /* else: no data received */   
   #endif /* LWB_CONF_RELAY_ONLY */
-            stats.data_tot += pkt_len; 
+            stats.rx_total += pkt_len;
             stats.pck_cnt++;
           }
         }
@@ -1257,9 +1246,9 @@ PROCESS_THREAD(lwb_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-lwb_start(void *pre_lwb_proc, void *post_lwb_proc)
+lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc)
 {
-  pre_proc = (struct process*)pre_lwb_proc;
+  pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s'\r\n", lwb_process.name);
     

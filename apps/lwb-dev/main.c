@@ -62,9 +62,9 @@ PROCESS_THREAD(app_process, ev, data)
 
   /* init */
   if(HOST_ID == node_id) {
-	host_init();
+	  host_init();
   } else {
-	source_init();
+	  source_init();
   }
 
   /* start the LWB thread */

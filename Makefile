@@ -4,6 +4,11 @@
 # and the system-wide Contiki makefile, which contains the definitions of the Contiki core system 
 # and points out to the specific Makefile of our target platform. Makefile.include must always be 
 # located in the root folder of the Contiki source tree.
+#
+# in order to use the upload command, the environment variable LD_LIBRARY_PATH must be defined 
+# (e.g. export it in ~/.bashrc) and point to the tilib file libmsp430.so, which is included in 
+# the TI Code Composer Studio or the MSPFlasher tool 
+
 CONTIKI = .
 CONTIKI_PROJECT = lwb-dev
 APPDIR = ./apps/$(CONTIKI_PROJECT)
@@ -20,6 +25,10 @@ flocklab:
 	@sed -i 's/<datacc430>/<data>/' flocklab-dpp.xml
 	@rm $(CONTIKI_PROJECT).b64
 
-upload: 
-	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
+upload:
+ifdef dev
+	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update -d $(dev)
+else
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
+endif
+

@@ -271,7 +271,6 @@ uint8_t
 lwb_stats_load(void) 
 {
 #if LWB_CONF_USE_XMEM
-  uint16_t crc;
   if(!xmem_init()) { /* make sure external memory is accessible */
     return 0;
   }
@@ -280,9 +279,7 @@ lwb_stats_load(void)
      !xmem_read(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_MSG_NOW("WARNING: failed to load stats");
   }
-  crc = stats.crc;
-  stats.crc = 0;
-  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t)) != crc) {
+  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2) != stats.crc) {
     DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset");
     memset(&stats, 0, sizeof(lwb_statistics_t));
   }
@@ -298,8 +295,7 @@ void
 lwb_stats_save(void) 
 {
 #if LWB_CONF_USE_XMEM
-  stats.crc = 0;    /* necessary */
-  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t));
+  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2);
   if(!xmem_write(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_WARNING("failed to write stats");
   }
@@ -340,6 +336,7 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
+  stats.rxbuf_drop++;
   DEBUG_PRINT_VERBOSE("in queue full");
   return 0;
 }
@@ -382,7 +379,7 @@ lwb_out_buffer_get(uint8_t* out_data)
 /* puts a message into the outgoing queue, returns 1 if successful, 
  * 0 otherwise */
 uint8_t
-lwb_put_data(uint16_t recipient, 
+lwb_send_pkt(uint16_t recipient,
              uint8_t stream_id, 
              const uint8_t * const data, 
              uint8_t len)
@@ -414,6 +411,7 @@ lwb_put_data(uint16_t recipient,
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
+  stats.txbuf_drop++;
   DEBUG_PRINT_VERBOSE("out queue full");
   return 0;
 }
@@ -421,9 +419,9 @@ lwb_put_data(uint16_t recipient,
 /* copies the oldest received message in the queue into out_data and returns 
  * the message size (in bytes) */
 uint8_t
-lwb_get_data(uint8_t* out_data, 
-             uint16_t * const out_node_id, 
-             uint8_t * const out_stream_id)
+lwb_rcv_pkt(uint8_t* out_data,
+            uint16_t * const out_node_id,
+            uint8_t * const out_stream_id)
 { 
   if(!out_data) { return 0; }
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
@@ -494,15 +492,15 @@ lwb_resend_packet(uint32_t pkt_addr)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_get_rcv_buffer_state(void)
+lwb_rcv_buffer_state(void)
 {
-  return !FIFO_EMPTY(&in_buffer);
+  return FIFO_CNT(&in_buffer);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_get_send_buffer_state(void)
+lwb_send_buffer_state(void)
 {
-  return out_buffer.count;
+  return FIFO_CNT(&out_buffer);
 }
 #endif /* LWB_CONF_RELAY_ONLY */
 /*---------------------------------------------------------------------------*/
@@ -699,7 +697,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
               DEBUG_PRINT_VERBOSE("packet dropped, not destined for me");      
             }
             /* update statistics */
-            stats.data_tot += payload_len;
+            stats.rx_total += payload_len;
             stats.pck_cnt++;
             rcvd_data_pkts++;
             /* measure time (must always be smaller than LWB_CONF_T_GAP!) */
@@ -747,7 +745,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     RTIMER_CAPTURE;
     schedule_len = lwb_sched_compute(&schedule, 
                                      streams_to_update, 
-                                     lwb_get_send_buffer_state());
+                                     lwb_send_buffer_state());
     stats.t_sched_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_sched_max);
 
     LWB_WAIT_UNTIL(t_start + LWB_CONF_T_SCHED2_START);
@@ -1040,7 +1038,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                                      stats.t_proc_max); 
             } /* else: no data received */   
   #endif /* LWB_CONF_RELAY_ONLY */
-            stats.data_tot += payload_len; 
+            stats.rx_total += payload_len;
             stats.pck_cnt++;
           }
         }
@@ -1328,7 +1326,7 @@ PROCESS_THREAD(lwb_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
+lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc)
 {
   pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;

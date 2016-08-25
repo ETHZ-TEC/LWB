@@ -162,7 +162,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 }
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
-static struct process*  pre_proc;
+static void*            pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
 /*---------------------------------------------------------------------------*/
@@ -436,9 +436,9 @@ PROCESS_THREAD(lwb_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-lwb_start(void *pre_lwb_proc, void *post_lwb_proc)
+lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
 {
-  pre_proc = (struct process*)pre_lwb_proc;
+  pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s' (contention test)\r\n", lwb_process.name);
     
