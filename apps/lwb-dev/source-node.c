@@ -47,18 +47,21 @@ send_pkt(const uint8_t* data,
 
   static uint16_t seq_no = 0;
 
+  if(!data || !len) {
+    return;
+  }
+
   message_t msg;
   msg.header.device_id   = node_id;
   msg.header.type        = type;
   msg.header.payload_len = len;
   msg.header.seqnr       = seq_no++;
-  MSG_SET_CRC16(&msg, crc16(data, len, 0));
+  memcpy(msg.payload, data, len);
+  uint16_t crc = crc16((uint8_t*)&msg, len + MSG_HDR_LEN, 0);
+  MSG_SET_CRC16(&msg, crc);
 
-  if(data) {
-    memcpy(msg.payload, data, len);
-  }
   if(!lwb_send_pkt(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
-                   (uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN)) {
+                   (uint8_t*)&msg, MSG_LEN(msg))) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
   } else {
     DEBUG_PRINT_INFO("message added to TX queue");

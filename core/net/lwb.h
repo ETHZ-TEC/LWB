@@ -261,13 +261,12 @@
 
 #ifndef LWB_CONF_MAX_N_STREAMS_PER_NODE
 /* this value may not be higher than 32! */
-#define LWB_CONF_MAX_N_STREAMS_PER_NODE 32
+#define LWB_CONF_MAX_N_STREAMS_PER_NODE 5
 #endif /* LWB_CONF_MAX_STREAM_CNT_PER_NODE */
 
 #ifndef LWB_CONF_MAX_N_STREAMS
-/* max. number of streams (bounds the required memory on the host), must
- * not exceed 32! */
-#define LWB_CONF_MAX_N_STREAMS          5
+/* max. number of streams (bounds the required memory on the host) */
+#define LWB_CONF_MAX_N_STREAMS          30
 #endif /* N_STREAMS_MAX */
 
 /* max. number of rounds a node backs off after sending a stream request 

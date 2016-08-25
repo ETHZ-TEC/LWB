@@ -41,6 +41,8 @@
 #define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
 #define MSG_HDR_LEN     6
 
+/* actual message length including CRC */
+#define MSG_LEN(msg)    ((msg).header.payload_len + MSG_HDR_LEN + 2)
 
 typedef enum {
   LWB_CMD_RESUME = 0,
@@ -81,7 +83,7 @@ typedef uint64_t timestamp_t;
 
 #pragma pack(1)         /* force alignment to 1 byte */
 
-#define MSG_LEN_CC430_HEALTH  36  /* bytes */
+// 38 bytes
 typedef struct {
   uint64_t generation_time;
   uint32_t uptime;        /* in seconds */

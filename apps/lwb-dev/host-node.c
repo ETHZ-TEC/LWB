@@ -48,24 +48,27 @@ send_msg(uint16_t recipient,
          uint8_t len,
          message_type_t type)
 {
-#define LWB_STREAM_ID_STATUS_MSG        1
+#define LWB_STREAM_ID_STATUS_MSG  1
 
   /* TODO use different stream IDs for different message types */
 
   static uint16_t seq_no = 0;
+
+  if(!data || !len) {
+    return;
+  }
 
   message_t msg;
   msg.header.device_id   = node_id;
   msg.header.type        = type;
   msg.header.payload_len = len;
   msg.header.seqnr       = seq_no++;
-  MSG_SET_CRC16(&msg, crc16(data, len, 0));
+  memcpy(msg.payload, data, len);
+  uint16_t crc = crc16(&msg, msg.header.payload_len + MSG_HDR_LEN, 0);
+  MSG_SET_CRC16(&msg, crc);
 
-  if(data) {
-    memcpy(msg.payload, data, len);
-  }
   if(!lwb_send_pkt(recipient, LWB_STREAM_ID_STATUS_MSG,
-                   (uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN)) {
+                   (uint8_t*)&msg, MSG_LEN(msg))) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
   } else {
     DEBUG_PRINT_INFO("message for node %u added to TX queue", recipient);
@@ -78,8 +81,6 @@ host_init(void)
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   SVS_DISABLE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-
-  DEBUG_PRINT_MSG_NOW("crc: 0x%04x", crc16((uint8_t*)"hello world!", 12, 0));
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -94,22 +95,23 @@ host_run(void)
   do {
     if(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
       /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-      DEBUG_PRINT_MSG_NOW("data packet received from node %u (timestamp: %lu)",
-                          msg.header.device_id, msg.cc430_health.lfxt_ticks);
+      DEBUG_PRINT_INFO("data packet received from node %u (len: %u)",
+                       msg.header.device_id, msg.header.payload_len);
       /* forward the packet: write it to BOLT */
-      BOLT_WRITE((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN);
+      BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
     }
   } while(pkt_len);
-
 
   /* handle timestamp requests */
   uint64_t time_last_req = bolt_handle_timereq();
   if(time_last_req) {
     /* write the timestamp to BOLT (convert to us) */
     bolt_msg.header.type = MSG_TYPE_TIMESTAMP;
+    bolt_msg.header.payload_len = sizeof(timestamp_t);
     bolt_msg.timestamp = time_last_req * 1000000 / ACLK_SPEED + LWB_CLOCK_OFS;
     BOLT_WRITE((uint8_t*)&bolt_msg, MSG_HDR_LEN + sizeof(timestamp_t));
   }
+
   /* msg available from BOLT? */
   uint16_t msg_cnt = 0;
   while(BOLT_DATA_AVAILABLE) {
@@ -154,7 +156,7 @@ host_run(void)
     }
   }
   if(msg_cnt) {
-    DEBUG_PRINT_MSG_NOW("%u messages read from BOLT", msg_cnt);
+    DEBUG_PRINT_INFO("%u messages read from BOLT", msg_cnt);
   }
 }
 /*---------------------------------------------------------------------------*/
