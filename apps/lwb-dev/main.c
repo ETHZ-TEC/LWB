@@ -41,10 +41,6 @@
 #include "main.h"
 
 /*---------------------------------------------------------------------------*/
-#ifdef FLOCKLAB
-#warning "---------------------- COMPILED FOR FLOCKLAB ----------------------"
-#endif /* FLOCKLAB */
-/*---------------------------------------------------------------------------*/
 #ifdef APP_TASK_ACT_PIN
 #define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
 #define TASK_SUSPENDED          PIN_CLR(APP_TASK_ACT_PIN)

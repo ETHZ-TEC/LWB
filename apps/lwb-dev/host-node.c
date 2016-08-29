@@ -40,7 +40,9 @@
 
 #include "main.h"
 
-uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];  /* tmp buffer to read from BOLT */
+static uint16_t seq_no = 0;
+/* tmp buffer to read from BOLT */
+static uint8_t  bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
 /*---------------------------------------------------------------------------*/
 void
 send_msg(uint16_t recipient,
@@ -48,11 +50,8 @@ send_msg(uint16_t recipient,
          uint8_t len,
          message_type_t type)
 {
-#define LWB_STREAM_ID_STATUS_MSG  1
-
+#define LWB_STREAM_ID_HOST  1
   /* TODO use different stream IDs for different message types */
-
-  static uint16_t seq_no = 0;
 
   if(!data || !len) {
     return;
@@ -63,11 +62,12 @@ send_msg(uint16_t recipient,
   msg.header.type        = type;
   msg.header.payload_len = len;
   msg.header.seqnr       = seq_no++;
+  msg.header.generation_time = 0;     /* currently not used */
   memcpy(msg.payload, data, len);
-  uint16_t crc = crc16(&msg, msg.header.payload_len + MSG_HDR_LEN, 0);
+  uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,0);
   MSG_SET_CRC16(&msg, crc);
 
-  if(!lwb_send_pkt(recipient, LWB_STREAM_ID_STATUS_MSG,
+  if(!lwb_send_pkt(recipient, LWB_STREAM_ID_HOST,
                    (uint8_t*)&msg, MSG_LEN(msg))) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
   } else {
@@ -81,35 +81,51 @@ host_init(void)
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   SVS_DISABLE;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
+  /* init the ADC */
+  adc_init();
+  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
 }
 /*---------------------------------------------------------------------------*/
 void
 host_run(void)
 {
-  /* for BOLT messages */
-  message_t bolt_msg;
-
   /* analyze and print the received data */
-  uint8_t pkt_len = 0;
   message_t msg;
-  do {
-    if(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
-      /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-      DEBUG_PRINT_INFO("data packet received from node %u (len: %u)",
-                       msg.header.device_id, msg.header.payload_len);
-      /* forward the packet: write it to BOLT */
-      BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
-    }
-  } while(pkt_len);
+  while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
+    /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
+    DEBUG_PRINT_INFO("data packet received from node %u (len: %u)",
+                     msg.header.device_id, msg.header.payload_len);
+    /* forward the packet: write it to BOLT */
+    BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
+  }
+
+  /* generate a health message */
+  if(get_node_health(&msg.cc430_health)) {
+    /* calculate the timestamp, convert to microseconds */
+    rtimer_clock_t round_start;
+    uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
+    round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
+    msg.header.device_id       = node_id;
+    msg.header.type            = MSG_TYPE_CC430_HEALTH;
+    msg.header.payload_len     = sizeof(cc430_health_t);
+    msg.header.seqnr           = seq_no++;
+    msg.header.generation_time = lwb_time_seconds * 1000000 + round_start;
+    uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,
+                         0);
+    MSG_SET_CRC16(&msg, crc);
+    BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
+  }
 
   /* handle timestamp requests */
   uint64_t time_last_req = bolt_handle_timereq();
   if(time_last_req) {
     /* write the timestamp to BOLT (convert to us) */
-    bolt_msg.header.type = MSG_TYPE_TIMESTAMP;
-    bolt_msg.header.payload_len = sizeof(timestamp_t);
-    bolt_msg.timestamp = time_last_req * 1000000 / ACLK_SPEED + LWB_CLOCK_OFS;
-    BOLT_WRITE((uint8_t*)&bolt_msg, MSG_HDR_LEN + sizeof(timestamp_t));
+    msg.header.type            = MSG_TYPE_TIMESTAMP;
+    msg.header.payload_len     = 0;
+    msg.header.generation_time = time_last_req * 1000000 / ACLK_SPEED +
+                                      LWB_CLOCK_OFS;
+    BOLT_WRITE((uint8_t*)&msg, MSG_HDR_LEN + sizeof(timestamp_t));
   }
 
   /* msg available from BOLT? */
@@ -119,17 +135,17 @@ host_run(void)
     BOLT_READ(bolt_buffer, msg_len);
     if(msg_len) {
       msg_cnt++;
-      memcpy(&bolt_msg, bolt_buffer, MSG_PKT_LEN);
-      if(bolt_msg.header.type == MSG_TYPE_LWB_CMD) {
-        if(bolt_msg.lwb_cmd.type == LWB_CMD_SET_SCHED_PERIOD) {
+      memcpy(&msg, bolt_buffer, MSG_PKT_LEN);
+      if(msg.header.type == MSG_TYPE_LWB_CMD) {
+        if(msg.lwb_cmd.type == LWB_CMD_SET_SCHED_PERIOD) {
           /* adjust the period */
-          lwb_sched_set_period(bolt_msg.lwb_cmd.value);
-          DEBUG_PRINT_INFO("LWB period set to %us", bolt_msg.lwb_cmd.value);
-        } else if(bolt_msg.lwb_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
+          lwb_sched_set_period(msg.lwb_cmd.value);
+          DEBUG_PRINT_INFO("LWB period set to %us", msg.lwb_cmd.value);
+        } else if(msg.lwb_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
           /* broadcast the message */
-          send_msg(bolt_msg.lwb_cmd.target_id, bolt_msg.payload,
+          send_msg(msg.lwb_cmd.target_id, msg.payload,
                    sizeof(lwb_cmd_t), MSG_TYPE_LWB_CMD);
-        } else if(bolt_msg.lwb_cmd.type == LWB_CMD_PAUSE) {
+        } else if(msg.lwb_cmd.type == LWB_CMD_PAUSE) {
           /* stop */
           while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
             BOLT_READ(bolt_buffer, msg_len);

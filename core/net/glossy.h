@@ -194,16 +194,16 @@ uint8_t glossy_get_relay_cnt_first_rx(void);
 uint16_t glossy_get_relay_cnt(void);
 
 /**
- * @brief get the packet error rate/ratio in percentages
+ * @brief get the packet error rate/ratio in percentages * 100
  */
-uint8_t glossy_get_per(void);
+uint16_t glossy_get_per(void);
 
 /**
- * @brief the number of successful floods, not counting floods where no
- * communication was detected (absence of preamble + sync byte) and the
- * initiated floods
+ * @brief flood success rate (percentage of successful floods), not counting
+ * floods where no communication was detected (absence of preamble + sync byte)
+ * and the initiated floods
  */
-uint8_t glossy_get_success_rate(void);
+uint16_t glossy_get_fsr(void);
 
 /**
  * @brief get the total number of received packets including corrupt packets

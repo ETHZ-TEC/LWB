@@ -30,12 +30,6 @@
  * Author:  Reto Da Forno
  */
 
-/**
- * Firmware version change history:
- * 
- * 
- */
-
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
@@ -43,10 +37,11 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         20040
+#define NODE_ID                         1  //20050
 #define HOST_ID                         1
 
 #define SEND_HEALTH_DATA                1
+/* rooftop: dozer is on 868.875 MHz (CH12) -> choose CH10 */
 #define RF_CONF_TX_CH                   10 
 #define ENERGEST_CONF_ON                1
 #define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
@@ -62,6 +57,7 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       62
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
+#define LWB_CONF_MAX_N_STREAMS          10      /* to keep memory usage down */
 
 /* constant clock offset for timesync */
 #define LWB_CLOCK_OFS                   -1200

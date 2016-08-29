@@ -627,20 +627,20 @@ glossy_get_relay_cnt(void)
          | ((uint16_t)(g.n_hops[2] & 0x0f) << 8);
 }
 /*---------------------------------------------------------------------------*/
-uint8_t
+uint16_t
 glossy_get_per(void)
 {
   if(g.pkt_cnt > 0) {
-    return 100 - (g.crc_ok_cnt * 100 / g.pkt_cnt);
+    return 10000 - (g.crc_ok_cnt * 10000 / g.pkt_cnt);
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-uint8_t
-glossy_get_success_rate(void)
+uint16_t
+glossy_get_fsr(void)
 {
   /* round mathematically: 99.5 shall be 100%, and 99.4 -> 99 */
-  return (uint8_t)(200 * g.n_successful_floods / g.n_floods + 1) / 2;
+  return (uint16_t)(g.n_successful_floods * 10000 / g.n_floods);
 }
 /*---------------------------------------------------------------------------*/
 uint32_t

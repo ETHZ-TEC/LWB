@@ -42,7 +42,6 @@ send_pkt(const uint8_t* data,
          message_type_t type)
 {
 #define LWB_STREAM_ID_STATUS_MSG        1
-
   /* TODO use different stream IDs for different message types */
 
   static uint16_t seq_no = 0;
@@ -56,6 +55,14 @@ send_pkt(const uint8_t* data,
   msg.header.type        = type;
   msg.header.payload_len = len;
   msg.header.seqnr       = seq_no++;
+
+  /* calculate the timestamp, convert to microseconds */
+  rtimer_clock_t round_start;
+  uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
+  round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
+  msg.header.generation_time = lwb_time_seconds * 1000000 + round_start;
+
+  /* copy the payload */
   memcpy(msg.payload, data, len);
   uint16_t crc = crc16((uint8_t*)&msg, len + MSG_HDR_LEN, 0);
   MSG_SET_CRC16(&msg, crc);
@@ -93,7 +100,7 @@ get_node_health(cc430_health_t* out_data)
   out_data->rf_per        = glossy_get_per();
   out_data->lwb_n_rx_hops = glossy_get_n_rx() |
                             (glossy_get_relay_cnt() << 4);
-  out_data->lwb_fsr       = glossy_get_success_rate();
+  out_data->lwb_fsr       = glossy_get_fsr();
   rtimer_clock_t now      = rtimer_now_lf();
   out_data->cpu_dc        = (uint16_t)
                             (energest_type_time(ENERGEST_TYPE_CPU) *
@@ -108,15 +115,6 @@ get_node_health(cc430_health_t* out_data)
   out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
   out_data->lfxt_ticks    = rtimer_now_lf();
   out_data->uptime        = rtimer_now_lf() / XT1CLK_SPEED;
-
-
-  /* calculate the timestamp */
-  rtimer_clock_t round_start;
-  uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
-  /* convert to microseconds */
-  round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
-  out_data->generation_time = lwb_time_seconds * 1000000 +
-                                        round_start;
 
   /* reset values */
   last_energest_rst  = now;

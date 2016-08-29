@@ -39,7 +39,7 @@
 
 
 #define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
-#define MSG_HDR_LEN     6
+#define MSG_HDR_LEN     14
 
 /* actual message length including CRC */
 #define MSG_LEN(msg)    ((msg).header.payload_len + MSG_HDR_LEN + 2)
@@ -83,20 +83,19 @@ typedef uint64_t timestamp_t;
 
 #pragma pack(1)         /* force alignment to 1 byte */
 
-// 38 bytes
+// 32 bytes
 typedef struct {
-  uint64_t generation_time;
   uint32_t uptime;        /* in seconds */
   int16_t  temp;          /* temperature value in 100x °C */
   uint16_t vcc;           /* supply voltage (raw ADC value) */
   uint16_t cpu_dc;        /* cpu duty cycle in per thousands */
   uint16_t rf_dc;         /* radio duty cycle in per thousands */
-  uint16_t lwb_rx_cnt;    /* reception counter (total # successfully rcvd pkts) */
-  uint16_t lwb_n_rx_hops; /* RX count (CRC ok) + hop cnts of last Glossy flood */
-  uint8_t  rf_per;        /* total packet error rate in percentage */
+  uint16_t lwb_rx_cnt;    /* RX counter (total # successfully rcvd pkts) */
+  uint16_t lwb_n_rx_hops; /* RX count + hop cnts of last Glossy flood */
+  uint16_t rf_per;        /* total packet error rate in percentage * 100 */
   uint8_t  rf_snr;        /* signal-to-noise ratio of the last reception */
   int8_t   lwb_rssi[3];   /* RSSI values of the last Glossy flood */
-  uint8_t  lwb_fsr;       /* LWB flood success rate */
+  uint16_t lwb_fsr;       /* LWB flood success rate in percentage * 100 */
   uint8_t  lwb_tx_buf;    /* number of packets in the transmit buffer */
   uint8_t  lwb_rx_buf;    /* number of packets in the receive buffer */
   uint8_t  lwb_tx_drop;   /* dropped tx packets since last health message */
@@ -121,7 +120,7 @@ typedef struct {
     message_type_t type : 8;    /* force 1 byte */
     uint8_t        payload_len;
     uint16_t       seqnr;
-    /* payload length not necessary, implicitly given by message type */
+    uint64_t       generation_time;
   } header;
   union {
     cc430_health_t cc430_health;
@@ -135,6 +134,33 @@ typedef struct {
   (msg)->payload[(msg)->header.payload_len] = crc & 0xff; \
   (msg)->payload[(msg)->header.payload_len + 1] = (crc >> 8) & 0xff;
 #define MSG_GET_CRC16(msg)      \
+  ((uint16_t)(msg)->payload[(msg)->header.payload_len] | \
+   (uint16_t)(msg)->payload[(msg)->header.payload_len + 1] << 8)
+
+
+/* for FUTURE use: extended message type with smaller header (set last bit
+ * of message type to indicate an extended message) */
+
+#define MSG_EXT_PKT_LEN   (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
+#define MSG_EXT_HDR_LEN   4
+#define MSG_EXT_LEN(msg)  ((msg).header.payload_len + MSG_EXT_HDR_LEN + 2)
+
+typedef struct {
+  struct {
+    uint16_t       device_id;   /* sender node ID */
+    /* MSB of type must be set! */
+    message_type_t type : 8;    /* force 1 byte */
+    uint8_t        payload_len;
+  } header;
+  union {
+    uint8_t        payload[MSG_EXT_PKT_LEN - MSG_EXT_HDR_LEN];  /* raw bytes */
+  };
+} message_ext_t;
+
+#define MSG_EXT_SET_CRC16(msg, crc) \
+  (msg)->payload[(msg)->header.payload_len] = crc & 0xff; \
+  (msg)->payload[(msg)->header.payload_len + 1] = (crc >> 8) & 0xff;
+#define MSG_EXT_GET_CRC16(msg)      \
   ((uint16_t)(msg)->payload[(msg)->header.payload_len] | \
    (uint16_t)(msg)->payload[(msg)->header.payload_len + 1] << 8)
 
