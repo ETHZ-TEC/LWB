@@ -83,7 +83,7 @@ typedef uint64_t timestamp_t;
 
 #pragma pack(1)         /* force alignment to 1 byte */
 
-// 32 bytes
+// 34 bytes
 typedef struct {
   uint32_t uptime;        /* in seconds */
   int16_t  temp;          /* temperature value in 100x °C */
@@ -100,6 +100,8 @@ typedef struct {
   uint8_t  lwb_rx_buf;    /* number of packets in the receive buffer */
   uint8_t  lwb_tx_drop;   /* dropped tx packets since last health message */
   uint8_t  lwb_rx_drop;   /* dropped rx packets since last health message */
+  uint8_t  lwb_bootstrap_cnt;
+  uint8_t  lwb_sleep_cnt;
   uint32_t lfxt_ticks;    /* in 32kHz ticks, rollover of ~36h */
 } cc430_health_t;
 

@@ -570,10 +570,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     global_time = schedule.time;
     reception_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
-    LWB_SEND_SCHED();            /* send the previously computed schedule */
+    LWB_SEND_SCHED();               /* send the previously computed schedule */
+
     glossy_rssi = glossy_get_rssi(0);
-    stats.relay_cnt = glossy_get_relay_cnt_first_rx();
-    slot_idx = 0;     /* reset the packet counter */
+    slot_idx    = 0;     /* reset the packet counter */
     
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
@@ -754,10 +754,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if LWB_CONF_TIME_SCALE == 1
   static rtimer_clock_t t_ref_last;
   static int32_t  drift = 0;
+  static uint16_t period_last = LWB_CONF_SCHED_PERIOD_MIN;
 #endif /* LWB_CONF_TIME_SCALE == 1 */
   static int32_t  drift_last = 0;  
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static uint8_t  slot_idx;
+  static uint8_t  relay_cnt_first_rx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
   static uint8_t  rounds_to_wait = 0; 
@@ -771,8 +773,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state        = BOOTSTRAP;
-  stats.period_last = LWB_CONF_SCHED_PERIOD_MIN;
+  sync_state = BOOTSTRAP;
   
   while(1) {
       
@@ -865,7 +866,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         
       static uint8_t i;  /* must be static */      
       slot_idx = 0;   /* reset the packet counter */
-      stats.relay_cnt = glossy_get_relay_cnt_first_rx();     
+      relay_cnt_first_rx = glossy_get_relay_cnt_first_rx();
 #if LWB_CONF_SCHED_COMPRESS
       lwb_sched_uncompress((uint8_t*)schedule.slot, 
                            LWB_SCHED_N_SLOTS(&schedule));
@@ -1051,17 +1052,18 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* t_ref can't be used in this case -> use t_ref_lf instead */
-    drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)stats.period_last *
-                       RTIMER_SECOND_LF)) << 8) / (int32_t)stats.period_last;
+    drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)period_last *
+                       RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
     t_ref_last = t_ref_lf;     
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
-                      RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
+    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
+                      RTIMER_SECOND_HF)) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
+    period_last = schedule.period;
 #endif /* LWB_CONF_TIME_SCALE */
     
-    stats.period_last = schedule.period;
     if(sync_state > SYNCED_2) {
       stats.unsynced_cnt++;
     }
@@ -1075,7 +1077,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      LWB_STREAMS_ACTIVE, 
                      stats.t_proc_max,
                      stats.pck_cnt,
-                     stats.relay_cnt, 
+                     relay_cnt_first_rx,
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
 #if LWB_CONF_USE_LF_FOR_WAKEUP

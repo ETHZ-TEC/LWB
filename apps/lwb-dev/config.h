@@ -42,7 +42,7 @@
 
 #define SEND_HEALTH_DATA                1
 /* rooftop: dozer is on 868.875 MHz (CH12) -> choose CH10 */
-#define RF_CONF_TX_CH                   10 
+#define RF_CONF_TX_CH                   2
 #define ENERGEST_CONF_ON                1
 #define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm

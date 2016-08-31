@@ -113,6 +113,8 @@ get_node_health(cc430_health_t* out_data)
   out_data->lwb_rx_buf    = lwb_rcv_buffer_state();
   out_data->lwb_tx_drop   = lwb_stats->txbuf_drop - last_tx_drop;
   out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
+  out_data->lwb_sleep_cnt = lwb_stats->sleep_cnt;
+  out_data->lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
   out_data->lfxt_ticks    = rtimer_now_lf();
   out_data->uptime        = rtimer_now_lf() / XT1CLK_SPEED;
 

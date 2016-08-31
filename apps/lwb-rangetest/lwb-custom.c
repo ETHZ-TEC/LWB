@@ -809,18 +809,19 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static rtimer_clock_t t_ref_lf;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
-  static int32_t  drift = 0;
-  static int32_t  drift_last = 0;  
+  static int32_t  drift;
+  static int32_t  drift_last;
+  static uint16_t period_last;
   static uint8_t  slot_idx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
-  static uint8_t  rounds_to_wait = 0; 
+  static uint8_t  rounds_to_wait;
 #endif /* LWB_CONF_RELAY_ONLY */
   static int8_t   glossy_snr = 0;
   static const void* callback_func = lwb_thread_src;
 #if LWB_CONF_DATA_ACK
-  static uint16_t first_slot = 0,
-                  num_slots = 0;
+  static uint16_t first_slot,
+                  num_slots;
 #endif /* LWB_CONF_DATA_ACK */
   
   PT_BEGIN(&lwb_pt);   /* declare variables before this statement! */
@@ -829,8 +830,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state        = BOOTSTRAP;
-  stats.period_last = LWB_CONF_SCHED_PERIOD_MIN;
+  sync_state  = BOOTSTRAP;
+  period_last = LWB_CONF_SCHED_PERIOD_MIN;
   
   while(1) {
       
@@ -1192,17 +1193,17 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* t_ref can't be used in this case -> use t_ref_lf instead */
-    drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)stats.period_last *
-                       RTIMER_SECOND_LF)) << 8) / (int32_t)stats.period_last;
+    drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)period_last *
+                       RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
     t_ref_last = t_ref_lf;     
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
-                      RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
+    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
+                      RTIMER_SECOND_HF)) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_TIME_SCALE */
     
-    stats.period_last = schedule.period;
+    period_last = schedule.period;
     if(sync_state > SYNCED_2) {
       stats.unsynced_cnt++;
     }

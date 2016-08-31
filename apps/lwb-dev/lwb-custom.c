@@ -141,8 +141,8 @@ lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] =
 static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = 
 { "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN", "USYN2" };
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
-/* STATE:      BOOTSTRAP,        QUASI_SYNCED,      SYNCED,           SYNCED_2,         MISSED,             UNSYNCED,           UNSYNCED2 */
-/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD,  LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3
+/* STATE:      BOOTSTRAP,        QUASI_SYNCED,       SYNCED,           SYNCED_2,         MISSED,             UNSYNCED,           UNSYNCED2 */
+/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3
 };
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -557,7 +557,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static uint8_t schedule_len, 
                  payload_len;
   static uint8_t rcvd_data_pkts;
-  static int8_t  glossy_rssi = 0;
+  static int8_t  glossy_rssi;
   static const void* callback_func = lwb_thread_host;
 #if LWB_CONF_DATA_ACK
   static uint8_t d_ack[(LWB_CONF_MAX_DATA_SLOTS + 7) / 8] = { 0 };
@@ -595,12 +595,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 
 #if LWB_CONF_USE_LF_FOR_WAKEUP 
     t_start_lf = rt->time; 
-    rt->time = rtimer_now_hf();
-    t_start = rt->time;
+    rt->time   = rtimer_now_hf();
+    t_start    = rt->time;
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     /* set the start time of the round to the expiration time of the last 
      * scheduled timeout */
-    t_start = rt->time;
+    t_start    = rt->time;
 #endif  /* LWB_CONF_USE_LF_FOR_WAKEUP */
         
     /* --- COMMUNICATION ROUND STARTS --- */
@@ -609,10 +609,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     reception_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
     LWB_SEND_SCHED();            /* send the previously computed schedule */
-    glossy_rssi = glossy_get_rssi(0);
-    stats.relay_cnt = glossy_get_relay_cnt_first_rx();
-    slot_idx = 0;     /* reset the packet counter */
     
+    glossy_rssi = glossy_get_rssi(0);
+    slot_idx    = 0;     /* reset the packet counter */
+
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
     xmem_wakeup();    
@@ -810,12 +810,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static rtimer_clock_t t_ref_lf;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
-  static int32_t  drift = 0;
-  static int32_t  drift_last = 0;  
+  static int32_t  drift;
+  static int32_t  drift_last;
+  static uint16_t period_last;
   static uint8_t  slot_idx;
+  static uint8_t  relay_cnt_first_rx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
-  static uint8_t  rounds_to_wait = 0; 
+  static uint8_t  rounds_to_wait;
 #endif /* LWB_CONF_RELAY_ONLY */
   static int8_t   glossy_snr = 0;
   static const void* callback_func = lwb_thread_src;
@@ -830,8 +832,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state        = BOOTSTRAP;
-  stats.period_last = LWB_CONF_SCHED_PERIOD_MIN;
+  sync_state  = BOOTSTRAP;
+  period_last = LWB_CONF_SCHED_PERIOD_MIN;
   
   while(1) {
       
@@ -869,6 +871,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         LWB_RCV_SCHED();
         if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT) {
           DEBUG_PRINT_MSG_NOW("communication timeout, going to sleep...");
+          stats.sleep_cnt++;
           LWB_BEFORE_DEEPSLEEP();
           LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
           t_ref = rtimer_now_hf();
@@ -927,8 +930,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     if(sync_state == SYNCED || sync_state == UNSYNCED) {
         
       static uint8_t i;  /* must be static */      
-      slot_idx = 0;   /* reset the packet counter */
-      stats.relay_cnt = glossy_get_relay_cnt_first_rx();     
+      slot_idx           = 0;   /* reset the packet counter */
+      relay_cnt_first_rx = glossy_get_relay_cnt_first_rx();
   #if LWB_CONF_SCHED_COMPRESS
       lwb_sched_uncompress((uint8_t*)schedule.slot, 
                            LWB_SCHED_N_SLOTS(&schedule));
@@ -1179,17 +1182,17 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if (LWB_CONF_TIME_SCALE == 1)  /* only calc drift if time scale is not used */
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* t_ref can't be used in this case -> use t_ref_lf instead */
-    drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)stats.period_last *
-                       RTIMER_SECOND_LF)) << 8) / (int32_t)stats.period_last;
+    drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)period_last *
+                       RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
     t_ref_last = t_ref_lf;     
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)stats.period_last *
-                      RTIMER_SECOND_HF)) / (int32_t)stats.period_last;
+    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
+                      RTIMER_SECOND_HF)) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #endif /* LWB_CONF_TIME_SCALE */
     
-    stats.period_last = schedule.period;
+    period_last = schedule.period;
     if(sync_state > SYNCED_2) {
       stats.unsynced_cnt++;
     }
@@ -1203,7 +1206,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      LWB_STREAMS_ACTIVE, 
                      stats.t_proc_max,
                      stats.pck_cnt,
-                     stats.relay_cnt, 
+                     relay_cnt_first_rx,
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
 #if LWB_CONF_USE_LF_FOR_WAKEUP

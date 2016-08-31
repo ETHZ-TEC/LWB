@@ -217,8 +217,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #endif /* LWB_AFTER_DEEPSLEEP */
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
-static struct process*  pre_proc;
 static struct process*  post_proc;
+static void*            pre_proc;
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   reception_timestamp;
 static uint32_t         global_time;
@@ -365,7 +365,7 @@ lwb_out_buffer_get(uint8_t* out_data)
 /* puts a message into the outgoing queue, returns 1 if successful, 
  * 0 otherwise */
 uint8_t
-lwb_put_data(uint16_t recipient, 
+lwb_send_pkt(uint16_t recipient,
              uint8_t stream_id, 
              const uint8_t * const data, 
              uint8_t len)
@@ -403,9 +403,9 @@ lwb_put_data(uint16_t recipient,
 /* copies the oldest received message in the queue into out_data and returns 
  * the message size (in bytes) */
 uint8_t
-lwb_get_data(uint8_t* out_data, 
-             uint16_t * const out_node_id, 
-             uint8_t * const out_stream_id)
+lwb_rcv_pkt(uint8_t* out_data,
+            uint16_t * const out_node_id,
+            uint8_t * const out_stream_id)
 { 
   if(!out_data) { return 0; }
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
@@ -760,19 +760,19 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static uint32_t t_slot = LWB_CONF_T_DATA;
   static uint32_t t_sched_last = 0;
-  static int32_t drift = 0;
-  static int16_t drift_last = 0;
-  static int16_t drift_ppm = 0;
+  static int32_t  drift = 0;
+  static int16_t  drift_last = 0;
+  static int16_t  drift_ppm = 0;
   static uint16_t extra_ticks = 0;
-  static uint8_t slot_idx;
+  static uint8_t  slot_idx;
 #if !LWB_CONF_RELAY_ONLY
-  static uint8_t payload_len;
-  static uint8_t rounds_to_wait = 0;
+  static uint8_t  payload_len;
+  static uint8_t  rounds_to_wait = 0;
 #endif /* LWB_CONF_RELAY_ONLY */
 #if LWB_CONF_SKIP_SCHED > 1
-  static uint8_t round_cnt = 0;
+  static uint8_t  round_cnt = 0;
 #endif /* LWB_CONF_SKIP_SCHED */
-  static int8_t  glossy_snr = 0;
+  static int8_t   glossy_snr = 0;
   static const void* callback_func = lwb_thread_src;
   
   PT_BEGIN(&lwb_pt);   /* declare variables before this statement! */
@@ -781,8 +781,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state    = BOOTSTRAP;
-  stats.period_last = LWB_CONF_SCHED_PERIOD_MIN;
+  sync_state  = BOOTSTRAP;
   
   while(1) {
       
@@ -1132,7 +1131,6 @@ skip_sync:      /* add a label */
   #endif /* LWB_CONF_SKIP_SCHED */
 #endif /* LWB_CONF_TIME_SCALE */
       
-    stats.period_last = schedule.period;
     if(sync_state == UNSYNCED) {
       stats.unsynced_cnt++;
     }

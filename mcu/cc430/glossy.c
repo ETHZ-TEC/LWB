@@ -630,7 +630,7 @@ glossy_get_relay_cnt(void)
 uint16_t
 glossy_get_per(void)
 {
-  if(g.pkt_cnt > 0) {
+  if(g.pkt_cnt) {
     return 10000 - (g.crc_ok_cnt * 10000 / g.pkt_cnt);
   }
   return 0;
@@ -639,8 +639,10 @@ glossy_get_per(void)
 uint16_t
 glossy_get_fsr(void)
 {
-  /* round mathematically: 99.5 shall be 100%, and 99.4 -> 99 */
-  return (uint16_t)(g.n_successful_floods * 10000 / g.n_floods);
+  if(g.n_floods) {
+    return (uint16_t)(g.n_successful_floods * 10000 / g.n_floods);
+  }
+  return 10000;
 }
 /*---------------------------------------------------------------------------*/
 uint32_t
@@ -725,15 +727,10 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
      * g.header */
     uint8_t *payload = pkt + GLOSSY_HEADER_LEN(g.header.pkt_type);
 
-    if(WITH_RELAY_CNT()) {
-      /* the relay counter is part of the header */
-      if(g.n_rx == 0) {
-        /* store the relay counter corresponding to the first reception */
-        g.relay_cnt_first_rx = g.header.relay_cnt;
-      }
-      /* increment the relay counter */
-      g.header.relay_cnt++;
-    }
+    /* store the relay counter corresponding to the first reception */
+    uint8_t relay_cnt = g.header.relay_cnt;
+    /* increment the relay counter */
+    g.header.relay_cnt++;
 
     if((GET_N_TX_MAX(g.header.pkt_type) == 0) ||
        (g.n_tx < GET_N_TX_MAX(g.header.pkt_type))) {
@@ -747,10 +744,16 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
       glossy_stop();
     }
 
-    /* get the RSSI value */
-    if(WITH_RELAY_CNT() && g.n_rx < 3) {
-      g.rssi[g.n_rx] = rf1a_get_last_packet_rssi();
-      g.n_hops[g.n_rx] = g.header.relay_cnt - 1;
+    if(WITH_RELAY_CNT()) {
+      /* the relay counter is part of the header */
+      if(g.n_rx == 0) {
+        g.relay_cnt_first_rx = relay_cnt;
+      }
+      /* get the RSSI value */
+      if(g.n_rx < 3) {
+        g.rssi[g.n_rx] = rf1a_get_last_packet_rssi();
+        g.n_hops[g.n_rx] = g.header.relay_cnt - 1;
+      }
     }
     g.rssi_sum += rf1a_get_last_packet_rssi();
     

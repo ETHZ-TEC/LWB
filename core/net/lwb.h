@@ -342,10 +342,10 @@
  */
 typedef struct {
     uint8_t  relay_cnt;
-    uint8_t  period_last;
     uint8_t  unsynced_cnt;
     uint8_t  bootstrap_cnt;
-    uint16_t reset_cnt;
+    uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
+    uint8_t  reset_cnt;
     uint16_t pck_cnt;     /* total number of received packets */
     uint16_t t_sched_max; /* max. time needed to calc new schedule */
     uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */
