@@ -40,19 +40,24 @@
 
 
 #define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
-#define MSG_HDR_LEN     14
+#define MSG_HDR_LEN     16
+#define MSG_PAYLOAD_LEN (MSG_PKT_LEN - MSG_HDR_LEN - 2)
 
 /* actual message length including CRC */
 #define MSG_LEN(msg)    ((msg).header.payload_len + MSG_HDR_LEN + 2)
+
+/* special (reserved) device IDs */
+#define DEVICE_ID_SINK        0
+#define DEVICE_ID_BROADCAST   0xffff
 
 typedef enum {
   LWB_CMD_RESUME = 0,
   LWB_CMD_PAUSE,
   LWB_CMD_SET_SCHED_PERIOD,
   LWB_CMD_SET_STATUS_PERIOD,
-} lwb_cmd_type_t;
+} comm_cmd_type_t;
 
-/* there are 4 message classes (2 bits required to encode) */
+/* there are 4 message classes */
 typedef enum {
   MSG_CLASS_EVENT = 0,
   MSG_CLASS_STATUS,
@@ -60,15 +65,14 @@ typedef enum {
   MSG_CLASS_CMD,
 } message_class_type_t;
 
-/* the message type (6 bits available -> 64 different types for each class) */
+/* the message type (7 bits available) */
 typedef enum {
   MSG_TYPE_INVALID = 0,
-  MSG_TYPE_TIMESTAMP,
-  MSG_TYPE_CC430_HEALTH,
-  MSG_TYPE_ERROR,
-  MSG_TYPE_WARNING,
-  MSG_TYPE_INFO,
-  MSG_TYPE_LWB_CMD,
+  MSG_TYPE_TIMESYNC = 1,
+  MSG_TYPE_LOG = 2,
+  MSG_TYPE_COMM_CMD = 10,
+  MSG_TYPE_COMM_HEALTH = 11,
+
   MSG_TYPE_FW_INFO,
   MSG_TYPE_FW_DATA,
   MSG_TYPE_FW_VALIDATE,
@@ -104,14 +108,13 @@ typedef struct {
   uint8_t  lwb_bootstrap_cnt;
   uint8_t  lwb_sleep_cnt;
   uint32_t lfxt_ticks;    /* in 32kHz ticks, rollover of ~36h */
-} cc430_health_t;
+} comm_health_t;
 
 
 typedef struct {
-  lwb_cmd_type_t  type : 8;
-  uint16_t        target_id;
-  uint16_t        value;
-} lwb_cmd_t;
+  comm_cmd_type_t  type : 8;
+  uint16_t         value;
+} comm_cmd_t;
 
 
 /* application layer packet format (a packet is called 'message') */
@@ -122,14 +125,15 @@ typedef struct {
     uint16_t       device_id;   /* sender node ID */
     message_type_t type : 8;    /* force 1 byte */
     uint8_t        payload_len;
+    uint16_t       target_id;
     uint16_t       seqnr;
     uint64_t       generation_time;
   } header;
   union {
-    cc430_health_t cc430_health;
-    lwb_cmd_t      lwb_cmd;
-    uint8_t        payload[MSG_PKT_LEN - MSG_HDR_LEN];  /* raw bytes */
-    uint16_t       payload16[(MSG_PKT_LEN - MSG_HDR_LEN) / 2];
+    comm_health_t  comm_health;
+    comm_cmd_t     comm_cmd;
+    uint8_t        payload[MSG_PAYLOAD_LEN];  /* raw bytes */
+    uint16_t       payload16[MSG_PAYLOAD_LEN / 2];
   };
 } message_t;
 
@@ -144,9 +148,10 @@ typedef struct {
 /* for FUTURE use: extended message type with smaller header (set last bit
  * of message type to indicate an extended message) */
 
-#define MSG_EXT_PKT_LEN   (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
-#define MSG_EXT_HDR_LEN   4
-#define MSG_EXT_LEN(msg)  ((msg).header.payload_len + MSG_EXT_HDR_LEN + 2)
+#define MSG_EXT_PKT_LEN      (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
+#define MSG_EXT_HDR_LEN      4
+#define MSG_EXT_PAYLOAD_LEN  (MSG_EXT_PKT_LEN - MSG_EXT_HDR_LEN - 2)
+#define MSG_EXT_LEN(msg)     ((msg).header.payload_len + MSG_EXT_HDR_LEN + 2)
 
 typedef struct {
   struct {
@@ -156,7 +161,7 @@ typedef struct {
     uint8_t        payload_len;
   } header;
   union {
-    uint8_t        payload[MSG_EXT_PKT_LEN - MSG_EXT_HDR_LEN];  /* raw bytes */
+    uint8_t        payload[MSG_EXT_PAYLOAD_LEN];  /* raw bytes */
   };
 } message_ext_t;
 

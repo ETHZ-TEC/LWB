@@ -667,9 +667,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             /* measure the time it takes to process the received message */
             RTIMER_CAPTURE;   
             if(glossy_payload.data_pkt.recipient == node_id || 
-               glossy_payload.data_pkt.recipient == LWB_RECIPIENT_SINKS ||
-               glossy_payload.data_pkt.recipient == LWB_RECIPIENT_BROADCAST || 
-               glossy_payload.data_pkt.recipient == LWB_RECIPIENT_HOST) {
+               glossy_payload.data_pkt.recipient == LWB_RECIPIENT_SINK ||
+               glossy_payload.data_pkt.recipient == LWB_RECIPIENT_BROADCAST) {
               /* is it a stream request? (piggyback on data packet) */
               if(LWB_INVALID_STREAM_ID == glossy_payload.data_pkt.stream_id) {
                 DEBUG_PRINT_VERBOSE("piggyback stream request from node %u", 

@@ -54,6 +54,7 @@ send_pkt(const uint8_t* data,
   msg.header.device_id   = node_id;
   msg.header.type        = type;
   msg.header.payload_len = len;
+  msg.header.target_id   = DEVICE_ID_SINK;
   msg.header.seqnr       = seq_no++;
 
   /* calculate the timestamp, convert to microseconds */
@@ -67,7 +68,7 @@ send_pkt(const uint8_t* data,
   uint16_t crc = crc16((uint8_t*)&msg, len + MSG_HDR_LEN, 0);
   MSG_SET_CRC16(&msg, crc);
 
-  if(!lwb_send_pkt(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
+  if(!lwb_send_pkt(LWB_RECIPIENT_SINK, LWB_STREAM_ID_STATUS_MSG,
                    (uint8_t*)&msg, MSG_LEN(msg))) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
   } else {
@@ -76,7 +77,7 @@ send_pkt(const uint8_t* data,
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-get_node_health(cc430_health_t* out_data)
+get_node_health(comm_health_t* out_data)
 {
   static int16_t          temp = 0;
   static rtimer_clock_t   last_energest_rst = 0;
@@ -126,7 +127,7 @@ get_node_health(cc430_health_t* out_data)
   last_rx_drop = lwb_stats->rxbuf_drop;
   last_tx_drop = lwb_stats->txbuf_drop;
 
-  return (sizeof(cc430_health_t) + MSG_HDR_LEN);
+  return (sizeof(comm_health_t) + MSG_HDR_LEN);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -167,10 +168,10 @@ source_run(void)
     }
   } else {
     /* generate a node health packet and schedule it for transmission */
-    cc430_health_t node_health;
+    comm_health_t node_health;
     if(get_node_health(&node_health)) {
-       send_pkt((const uint8_t*)&node_health, sizeof(cc430_health_t),
-                MSG_TYPE_CC430_HEALTH);
+       send_pkt((const uint8_t*)&node_health, sizeof(comm_health_t),
+                MSG_TYPE_COMM_HEALTH);
     }
 
     /* is there a packet to read? */
@@ -180,12 +181,11 @@ source_run(void)
       uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
       if(pkt_len) {
         DEBUG_PRINT_INFO("packet received (%ub)", pkt_len);
-        if(msg_buffer.header.type == MSG_TYPE_LWB_CMD &&
-           msg_buffer.payload[0] == LWB_CMD_SET_STATUS_PERIOD) {
-          // change health/status report interval
-          lwb_stream_req_t my_stream = { node_id, 0,
-                         LWB_STREAM_ID_STATUS_MSG,
-                         msg_buffer.payload[2] };
+        if(msg_buffer.header.type == MSG_TYPE_COMM_CMD &&
+           msg_buffer.comm_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
+          /* change health/status report interval */
+          lwb_stream_req_t my_stream = { node_id, 0, LWB_STREAM_ID_STATUS_MSG,
+                                         msg_buffer.payload[2] };
           lwb_request_stream(&my_stream, 0);
         }
       }

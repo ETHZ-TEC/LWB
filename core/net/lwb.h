@@ -325,8 +325,7 @@
                                      (2 * LWB_CONF_TX_CNT_DATA) - 2) * \
                                      LWB_T_HOP(len))
                                                                          
-#define LWB_RECIPIENT_HOST          0x0000  /* to the host */
-#define LWB_RECIPIENT_SINKS         0xfffe  /* to all sinks */
+#define LWB_RECIPIENT_SINK          0x0000  /* to all sinks and the host */
 #define LWB_RECIPIENT_BROADCAST     0xffff  /* to all nodes / sinks */
 
 #define LWB_RECIPIENT_GROUP_MASK    0xf000  /* group ID mask */

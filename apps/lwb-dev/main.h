@@ -47,7 +47,7 @@ void source_init(void);
 void host_run(void);
 void source_run(void);
 /* defined in source-node.c, but also used by the host node */
-uint8_t get_node_health(cc430_health_t* out_data);
+uint8_t get_node_health(comm_health_t* out_data);
 
 /* the static scheduler implements the following function: */
 void lwb_sched_set_period(uint16_t period);

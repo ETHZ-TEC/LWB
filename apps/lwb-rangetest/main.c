@@ -82,7 +82,7 @@ send_msg(message_type_t type, uint8_t* data, uint8_t len)
     memcpy((char*)msg_buffer.payload, data, len);
   }
 
-  if(!lwb_send_pkt(LWB_RECIPIENT_SINKS, LWB_STREAM_ID_STATUS_MSG,
+  if(!lwb_send_pkt(LWB_RECIPIENT_SINK, LWB_STREAM_ID_STATUS_MSG,
                    (uint8_t*)&msg_buffer + 2, 
                    MSG_HDR_LEN + msg_buffer.header.payload_len - 2)) {
     DEBUG_PRINT_WARNING("message #%u dropped (queue full?)", seq_no - 1);
@@ -294,10 +294,10 @@ PROCESS_THREAD(app_process, ev, data)
         }
       }
       /* handle timestamp requests */
-      uint64_t time_last_req = bolt_handle_timereq();
-      if(time_last_req) {
+      uint64_t time_last_req = 0;
+      if(bolt_handle_timereq(&time_last_req)) {
         /* write the timestamp to BOLT (convert to us) */
-        msg_buffer.header.type            = MSG_TYPE_TIMESTAMP;
+        msg_buffer.header.type            = MSG_TYPE_TIMESYNC;
         msg_buffer.header.generation_time = time_last_req * 1000000 /
                                             ACLK_SPEED + LWB_CLOCK_OFS;
         msg_buffer.header.payload_len     = 0;
@@ -313,7 +313,7 @@ PROCESS_THREAD(app_process, ev, data)
         if(msg_len) {
           msg_cnt++;
           memcpy(&msg_buffer, bolt_buffer, MSG_MAX_LEN);
-          if(msg_buffer.header.type == MSG_TYPE_LWB_CMD) {
+          if(msg_buffer.header.type == MSG_TYPE_CC430_CMD) {
             if(msg_buffer.payload16[0] == LWB_CMD_SET_SCHED_PERIOD) {
               /* adjust the period */
               lwb_sched_set_period(msg_buffer.payload16[1]);

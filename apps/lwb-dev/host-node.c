@@ -40,6 +40,9 @@
 
 #include "main.h"
 
+/* TODO use different stream IDs for different message types */
+#define LWB_STREAM_ID_HOST  1
+
 static uint16_t seq_no = 0;
 /* tmp buffer to read from BOLT */
 static uint8_t  bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
@@ -50,17 +53,14 @@ send_msg(uint16_t recipient,
          uint8_t len,
          message_type_t type)
 {
-#define LWB_STREAM_ID_HOST  1
-  /* TODO use different stream IDs for different message types */
-
   if(!data || !len) {
     return;
   }
-
   message_t msg;
   msg.header.device_id   = node_id;
   msg.header.type        = type;
   msg.header.payload_len = len;
+  msg.header.target_id   = recipient;
   msg.header.seqnr       = seq_no++;
   msg.header.generation_time = 0;     /* currently not used */
   memcpy(msg.payload, data, len);
@@ -101,14 +101,15 @@ host_run(void)
   }
 
   /* generate a health message */
-  if(get_node_health(&msg.cc430_health)) {
+  if(get_node_health(&msg.comm_health)) {
     /* calculate the timestamp, convert to microseconds */
     rtimer_clock_t round_start;
     uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
     round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
     msg.header.device_id       = node_id;
-    msg.header.type            = MSG_TYPE_CC430_HEALTH;
-    msg.header.payload_len     = sizeof(cc430_health_t);
+    msg.header.type            = MSG_TYPE_COMM_HEALTH;
+    msg.header.payload_len     = sizeof(comm_health_t);
+    msg.header.target_id       = DEVICE_ID_SINK;
     msg.header.seqnr           = seq_no++;
     msg.header.generation_time = lwb_time_seconds * 1000000 + round_start;
     uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,
@@ -121,7 +122,7 @@ host_run(void)
   uint64_t time_last_req;
   if(bolt_handle_timereq(&time_last_req)) {
     /* write the timestamp to BOLT (convert to us) */
-    msg.header.type            = MSG_TYPE_TIMESTAMP;
+    msg.header.type            = MSG_TYPE_TIMESYNC;
     msg.header.payload_len     = 0;
     msg.header.generation_time = time_last_req * 1000000 / ACLK_SPEED;
     msg.payload16[0] = crc16((uint8_t*)&msg, MSG_HDR_LEN, 0);
@@ -139,16 +140,18 @@ host_run(void)
     if(msg_len) {
       msg_cnt++;
       memcpy(&msg, bolt_buffer, MSG_PKT_LEN);
-      if(msg.header.type == MSG_TYPE_LWB_CMD) {
-        if(msg.lwb_cmd.type == LWB_CMD_SET_SCHED_PERIOD) {
+      if(msg.header.type == MSG_TYPE_COMM_CMD &&
+         msg.header.target_id != NODE_ID &&
+         msg.header.target_id != DEVICE_ID_BROADCAST) {
+        if(msg.comm_cmd.type == LWB_CMD_SET_SCHED_PERIOD) {
           /* adjust the period */
-          lwb_sched_set_period(msg.lwb_cmd.value);
-          DEBUG_PRINT_INFO("LWB period set to %us", msg.lwb_cmd.value);
-        } else if(msg.lwb_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
+          lwb_sched_set_period(msg.comm_cmd.value);
+          DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
+        } else if(msg.comm_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
           /* broadcast the message */
-          send_msg(msg.lwb_cmd.target_id, msg.payload,
-                   sizeof(lwb_cmd_t), MSG_TYPE_LWB_CMD);
-        } else if(msg.lwb_cmd.type == LWB_CMD_PAUSE) {
+          send_msg(msg.header.target_id, msg.payload,
+                   sizeof(comm_cmd_t), MSG_TYPE_COMM_CMD);
+        } else if(msg.comm_cmd.type == LWB_CMD_PAUSE) {
           /* stop */
           while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
             BOLT_READ(bolt_buffer, msg_len);
@@ -171,7 +174,16 @@ host_run(void)
             continue;
           }
         }
-      }
+      } else if (msg.header.target_id != 0) {
+        /* all other message types: forward to LWB */
+        if(!lwb_send_pkt(msg.header.target_id, LWB_STREAM_ID_HOST,
+                         (uint8_t*)&msg, MSG_LEN(msg))) {
+          DEBUG_PRINT_WARNING("message dropped (queue full)");
+        } else {
+          DEBUG_PRINT_INFO("message for node %u added to TX queue",
+                           msg.header.target_id);
+        }
+      } // else: invalid target ID
     }
   }
   if(msg_cnt) {
@@ -189,8 +201,8 @@ ISR(PORT2, port2_interrupt)
       uint8_t msg_len = 0;
       BOLT_READ(bolt_buffer, msg_len);
       message_t* msg = (message_t*)bolt_buffer;
-      if(msg_len && msg->header.type == MSG_TYPE_LWB_CMD &&
-         msg->lwb_cmd.type == LWB_CMD_RESUME) {
+      if(msg_len && msg->header.type == MSG_TYPE_COMM_CMD &&
+         msg->comm_cmd.type == LWB_CMD_RESUME) {
         PIN_INT_OFF(BOLT_CONF_IND_PIN);
         __bic_status_register_on_exit(SCG0 | SCG1 | CPUOFF);
         break;
