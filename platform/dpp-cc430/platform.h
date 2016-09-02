@@ -190,6 +190,7 @@
   #define BOLT_CONF_TIMEREQ_PIN     PORT2, PIN1
   #define BOLT_CONF_FUTUREUSE_PIN   PORT2, PIN6
   #define BOLT_CONF_TIMEREQ_TIMERID RTIMER_LF_0
+  #define BOLT_CONF_TIMEREQ_DMATRG  DMA_TRCSRC_TA1CCR0
 #endif /* BOLT_CONF_ON */
 
 /* specify what needs to be done every time before UART is enabled */
@@ -212,8 +213,9 @@
                                   SFRIE1  &= ~OFIE;\
                                   ENABLE_XT2();\
                                   WAIT_FOR_OSC();\
-                                  /*UCSCTL4  = SELA | SELS | SELM;*/\
-                                  /*UCSCTL7  = 0;*/\
+                                  UCSCTL4  = SELA | SELS | SELM;\
+                                  UCSCTL7  = 0;\
+                                  WAIT_FOR_OSC();\
                                   SFRIE1  |= OFIE;\
                                   TA0CTL  |= MC_2;\
                                   P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
@@ -230,8 +232,8 @@
                                   P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7);\
                                   P1OUT = 0; \
                                   /* set clock source to DCO */\
-                                  /*UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV |*/\
-                                  /*          SELM__DCOCLKDIV;*/\
+                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV |\
+                                            SELM__DCOCLKDIV;\
                                   UCSCTL7  = 0;\
                                   DISABLE_XT2();\
                                 }

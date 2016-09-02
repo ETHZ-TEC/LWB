@@ -75,6 +75,10 @@
 #define BOLT_CONF_TIMEREQ_TIMERID       RTIMER_LF_0
 #endif /* BOLT_CONF_TIMEREQ_TIMERID */
 
+#ifndef BOLT_CONF_TIMEREQ_DMATRG
+#define BOLT_CONF_TIMEREQ_DMATRG        DMA_TRCSRC_TA1CCR0
+#endif /* BOLT_CONF_TIMEREQ_DMATRG */
+
 #ifndef BOLT_CONF_MAX_MSG_LEN
 #define BOLT_CONF_MAX_MSG_LEN           48  /* bytes */
 #endif /* BOLT_CONF_MAX_MSG_LEN */
@@ -150,6 +154,13 @@ typedef void (*bolt_callback_t)(void);
 void bolt_init(void (*IND_line_callback)(void));
 
 /**
+ * @brief checks the status of BOLT
+ * @return 1 if BOLT is active/ready (= responds to a write request) and
+ * 0 otherwise
+ */
+uint8_t bolt_status(void);
+
+/**
  * @brief requests an operation on the asynchronous data interface
  * @param[in] mode the operating mode, either OP_READ or OP_WRITE
  * @return    one if the request was successful (REQ pin was set), zero
@@ -182,10 +193,11 @@ void bolt_set_timereq_callback(void (*func)(void));
 
 /**
  * @brief checks whether a timestamp request is pending and handles it if so
- * @return the timestamp if successful, zero otherwise
+ * @param out timestamp a pointer to a buffer to hold the timestamp
+ * @return 1 if successful, 0 otherwise
  * @note this function should be used in polling mode only
  */
-rtimer_clock_t bolt_handle_timereq(void);
+uint8_t bolt_handle_timereq(rtimer_clock_t* timestamp);
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 
 /**

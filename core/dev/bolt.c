@@ -100,7 +100,7 @@ bolt_init(bolt_callback_t IND_line_callback)
      (do NOT enable interrupts!) */
   rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */
-  dma_config_timer(DMA_TRCSRC_TA1CCR0, 
+  dma_config_timer(BOLT_CONF_TIMEREQ_DMATRG,
                    rtimer_get_swext_addr(BOLT_CONF_TIMEREQ_TIMERID), 
                    (uint16_t)&ta1_timestamp, 8);     
 #endif
@@ -108,6 +108,16 @@ bolt_init(bolt_callback_t IND_line_callback)
   bolt_state = BOLT_STATE_IDLE;
   
   DEBUG_PRINT_INFO("BOLT initialized");
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+bolt_status(void)
+{
+  if(bolt_acquire(BOLT_OP_WRITE)) {
+    bolt_release();
+    return 1;
+  }
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 #if BOLT_CONF_TIMEREQ_ENABLE
@@ -131,14 +141,14 @@ bolt_set_timereq_callback(void (*func)(void))
   }
 }
 /*---------------------------------------------------------------------------*/
-rtimer_clock_t
-bolt_handle_timereq(void)
+uint8_t
+bolt_handle_timereq(rtimer_clock_t* timestamp)
 {
-  if(DMA_TIMER_IFG) {        /* interrupt flag set? */
-    ta1_timestamp = (ta1_timestamp << 16) | TA1CCR0;
-    TA1CCTL0 &= ~(CCIFG + COV); /* clear the interrupt flags */
-    dma_enable_timer(1);
-    return ta1_timestamp;
+  if(DMA_TIMER_IFG && timestamp) {        /* interrupt flag set? */
+    *timestamp = (ta1_timestamp << 16) | TA1CCR0;
+    /* note: TAxCCR CCIFG is automatically cleared when the transfer starts */
+    DMA_TIMER_CLRIFG;  /* no need to re-enable DMA in repeated transfer mode */
+    return 1;
   }
   return 0;
 }

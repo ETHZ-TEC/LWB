@@ -609,7 +609,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     reception_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
     LWB_SEND_SCHED();            /* send the previously computed schedule */
-    
+
     glossy_rssi = glossy_get_rssi(0);
     slot_idx    = 0;     /* reset the packet counter */
 

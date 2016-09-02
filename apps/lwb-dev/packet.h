@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Tonio Gsell
  */
 
 /* packet structure and message type definitions
@@ -127,8 +128,8 @@ typedef struct {
   union {
     cc430_health_t cc430_health;
     lwb_cmd_t      lwb_cmd;
-    timestamp_t    timestamp;
     uint8_t        payload[MSG_PKT_LEN - MSG_HDR_LEN];  /* raw bytes */
+    uint16_t       payload16[(MSG_PKT_LEN - MSG_HDR_LEN) / 2];
   };
 } message_t;
 

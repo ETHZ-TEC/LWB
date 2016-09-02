@@ -62,6 +62,11 @@
  */
 #define DMA_TIMER_IFG                   (DMA2CTL & DMAIFG)
 
+/**
+ * @brief clear the DMA interrupt flag for the channel that is used with timer
+ */
+#define DMA_TIMER_CLRIFG                (DMA2CTL &= ~DMAIFG)
+
 
 /**
  * @brief DMA trigger sources for the dma_init_timer function (DMA_CH2)

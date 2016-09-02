@@ -94,8 +94,8 @@ host_run(void)
   message_t msg;
   while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
     /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-    DEBUG_PRINT_INFO("data packet received from node %u (len: %u)",
-                     msg.header.device_id, msg.header.payload_len);
+    DEBUG_PRINT_MSG_NOW("data packet received from node %u",
+                        msg.header.device_id);
     /* forward the packet: write it to BOLT */
     BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
   }
@@ -118,14 +118,17 @@ host_run(void)
   }
 
   /* handle timestamp requests */
-  uint64_t time_last_req = bolt_handle_timereq();
-  if(time_last_req) {
+  uint64_t time_last_req;
+  if(bolt_handle_timereq(&time_last_req)) {
     /* write the timestamp to BOLT (convert to us) */
     msg.header.type            = MSG_TYPE_TIMESTAMP;
     msg.header.payload_len     = 0;
-    msg.header.generation_time = time_last_req * 1000000 / ACLK_SPEED +
-                                      LWB_CLOCK_OFS;
-    BOLT_WRITE((uint8_t*)&msg, MSG_HDR_LEN + sizeof(timestamp_t));
+    msg.header.generation_time = time_last_req * 1000000 / ACLK_SPEED;
+    msg.payload16[0] = crc16((uint8_t*)&msg, MSG_HDR_LEN, 0);
+    BOLT_WRITE((uint8_t*)&msg, MSG_HDR_LEN + 2);
+    DEBUG_PRINT_INFO("timestamp sent");
+  } else {
+    DEBUG_PRINT_WARNING("timestamp collection failed");
   }
 
   /* msg available from BOLT? */

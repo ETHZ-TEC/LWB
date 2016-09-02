@@ -427,7 +427,7 @@ ISR(TIMER1_A0, timer1_a0_interrupt)
 ISR(TIMER1_A1, timer1_a1_interrupt) 
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-  
+
   switch(TA1IV) {
   case TA1IV_TA1CCR1:
     RTIMER_LF_CALLBACK(RTIMER_LF_1);

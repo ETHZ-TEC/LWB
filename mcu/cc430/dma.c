@@ -116,9 +116,9 @@ dma_config_timer(dma_triggersrc_t trigger_src,
   /* disable DMA and reset bits */
   DMA2CTL &=
     ~(DMASRCBYTE + DMADSTBYTE + DMALEVEL + DMASRCINCR_3 + DMADSTINCR_3 +
-      DMAEN +
-      DMAIE + DMAIFG);
-  DMA2CTL = DMADT_1;                    /* block transfer, word-to-word, rising
+      DMAEN + DMAIE + DMAIFG);
+  /* DMADT_1 = block transfer, DMADT_5 = repeated block transfer */
+  DMA2CTL = DMADT_5;                    /* block transfer, word-to-word, rising
                                            edge triggers */
   DMA2SZ = num_bytes >> 1;              /* set transfer size */
   DMACTL1 &= ~0x00ff;                   /* reset trigger select */
