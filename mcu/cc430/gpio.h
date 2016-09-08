@@ -109,6 +109,13 @@
     PIN_CLR_IFG_I(port, pin); \
     PIN_INT_EN_I(port, pin); \
 }
+#define PIN_CFG_INT_INV_I(port, pin)    { \
+    PIN_CFG_IN_I(port, pin); \
+    PIN_IES_FALLING_I(port, pin); \
+    PIN_PULLUP_EN_I(port, pin); \
+    PIN_CLR_IFG_I(port, pin); \
+    PIN_INT_EN_I(port, pin); \
+}
 #define PIN_IFG_I(port, pin)            (P##port##IFG & (uint8_t)(BIT##pin))
 #define PIN_GET_I(port, pin)            (P##port##IN & (uint8_t)(BIT##pin))
 #define PORT_XOR_I(port)                (P##port##OUT ^= 0xff)
@@ -228,9 +235,14 @@
 #define PIN_INT_OFF(p)                  PIN_INT_OFF_I(p)
 /**
  * @brief configure the port interrupt for the specified (port, pin), available
- * for pins on port 1 and 2 only
+ * for pins on port 1 and 2 only (rising edge triggers)
  */
 #define PIN_CFG_INT(p)                  PIN_CFG_INT_I(p)
+/**
+ * @brief configure the port interrupt for the specified (port, pin), available
+ * for pins on port 1 and 2 only (falling edge triggers)
+ */
+#define PIN_CFG_INT_INV(p)              PIN_CFG_INT_INV_I(p)
 /**
  * @brief check the port interrupt flag of the specified (port, pin), available
  * for pins on port 1 and 2 only

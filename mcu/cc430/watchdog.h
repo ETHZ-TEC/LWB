@@ -46,14 +46,18 @@
 #ifndef __WATCHDOG_H__
 #define __WATCHDOG_H__
 
+
+/* reset the watchdog counter during a TA1 timer overflow/update */
+#define WATCHDOG_RESET_ON_TA1IFG    1
+
 /**
- * @brief sets the clock source (ACLK) and devider 
+ * @brief sets the clock source (ACLK) and divider
  * @note divider: WDTIS_3 = 512k, WDTIS_4 = 32k
  */
 static inline void
 watchdog_init(void)
 {
-  WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
+  WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_3;
 }
 
 /**

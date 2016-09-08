@@ -446,13 +446,13 @@ uint8_t lwb_rcv_pkt(uint8_t* out_data,
  * @brief check the status of the receive buffer (incoming messages)
  * @return the number of packets in the queue
  */
-uint8_t lwb_rcv_buffer_state(void);
+uint8_t lwb_rx_buffer_state(void);
 
 /**
  * @brief check the status of the send buffer (outgoing messages)
  * @return the number of remaining packets in the queue
  */
-uint8_t lwb_send_buffer_state(void);
+uint8_t lwb_tx_buffer_state(void);
 
 /**
  * @brief schedules a stream request to be sent during the contention slot

@@ -209,7 +209,6 @@
 #define UART_ACTIVE                 (UCA0STAT & UCBUSY)
 
 #define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) {\
-                                  /*__delay_cycles(MCLK_SPEED / 10000);*/\
                                   SFRIE1  &= ~OFIE;\
                                   ENABLE_XT2();\
                                   WAIT_FOR_OSC();\

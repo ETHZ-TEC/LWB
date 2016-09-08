@@ -89,9 +89,9 @@ update_rtimer_state(uint16_t timer)
     /* update or stop the timer */ \
     update_rtimer_state(timer); \
     if(process_nevents() > 0) { \
-      LPM4_EXIT; \
+      __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */ \
     } \
-  } else if (rt[timer].state == RTIMER_WFE) { \
+  } else if(rt[timer].state == RTIMER_WFE) { \
     rt[timer].func(&rt[timer]); \
   }
 
@@ -105,9 +105,9 @@ update_rtimer_state(uint16_t timer)
     /* update or stop the timer */ \
     update_rtimer_state(timer); \
     if(process_nevents() > 0) { \
-      LPM4_EXIT; \
+      __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */ \
     } \
-  } else if (rt[timer].state == RTIMER_WFE) { \
+  } else if(rt[timer].state == RTIMER_WFE) { \
     rt[timer].func(&rt[timer]); \
   }
 /*---------------------------------------------------------------------------*/
@@ -138,15 +138,15 @@ rtimer_schedule(rtimer_id_t timer,
                 rtimer_callback_t func)
 {
   if((timer < NUM_OF_RTIMERS) && (rt[timer].state != RTIMER_SCHEDULED)) {
-    rt[timer].func = func;
+    rt[timer].func   = func;
     rt[timer].period = period;
-    rt[timer].time = start + period;
-    rt[timer].state = RTIMER_SCHEDULED;
+    rt[timer].time   = start + period;
+    rt[timer].state  = RTIMER_SCHEDULED;
     if(timer >= RTIMER_LF_0) {
-      *(&TA1CCR0 + (timer - RTIMER_LF_0)) = (uint16_t)(start + period);
+      *(&TA1CCR0 + (timer - RTIMER_LF_0))  = (uint16_t)(start + period);
       *(&TA1CCTL0 + (timer - RTIMER_LF_0)) = CCIE | OUTMOD_4;
     } else {
-      *(&TA0CCR0 + timer) = (uint16_t)(start + period);
+      *(&TA0CCR0 + timer)  = (uint16_t)(start + period);
       *(&TA0CCTL0 + timer) = CCIE | OUTMOD_4;            /* enable interrupt */
     }
   } else {
@@ -343,12 +343,21 @@ capture_values:  ;
 }
 /*---------------------------------------------------------------------------*/
 uint16_t
-rtimer_get_swext_addr(rtimer_id_t timer)
+rtimer_swext_addr(rtimer_id_t timer)
 {
    if(timer < RTIMER_CONF_NUM_HF) {
      return (uint16_t)&ta0_sw_ext;
-   } 
+   }
    return (uint16_t)&ta1_sw_ext;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+rtimer_next_expiration(rtimer_id_t timer, rtimer_clock_t* exp_time)
+{
+   if(timer < RTIMER_CONF_NUM_LF) {
+     *exp_time = rt[timer].time;
+   }
+   return (rt[timer].state == RTIMER_SCHEDULED);
 }
 /*---------------------------------------------------------------------------*/
 clock_time_t
@@ -369,7 +378,7 @@ ISR(TIMER0_A0, timer0_a0_interrupt)
   
   RTIMER_HF_CALLBACK(RTIMER_HF_0);
   if(process_nevents() > 0) {
-    LPM4_EXIT;
+    __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
@@ -404,7 +413,7 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
     if(etimer_pending() &&
        (etimer_next_expiration_time() - count - 1) > MAX_TICKS) {
       etimer_request_poll();
-      LPM4_EXIT;
+      __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */
     }
     break;
   default: break;
@@ -438,6 +447,9 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
   case TA1IV_TA1IFG:
     /* overflow of timer A1: increment its software extension */
     ta1_sw_ext++;
+#if WATCHDOG_CONF_ON && WATCHDOG_RESET_ON_TA1IFG
+    watchdog_reset();
+#endif /* WATCHDOG */
     break;
   default: break;
   }

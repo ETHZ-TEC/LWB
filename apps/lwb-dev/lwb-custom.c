@@ -492,13 +492,13 @@ lwb_resend_packet(uint32_t pkt_addr)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_rcv_buffer_state(void)
+lwb_rx_buffer_state(void)
 {
   return FIFO_CNT(&in_buffer);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_send_buffer_state(void)
+lwb_tx_buffer_state(void)
 {
   return FIFO_CNT(&out_buffer);
 }
@@ -744,7 +744,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     RTIMER_CAPTURE;
     schedule_len = lwb_sched_compute(&schedule, 
                                      streams_to_update, 
-                                     lwb_send_buffer_state());
+                                     lwb_tx_buffer_state());
     stats.t_sched_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_sched_max);
 
     LWB_WAIT_UNTIL(t_start + LWB_CONF_T_SCHED2_START);
@@ -754,7 +754,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* time for other computations */
     
     /* print out some stats */
-    DEBUG_PRINT_INFO("t=%lu ts=%u td=%u dp=%u p=%u per=%d%% rssi=%ddBm", 
+    DEBUG_PRINT_INFO("t=%lu ts=%u td=%u dp=%u p=%u per=%d rssi=%ddBm",
                      global_time,
                      stats.t_sched_max, 
                      stats.t_proc_max, 
@@ -1183,7 +1183,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* t_ref can't be used in this case -> use t_ref_lf instead */
     drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)period_last *
                        RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
-    t_ref_last = t_ref_lf;     
+    t_ref_last = t_ref_lf;
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
                       RTIMER_SECOND_HF)) / (int32_t)period_last;
@@ -1197,7 +1197,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
     DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u tp=%u p=%u r=%u b=%u "
-                     "u=%u dr=%d per=%d%% snr=%d", 
+                     "u=%u dr=%d per=%d snr=%d",
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time, 
                      schedule.period, 
@@ -1219,7 +1219,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     if(sync_state <= MISSED) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
-        drift_last = (drift_last + drift) / 2;
+        drift_last = (drift_last + drift) / 2;  /* low-pass filter */
       } else if(drift_last) {  /* only if not zero */
         /* most probably a timer update overrun or a host failure
          * usually, the deviation per second is not higher than 50 cycles; 
@@ -1247,7 +1247,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 
-                       ((int32_t)schedule.period * drift_last / 256)) /
+                       (((int32_t)schedule.period * drift_last) >> 8)) /
                       LWB_CONF_TIME_SCALE - 
                       t_guard / (uint32_t)RTIMER_HF_LF_RATIO - 
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);

@@ -163,7 +163,7 @@ ISR(USCI_A0, uart0_rx_interrupt)
       c = UCA0RXBUF;
       if(uart0_input_handler != NULL) {
         if(uart0_input_handler(c)) {
-          LPM4_EXIT;
+          __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */
         }
       }
     }

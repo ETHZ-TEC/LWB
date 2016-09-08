@@ -37,12 +37,12 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         1
-#define HOST_ID                         1
+#define NODE_ID                         20040
+#define HOST_ID                         13
 
 #define SEND_HEALTH_DATA                1
 /* rooftop: dozer is on 868.875 MHz (CH12) -> choose CH10 (870 MHz) */
-#define RF_CONF_TX_CH                   2
+#define RF_CONF_TX_CH                   10
 #define ENERGEST_CONF_ON                1
 #define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
@@ -72,11 +72,12 @@
 #ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG        8
 #endif /* DEBUG_PRINT_CONF_NUM_MSG */
-//#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
-//#define APP_TASK_ACT_PIN                COM_MCU_INT2
-
-/* use port2 interrupt to print out debug information? */
-#define DEBUG_PORT2_INT                 0
+#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
+#define APP_TASK_ACT_PIN                COM_MCU_INT2
+#define DEBUG_INTERRUPT_ENABLE          1
+#define DEBUG_INTERRUPT_PIN             PORT2, PIN0  /* must be port 2 */
+#define DEBUG_LED                       COM_MCU_SPARE2
+#define WATCHDOG_CONF_ON                1
 
 
 

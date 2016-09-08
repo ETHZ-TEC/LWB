@@ -57,7 +57,14 @@ PROCESS_THREAD(app_process, ev, data)
 {  
   PROCESS_BEGIN();
 
-  /* init */
+  /* general initialization */
+#if DEBUG_INTERRUPT_ENABLE
+  /* enable ISR for debugging! */
+  PIN_UNSEL(DEBUG_INTERRUPT_PIN);
+  PIN_CFG_INT_INV(DEBUG_INTERRUPT_PIN);
+#endif /* DEBUG_INTERRUPT_ENABLE */
+
+  /* host/source specific initialization */
   if(HOST_ID == node_id) {
 	  host_init();
   } else {
@@ -93,54 +100,78 @@ PROCESS_THREAD(app_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-#if DEBUG_PORT2_INT
-ISR(PORT2, port2_interrupt) 
-{    
-  PIN_XOR(LED_STATUS);  /* toggle LED */
-  
+void
+print_debug_info(uint16_t stack_addr)
+{
+  #define MAX_BSS_SIZE                  3504
+
+  /* re-enable the HFXT, required for UART (only change necessary settings!) */
+  uint16_t xt2_off = UCSCTL6 & XT2OFF;
+  if(xt2_off) {
+    SFRIE1  &= ~OFIE;
+    ENABLE_XT2();
+    WAIT_FOR_OSC();
+    UCSCTL4  = SELA | SELS | SELM;
+    UCSCTL7  = 0;
+    WAIT_FOR_OSC();
+    SFRIE1  |= OFIE;
+    P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+  }
+
   /* 
    * collect and print debugging info:
    * - stack address / size
-   * - return address and status register before ISR (last 32 bits on stack)
+   * - return address and status register before ISR (last 4 bytes on stack)
    * - whether or not timers are still running and CCR interrupts enabled
    * - state of the global/static variables
    * - some registers, e.g. enabled peripherals
    */
-  #define REGISTER_BYTES_ON_STACK       16       /* see lwb.dis file! */
-  #define MAX_BSS_SIZE                  3072
     
-  uint16_t stack_addr;
-  uint16_t stack_size = SRAM_END - (uint16_t)&stack_addr + 1;
-  uint8_t peripherals = ((UCA0CTL1 & UCSWRST) << 7) | 
-                        ((UCB0CTL1 & UCSWRST) << 6) | 
-                        (TA0CTL & (MC_3 | TAIE))    |
-                        ((TA1CTL & MC_3) >> 2)      |
-                        ((TA1CTL & TAIE) >> 1);
-
-  /* look into the assembly code to find out how many registers have been 
-   * put onto the stack since this function has been entered */
-  uint16_t sr_addr  = (uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK;
+  uint16_t stack_size = SRAM_END - stack_addr + 1;
+  uint8_t peripherals = ((UCA0CTL1 & UCSWRST) << 7) |     /* 0x80 */
+                        ((UCB0CTL1 & UCSWRST) << 6) |     /* 0x40 */
+                        (TA0CTL & (MC_3 | TAIE))    |     /* 0x32 */
+                        ((TA1CTL & MC_3) >> 2)      |     /* 0x0c */
+                        ((TA1CTL & TAIE) >> 1);           /* 0x01 */
   
+  /* get more info about LWB timer */
+  uint8_t lwb_timer = ((*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) & CCIE) >> 3) |
+            ((*(&TA1CCTL0 + LWB_CONF_LF_RTIMER_ID - RTIMER_LF_0) & CCIE) >> 4);
+  rtimer_clock_t next_exp = 0;
+  if(rtimer_next_expiration(LWB_CONF_RTIMER_ID, &next_exp)) {
+    lwb_timer |= 0x08;  /* set bit */
+  }
+  rtimer_clock_t next_exp_lf = 0;
+  if(rtimer_next_expiration(LWB_CONF_LF_RTIMER_ID, &next_exp_lf)) {
+    lwb_timer |= 0x04;  /* set bit */
+  }
+
   /* status register bits:
-   * 8 = arithmetic overflow
-   * 7 = SCG1 (system clock generator 1 off)
-   * 6 = SCG0
-   * 5 = OSCOFF (oscillator off, turns off LFXT)
-   * 4 = CPUOFF
-   * 3 = GIE
-   * 2 = N (result of last operation was negative)
-   * 1 = Z (set if result of last operation was zero)
-   * 0 = C (carry bit, set if result of last operation produced a carry) */
+   * 8 = 0x100 = arithmetic overflow
+   * 7 = 0x80 = SCG1 (system clock generator 1 off)
+   * 6 = 0x40 = SCG0
+   * 5 = 0x20 = OSCOFF (oscillator off, turns off LFXT)
+   * 4 = 0x10 = CPUOFF
+   * 3 = 0x08 = GIE
+   * 2 = 0x04 = N (result of last operation was negative)
+   * 1 = 0x02 = Z (set if result of last operation was zero)
+   * 0 = 0x01 = C (carry bit, set if result of last op. produced a carry) */
   
   /* print out the information */
   uart_enable(1);
-  printf("stack: %u, ret: 0x%04x, sr: 0x%04x, peri: 0x%02x, lwb_ccr: 0x%x\r\n",
+  printf("\r\n-------------------------------------------------------\r\n"
+         "debug info:\r\n\r\n");
+  printf("stack size: %u, return addr: 0x%04x, status reg: 0x%04x\r\n"
+         "peripherals: 0x%02x\r\n"
+         "rtimer now: %llu, %llu\r\n"
+         "lwb timer: 0x%x, %llu, %llu\r\n"
+         "heap:\r\n",
          stack_size, 
-         *(volatile uint16_t*)sr_addr, 
-         *(volatile uint16_t*)(sr_addr + 2), 
+         *(volatile uint16_t*)(stack_addr),
+         *(volatile uint16_t*)(stack_addr + 2),
          peripherals,
-         ((*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) & CCIE) >> 3) |
-           ((*(&TA1CCTL0 + LWB_CONF_LF_RTIMER_ID - RTIMER_LF_0) & CCIE) >> 4));
+         rtimer_now_lf(), rtimer_now_hf(),
+         lwb_timer, next_exp_lf, next_exp);
   
   /* print out the content of the bss section (global & static variables),
    * use objdump -t lwb.exe | grep "\.bss" to map addresses to variables! */
@@ -151,57 +182,71 @@ ISR(PORT2, port2_interrupt)
     }
     printf(" %02x", *(uint8_t*)i);
   }
-
-  PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+  printf("\r\n-------------------------------------------------------\r\n");
 }
-#endif /* DEBUG_PORT2_INT */
+/*---------------------------------------------------------------------------*/
+#if DEBUG_INTERRUPT_ENABLE
+ISR(PORT2, port2_interrupt)
+{
+  LED_TOGGLE(LED_STATUS);
+
+  /* see lwb.dis file! (pushm #6 = 6x 16-bit register is pushed onto stack) */
+  #define REGISTER_BYTES_ON_STACK       (8 + 4)
+  /* look into the assembly code to find out how many registers have been
+   * put onto the stack since this function has been entered */
+  uint16_t stack_addr;
+  print_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK);
+
+  PIN_CLR_IFG(DEBUG_INTERRUPT_PIN);
+}
+#endif /* DEBUG_INTERRUPT_ENABLE */
 /*---------------------------------------------------------------------------*/
 /* for debugging: define all unused ISRs */
 ISR(SYSNMI, sysnmi_interrupt)
 {
-  PIN_SET(LED_0);
+  PIN_SET(LED_ERROR);
   switch (SYSSNIV) {
     case SYSSNIV_VMAIFG:
-      while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 15); }
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 15); }
       break;
     default:
         break;
   }
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 10); }
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 10); }
 }
 ISR(AES, aes_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 20); }    
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 20); }
 }
 ISR(RTC, rtc_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 30); }   
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 30); }
 }
 ISR(PORT1, p1_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 40); }   
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 40); }
 }
 ISR(ADC10, adc_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 50); }    
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 50); }
 }
 ISR(USCI_B0, ucb0_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 60); }    
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 60); }
 }
 ISR(WDT, wdt_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 70); }    
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 70); }
 }
 ISR(COMP_B, comp_interrupt)
 {
-  PIN_SET(LED_0); 
-  while(1) { PIN_XOR(COM_MCU_INT1); __delay_cycles(MCLK_SPEED / 80); }    
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 80); }
 }
 /*---------------------------------------------------------------------------*/

@@ -135,10 +135,10 @@ typedef enum {
 } rtimer_id_t;
 
 /* this is necessary for the rtimer_callback_t prototype declaration */
-typedef struct rtimer rtimer_t;
+struct rtimer;
 
 /* prototype of a rtimer callback function */
-typedef char (*rtimer_callback_t)(rtimer_t *rt);
+typedef char (*rtimer_callback_t)(struct rtimer *rt);
 
 typedef enum {
   RTIMER_INACTIVE = 0,
@@ -237,7 +237,15 @@ void rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val);
  * @param[in] timer the ID of an rtimer 
  * @return the address of the software extension
  */
-uint16_t rtimer_get_swext_addr(rtimer_id_t timer);
+uint16_t rtimer_swext_addr(rtimer_id_t timer);
+
+/**
+ * @brief get the timestamp of the next scheduled expiration
+ * @param[in] timer the ID of an rtimer
+ * @param[out] exp_time expiration time
+ * @return 1 if the timer is still active, 0 otherwise
+ */
+uint8_t rtimer_next_expiration(rtimer_id_t timer, rtimer_clock_t* exp_time);
 
 
 #endif /* __RTIMER_H__ */

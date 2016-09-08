@@ -35,19 +35,27 @@
 #include "main.h"
 
 /*---------------------------------------------------------------------------*/
+
+#define LWB_STREAM_ID_HEALTH_MSG    1
+
+static lwb_stream_req_t health_stream = { node_id,
+                                          0,
+                                          LWB_STREAM_ID_HEALTH_MSG,
+                                          LWB_CONF_SCHED_PERIOD_IDLE };
+
+/*---------------------------------------------------------------------------*/
 /* send a data packet to all sinks */
-void
+uint8_t
 send_pkt(const uint8_t* data,
          uint8_t len,
          message_type_t type)
 {
-#define LWB_STREAM_ID_STATUS_MSG        1
   /* TODO use different stream IDs for different message types */
 
   static uint16_t seq_no = 0;
 
   if(!data || !len) {
-    return;
+    return 0;
   }
 
   message_t msg;
@@ -68,12 +76,13 @@ send_pkt(const uint8_t* data,
   uint16_t crc = crc16((uint8_t*)&msg, len + MSG_HDR_LEN, 0);
   MSG_SET_CRC16(&msg, crc);
 
-  if(!lwb_send_pkt(LWB_RECIPIENT_SINK, LWB_STREAM_ID_STATUS_MSG,
+  if(!lwb_send_pkt(LWB_RECIPIENT_SINK, LWB_STREAM_ID_HEALTH_MSG,
                    (uint8_t*)&msg, MSG_LEN(msg))) {
     DEBUG_PRINT_WARNING("message dropped (queue full)");
-  } else {
-    DEBUG_PRINT_INFO("message added to TX queue");
+    return 0;
   }
+  DEBUG_PRINT_INFO("message added to TX queue");
+  return 1;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -110,8 +119,8 @@ get_node_health(comm_health_t* out_data)
                             ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
                             energest_type_time(ENERGEST_TYPE_LISTEN)) *
                             1000 / (now - last_energest_rst));
-  out_data->lwb_tx_buf    = lwb_send_buffer_state();
-  out_data->lwb_rx_buf    = lwb_rcv_buffer_state();
+  out_data->lwb_tx_buf    = lwb_tx_buffer_state();
+  out_data->lwb_rx_buf    = lwb_rx_buffer_state();
   out_data->lwb_tx_drop   = lwb_stats->txbuf_drop - last_tx_drop;
   out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
   out_data->lwb_sleep_cnt = lwb_stats->sleep_cnt;
@@ -141,55 +150,56 @@ source_init(void)
   /* init the ADC */
   adc_init();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
-
- #if DEBUG_PORT2_INT
-  /* enable ISR for debugging! */
-  PIN_IES_RISING(BOLT_CONF_IND_PIN);
-  PIN_CLR_IFG(BOLT_CONF_IND_PIN);
-  PIN_INT_EN(BOLT_CONF_IND_PIN);
- #endif /* DEBUG_PORT2_INT */
 }
 /*---------------------------------------------------------------------------*/
 void
 source_run(void)
 {
 #if SEND_HEALTH_DATA
-  static uint8_t stream_state = 0;
-  if(stream_state != LWB_STREAM_STATE_ACTIVE) {
-	  stream_state = lwb_stream_get_state(1);
-	  if(stream_state == LWB_STREAM_STATE_INACTIVE) {
-      /* request a stream with ID LWB_STREAM_ID_STATUS_MSG and an IPI
-       * (inter packet interval) of LWB_CONF_SCHED_PERIOD_IDLE seconds */
-      lwb_stream_req_t my_stream = { node_id, 0, LWB_STREAM_ID_STATUS_MSG,
-                                     LWB_CONF_SCHED_PERIOD_IDLE };
-      if(!lwb_request_stream(&my_stream, 0)) {
-        DEBUG_PRINT_ERROR("stream request failed");
-      }
-    }
-  } else {
-    /* generate a node health packet and schedule it for transmission */
+  static uint8_t ipi_changed = 1;
+
+  /* adjust the IPI in case the fill level of the output queue reaches a
+   * certain threshold */
+  if(health_stream.ipi == LWB_CONF_SCHED_PERIOD_IDLE &&
+     lwb_tx_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
+    health_stream.ipi = LWB_CONF_SCHED_PERIOD_IDLE / 2; /* reduce the IPI */
+    ipi_changed = 1;
+  }
+
+  /* only send data if the stream is active */
+  if(lwb_stream_get_state(LWB_STREAM_ID_HEALTH_MSG) ==
+     LWB_STREAM_STATE_ACTIVE) {
+	  /* generate a node health packet and schedule it for transmission */
     comm_health_t node_health;
     if(get_node_health(&node_health)) {
-       send_pkt((const uint8_t*)&node_health, sizeof(comm_health_t),
-                MSG_TYPE_COMM_HEALTH);
-    }
-
-    /* is there a packet to read? */
-    message_t msg_buffer;
-    uint8_t   pkt_len = 0;
-    do {
-      uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
-      if(pkt_len) {
-        DEBUG_PRINT_INFO("packet received (%ub)", pkt_len);
-        if(msg_buffer.header.type == MSG_TYPE_COMM_CMD &&
-           msg_buffer.comm_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
-          /* change health/status report interval */
-          lwb_stream_req_t my_stream = { node_id, 0, LWB_STREAM_ID_STATUS_MSG,
-                                         msg_buffer.payload[2] };
-          lwb_request_stream(&my_stream, 0);
-        }
+      if(!send_pkt((const uint8_t*)&node_health, sizeof(comm_health_t),
+                   MSG_TYPE_COMM_HEALTH)) {
+        DEBUG_PRINT_INFO("failed to send msg, tx queue full");
       }
-    } while (pkt_len);
+    }
+  }
+
+  /* is there a packet to read? */
+  message_t msg_buffer;
+  uint8_t   count = 0;
+  while(lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
+    count++;
+    if(msg_buffer.header.type == MSG_TYPE_COMM_CMD &&
+       msg_buffer.comm_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
+      /* change health/status report interval */
+      health_stream.ipi = msg_buffer.comm_cmd.value;
+      ipi_changed = 1;
+    }
+  }
+  if(count) {
+    DEBUG_PRINT_INFO("%d packet(s) received", count);
+  }
+
+  if(ipi_changed) {
+    if(!lwb_request_stream(&health_stream, 0)) {
+      DEBUG_PRINT_ERROR("stream request failed");
+    }
+    ipi_changed = 0;
   }
 #endif /* SEND_HEALTH_DATA */
 }

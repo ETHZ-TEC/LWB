@@ -128,9 +128,7 @@ host_run(void)
     msg.payload16[0] = crc16((uint8_t*)&msg, MSG_HDR_LEN, 0);
     BOLT_WRITE((uint8_t*)&msg, MSG_HDR_LEN + 2);
     DEBUG_PRINT_INFO("timestamp sent");
-  } else {
-    DEBUG_PRINT_WARNING("timestamp collection failed");
-  }
+  } //else: no timestamp request triggered or other unknown error
 
   /* msg available from BOLT? */
   uint16_t msg_cnt = 0;
@@ -191,7 +189,7 @@ host_run(void)
   }
 }
 /*---------------------------------------------------------------------------*/
-#if !DEBUG_PORT2_INT
+#if !DEBUG_INTERRUPT_ENABLE
 ISR(PORT2, port2_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
@@ -213,5 +211,5 @@ ISR(PORT2, port2_interrupt)
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }
-#endif /* DEBUG_PORT2_INT */
+#endif /* DEBUG_INTERRUPT_ENABLE */
 /*---------------------------------------------------------------------------*/

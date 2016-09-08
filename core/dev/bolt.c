@@ -101,7 +101,7 @@ bolt_init(bolt_callback_t IND_line_callback)
   rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */
   dma_config_timer(BOLT_CONF_TIMEREQ_DMATRG,
-                   rtimer_get_swext_addr(BOLT_CONF_TIMEREQ_TIMERID), 
+                   rtimer_swext_addr(BOLT_CONF_TIMEREQ_TIMERID),
                    (uint16_t)&ta1_timestamp, 8);     
 #endif
   

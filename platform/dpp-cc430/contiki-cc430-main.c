@@ -135,7 +135,7 @@ int
 main(int argc, char **argv)
 {
   watchdog_stop();
-  
+
   /* initialize hardware */
 
   /* set default configuration for all GPIOs */
@@ -229,7 +229,9 @@ main(int argc, char **argv)
 #endif /* NULLMAC_CONF_ON */
 
 #if WATCHDOG_CONF_ON
+  watchdog_init();
   watchdog_start();
+  printf("Watchdog enabled\r\n");
 #endif /* WATCHDOG_CONF_ON */
   
   /* start processes */
@@ -259,13 +261,15 @@ main(int argc, char **argv)
     } else {
       /* re-enable interrupts and go to sleep atomically */
       ENERGEST_OFF(ENERGEST_TYPE_CPU);
-#if WATCHDOG_CONF_ON
+#if WATCHDOG_CONF_ON && !WATCHDOG_RESET_ON_TA1IFG
+      /* no need to stop the watchdog in the low-power mode if it is reset
+       * within the timer update interrupt (which occurs every 2 seconds) */
       watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
       /* LPM3 */
       __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
       __no_operation();
-#if WATCHDOG_CONF_ON
+#if WATCHDOG_CONF_ON && !WATCHDOG_RESET_ON_TA1IFG
       watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
       ENERGEST_ON(ENERGEST_TYPE_CPU);
