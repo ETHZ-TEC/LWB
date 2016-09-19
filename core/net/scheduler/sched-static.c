@@ -288,6 +288,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       sched->slot[n_slots_assigned++] = node_id;
       h--;
     }
+    reserve_slot_host -= h;
   }
   
   /* keep the round period constant */

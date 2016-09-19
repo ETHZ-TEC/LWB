@@ -46,6 +46,7 @@ void host_init(void);
 void source_init(void);
 void host_run(void);
 void source_run(void);
+
 /* defined in source-node.c, but also used by the host node */
 uint8_t get_node_health(comm_health_t* out_data);
 

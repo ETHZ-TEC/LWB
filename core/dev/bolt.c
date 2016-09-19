@@ -129,7 +129,7 @@ bolt_set_timereq_callback(void (*func)(void))
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
     dma_config_timer(DMA_TRCSRC_TA1CCR0, 
-                     rtimer_get_swext_addr(BOLT_CONF_TIMEREQ_TIMERID), 
+                     rtimer_swext_addr(BOLT_CONF_TIMEREQ_TIMERID),
                      (uint16_t)&ta1_timestamp, 8);
   } else {
     /* set the rtimer callback function */

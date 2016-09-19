@@ -217,37 +217,45 @@ typedef struct {
   rtimer_clock_t T_slot_estimated;
   rtimer_clock_t t_timeout;
   glossy_header_t header;
-  uint8_t *payload;
-  uint8_t payload_len;
-  uint8_t n_T_slot;
-  uint8_t active;
-  uint8_t n_rx;
-  uint8_t n_tx;
-  uint8_t n_rx_started;
-  uint8_t n_rx_fail;
-  uint8_t n_header_fail;
-  uint8_t already_counted;
-  uint8_t relay_cnt_last_rx, relay_cnt_last_tx, relay_cnt_first_rx,
-          relay_cnt_t_ref;
-  uint8_t relay_cnt_timeout;
-  uint8_t t_ref_updated;
-  uint8_t header_ok;
-#ifdef GLOSSY_DISABLE_INTERRUPTS
-  uint32_t enabled_interrupts;
+  uint8_t  *payload;
+  uint8_t  payload_len;
+  uint8_t  n_T_slot;
+  uint8_t  active;
+  uint8_t  t_ref_updated;
+  uint8_t  header_ok;
+  uint8_t  relay_cnt_last_rx;
+  uint8_t  relay_cnt_last_tx;
+  uint8_t  relay_cnt_t_ref;
+  uint8_t  relay_cnt_timeout;
+  uint8_t  n_rx;                                /* rx counter for last flood */
+  uint8_t  n_tx;
+  /*uint32_t enabled_interrupts;
   uint16_t enabled_adc_interrupts;
-  uint16_t enabled_port_interrupts;
-#endif /* GLOSSY_DISABLE_INTERRUPTS */
-  int16_t  rssi_sum;
-  int8_t   rssi_noise;
-  uint8_t  rssi[3];
-  uint8_t  n_hops[3];
-  uint32_t pkt_cnt;
-  uint32_t crc_ok_cnt;
-  uint32_t n_floods;
-  uint32_t n_successful_floods;
+  uint16_t enabled_port_interrupts;*/
+
+#if GLOSSY_CONF_COLLECT_STATS
+  /* --- statistics only, otherwise not relevant for Glossy --- */
+  /* stats of the last flood */
+  uint8_t  last_flood_relay_cnt;                    /* relay cnt on first rx */
+  int8_t   last_flood_rssi_noise;
+  int16_t  last_flood_rssi_sum;
+  uint8_t  last_flood_rssi[3];
+  uint8_t  last_flood_hops[3];
+  uint8_t  last_flood_n_rx_started;            /* # preamble+sync detections */
+  uint8_t  last_flood_n_rx_fail;                      /* header or CRC wrong */
+  uint8_t  already_counted;
+  rtimer_clock_t last_flood_duration;     /* time from glossy_start to glossy_stop */
+  rtimer_clock_t last_flood_t_to_rx;                    /* time to first reception */
+  /* global stats since last reset of the node */
+  uint32_t pkt_cnt;           /* total # of received packets (preamble+sync) */
+  uint32_t pkt_cnt_crcok;         /* total # of received packets with CRC ok */
+  uint32_t flood_cnt;    /* total # of floods (with >=1x preamble+sync det.) */
+  uint32_t flood_cnt_success;      /* total # floods with at least 1x CRC ok */
+#endif /* GLOSSY_CONF_COLLECT_STATS */
 } glossy_state_t;
 /*---------------------------------------------------------------------------*/
 static glossy_state_t g;
+static uint8_t        glossy_tx_pwr = RF_CONF_TX_POWER;
 
 /*------------------------ Glossy helper functions --------------------------*/
 static inline uint8_t
@@ -386,32 +394,37 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   /* disable undesired interrupts */
   GLOSSY_DISABLE_INTERRUPTS;
 
+  /* reset the data structure */
   g.active = 1;
   g.payload = payload;
   g.payload_len = payload_len;
   g.n_rx = 0;
   g.n_tx = 0;
-  g.n_rx_started = 0;
-  g.n_rx_fail = 0;
-  g.n_header_fail = 0;
-  g.already_counted = 0;
   g.relay_cnt_last_rx = 0;
   g.relay_cnt_last_tx = 0;
   g.t_ref_updated = 0;
   g.T_slot_sum = 0;
   g.n_T_slot = 0;
-  g.rssi_sum = 0;
-  g.rssi_noise = 0;
+
+#if GLOSSY_CONF_COLLECT_STATS
+  g.last_flood_n_rx_started = 0;
+  g.last_flood_n_rx_fail = 0;
+  g.already_counted = 0;
+  g.last_flood_rssi_sum = 0;
+  g.last_flood_rssi_noise = 0;
+  g.last_flood_t_to_rx = 0;
+  g.last_flood_duration = rtimer_now_hf();
+
+  if(WITH_RELAY_CNT()) {
+    g.last_flood_rssi[0] = g.last_flood_rssi[1] = g.last_flood_rssi[2] = 0;
+    g.last_flood_hops[0] = g.last_flood_hops[1] = g.last_flood_hops[2] = 0;
+  }
+#endif /* GLOSSY_CONF_COLLECT_STATS */
 
   /* prepare the Glossy header, with the information known so far */
   g.header.initiator_id = initiator_id;
   SET_PKT_TYPE(g.header.pkt_type, sync, n_tx_max);
   g.header.relay_cnt = 0;
-  
-  if(WITH_RELAY_CNT()) {
-    g.rssi[0] = g.rssi[1] = g.rssi[2] = 0;
-    g.n_hops[0] = g.n_hops[1] = g.n_hops[2] = 0;
-  }
 
   /* automatically switch to TX at the end of RX */
   rf1a_set_rxoff_mode(RF1A_OFF_MODE_TX);
@@ -421,7 +434,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   rf1a_set_calibration_mode(RF1A_CALIBRATION_MODE_MANUAL);
   
   /* re-configure patable (config is lost when radio was in sleep mode) */
-  rf1a_set_tx_power(RF_CONF_TX_POWER);
+  rf1a_set_tx_power(glossy_tx_pwr);
 
   if(rf_cal == GLOSSY_WITH_RF_CAL) {
     /* if instructed so, perform a manual calibration */
@@ -452,13 +465,15 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     }
   } else {
     /* Glossy receiver */
-    rf1a_start_rx();      
+    rf1a_start_rx();
+#if GLOSSY_CONF_COLLECT_STATS
     /* measure the channel noise (but only if waiting for the schedule */
     if(sync == GLOSSY_WITH_SYNC) {
       /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
-      __delay_cycles(MCLK_SPEED / 3000);     /* wait 0.33 ms */
-      g.rssi_noise = rf1a_get_rssi();        /* get RSSI of the noise floor */      
+      __delay_cycles(MCLK_SPEED / 3000);          /* wait 0.33 ms */
+      g.last_flood_rssi_noise = rf1a_get_rssi();  /* RSSI of the noise floor */
     }
+#endif /* GLOSSY_CONF_COLLECT_STATS */
   }
   /* note: RF_RDY bit must be cleared before entering LPM after a transition 
    * from idle to RX or TX. RF1ASTATB & 0x80  or  GDO0 */
@@ -471,7 +486,6 @@ glossy_stop(void)
     /* if RX is ongoing, then wait */
     //while(rf1a_is_busy());
     
-    GLOSSY_STOPPED;
     /* stop the timeout */
     rtimer_stop(GLOSSY_CONF_RTIMER_ID);
     /* flush both RX FIFO and TX FIFO and go to sleep */
@@ -482,6 +496,7 @@ glossy_stop(void)
     rf1a_go_to_sleep();
     GLOSSY_RX_STOPPED;
     GLOSSY_TX_STOPPED;
+    GLOSSY_STOPPED;
     g.active = 0;
 
     if(g.t_ref_updated) {
@@ -507,19 +522,22 @@ glossy_stop(void)
       DEBUG_PRINT_VERBOSE("Glossy stopped");
     }
 
+#if GLOSSY_CONF_COLLECT_STATS
     /* stats */
+    g.last_flood_duration = rtimer_now_hf() - g.last_flood_duration;
     if(!IS_INITIATOR()) {
       /* only count if not initiator! */
-      if(g.n_rx_started) {
+      if(g.last_flood_n_rx_started) {
         /* only count it as flood if at least the start of a packet was
          * detected (otherwise e.g. contention slots would be treated as
          * failed floods!) */
-        g.n_floods++;
+        g.flood_cnt++;
       }
       if(g.n_rx) {
-        g.n_successful_floods++;
+        g.flood_cnt_success++;
       }
     }
+#endif /* GLOSSY_CONF_COLLECT_STATS */
 
     /* re-enable interrupts */
     GLOSSY_ENABLE_INTERRUPTS;
@@ -541,54 +559,53 @@ glossy_get_n_rx(void)
   return g.n_rx;
 }
 /*---------------------------------------------------------------------------*/
+#if GLOSSY_CONF_COLLECT_STATS
 uint8_t
 glossy_get_n_rx_started(void)
 {
-  return g.n_rx_started;
+  return g.last_flood_n_rx_started;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
 glossy_get_n_crc_ok(void)
 {
-  return g.crc_ok_cnt;
+  return g.pkt_cnt_crcok;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-glossy_get_n_rx_fail(void)
+glossy_get_last_flood_n_rx_fail(void)
 {
-  return g.n_rx_fail;
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-glossy_get_n_header_fail(void)
-{
-  return g.n_header_fail;
+  return g.last_flood_n_rx_fail;
 }
 /*---------------------------------------------------------------------------*/
 int8_t
 glossy_get_snr(void)
 {
   /* RSSI values are only valid if at least one packet was received */
-  if(g.n_rx == 0 || g.rssi_sum == 0 || g.rssi_noise == 0) {
+  if(g.n_rx == 0 || g.last_flood_rssi_sum == 0 ||
+     g.last_flood_rssi_noise == 0) {
     return 0;
   }
-  return (int8_t)((g.rssi_sum / (int16_t)g.n_rx) - g.rssi_noise);
+  return (int8_t)((g.last_flood_rssi_sum / (int16_t)g.n_rx) -
+                  g.last_flood_rssi_noise);
 }
 /*---------------------------------------------------------------------------*/
 int8_t
-glossy_get_rssi(int8_t* out_rssi)
+glossy_get_rssi(int8_t* rssi)
 {
   /* RSSI values are only valid if at least one packet was received */
-  if(g.n_rx == 0 || g.rssi_sum == 0) {
+  if(g.n_rx == 0 || g.last_flood_rssi_sum == 0) {
     return 0;
   }
-  if(out_rssi) {
-    out_rssi[0] = g.rssi[0];
-    out_rssi[1] = g.rssi[1];
-    out_rssi[2] = g.rssi[2];
+  if(rssi) {
+    rssi[0] = g.last_flood_rssi[0];
+    rssi[1] = g.last_flood_rssi[1];
+    rssi[2] = g.last_flood_rssi[2];
   }
-  return (int8_t)(g.rssi_sum / (int16_t)g.n_rx);
+  return (int8_t)(g.last_flood_rssi_sum / (int16_t)g.n_rx);
 }
+
+#endif /* GLOSSY_CONF_COLLECT_STATS */
 /*---------------------------------------------------------------------------*/
 uint8_t
 glossy_get_n_tx(void)
@@ -614,24 +631,27 @@ glossy_get_t_ref(void)
   return g.t_ref;
 }
 /*---------------------------------------------------------------------------*/
+#if GLOSSY_CONF_COLLECT_STATS
 uint8_t
 glossy_get_relay_cnt_first_rx(void)
 {
-  return g.relay_cnt_first_rx;
+  return g.last_flood_relay_cnt;
 }
 /*---------------------------------------------------------------------------*/
 uint16_t 
 glossy_get_relay_cnt(void)
 {
-  return (uint16_t)(g.n_hops[0] & 0x0f) | ((uint16_t)(g.n_hops[1] & 0x0f) << 4)
-         | ((uint16_t)(g.n_hops[2] & 0x0f) << 8);
+  return (uint16_t)(g.last_flood_hops[0] & 0x0f) |
+                    ((uint16_t)(g.last_flood_hops[1] & 0x0f) << 4) |
+                    ((uint16_t)(g.last_flood_hops[2] & 0x0f) << 8);
 }
 /*---------------------------------------------------------------------------*/
 uint16_t
 glossy_get_per(void)
 {
   if(g.pkt_cnt) {
-    return 10000 - (g.crc_ok_cnt * 10000 / g.pkt_cnt);
+    return 10000 -
+           (uint16_t)((uint64_t)g.pkt_cnt_crcok * 10000 / (uint64_t)g.pkt_cnt);
   }
   return 0;
 }
@@ -639,8 +659,9 @@ glossy_get_per(void)
 uint16_t
 glossy_get_fsr(void)
 {
-  if(g.n_floods) {
-    return (uint16_t)(g.n_successful_floods * 10000 / g.n_floods);
+  if(g.flood_cnt) {
+    return (uint16_t)((uint64_t)g.flood_cnt_success * 10000 /
+                      (uint64_t)g.flood_cnt);
   }
   return 10000;
 }
@@ -654,7 +675,26 @@ glossy_get_n_pkts(void)
 uint32_t
 glossy_get_n_pkts_crcok(void)
 {
-    return g.crc_ok_cnt;
+  return g.pkt_cnt_crcok;
+}
+/*---------------------------------------------------------------------------*/
+uint32_t
+glossy_get_flood_duration(void)
+{
+  return (uint32_t)g.last_flood_duration;
+}
+/*---------------------------------------------------------------------------*/
+uint32_t
+glossy_get_t_to_first_rx(void)
+{
+  return (uint32_t)g.last_flood_t_to_rx;
+}
+#endif /* GLOSSY_CONF_COLLECT_STATS */
+/*---------------------------------------------------------------------------*/
+void
+glossy_set_tx_pwr(uint8_t tx_pwr)
+{
+  glossy_tx_pwr = tx_pwr;
 }
 /*---------------------- RF1A callback implementation -----------------------*/
 void
@@ -669,9 +709,15 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
 
   g.t_rx_start = *timestamp;
   g.header_ok = 0;
+#if GLOSSY_CONF_COLLECT_STATS
   g.already_counted = 0;
   g.pkt_cnt++;
-  g.n_rx_started++;
+
+  if(!g.last_flood_n_rx_started) {
+    g.last_flood_t_to_rx = *timestamp - g.last_flood_duration;
+  }
+  g.last_flood_n_rx_started++;
+#endif /* GLOSSY_CONF_COLLECT_STATS */
 
   if(IS_INITIATOR()) {
     /* we are the initiator and we have started a packet reception: stop the
@@ -702,11 +748,12 @@ rf1a_cb_header_received(rtimer_clock_t *timestamp, uint8_t *header,
                         uint8_t packet_len)
 {
   if(process_glossy_header(header, packet_len, 0) != SUCCESS) {
+#if GLOSSY_CONF_COLLECT_STATS
     if(!g.already_counted) {
-      g.n_header_fail++;
-      g.n_rx_fail++;
+      g.last_flood_n_rx_fail++;
       g.already_counted = 1;
     }
+#endif /* GLOSSY_CONF_COLLECT_STATS */
     /* the header is not ok: interrupt the reception and start a new attempt */
     rf1a_cb_rx_failed(timestamp);
   }
@@ -719,7 +766,9 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
   /* enable timer overflow / update interrupt */
   rtimer_update_enable(1);
   g.t_rx_stop = *timestamp;
-  g.crc_ok_cnt++;
+#if GLOSSY_CONF_COLLECT_STATS
+  g.pkt_cnt_crcok++;
+#endif /* GLOSSY_CONF_COLLECT_STATS */
   
   /* we have received a packet and the CRC is correct, now check the header */
   if((process_glossy_header(pkt, pkt_len, 1) == SUCCESS)) {
@@ -728,7 +777,9 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
     uint8_t *payload = pkt + GLOSSY_HEADER_LEN(g.header.pkt_type);
 
     /* store the relay counter corresponding to the first reception */
+#if GLOSSY_CONF_COLLECT_STATS
     uint8_t relay_cnt = g.header.relay_cnt;
+#endif /* GLOSSY_CONF_COLLECT_STATS */
     /* increment the relay counter */
     g.header.relay_cnt++;
 
@@ -744,18 +795,21 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
       glossy_stop();
     }
 
+#if GLOSSY_CONF_COLLECT_STATS
+    /* stats */
     if(WITH_RELAY_CNT()) {
       /* the relay counter is part of the header */
       if(g.n_rx == 0) {
-        g.relay_cnt_first_rx = relay_cnt;
+        g.last_flood_relay_cnt = relay_cnt;
       }
       /* get the RSSI value */
       if(g.n_rx < 3) {
-        g.rssi[g.n_rx] = rf1a_get_last_packet_rssi();
-        g.n_hops[g.n_rx] = g.header.relay_cnt - 1;
+        g.last_flood_rssi[g.n_rx] = rf1a_get_last_packet_rssi();
+        g.last_flood_hops[g.n_rx] = g.header.relay_cnt - 1;
       }
     }
-    g.rssi_sum += rf1a_get_last_packet_rssi();
+    g.last_flood_rssi_sum += rf1a_get_last_packet_rssi();
+#endif /* GLOSSY_CONF_COLLECT_STATS */
     
     /* increment the reception counter */
     g.n_rx++;
@@ -791,11 +845,12 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
                         "initiator %u.",
                         pkt_len, g.header.initiator_id);
   } else {
+#if GLOSSY_CONF_COLLECT_STATS
     if(!g.already_counted) {
-      g.n_header_fail++;
-      g.n_rx_fail++;
+      g.last_flood_n_rx_fail++;
       g.already_counted = 1;
     }
+#endif /* GLOSSY_CONF_COLLECT_STATS */
     /* some fields in the header were not correct: discard it */
     rf1a_cb_rx_failed(timestamp);
   }
@@ -849,10 +904,12 @@ void
 rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
 {
   /* RX has failed due to invalid CRC or invalid Glossy header */
+#if GLOSSY_CONF_COLLECT_STATS
   if(!g.already_counted) {
-    g.n_rx_fail++;
+    g.last_flood_n_rx_fail++;
     g.already_counted = 1;
   }
+#endif /* GLOSSY_CONF_COLLECT_STATS */
   GLOSSY_RX_STOPPED;
   /* notify about the failure, flush the RX FIFO and start a new reception
    * attempt */

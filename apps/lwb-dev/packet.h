@@ -39,9 +39,10 @@
 #define __PACKET_H__
 
 
-#define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN)
+#define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN - \
+                         GLOSSY_MAX_HEADER_LEN)     /* 62 - 3 - 4 = 55 bytes */
 #define MSG_HDR_LEN     16
-#define MSG_PAYLOAD_LEN (MSG_PKT_LEN - MSG_HDR_LEN - 2)
+#define MSG_PAYLOAD_LEN (MSG_PKT_LEN - MSG_HDR_LEN - 2)  /* 55 - 16 - 2 = 37 */
 
 /* actual message length including CRC */
 #define MSG_LEN(msg)    ((msg).header.payload_len + MSG_HDR_LEN + 2)
@@ -50,11 +51,13 @@
 #define DEVICE_ID_SINK        0
 #define DEVICE_ID_BROADCAST   0xffff
 
+
 typedef enum {
-  LWB_CMD_RESUME = 0,
-  LWB_CMD_PAUSE,
-  LWB_CMD_SET_SCHED_PERIOD,
-  LWB_CMD_SET_STATUS_PERIOD,
+  COMM_CMD_LWB_RESUME = 0,
+  COMM_CMD_LWB_PAUSE,
+  COMM_CMD_LWB_SET_ROUND_PERIOD,
+  COMM_CMD_LWB_SET_HEALTH_PERIOD,
+  COMM_CMD_LWB_SET_TX_PWR,
 } comm_cmd_type_t;
 
 /* there are 4 message classes */
@@ -73,6 +76,7 @@ typedef enum {
   MSG_TYPE_COMM_CMD = 10,
   MSG_TYPE_COMM_HEALTH = 11,
 
+  /* not yet implemented: */
   MSG_TYPE_FW_INFO,
   MSG_TYPE_FW_DATA,
   MSG_TYPE_FW_VALIDATE,
@@ -88,7 +92,8 @@ typedef uint64_t timestamp_t;
 
 #pragma pack(1)         /* force alignment to 1 byte */
 
-// 34 bytes
+
+#define MSG_COMM_HEALTH_LEN   36    /* bytes */
 typedef struct {
   uint32_t uptime;        /* in seconds */
   int16_t  temp;          /* temperature value in 100x °C */
@@ -107,7 +112,10 @@ typedef struct {
   uint8_t  lwb_rx_drop;   /* dropped rx packets since last health message */
   uint8_t  lwb_bootstrap_cnt;
   uint8_t  lwb_sleep_cnt;
-  uint32_t lfxt_ticks;    /* in 32kHz ticks, rollover of ~36h */
+  uint16_t lwb_t_to_rx;   /* time[us] to first rx (offset to glossy_start) */
+  uint16_t lwb_t_flood;   /* flood duration [us] */
+  uint8_t  lwb_n_rx_started;  /* # preambles+sync det. in last flood */
+  uint8_t  reserved;
 } comm_health_t;
 
 
@@ -174,6 +182,12 @@ typedef struct {
 
 
 #pragma pack()
+
+
+/* error check (max. message length) */
+#if MSG_PAYLOAD_LEN < MSG_COMM_HEALTH_LEN
+#error "payload of message_t is too big"
+#endif
 
 
 #endif /* __PACKET_H__ */

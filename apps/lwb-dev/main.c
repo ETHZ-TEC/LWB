@@ -60,7 +60,6 @@ PROCESS_THREAD(app_process, ev, data)
   /* general initialization */
 #if DEBUG_INTERRUPT_ENABLE
   /* enable ISR for debugging! */
-  PIN_UNSEL(DEBUG_INTERRUPT_PIN);
   PIN_CFG_INT_INV(DEBUG_INTERRUPT_PIN);
 #endif /* DEBUG_INTERRUPT_ENABLE */
 
@@ -128,22 +127,19 @@ print_debug_info(uint16_t stack_addr)
    */
     
   uint16_t stack_size = SRAM_END - stack_addr + 1;
-  uint8_t peripherals = ((UCA0CTL1 & UCSWRST) << 7) |     /* 0x80 */
-                        ((UCB0CTL1 & UCSWRST) << 6) |     /* 0x40 */
-                        (TA0CTL & (MC_3 | TAIE))    |     /* 0x32 */
-                        ((TA1CTL & MC_3) >> 2)      |     /* 0x0c */
-                        ((TA1CTL & TAIE) >> 1);           /* 0x01 */
+  uint8_t peripherals = ((UCA0CTL1 & UCSWRST) << 1) |
+                        (UCB0CTL1 & UCSWRST);
   
   /* get more info about LWB timer */
-  uint8_t lwb_timer = ((*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) & CCIE) >> 3) |
-            ((*(&TA1CCTL0 + LWB_CONF_LF_RTIMER_ID - RTIMER_LF_0) & CCIE) >> 4);
+  uint8_t lwb_timer = ((*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) & CCIE) << 1) |
+                   (*(&TA1CCTL0 + LWB_CONF_LF_RTIMER_ID - RTIMER_LF_0) & CCIE);
   rtimer_clock_t next_exp = 0;
   if(rtimer_next_expiration(LWB_CONF_RTIMER_ID, &next_exp)) {
-    lwb_timer |= 0x08;  /* set bit */
+    lwb_timer |= 0x02;  /* set bit */
   }
   rtimer_clock_t next_exp_lf = 0;
   if(rtimer_next_expiration(LWB_CONF_LF_RTIMER_ID, &next_exp_lf)) {
-    lwb_timer |= 0x04;  /* set bit */
+    lwb_timer |= 0x01;  /* set bit */
   }
 
   /* status register bits:
@@ -162,14 +158,18 @@ print_debug_info(uint16_t stack_addr)
   printf("\r\n-------------------------------------------------------\r\n"
          "debug info:\r\n\r\n");
   printf("stack size: %u, return addr: 0x%04x, status reg: 0x%04x\r\n"
-         "peripherals: 0x%02x\r\n"
+         "usci: 0x%02x, xt2off: %u\r\n"
+         "ta0ctl: 0x%x, ta1ctl: 0x%x\r\n"
          "rtimer now: %llu, %llu\r\n"
          "lwb timer: 0x%x, %llu, %llu\r\n"
-         "heap:\r\n",
+         "heap:",
          stack_size, 
-         *(volatile uint16_t*)(stack_addr),
          *(volatile uint16_t*)(stack_addr + 2),
+         *(volatile uint16_t*)(stack_addr),
          peripherals,
+         xt2_off,
+         TA0CTL,
+         TA1CTL,
          rtimer_now_lf(), rtimer_now_hf(),
          lwb_timer, next_exp_lf, next_exp);
   
@@ -191,11 +191,11 @@ ISR(PORT2, port2_interrupt)
   LED_TOGGLE(LED_STATUS);
 
   /* see lwb.dis file! (pushm #6 = 6x 16-bit register is pushed onto stack) */
-  #define REGISTER_BYTES_ON_STACK       (8 + 4)
+  #define REGISTER_BYTES_ON_STACK       (8)
   /* look into the assembly code to find out how many registers have been
    * put onto the stack since this function has been entered */
   uint16_t stack_addr;
-  print_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK);
+  print_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2);
 
   PIN_CLR_IFG(DEBUG_INTERRUPT_PIN);
 }

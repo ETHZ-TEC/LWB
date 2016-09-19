@@ -63,7 +63,8 @@
 /*---------------------------------------------------------------------------*/
 
 #ifndef LWB_CONF_MAX_DATA_PKT_LEN
-/* max. length of a data packet incl. the LWB header (node + stream ID), 
+/* max. length of a data packet incl. the LWB header (node + stream ID) and
+ * Glossy header (4 bytes)
  * determines T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, 
  * choose as small as possible; must be <= (LWB_CONF_MAX_PKT_LEN - 5) 
  * NOTE: LWB_CONF_MAX_DATA_PKT_LEN must not exceed LWB_CONF_MAX_PKT_LEN
@@ -153,13 +154,12 @@
 #endif /* LWB_CONF_T_GAP */
 
 #ifndef LWB_CONF_T_GUARD
-/* initial guard time, (RTIMER_SECOND_HF / 2000) = 0.5 ms, guard times are 
- * needed to account for clock drifts */
+/* default guard time (used for data slots), (RTIMER_SECOND_HF / 2000) =
+ * 0.5 ms, guard times are needed to account for clock drifts */
 #define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 2000)      
 #endif /* LWB_CONF_T_GUARD */
 
 #ifndef LWB_CONF_T_GUARD_1
-/* 1 ms (must not be higher than 1 ms, otherwise T_GAP is too short!) */
 #define LWB_CONF_T_GUARD_1              (RTIMER_SECOND_HF / 1000)
 #endif /* LWB_CONF_T_GUARD_1 */
 

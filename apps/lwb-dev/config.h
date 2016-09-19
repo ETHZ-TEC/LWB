@@ -37,24 +37,28 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         20040
+#define NODE_ID                         20039
 #define HOST_ID                         13
 
 #define SEND_HEALTH_DATA                1
 /* rooftop: dozer is on 868.875 MHz (CH12) -> choose CH10 (870 MHz) */
 #define RF_CONF_TX_CH                   10
 #define ENERGEST_CONF_ON                1
-#define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
+#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 #define LWB_CONF_DATA_ACK               0                  /* use data ACKs? */
 
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_VERSION                     0          /* use the custom version */
-#define LWB_CONF_OUT_BUFFER_SIZE        4
-#define LWB_CONF_IN_BUFFER_SIZE         10
+#define LWB_CONF_OUT_BUFFER_SIZE        6
+#if NODE_ID == HOST_ID
+  #define LWB_CONF_IN_BUFFER_SIZE       10
+#else
+  #define LWB_CONF_IN_BUFFER_SIZE       2  /* smaller queue for source nodes */
+#endif /* NODE_ID == HOST_ID */
 #define LWB_CONF_MAX_PKT_LEN            63
-#define LWB_CONF_MAX_DATA_PKT_LEN       62
+#define LWB_CONF_MAX_DATA_PKT_LEN       62   /* leave 1 byte for payload_len */
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
 #define LWB_CONF_MAX_N_STREAMS          10      /* to keep memory usage down */

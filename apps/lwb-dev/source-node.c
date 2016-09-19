@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Tonio Gsell
  */
 
 /* application code for the source node */
@@ -37,11 +38,6 @@
 /*---------------------------------------------------------------------------*/
 
 #define LWB_STREAM_ID_HEALTH_MSG    1
-
-static lwb_stream_req_t health_stream = { node_id,
-                                          0,
-                                          LWB_STREAM_ID_HEALTH_MSG,
-                                          LWB_CONF_SCHED_PERIOD_IDLE };
 
 /*---------------------------------------------------------------------------*/
 /* send a data packet to all sinks */
@@ -104,6 +100,8 @@ get_node_health(comm_health_t* out_data)
   out_data->vcc  = adc_get_vcc();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
 
+  rtimer_clock_t now      = rtimer_now_lf();
+
   glossy_get_rssi(out_data->lwb_rssi);
   out_data->rf_snr        = glossy_get_snr();
   out_data->lwb_rx_cnt    = glossy_get_n_pkts_crcok();
@@ -111,7 +109,6 @@ get_node_health(comm_health_t* out_data)
   out_data->lwb_n_rx_hops = glossy_get_n_rx() |
                             (glossy_get_relay_cnt() << 4);
   out_data->lwb_fsr       = glossy_get_fsr();
-  rtimer_clock_t now      = rtimer_now_lf();
   out_data->cpu_dc        = (uint16_t)
                             (energest_type_time(ENERGEST_TYPE_CPU) *
                             1000 / (now - last_energest_rst));
@@ -125,8 +122,11 @@ get_node_health(comm_health_t* out_data)
   out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
   out_data->lwb_sleep_cnt = lwb_stats->sleep_cnt;
   out_data->lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
-  out_data->lfxt_ticks    = rtimer_now_lf();
-  out_data->uptime        = rtimer_now_lf() / XT1CLK_SPEED;
+  //out_data->lfxt_ticks    = now;
+  out_data->uptime        = now / XT1CLK_SPEED;
+  out_data->lwb_n_rx_started = glossy_get_n_rx_started();
+  out_data->lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
+  out_data->lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
 
   /* reset values */
   last_energest_rst  = now;
@@ -156,26 +156,44 @@ void
 source_run(void)
 {
 #if SEND_HEALTH_DATA
-  static uint8_t ipi_changed = 1;
+  static lwb_stream_req_t health_stream = { node_id, 0,
+                                            LWB_STREAM_ID_HEALTH_MSG,
+                                            LWB_CONF_SCHED_PERIOD_IDLE };
+  static uint32_t t_last_health_pkt = 0;
+  static uint32_t curr_time         = 0;
+  static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
+  static uint8_t  ipi_changed       = 1;
+
+  curr_time = lwb_get_time(0);
 
   /* adjust the IPI in case the fill level of the output queue reaches a
    * certain threshold */
-  if(health_stream.ipi == LWB_CONF_SCHED_PERIOD_IDLE &&
-     lwb_tx_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
-    health_stream.ipi = LWB_CONF_SCHED_PERIOD_IDLE / 2; /* reduce the IPI */
+  if(health_stream.ipi == health_period) {
+    if(lwb_tx_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
+      health_stream.ipi = health_period / 2; /* reduce the IPI */
+      ipi_changed = 1;
+    }
+  } else if(lwb_tx_buffer_state() < 2) {
+    /* only 0 or 1 element left in the queue -> set IPI back to default */
+    health_stream.ipi = health_period;
     ipi_changed = 1;
   }
 
   /* only send data if the stream is active */
   if(lwb_stream_get_state(LWB_STREAM_ID_HEALTH_MSG) ==
      LWB_STREAM_STATE_ACTIVE) {
-	  /* generate a node health packet and schedule it for transmission */
-    comm_health_t node_health;
-    if(get_node_health(&node_health)) {
-      if(!send_pkt((const uint8_t*)&node_health, sizeof(comm_health_t),
-                   MSG_TYPE_COMM_HEALTH)) {
-        DEBUG_PRINT_INFO("failed to send msg, tx queue full");
+    if((curr_time - t_last_health_pkt) >= health_period) {
+      /* generate a node health packet and schedule it for transmission */
+      comm_health_t node_health;
+      if(get_node_health(&node_health)) {
+        if(!send_pkt((const uint8_t*)&node_health, sizeof(comm_health_t),
+                     MSG_TYPE_COMM_HEALTH)) {
+          DEBUG_PRINT_INFO("failed to send msg, tx queue full");
+        } else {
+          DEBUG_PRINT_INFO("health message added to tx queue");
+        }
       }
+      t_last_health_pkt = curr_time;
     }
   }
 
@@ -184,12 +202,25 @@ source_run(void)
   uint8_t   count = 0;
   while(lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
     count++;
-    if(msg_buffer.header.type == MSG_TYPE_COMM_CMD &&
-       msg_buffer.comm_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
-      /* change health/status report interval */
-      health_stream.ipi = msg_buffer.comm_cmd.value;
-      ipi_changed = 1;
-    }
+    if(msg_buffer.header.target_id == node_id ||
+       msg_buffer.header.target_id == DEVICE_ID_BROADCAST) {
+      if(msg_buffer.header.type == MSG_TYPE_COMM_CMD) {
+        switch(msg_buffer.comm_cmd.type) {
+        case COMM_CMD_LWB_SET_HEALTH_PERIOD:
+          /* change health/status report interval */
+          health_period = msg_buffer.comm_cmd.value;
+          health_stream.ipi = msg_buffer.comm_cmd.value;
+          ipi_changed = 1;
+          break;
+        case COMM_CMD_LWB_SET_TX_PWR:
+          glossy_set_tx_pwr(msg_buffer.comm_cmd.value);
+          break;
+        default:
+          /* unknown command */
+          break;
+        }
+      } /* else: unknown message type */
+    } /* else: target ID does not match node ID */
   }
   if(count) {
     DEBUG_PRINT_INFO("%d packet(s) received", count);

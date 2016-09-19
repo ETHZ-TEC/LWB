@@ -59,6 +59,14 @@
 #endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
 
 
+#ifndef GLOSSY_CONF_COLLECT_STATS
+#define GLOSSY_CONF_COLLECT_STATS               1
+#endif /* GLOSSY_CONF_COLLECT_STATS */
+
+/* max. header length (with sync) */
+#define GLOSSY_MAX_HEADER_LEN                   4
+
+
 enum {
   GLOSSY_UNKNOWN_INITIATOR = 0
 };
@@ -126,6 +134,31 @@ uint8_t glossy_get_n_rx(void);
 uint8_t glossy_get_n_tx(void);
 
 /**
+ * @brief get the length of the payload of the received/transmitted packet
+ */
+uint8_t glossy_get_payload_len(void);
+
+/**
+ * @brief checks whether the reference time has been updated in the last
+ * glossy flood
+ */
+uint8_t glossy_is_t_ref_updated(void);
+
+/**
+ * @brief get the reference time (timestamp of the reception of the first byte)
+ * @return 64-bit timestamp (type rtimer_clock_t)
+ */
+uint64_t glossy_get_t_ref(void);
+
+/**
+ * @brief get the total number of received packets (with CRC ok only)
+ */
+void glossy_set_tx_pwr(uint8_t tx_pwr);
+
+
+
+#if GLOSSY_CONF_COLLECT_STATS
+/**
  * @brief get the number of started receptions
  * (preamble + sync detection) during the last flood
  */
@@ -143,13 +176,6 @@ uint8_t glossy_get_n_crc_ok(void);
 uint8_t glossy_get_n_rx_fail(void);
 
 /**
- * @brief get the number of received packets with CRC ok, but header validation
- * failed during the last flood
- */
-uint8_t glossy_get_n_header_fail(void);
-
-
-/**
  * @brief get the signal-to-noise ratio (average RSSI value of all received 
  * packets of the last flood minus RSSI of the noise floor before the flood)
  * @note this function is only returns a value != 0 if at least one packet 
@@ -160,27 +186,10 @@ int8_t glossy_get_snr(void);
 
 /**
  * @brief get the average RSSI value of the last flood
- * @param out_rssi optional parameter, returns the individual RSSI values
+ * @param out rssi optional parameter, returns the individual RSSI values
  * (buffer must be able to hold 3 bytes!)
  */
-int8_t glossy_get_rssi(int8_t* out_rssi);
-
-/**
- * @brief get the length of the payload of the received/transmitted packet
- */
-uint8_t glossy_get_payload_len(void);
-
-/**
- * @brief checks whether the reference time has been updated in the last
- * glossy flood
- */
-uint8_t glossy_is_t_ref_updated(void);
-
-/**
- * @brief get the reference time (timestamp of the reception of the first byte)
- * @return 64-bit timestamp (type rtimer_clock_t)
- */
-uint64_t glossy_get_t_ref(void);
+int8_t glossy_get_rssi(int8_t* rssi);
 
 /**
  * @brief get the relay count of the first received packet
@@ -214,6 +223,18 @@ uint32_t glossy_get_n_pkts(void);
  * @brief get the total number of received packets (with CRC ok only)
  */
 uint32_t glossy_get_n_pkts_crcok(void);
+
+/**
+ * @brief get the duration of the last flood, in HF clock ticks
+ */
+uint32_t glossy_get_flood_duration(void);
+
+/**
+ * @brief get the time to the first RX (since glossy_start), in HF clock ticks
+ */
+uint32_t glossy_get_t_to_first_rx(void);
+
+#endif /* GLOSSY_CONF_COLLECT_STATS */
 
 
 #endif /* __GLOSSY_H__ */

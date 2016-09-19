@@ -354,10 +354,11 @@ rtimer_swext_addr(rtimer_id_t timer)
 uint8_t
 rtimer_next_expiration(rtimer_id_t timer, rtimer_clock_t* exp_time)
 {
-   if(timer < RTIMER_CONF_NUM_LF) {
+   if(timer < NUM_OF_RTIMERS) {
      *exp_time = rt[timer].time;
+     return (rt[timer].state == RTIMER_SCHEDULED);
    }
-   return (rt[timer].state == RTIMER_SCHEDULED);
+   return 0;
 }
 /*---------------------------------------------------------------------------*/
 clock_time_t

@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Tonio Gsell
  */
 
 /**
@@ -94,12 +95,13 @@ host_run(void)
   message_t msg;
   while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
     /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-    DEBUG_PRINT_MSG_NOW("data packet received from node %u",
-                        msg.header.device_id);
+    DEBUG_PRINT_MSG_NOW("data packet received from node %u (%u, %u)",
+                        msg.header.device_id, msg.comm_health.lwb_t_to_rx, msg.comm_health.lwb_t_flood);
     /* forward the packet: write it to BOLT */
     BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
   }
 
+#if SEND_HEALTH_DATA
   /* generate a health message */
   if(get_node_health(&msg.comm_health)) {
     /* calculate the timestamp, convert to microseconds */
@@ -117,6 +119,7 @@ host_run(void)
     MSG_SET_CRC16(&msg, crc);
     BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
   }
+#endif /* SEND_HEALTH_DATA */
 
   /* handle timestamp requests */
   uint64_t time_last_req;
@@ -138,41 +141,52 @@ host_run(void)
     if(msg_len) {
       msg_cnt++;
       memcpy(&msg, bolt_buffer, MSG_PKT_LEN);
-      if(msg.header.type == MSG_TYPE_COMM_CMD &&
-         msg.header.target_id != NODE_ID &&
-         msg.header.target_id != DEVICE_ID_BROADCAST) {
-        if(msg.comm_cmd.type == LWB_CMD_SET_SCHED_PERIOD) {
-          /* adjust the period */
-          lwb_sched_set_period(msg.comm_cmd.value);
-          DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
-        } else if(msg.comm_cmd.type == LWB_CMD_SET_STATUS_PERIOD) {
-          /* broadcast the message */
-          send_msg(msg.header.target_id, msg.payload,
-                   sizeof(comm_cmd_t), MSG_TYPE_COMM_CMD);
-        } else if(msg.comm_cmd.type == LWB_CMD_PAUSE) {
-          /* stop */
-          while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
-            BOLT_READ(bolt_buffer, msg_len);
+      if(msg.header.target_id == NODE_ID ||
+         msg.header.target_id == DEVICE_ID_BROADCAST) {
+        if(msg.header.type == MSG_TYPE_COMM_CMD) {
+          DEBUG_PRINT_INFO("command received");
+          switch(msg.comm_cmd.type) {
+          case COMM_CMD_LWB_SET_ROUND_PERIOD:
+            /* adjust the period */
+            lwb_sched_set_period(msg.comm_cmd.value);
+            DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
+            break;
+          case COMM_CMD_LWB_SET_HEALTH_PERIOD:
+            /* broadcast the message */
+            send_msg(msg.header.target_id, msg.payload,
+                     sizeof(comm_cmd_t), MSG_TYPE_COMM_CMD);
+            break;
+          case COMM_CMD_LWB_PAUSE:
+            /* stop */
+            while(BOLT_DATA_AVAILABLE) {        /* flush the queue */
+              BOLT_READ(bolt_buffer, msg_len);
+            }
+            /* configure a port interrupt for the IND pin */
+            __dint();
+            PIN_IES_RISING(BOLT_CONF_IND_PIN);
+            PIN_CLR_IFG(BOLT_CONF_IND_PIN);
+            PIN_INT_EN(BOLT_CONF_IND_PIN);
+            if(BOLT_DATA_AVAILABLE) {
+              DEBUG_PRINT_MSG_NOW("failed to stop LWB");
+              __eint();
+            } else {
+              lwb_pause();
+              DEBUG_PRINT_MSG_NOW("LWB paused");
+              __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
+              __no_operation();
+              DEBUG_PRINT_MSG_NOW("LWB resumed");
+              lwb_resume();
+            }
+            break;
+          case COMM_CMD_LWB_SET_TX_PWR:
+            glossy_set_tx_pwr(msg.comm_cmd.value);
+            break;
+          default:
+            /* unknown command */
+            break;
           }
-          /* configure a port interrupt for the IND pin */
-          __dint();
-          PIN_IES_RISING(BOLT_CONF_IND_PIN);
-          PIN_CLR_IFG(BOLT_CONF_IND_PIN);
-          PIN_INT_EN(BOLT_CONF_IND_PIN);
-          if(BOLT_DATA_AVAILABLE) {
-            DEBUG_PRINT_MSG_NOW("failed to stop LWB");
-            __eint();
-          } else {
-            lwb_pause();
-            DEBUG_PRINT_MSG_NOW("LWB paused");
-            __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
-            __no_operation();
-            DEBUG_PRINT_MSG_NOW("LWB resumed");
-            lwb_resume();
-            continue;
-          }
-        }
-      } else if (msg.header.target_id != 0) {
+        } /* else: unknown message type */
+      } else {
         /* all other message types: forward to LWB */
         if(!lwb_send_pkt(msg.header.target_id, LWB_STREAM_ID_HOST,
                          (uint8_t*)&msg, MSG_LEN(msg))) {
@@ -200,7 +214,7 @@ ISR(PORT2, port2_interrupt)
       BOLT_READ(bolt_buffer, msg_len);
       message_t* msg = (message_t*)bolt_buffer;
       if(msg_len && msg->header.type == MSG_TYPE_COMM_CMD &&
-         msg->comm_cmd.type == LWB_CMD_RESUME) {
+         msg->comm_cmd.type == COMM_CMD_LWB_RESUME) {
         PIN_INT_OFF(BOLT_CONF_IND_PIN);
         __bic_status_register_on_exit(SCG0 | SCG1 | CPUOFF);
         break;

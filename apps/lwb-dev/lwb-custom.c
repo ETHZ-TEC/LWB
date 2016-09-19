@@ -141,8 +141,8 @@ lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] =
 static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = 
 { "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN", "USYN2" };
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
-/* STATE:      BOOTSTRAP,        QUASI_SYNCED,       SYNCED,           SYNCED_2,         MISSED,             UNSYNCED,           UNSYNCED2 */
-/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3
+/* STATE:      BOOTSTRAP,        QUASI_SYNCED,       SYNCED,             SYNCED_2,           MISSED,             UNSYNCED,           UNSYNCED2 */
+/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_3
 };
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -192,7 +192,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
                GLOSSY_UNKNOWN_PAYLOAD_LEN, \
                LWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
-  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_DATA + t_guard);\
+  /* always use smallest guard time for data slots! */\
+  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_DATA + LWB_CONF_T_GUARD);\
   glossy_stop();\
 }
 #define LWB_SEND_SRQ() \
@@ -209,7 +210,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
                GLOSSY_UNKNOWN_PAYLOAD_LEN, \
                LWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
-  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_CONT + t_guard);\
+  /* always use smallest guard time for contention slot! */\
+  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_CONT + LWB_CONF_T_GUARD);\
   glossy_stop();\
 }
 /*---------------------------------------------------------------------------*/
@@ -693,7 +695,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     #endif /* LWB_CONF_DATA_ACK */
               }
             } else {
-              DEBUG_PRINT_VERBOSE("packet dropped, not destined for me");      
+              DEBUG_PRINT_VERBOSE("packet dropped, target_id != node_id");
             }
             /* update statistics */
             stats.rx_total += payload_len;
@@ -985,7 +987,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             /* is there an 'urgent' stream request? -> if so, piggyback it 
              * onto the data packet */
             if(urgent_stream_req) {
-              glossy_payload.data_pkt.recipient = 0;
+              glossy_payload.data_pkt.recipient = LWB_RECIPIENT_SINK;
               glossy_payload.data_pkt.stream_id = LWB_INVALID_STREAM_ID;
               if(lwb_stream_prepare_req((lwb_stream_req_t*)
                                         &glossy_payload.raw_data[3], 
