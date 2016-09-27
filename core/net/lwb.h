@@ -154,19 +154,22 @@
 #endif /* LWB_CONF_T_GAP */
 
 #ifndef LWB_CONF_T_GUARD
-/* default guard time (used for data slots), (RTIMER_SECOND_HF / 2000) =
- * 0.5 ms, guard times are needed to account for clock drifts */
+/* default guard time (used for data slots/contention slot),
+ * (RTIMER_SECOND_HF / 2000) = 0.5 ms */
 #define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 2000)      
 #endif /* LWB_CONF_T_GUARD */
 
+/* guard time for schedule slots (stage 1) */
 #ifndef LWB_CONF_T_GUARD_1
 #define LWB_CONF_T_GUARD_1              (RTIMER_SECOND_HF / 1000)
 #endif /* LWB_CONF_T_GUARD_1 */
 
+/* increased guard time for schedule slots (stage 2) */
 #ifndef LWB_CONF_T_GUARD_2
 #define LWB_CONF_T_GUARD_2              (RTIMER_SECOND_HF / 200)     /* 5 ms */
 #endif /* LWB_CONF_T_GUARD_2 */
 
+/* increased guard time for schedule slots (stage 3) */
 #ifndef LWB_CONF_T_GUARD_3
 #define LWB_CONF_T_GUARD_3              (RTIMER_SECOND_HF / 100)    /* 10 ms */
 #endif /* LWB_CONF_T_GUARD_3 */
@@ -484,6 +487,13 @@ void lwb_stats_reset(void);
  * @return the relative time in seconds since the host started
  */
 uint32_t lwb_get_time(rtimer_clock_t* reception_time);
+
+/**
+ * @brief get a high-res timestamp in us (based on the LWB time)
+ * @return timestamp
+ * @note requires that the node is synchronized to the host!
+ */
+uint64_t lwb_get_timestamp(void);
 
 
 #endif /* __LWB_H__ */

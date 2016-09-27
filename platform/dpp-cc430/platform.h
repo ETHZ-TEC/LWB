@@ -206,7 +206,7 @@
 #define GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS
 
-#define UART_ACTIVE                 (UCA0STAT & UCBUSY)
+#define UART_ACTIVE             (UCA0STAT & UCBUSY)
 
 #define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) {\
                                   SFRIE1  &= ~OFIE;\
@@ -220,7 +220,7 @@
                                   P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
                                               BIT6 | BIT7);\
                                 }
-                                
+
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
 #define LWB_BEFORE_DEEPSLEEP()  {\
                                   FRAM_SLEEP;\

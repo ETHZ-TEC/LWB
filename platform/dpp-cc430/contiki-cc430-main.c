@@ -38,6 +38,7 @@ uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
 #ifndef NODE_ID
 volatile uint16_t node_id;
 #endif /* NODE_ID */
+uint16_t rst_flag;    /* make it global to be accessible by the app task */
 /*---------------------------------------------------------------------------*/
 void
 print_processes(struct process *const processes[])
@@ -83,7 +84,6 @@ print_device_info(void)
    * note: this device does not offer an LPMx.5 mode, therefore there's no
    * corresponding reset source
    */
-  static uint32_t rst_flag;         
   rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
   
   printf("\r\n\r\nReset Source: ");

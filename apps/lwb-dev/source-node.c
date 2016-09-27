@@ -37,106 +37,59 @@
 
 /*---------------------------------------------------------------------------*/
 
-#define LWB_STREAM_ID_HEALTH_MSG    1
+/* TODO: use different streams for different message types */
+#define STREAM_ID    1
 
 /*---------------------------------------------------------------------------*/
-/* send a data packet to all sinks */
-uint8_t
-send_pkt(const uint8_t* data,
+void
+send_msg(uint16_t recipient,
+         message_type_t type,
+         const uint8_t* data,
          uint8_t len,
-         message_type_t type)
+         uint8_t send_to_bolt)
 {
-  /* TODO use different stream IDs for different message types */
-
-  static uint16_t seq_no = 0;
-
-  if(!data || !len) {
-    return 0;
+  if(!data) {   /* parameter check */
+    return;
   }
-
+  /* compose the message header */
   message_t msg;
   msg.header.device_id   = node_id;
   msg.header.type        = type;
-  msg.header.payload_len = len;
-  msg.header.target_id   = DEVICE_ID_SINK;
-  msg.header.seqnr       = seq_no++;
-
-  /* calculate the timestamp, convert to microseconds */
-  rtimer_clock_t round_start;
-  uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
-  round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
-  msg.header.generation_time = lwb_time_seconds * 1000000 + round_start;
-
+  if(!len) {
+    switch(type) {
+    case MSG_TYPE_COMM_HEALTH:
+      msg.header.payload_len = sizeof(comm_health_t); break;
+    case MSG_TYPE_COMM_CMD:
+      msg.header.payload_len = sizeof(comm_cmd_t); break;
+    default: break;
+    }
+  } else {
+    msg.header.payload_len = len;
+  }
+  msg.header.target_id     = recipient;
+  if(send_to_bolt) {
+    msg.header.seqnr       = seq_no_bolt++;
+  } else {
+    msg.header.seqnr       = seq_no_lwb++;
+  }
+  msg.header.generation_time = lwb_get_timestamp();
   /* copy the payload */
-  memcpy(msg.payload, data, len);
-  uint16_t crc = crc16((uint8_t*)&msg, len + MSG_HDR_LEN, 0);
+  memcpy(msg.payload, data, msg.header.payload_len);
+  /* calculate and append the CRC */
+  uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,0);
   MSG_SET_CRC16(&msg, crc);
 
-  if(!lwb_send_pkt(LWB_RECIPIENT_SINK, LWB_STREAM_ID_HEALTH_MSG,
-                   (uint8_t*)&msg, MSG_LEN(msg))) {
-    DEBUG_PRINT_WARNING("message dropped (queue full)");
-    return 0;
+  /* forward the message either to BOLT or the LWB */
+  if(send_to_bolt) {
+    BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
+  } else {
+    if(!lwb_send_pkt(recipient, STREAM_ID,
+                     (uint8_t*)&msg, MSG_LEN(msg))) {
+      DEBUG_PRINT_INFO("message dropped (queue full)");
+    } else {
+      DEBUG_PRINT_INFO("message for node %u added to TX queue", recipient);
+    }
   }
-  DEBUG_PRINT_INFO("message added to TX queue");
-  return 1;
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-get_node_health(comm_health_t* out_data)
-{
-  static int16_t          temp = 0;
-  static rtimer_clock_t   last_energest_rst = 0;
-  static uint16_t         last_rx_drop = 0,
-                          last_tx_drop = 0;
-  const lwb_statistics_t* lwb_stats = lwb_get_stats();
-
-  while(REFCTL0 & REFGENBUSY);
-  REFCTL0 |= REFON;
-  while(REFCTL0 & REFGENBUSY);
-  __delay_cycles(MCLK_SPEED / 25000);                /* let REF settle */
-
-  temp = (temp + adc_get_temp()) / 2;      /* moving average (LP filter) */
-  out_data->temp = temp;
-  out_data->vcc  = adc_get_vcc();
-  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
-
-  rtimer_clock_t now      = rtimer_now_lf();
-
-  glossy_get_rssi(out_data->lwb_rssi);
-  out_data->rf_snr        = glossy_get_snr();
-  out_data->lwb_rx_cnt    = glossy_get_n_pkts_crcok();
-  out_data->rf_per        = glossy_get_per();
-  out_data->lwb_n_rx_hops = glossy_get_n_rx() |
-                            (glossy_get_relay_cnt() << 4);
-  out_data->lwb_fsr       = glossy_get_fsr();
-  out_data->cpu_dc        = (uint16_t)
-                            (energest_type_time(ENERGEST_TYPE_CPU) *
-                            1000 / (now - last_energest_rst));
-  out_data->rf_dc         = (uint16_t)
-                            ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
-                            energest_type_time(ENERGEST_TYPE_LISTEN)) *
-                            1000 / (now - last_energest_rst));
-  out_data->lwb_tx_buf    = lwb_tx_buffer_state();
-  out_data->lwb_rx_buf    = lwb_rx_buffer_state();
-  out_data->lwb_tx_drop   = lwb_stats->txbuf_drop - last_tx_drop;
-  out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
-  out_data->lwb_sleep_cnt = lwb_stats->sleep_cnt;
-  out_data->lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
-  //out_data->lfxt_ticks    = now;
-  out_data->uptime        = now / XT1CLK_SPEED;
-  out_data->lwb_n_rx_started = glossy_get_n_rx_started();
-  out_data->lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
-  out_data->lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
-
-  /* reset values */
-  last_energest_rst  = now;
-  energest_type_set(ENERGEST_TYPE_CPU, 0);
-  energest_type_set(ENERGEST_TYPE_TRANSMIT, 0);
-  energest_type_set(ENERGEST_TYPE_LISTEN, 0);
-  last_rx_drop = lwb_stats->rxbuf_drop;
-  last_tx_drop = lwb_stats->txbuf_drop;
-
-  return (sizeof(comm_health_t) + MSG_HDR_LEN);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -156,8 +109,7 @@ void
 source_run(void)
 {
 #if SEND_HEALTH_DATA
-  static lwb_stream_req_t health_stream = { node_id, 0,
-                                            LWB_STREAM_ID_HEALTH_MSG,
+  static lwb_stream_req_t health_stream = { node_id, 0, STREAM_ID,
                                             LWB_CONF_SCHED_PERIOD_IDLE };
   static uint32_t t_last_health_pkt = 0;
   static uint32_t curr_time         = 0;
@@ -180,18 +132,14 @@ source_run(void)
   }
 
   /* only send data if the stream is active */
-  if(lwb_stream_get_state(LWB_STREAM_ID_HEALTH_MSG) ==
+  if(lwb_stream_get_state(STREAM_ID) ==
      LWB_STREAM_STATE_ACTIVE) {
     if((curr_time - t_last_health_pkt) >= health_period) {
       /* generate a node health packet and schedule it for transmission */
       comm_health_t node_health;
       if(get_node_health(&node_health)) {
-        if(!send_pkt((const uint8_t*)&node_health, sizeof(comm_health_t),
-                     MSG_TYPE_COMM_HEALTH)) {
-          DEBUG_PRINT_INFO("failed to send msg, tx queue full");
-        } else {
-          DEBUG_PRINT_INFO("health message added to tx queue");
-        }
+        send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH,
+                 (const uint8_t*)&node_health, 0, 0);
       }
       t_last_health_pkt = curr_time;
     }
@@ -219,6 +167,7 @@ source_run(void)
           /* unknown command */
           break;
         }
+        LOG_INFO(LOG_EVENT_CFG_CHANGED, msg_buffer.comm_cmd.value);
       } /* else: unknown message type */
     } /* else: target ID does not match node ID */
   }

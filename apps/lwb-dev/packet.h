@@ -31,9 +31,7 @@
  *          Tonio Gsell
  */
 
-/* packet structure and message type definitions
- * 
- * revised packet format */
+/* packet structure and message type definitions */
 
 #ifndef __PACKET_H__
 #define __PACKET_H__
@@ -60,19 +58,15 @@ typedef enum {
   COMM_CMD_LWB_SET_TX_PWR,
 } comm_cmd_type_t;
 
-/* there are 4 message classes */
+/* the message type (7 bits available, MSB is reserved) */
 typedef enum {
-  MSG_CLASS_EVENT = 0,
-  MSG_CLASS_STATUS,
-  MSG_CLASS_DATA,
-  MSG_CLASS_CMD,
-} message_class_type_t;
-
-/* the message type (7 bits available) */
-typedef enum {
+  /* general message types */
   MSG_TYPE_INVALID = 0,
   MSG_TYPE_TIMESYNC = 1,
   MSG_TYPE_LOG = 2,
+  MSG_TYPE_NODE_INFO = 3,
+
+  /* message types concerning the communication processor */
   MSG_TYPE_COMM_CMD = 10,
   MSG_TYPE_COMM_HEALTH = 11,
 
@@ -125,6 +119,20 @@ typedef struct {
 } comm_cmd_t;
 
 
+typedef struct {
+  uint16_t fw_version;
+  uint8_t  node_type;     /* MCU (TODO: use typedef enum) */
+} node_info_t;
+
+
+typedef struct {
+  log_event_type_t    type : 16;    /* force 16 bits */
+  uint16_t            value;
+  /* depending on the event type, there is extra data */
+  uint8_t             extra_data[MSG_PAYLOAD_LEN - 4];
+} log_event_t;
+
+
 /* application layer packet format (a packet is called 'message') */
 
 /* crc is calculated over the whole structure and appended to the message */
@@ -140,6 +148,8 @@ typedef struct {
   union {
     comm_health_t  comm_health;
     comm_cmd_t     comm_cmd;
+    node_info_t    node_info;
+    log_event_t    log_event;
     uint8_t        payload[MSG_PAYLOAD_LEN];  /* raw bytes */
     uint16_t       payload16[MSG_PAYLOAD_LEN / 2];
   };

@@ -30,53 +30,27 @@
  * Author:  Reto Da Forno
  */
 
-/* only to include project files files and define global/external variables
- * do not store any configuration in this file */
+/* log event types (application specific) */
 
-#ifndef __MAIN_H__
-#define __MAIN_H__
-
-
-#include <log-events.h>
-
-#include "contiki.h"
-#include "platform.h"
-#include "nvcfg.h"
-#include "log-events.h"
-#include "packet.h"                    /* packet structure and message types */
-#include "log.h"
+#ifndef __LOG_EVENT_H__
+#define __LOG_EVENT_H__
 
 
-/* non-volatile configuration */
-typedef struct {
-  uint8_t   rst_cnt;
-  uint8_t   reserved[7];
-} config_t;
+typedef enum {
+  LOG_EVENT_INVALID     = 0,
+  LOG_EVENT_GENERIC     = 1,    /* value: length of event data */
+  LOG_EVENT_NODE_RST    = 2,    /* value: reset cause */
+  LOG_EVENT_CFG_CHANGED = 3,    /* value: source or new value */
+
+  LOG_EVENT_COMM_TIMESTAMP_SENT = 100,
+} log_event_type_t;
 
 
-void host_init(void);
-void source_init(void);
-void host_run(void);
-void source_run(void);
+/* mapping between message codes and human readable strings */
 
-/* defined in node-health.c */
-uint8_t get_node_health(comm_health_t* out_data);
-
-/* defined in source-node.c */
-void send_msg(uint16_t recipient,
-              message_type_t type,
-              const uint8_t* data,
-              uint8_t len,
-              uint8_t send_to_bolt);
-
-/* the static scheduler implements the following function: */
-void lwb_sched_set_period(uint16_t period);
+#define LOG_EVENT_NODE_RST_STR            "node reset"
+#define LOG_EVENT_COMM_TIMESTAMP_SENT_STR "timestamp sent"
+#define LOG_EVENT_CFG_CHANGED_STR         "config changed"
 
 
-/* global variables */
-extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
-extern uint16_t seq_no_bolt;
-extern uint32_t rst_flag;     /* defined in contiki-cc430-main.c */
-
-
-#endif /* __MAIN_H__ */
+#endif /* __LOG_MSG_H__ */

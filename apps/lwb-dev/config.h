@@ -37,7 +37,7 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         20039
+#define NODE_ID                         20040
 #define HOST_ID                         13
 
 #define SEND_HEALTH_DATA                1
@@ -45,7 +45,7 @@
 #define RF_CONF_TX_CH                   10
 #define ENERGEST_CONF_ON                1
 #define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_MINUS_6_dBm
 #define LWB_CONF_DATA_ACK               0                  /* use data ACKs? */
 
 /* LWB configuration */
@@ -59,8 +59,7 @@
 #endif /* NODE_ID == HOST_ID */
 #define LWB_CONF_MAX_PKT_LEN            63
 #define LWB_CONF_MAX_DATA_PKT_LEN       62   /* leave 1 byte for payload_len */
-#define LWB_CONF_USE_LF_FOR_WAKEUP      1
-#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
+#define LWB_CONF_USE_LF_FOR_WAKEUP      0
 #define LWB_CONF_MAX_N_STREAMS          10      /* to keep memory usage down */
 
 /* constant clock offset for timesync */
@@ -73,16 +72,22 @@
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-#ifndef DEBUG_PRINT_CONF_NUM_MSG
 #define DEBUG_PRINT_CONF_NUM_MSG        8
-#endif /* DEBUG_PRINT_CONF_NUM_MSG */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 #define APP_TASK_ACT_PIN                COM_MCU_INT2
+#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
 #define DEBUG_INTERRUPT_ENABLE          1
 #define DEBUG_INTERRUPT_PIN             PORT2, PIN0  /* must be port 2 */
 #define DEBUG_LED                       COM_MCU_SPARE2
 #define WATCHDOG_CONF_ON                1
 
+//#define LOG_CONF_ON                     1
+//#define LOG_CONF_TARGET                 LOG_TARGET_UART
+
+
+/* global includes */
+
+#include "fw-version.h"
 
 
 #endif /* __CONFIG_H__ */

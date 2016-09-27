@@ -41,40 +41,8 @@
 
 #include "main.h"
 
-/* TODO use different stream IDs for different message types */
-#define LWB_STREAM_ID_HOST  1
-
-static uint16_t seq_no = 0;
 /* tmp buffer to read from BOLT */
-static uint8_t  bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
-/*---------------------------------------------------------------------------*/
-void
-send_msg(uint16_t recipient,
-         const uint8_t* data,
-         uint8_t len,
-         message_type_t type)
-{
-  if(!data || !len) {
-    return;
-  }
-  message_t msg;
-  msg.header.device_id   = node_id;
-  msg.header.type        = type;
-  msg.header.payload_len = len;
-  msg.header.target_id   = recipient;
-  msg.header.seqnr       = seq_no++;
-  msg.header.generation_time = 0;     /* currently not used */
-  memcpy(msg.payload, data, len);
-  uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,0);
-  MSG_SET_CRC16(&msg, crc);
-
-  if(!lwb_send_pkt(recipient, LWB_STREAM_ID_HOST,
-                   (uint8_t*)&msg, MSG_LEN(msg))) {
-    DEBUG_PRINT_WARNING("message dropped (queue full)");
-  } else {
-    DEBUG_PRINT_INFO("message for node %u added to TX queue", recipient);
-  }
-}
+static uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
 /*---------------------------------------------------------------------------*/
 void
 host_init(void)
@@ -91,33 +59,26 @@ host_init(void)
 void
 host_run(void)
 {
-  /* analyze and print the received data */
+  static uint32_t t_last_health_pkt = 0;
+  static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
   message_t msg;
+
+  /* analyze and print the received data */
   while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
     /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-    DEBUG_PRINT_MSG_NOW("data packet received from node %u (%u, %u)",
-                        msg.header.device_id, msg.comm_health.lwb_t_to_rx, msg.comm_health.lwb_t_flood);
+    DEBUG_PRINT_MSG_NOW("data packet received from node %u",
+                        msg.header.device_id);
     /* forward the packet: write it to BOLT */
     BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
   }
 
 #if SEND_HEALTH_DATA
-  /* generate a health message */
-  if(get_node_health(&msg.comm_health)) {
-    /* calculate the timestamp, convert to microseconds */
-    rtimer_clock_t round_start;
-    uint64_t       lwb_time_seconds = lwb_get_time(&round_start);
-    round_start = (rtimer_now_hf() - round_start) * 1000000 / SMCLK_SPEED;
-    msg.header.device_id       = node_id;
-    msg.header.type            = MSG_TYPE_COMM_HEALTH;
-    msg.header.payload_len     = sizeof(comm_health_t);
-    msg.header.target_id       = DEVICE_ID_SINK;
-    msg.header.seqnr           = seq_no++;
-    msg.header.generation_time = lwb_time_seconds * 1000000 + round_start;
-    uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,
-                         0);
-    MSG_SET_CRC16(&msg, crc);
-    BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
+  if((lwb_get_time(0) - t_last_health_pkt) >= health_period) {
+    /* generate a health message */
+    if(get_node_health(&msg.comm_health)) {
+      send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH, (uint8_t*)&msg, 0, 1);
+    }
+    t_last_health_pkt = lwb_get_time(0);
   }
 #endif /* SEND_HEALTH_DATA */
 
@@ -130,7 +91,7 @@ host_run(void)
     msg.header.generation_time = time_last_req * 1000000 / ACLK_SPEED;
     msg.payload16[0] = crc16((uint8_t*)&msg, MSG_HDR_LEN, 0);
     BOLT_WRITE((uint8_t*)&msg, MSG_HDR_LEN + 2);
-    DEBUG_PRINT_INFO("timestamp sent");
+    LOG_INFO(LOG_EVENT_COMM_TIMESTAMP_SENT, 0);
   } //else: no timestamp request triggered or other unknown error
 
   /* msg available from BOLT? */
@@ -152,9 +113,7 @@ host_run(void)
             DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
             break;
           case COMM_CMD_LWB_SET_HEALTH_PERIOD:
-            /* broadcast the message */
-            send_msg(msg.header.target_id, msg.payload,
-                     sizeof(comm_cmd_t), MSG_TYPE_COMM_CMD);
+            health_period = msg.comm_cmd.value; /* adjust own health period */
             break;
           case COMM_CMD_LWB_PAUSE:
             /* stop */
@@ -172,7 +131,7 @@ host_run(void)
             } else {
               lwb_pause();
               DEBUG_PRINT_MSG_NOW("LWB paused");
-              __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
+              __bis_status_register(GIE | LPM3_bits);
               __no_operation();
               DEBUG_PRINT_MSG_NOW("LWB resumed");
               lwb_resume();
@@ -185,10 +144,12 @@ host_run(void)
             /* unknown command */
             break;
           }
+          LOG_INFO(LOG_EVENT_CFG_CHANGED, msg.comm_cmd.value);
         } /* else: unknown message type */
-      } else {
+      }
+      if(msg.header.target_id != NODE_ID) {
         /* all other message types: forward to LWB */
-        if(!lwb_send_pkt(msg.header.target_id, LWB_STREAM_ID_HOST,
+        if(!lwb_send_pkt(msg.header.target_id, 0,
                          (uint8_t*)&msg, MSG_LEN(msg))) {
           DEBUG_PRINT_WARNING("message dropped (queue full)");
         } else {

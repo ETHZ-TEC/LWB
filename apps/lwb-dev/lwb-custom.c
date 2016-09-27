@@ -77,22 +77,22 @@
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB on the source node */
 typedef enum {
-  BOOTSTRAP = 0,
-  QUASI_SYNCED,
-  SYNCED,
-  SYNCED_2,
-  MISSED,
-  UNSYNCED,
-  UNSYNCED2,
+  LWB_STATE_BOOTSTRAP = 0,
+  LWB_STATE_QUASI_SYNCED,
+  LWB_STATE_SYNCED,
+  LWB_STATE_SYNCED_2,
+  LWB_STATE_MISSED,
+  LWB_STATE_UNSYNCED,
+  LWB_STATE_UNSYNCED2,
   NUM_OF_SYNC_STATES
 } lwb_sync_state_t;
 /*---------------------------------------------------------------------------*/
 typedef enum {
   EVT_1ST_SCHED_RCVD = 0,
-  EVT_2ND_SCHED_RCVD,
-  EVT_SCHED_MISSED,
+  EVT_2ND_SCHED_RCVD = 1,
+  EVT_SCHED_LWB_STATE_MISSED = 2,
   NUM_OF_SYNC_EVENTS
-} sync_event_t; 
+} lwb_sync_event_t;
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint16_t recipient;     /* target node ID */
@@ -124,25 +124,25 @@ typedef struct {
  * the latest event (row)
  * @note  undefined transitions force the SM to go back into bootstrap
  */
-#if LWB_CONF_SKIP_QUASI_SYNCED
-#define AFTER_BOOT      SYNCED
+#if LWB_CONF_SKIP_LWB_STATE_QUASI_SYNCED
+#define AFTER_BOOT      LWB_STATE_SYNCED
 #else
-#define AFTER_BOOT      QUASI_SYNCED
+#define AFTER_BOOT      LWB_STATE_QUASI_SYNCED
 #endif
 static const 
 lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] = 
-{/* STATES:                                                                               EVENTS:           */
- /* BOOTSTRAP,  QUASISYNCED,  SYNCED,    SYNCED2,   MISSED,    UNSYNCED,  UNSYNCED2                         */
-  { AFTER_BOOT, SYNCED,       BOOTSTRAP, SYNCED,    SYNCED,    BOOTSTRAP, SYNCED    }, /* 1st schedule rcvd */
-  { BOOTSTRAP,  QUASI_SYNCED, SYNCED_2,  BOOTSTRAP, BOOTSTRAP, SYNCED_2,  BOOTSTRAP }, /* 2nd schedule rcvd */
-  { BOOTSTRAP,  BOOTSTRAP,    MISSED,    UNSYNCED,  UNSYNCED,  UNSYNCED2, BOOTSTRAP }  /* schedule missed   */
+{
+/* EVENTS:   \ STATES ->  LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED,    LWB_STATE_SYNCED2,   LWB_STATE_MISSED,    LWB_STATE_UNSYNCED,  LWB_STATE_UNSYNCED2                         */
+/* 1st schedule rcvd */ { AFTER_BOOT,          LWB_STATE_SYNCED,       LWB_STATE_BOOTSTRAP, LWB_STATE_SYNCED,    LWB_STATE_SYNCED,    LWB_STATE_BOOTSTRAP, LWB_STATE_SYNCED    },
+/* 2nd schedule rcvd */ { LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED_2,  LWB_STATE_BOOTSTRAP, LWB_STATE_BOOTSTRAP, LWB_STATE_SYNCED_2,  LWB_STATE_BOOTSTRAP },
+/* schedule missed   */ { LWB_STATE_BOOTSTRAP, LWB_STATE_BOOTSTRAP,    LWB_STATE_MISSED,    LWB_STATE_UNSYNCED,  LWB_STATE_UNSYNCED,  LWB_STATE_UNSYNCED2, LWB_STATE_BOOTSTRAP }
 };
 /* note: syn2 = already synced */
 static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = 
 { "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN", "USYN2" };
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
-/* STATE:      BOOTSTRAP,        QUASI_SYNCED,       SYNCED,             SYNCED_2,           MISSED,             UNSYNCED,           UNSYNCED2 */
-/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_3
+/* STATE:      LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED,   LWB_STATE_SYNCED_2, LWB_STATE_MISSED,   LWB_STATE_UNSYNCED, LWB_STATE_UNSYNCED2 */
+/* T_GUARD: */ LWB_CONF_T_GUARD,    LWB_CONF_T_GUARD_3,     LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_3
 };
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -158,10 +158,6 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #define LWB_DATA_RCVD             (glossy_get_n_rx() > 0)
 #define RTIMER_CAPTURE            (t_now = rtimer_now_hf())
 #define RTIMER_ELAPSED            ((rtimer_now_hf() - t_now) * 1000 / 3250)    
-#define GET_EVENT                 (glossy_is_t_ref_updated() ? \
-                                   (LWB_SCHED_IS_1ST(&schedule) ? \
-                                    EVT_1ST_SCHED_RCVD : EVT_2ND_SCHED_RCVD)\
-                                   : EVT_SCHED_MISSED)
 /*---------------------------------------------------------------------------*/
 #define LWB_SEND_SCHED() \
 {\
@@ -231,12 +227,6 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
   PT_YIELD(&lwb_pt);\
   LWB_TASK_RESUMED;\
   LWB_AFTER_DEEPSLEEP();\
-}
-#define LWB_UPDATE_SYNC_STATE \
-{\
-  /* get the new state based on the event */\
-  sync_state = next_state[GET_EVENT][sync_state];\
-  t_guard = guard_time[sync_state];         /* adjust the guard time */\
 }
 #ifndef LWB_BEFORE_DEEPSLEEP
 #define LWB_BEFORE_DEEPSLEEP() 
@@ -525,8 +515,8 @@ lwb_request_stream(lwb_stream_req_t* stream_request, uint8_t urgent)
 lwb_conn_state_t
 lwb_get_state(void)
 {
-  if(sync_state < SYNCED) { return LWB_STATE_INIT; }
-  else if(sync_state < MISSED) { return LWB_STATE_CONNECTED; }
+  if(sync_state < LWB_STATE_SYNCED) { return LWB_STATE_INIT; }
+  else if(sync_state < LWB_STATE_MISSED) { return LWB_STATE_CONNECTED; }
   return LWB_STATE_CONN_LOST;
 }
 /*---------------------------------------------------------------------------*/
@@ -537,6 +527,31 @@ lwb_get_time(rtimer_clock_t* reception_time)
     *reception_time = reception_timestamp;
   }
   return global_time;
+}
+/*---------------------------------------------------------------------------*/
+uint64_t
+lwb_get_timestamp(void)
+{
+  return (uint64_t)global_time * 1000000 +  /* convert to microseconds */
+         (rtimer_now_hf() - reception_timestamp) * 1000000 / SMCLK_SPEED;
+}
+/*---------------------------------------------------------------------------*/
+/* update the sync state machine based */
+lwb_sync_state_t
+lwb_update_sync_state(const lwb_sync_state_t curr_state,
+                      const lwb_schedule_t const * sched)
+{
+  lwb_sync_event_t evt;
+  if(glossy_is_t_ref_updated()) {
+    if(LWB_SCHED_IS_1ST(sched)) {
+      evt = EVT_1ST_SCHED_RCVD;
+    } else {
+      evt = EVT_2ND_SCHED_RCVD;
+    }
+  } else {
+    evt = EVT_SCHED_LWB_STATE_MISSED;
+  }
+  return next_state[evt][sync_state];
 }
 /*---------------------------------------------------------------------------*/
 /**
@@ -553,7 +568,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   /* constant guard time for the host */
-  static const uint32_t t_guard = LWB_CONF_T_GUARD; 
   static uint8_t slot_idx;
   static uint8_t streams_to_update[LWB_CONF_MAX_DATA_SLOTS];
   static uint8_t schedule_len, 
@@ -574,7 +588,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   
   /* initialization specific to the host node */
   schedule_len = lwb_sched_init(&schedule);
-  sync_state = SYNCED;  /* the host is always 'synced' */
+  sync_state = LWB_STATE_SYNCED;  /* the host is always 'synced' */
   
   rtimer_reset();
 #if LWB_CONF_USE_LF_FOR_WAKEUP 
@@ -663,7 +677,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         } else { 
           /* wait until the data slot starts */
           LWB_DATA_SLOT_STARTS;
-          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard); 
+          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) -
+                         LWB_CONF_T_GUARD);
           LWB_RCV_PACKET();  /* receive a data packet */
           payload_len = glossy_get_payload_len();
           if(LWB_DATA_RCVD && payload_len) {
@@ -732,7 +747,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
     if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
       /* wait until the slot starts, then receive the packet */
-      LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
+      LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - LWB_CONF_T_GUARD);
       LWB_RCV_SRQ();
       if(LWB_DATA_RCVD) {
         LWB_REQ_DETECTED;
@@ -798,7 +813,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
  * @brief declaration of the protothread (source node)
  */
 PT_THREAD(lwb_thread_src(rtimer_t *rt)) 
-{  
+{
   /* all variables must be static */
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   static lwb_schedule_t schedule;
@@ -833,7 +848,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state  = BOOTSTRAP;
+  sync_state  = LWB_STATE_BOOTSTRAP;
   period_last = LWB_CONF_SCHED_PERIOD_MIN;
   
   while(1) {
@@ -858,8 +873,9 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     t_ref = rt->time + t_guard;        /* in case the schedule is missed */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
-    if(sync_state == BOOTSTRAP) {
-      DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
+    if(sync_state == LWB_STATE_BOOTSTRAP) {
+BOOTSTRAP:
+      DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
       stats.bootstrap_cnt++;
       drift_last = 0;      
   #if LWB_CONF_DATA_ACK
@@ -876,16 +892,21 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
           LWB_BEFORE_DEEPSLEEP();
           LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
           t_ref = rtimer_now_hf();
-          DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
+          DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
           /* alternative: implement a host failover policy */
         }
       } while(!glossy_is_t_ref_updated() || !LWB_SCHED_IS_1ST(&schedule));
       /* schedule received! */
-      putchar('\r');
-      putchar('\n');
     } else {
       LWB_RCV_SCHED();  
     }
+    /* compute new sync state and update t_guard) */
+    sync_state = lwb_update_sync_state(sync_state, &schedule);
+    t_guard    = guard_time[sync_state];            /* adjust the guard time */
+    if(LWB_STATE_BOOTSTRAP == sync_state) {
+      goto BOOTSTRAP;         /* wrong schedule received > back to bootstrap */
+    }
+
     glossy_snr = glossy_get_snr();
 
 #if LWB_CONF_USE_XMEM
@@ -893,13 +914,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     xmem_wakeup();    
 #endif /* LWB_CONF_USE_XMEM */
            
-    /* update the sync state machine (compute new sync state and update 
-     * t_guard) */
-    LWB_UPDATE_SYNC_STATE;  
-    if(BOOTSTRAP == sync_state) {
-      /* something went wrong */
-      continue;
-    } 
     LWB_SCHED_SET_AS_2ND(&schedule);    /* clear the last bit of 'period' */
     if(glossy_is_t_ref_updated()) {
       /* HF timestamp of first RX; subtract a constant offset */
@@ -928,7 +942,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     }
 
     /* permission to participate in this round? */
-    if(sync_state == SYNCED || sync_state == UNSYNCED) {
+    if(sync_state == LWB_STATE_SYNCED) {
         
       static uint8_t i;  /* must be static */      
       slot_idx           = 0;   /* reset the packet counter */
@@ -942,7 +956,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 
       if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {   
         /* wait for the slot to start */
-        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(0) - t_guard);     
+        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(0) - LWB_CONF_T_GUARD);
         LWB_RCV_PACKET();                 /* receive s-ack */
   #if !LWB_CONF_RELAY_ONLY
         if(LWB_DATA_RCVD) {
@@ -1017,8 +1031,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #endif /* LWB_CONF_RELAY_ONLY */
           {
             /* receive a data packet */
-            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - 
-                           t_guard);
+            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) -
+                           LWB_CONF_T_GUARD);
             LWB_RCV_PACKET();
             payload_len = glossy_get_payload_len();
   #if !LWB_CONF_RELAY_ONLY
@@ -1054,7 +1068,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       if(LWB_SCHED_HAS_DACK_SLOT(&schedule)) {
         static uint16_t s;
         /* wait for the slot to start */
-        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);     
+        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - LWB_CONF_T_GUARD);
         LWB_RCV_PACKET();                 /* receive d-ack */
     #if !LWB_CONF_RELAY_ONLY
         RTIMER_CAPTURE;
@@ -1138,7 +1152,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             /* keep waiting and just relay incoming packets */
             rounds_to_wait--;       /* decrease the number of rounds to wait */
             /* wait until the contention slot starts */
-            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);  
+            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) -
+                           LWB_CONF_T_GUARD);
             LWB_RCV_SRQ();
           }
           DEBUG_PRINT_VERBOSE("pending stream requests: 0x%x", 
@@ -1146,28 +1161,29 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         } else {
   #endif /* LWB_CONF_RELAY_ONLY */
           /* no request pending -> just receive / relay packets */
-          LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
+          LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) -
+                         LWB_CONF_T_GUARD);
           LWB_RCV_SRQ();
                   
   #if !LWB_CONF_RELAY_ONLY
         }
   #endif /* LWB_CONF_RELAY_ONLY */ 
       }
-    }  
+    }
     
     /* --- 2ND SCHEDULE --- */
 
     LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
     LWB_RCV_SCHED();
   
-    /* update the state machine and the guard time */
-    LWB_UPDATE_SYNC_STATE;
-    if(BOOTSTRAP == sync_state) {
-      continue;
+    /* compute new sync state and update t_guard) */
+    sync_state = lwb_update_sync_state(sync_state, &schedule);
+    t_guard    = guard_time[sync_state];            /* adjust the guard time */
+    if(LWB_STATE_BOOTSTRAP == sync_state) {
+      goto BOOTSTRAP;         /* wrong schedule received > back to bootstrap */
     }
     
-    /* --- COMMUNICATION ROUND ENDS --- */    
-    /* time for other computations */
+    /* --- COMMUNICATION ROUND ENDS --- */
 
 #if !LWB_CONF_RELAY_ONLY
     /* check joining state */
@@ -1194,7 +1210,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_TIME_SCALE */
     
     period_last = schedule.period;
-    if(sync_state > SYNCED_2) {
+    if(sync_state > LWB_STATE_SYNCED_2) {
       stats.unsynced_cnt++;
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
@@ -1204,7 +1220,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      schedule.time, 
                      schedule.period, 
                      LWB_SCHED_N_SLOTS(&schedule), 
-                     LWB_STREAMS_ACTIVE, 
+                     LWB_STREAMS_ACTIVE,
                      stats.t_proc_max,
                      stats.pck_cnt,
                      relay_cnt_first_rx,
@@ -1218,7 +1234,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      glossy_get_per(),
                      glossy_snr);
 #if (LWB_CONF_TIME_SCALE == 1)
-    if(sync_state <= MISSED) {
+    if(sync_state <= LWB_STATE_MISSED) {
       if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
          (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
         drift_last = (drift_last + drift) / 2;  /* low-pass filter */
@@ -1246,6 +1262,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       process_poll(post_proc);
     }
     
+    /* debug trap (TODO: remove) */
+    if(schedule.period > 30) {    /* period should never be > 30s */
+      while(1) {
+        LED_TOGGLE(LED_STATUS);
+        __delay_cycles(MCLK_SPEED/2);
+      }
+    }
+
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 

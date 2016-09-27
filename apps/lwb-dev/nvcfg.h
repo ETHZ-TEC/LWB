@@ -30,53 +30,51 @@
  * Author:  Reto Da Forno
  */
 
-/* only to include project files files and define global/external variables
- * do not store any configuration in this file */
+/**
+ * @brief non-volatile configuration storage (in flash memory)
+ */
 
-#ifndef __MAIN_H__
-#define __MAIN_H__
+#ifndef __NVCFG_H__
+#define __NVCFG_H__
 
+/* default: use the 2nd info memory segment of the flash
+ * note: if this is changed to the main flash memory, then nvcfg_save must
+ * be adjusted as well */
+#define NVCFG_CONF_START_ADDR   (INFO_START + INFO_SEG_SIZE)
+#define NVCFG_CONF_SEG_SIZE     INFO_SEG_SIZE
 
-#include <log-events.h>
+/* must be an even number and must not be bigger than NVCFG_CONF_SEG_SIZE!
+ * ideally, INFO_SEG_SIZE is an integer multiple of BLOCK_SIZE */
+#ifndef NVCFG_CONF_BLOCK_SIZE
+#define NVCFG_CONF_BLOCK_SIZE   8         /* length without CRC */
+#endif /* NVCFG_CONF_BLOCK_SIZE */
 
-#include "contiki.h"
-#include "platform.h"
-#include "nvcfg.h"
-#include "log-events.h"
-#include "packet.h"                    /* packet structure and message types */
-#include "log.h"
+/* sanity check */
+#if NVCFG_CONF_BLOCK_SIZE > NVCFG_CONF_SEG_SIZE || NVCFG_CONF_BLOCK_SIZE & 0x1
+#error "invalid NVCFG_CONF_BLOCK_SIZE"
+#endif /* NVCFG_CONF_BLOCK_SIZE check */
 
+/**
+ * @brief load the most recent data block from the predefined flash memory
+ * location
+ * @param out_data the buffer to hold the loaded data, must be at least
+ * NVCFG_CONF_BLOCK_SIZE bytes long
+ * @return 1 if successful (i.e. CRC ok), 0 otherwise
+ * @note the crc checksum will not be copied into out_data!
+ */
+uint8_t nvcfg_load(uint8_t* out_data);
 
-/* non-volatile configuration */
-typedef struct {
-  uint8_t   rst_cnt;
-  uint8_t   reserved[7];
-} config_t;
-
-
-void host_init(void);
-void source_init(void);
-void host_run(void);
-void source_run(void);
-
-/* defined in node-health.c */
-uint8_t get_node_health(comm_health_t* out_data);
-
-/* defined in source-node.c */
-void send_msg(uint16_t recipient,
-              message_type_t type,
-              const uint8_t* data,
-              uint8_t len,
-              uint8_t send_to_bolt);
-
-/* the static scheduler implements the following function: */
-void lwb_sched_set_period(uint16_t period);
-
-
-/* global variables */
-extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
-extern uint16_t seq_no_bolt;
-extern uint32_t rst_flag;     /* defined in contiki-cc430-main.c */
+/**
+ * @brief store a block of data in the predefined flash memory segment
+ * @param data data to save, must be exactly NVCFG_CONF_BLOCK_SIZE bytes long
+ * @return 1 if successful, 0 otherwise
+ */
+uint8_t nvcfg_save(uint8_t* data);
 
 
-#endif /* __MAIN_H__ */
+#endif /* __NVCFG_H__ */
+
+/**
+ * @}
+ * @}
+ */

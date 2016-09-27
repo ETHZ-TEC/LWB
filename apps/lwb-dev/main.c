@@ -50,6 +50,11 @@
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
+/* global variables */
+uint16_t seq_no_lwb  = 0;
+uint16_t seq_no_bolt = 0;
+config_t cfg;
+/*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
@@ -63,6 +68,16 @@ PROCESS_THREAD(app_process, ev, data)
   PIN_CFG_INT_INV(DEBUG_INTERRUPT_PIN);
 #endif /* DEBUG_INTERRUPT_ENABLE */
 
+  /* load the configuration */
+  if(nvcfg_load((uint8_t*)&cfg)) {
+    LOG_STR(LOG_LEVEL_INFO, "reset count: %u", cfg.rst_cnt);
+  } else {
+    LOG_STR(LOG_LEVEL_ERROR, "failed to load config");
+  }
+  /* update stats and save */
+  cfg.rst_cnt++;
+  nvcfg_save((uint8_t*)&cfg);
+
   /* host/source specific initialization */
   if(HOST_ID == node_id) {
 	  host_init();
@@ -73,6 +88,9 @@ PROCESS_THREAD(app_process, ev, data)
   /* start the LWB thread */
   lwb_start(0, &app_process);
   
+  /* send a 'reset event' message */
+  LOG_INFO(LOG_EVENT_NODE_RST, rst_flag);
+
   /* --- start of application main loop --- */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 

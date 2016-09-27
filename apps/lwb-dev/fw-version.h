@@ -30,53 +30,38 @@
  * Author:  Reto Da Forno
  */
 
-/* only to include project files files and define global/external variables
- * do not store any configuration in this file */
+#ifndef __FW_VERSION_H__
+#define __FW_VERSION_H__
 
-#ifndef __MAIN_H__
-#define __MAIN_H__
+/* current FW version (8 bits for major version, 8 bits for minor) */
+#define FW_VERSION        0x0100
 
+/*
 
-#include <log-events.h>
-
-#include "contiki.h"
-#include "platform.h"
-#include "nvcfg.h"
-#include "log-events.h"
-#include "packet.h"                    /* packet structure and message types */
-#include "log.h"
+Revision History
+----------------
 
 
-/* non-volatile configuration */
-typedef struct {
-  uint8_t   rst_cnt;
-  uint8_t   reserved[7];
-} config_t;
+Changes in v1.0 (2016-09-27):
+- change:  LWB_CONF_T_GUARD is now only used for ack/data/contention slots,
+           whereas LWB_CONF_T_GUARD_1 to 3 are only used for schedule reception
+- change:  LWB bootstrap loop adjusted + permission to participate in round
+           changed to state LWB_STATE_SYNCED only
+- cleanup: send_pkt and send_msg consolidated (same for src and host node)
+- cleanup: everything regarding node health outsourced into node-health.c
+- cleanup: LWB states renamed and lwb_update_sync_state() function added
+- feature: separate sequence number for BOLT and LWB packets
+- feature: logging system added (log.c, log.h, log-events.h)
+- feature: host health message period now adjustable
+- feature: new message type (struct node_info_t) added
+- feature: event 'reset' with reset cause is not generated
+- feature: nvcfg added to keep a few bytes in non-volatile memory (flash)
+- feature: node replies with "config changed" message to a command
+- bugfix:  host did not forward broadcast packets
+- bugfix:  t_guard was still used for timeout instead of LWB_CONF_T_GUARD
+
+*/
 
 
-void host_init(void);
-void source_init(void);
-void host_run(void);
-void source_run(void);
 
-/* defined in node-health.c */
-uint8_t get_node_health(comm_health_t* out_data);
-
-/* defined in source-node.c */
-void send_msg(uint16_t recipient,
-              message_type_t type,
-              const uint8_t* data,
-              uint8_t len,
-              uint8_t send_to_bolt);
-
-/* the static scheduler implements the following function: */
-void lwb_sched_set_period(uint16_t period);
-
-
-/* global variables */
-extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
-extern uint16_t seq_no_bolt;
-extern uint32_t rst_flag;     /* defined in contiki-cc430-main.c */
-
-
-#endif /* __MAIN_H__ */
+#endif /* __FW_VERSION_H__ */

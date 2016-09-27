@@ -109,7 +109,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       msg.content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
-      printf("%3u %7lu %s: %s\r\n", node_id, msg.time, 
+      printf("%u %7lu %s: %s\r\n", node_id, msg.time,
              debug_print_lvl_to_string[msg.level], msg.content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(0);
@@ -130,7 +130,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       uart_enable(1);
   #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       msg->content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
-      printf("%2u %5lu %s: %s\r\n", node_id, msg->time, 
+      printf("%u %5lu %s: %s\r\n", node_id, msg->time,
              debug_print_lvl_to_string[msg->level], msg->content);
   #if DEBUG_PRINT_CONF_DISABLE_UART
       uart_enable(0);
