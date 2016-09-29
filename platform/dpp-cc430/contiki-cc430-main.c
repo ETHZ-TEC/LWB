@@ -120,21 +120,24 @@ print_device_info(void)
   } else {
     printf("Unknown");
   }
-  printf("\r\nMCU: " MCU_TYPE " (%ukB SRAM, %ukB ROM, %ukB used)\r\n",
+  printf("\r\nMCU: " MCU_DESC " (%ukB SRAM, %ukB ROM, %ukB used)\r\n",
          SRAM_SIZE >> 10,
          FLASH_SIZE >> 10,
          flash_code_size() >> 10);
-  printf("Compiler: " COMPILER_INFO "\r\nDate: " COMPILE_DATE "\r\n");
-#if FW_VERSION
-  printf("Firmware: %u.%03u\r\n", FW_VERSION >> 8, FW_VERSION & 0xff);
-#endif /* FW_VERSION */
+  printf("Firmware: %u.%03u " __DATE__ "\r\n", FW_VERSION >> 8,
+                                               FW_VERSION & 0xff);
   // don't disable UART module
 }
 /*---------------------------------------------------------------------------*/
 int
 main(int argc, char **argv)
 {
+#if WATCHDOG_CONF_ON
+  watchdog_init();
+  watchdog_start();
+#else
   watchdog_stop();
+#endif /* WATCHDOG_CONF_ON */
 
   /* initialize hardware */
 
@@ -227,12 +230,6 @@ main(int argc, char **argv)
 #if NULLMAC_CONF_ON
   nullmac_init();
 #endif /* NULLMAC_CONF_ON */
-
-#if WATCHDOG_CONF_ON
-  watchdog_init();
-  watchdog_start();
-  printf("Watchdog enabled\r\n");
-#endif /* WATCHDOG_CONF_ON */
   
   /* start processes */
   print_processes(autostart_processes);

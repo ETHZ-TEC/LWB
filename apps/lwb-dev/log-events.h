@@ -30,7 +30,9 @@
  * Author:  Reto Da Forno
  */
 
-/* log event types (application specific) */
+/* log event types (application specific)
+ *
+ * each component (MCU) can define its own event types */
 
 #ifndef __LOG_EVENT_H__
 #define __LOG_EVENT_H__

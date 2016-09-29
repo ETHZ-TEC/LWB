@@ -62,23 +62,21 @@ PROCESS_THREAD(app_process, ev, data)
 {  
   PROCESS_BEGIN();
 
-  /* general initialization */
+  /* --- general initialization --- */
 #if DEBUG_INTERRUPT_ENABLE
   /* enable ISR for debugging! */
   PIN_CFG_INT_INV(DEBUG_INTERRUPT_PIN);
 #endif /* DEBUG_INTERRUPT_ENABLE */
 
-  /* load the configuration */
-  if(nvcfg_load((uint8_t*)&cfg)) {
-    LOG_STR(LOG_LEVEL_INFO, "reset count: %u", cfg.rst_cnt);
-  } else {
-    LOG_STR(LOG_LEVEL_ERROR, "failed to load config");
-  }
-  /* update stats and save */
-  cfg.rst_cnt++;
-  nvcfg_save((uint8_t*)&cfg);
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+  SVS_DISABLE;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
-  /* host/source specific initialization */
+  /* init the ADC */
+  adc_init();
+  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
+
+  /* --- host/source specific initialization --- */
   if(HOST_ID == node_id) {
 	  host_init();
   } else {
@@ -88,7 +86,19 @@ PROCESS_THREAD(app_process, ev, data)
   /* start the LWB thread */
   lwb_start(0, &app_process);
   
-  /* send a 'reset event' message */
+  /* --- load the configuration --- */
+  if(!nvcfg_load((uint8_t*)&cfg)) {
+    DEBUG_PRINT_MSG_NOW("WARNING: failed to load config");
+  }
+  /* update stats and save */
+  cfg.rst_cnt++;
+  nvcfg_save((uint8_t*)&cfg);
+
+  /* send a node info message */
+  node_info_t tmp;
+  get_node_info(&tmp);
+  send_msg(DEVICE_ID_SINK, MSG_TYPE_NODE_INFO, (uint8_t*)&tmp, 0, 0);
+
   LOG_INFO(LOG_EVENT_NODE_RST, rst_flag);
 
   /* --- start of application main loop --- */

@@ -47,6 +47,10 @@
 #include "log.h"
 
 
+/* TODO: use different streams for different message types */
+#define STREAM_ID    1
+
+
 /* non-volatile configuration */
 typedef struct {
   uint8_t   rst_cnt;
@@ -59,10 +63,9 @@ void source_init(void);
 void host_run(void);
 void source_run(void);
 
-/* defined in node-health.c */
-uint8_t get_node_health(comm_health_t* out_data);
-
-/* defined in source-node.c */
+/* defined in utils.c */
+void get_node_health(comm_health_t* out_data);
+void get_node_info(node_info_t* out_data);
 void send_msg(uint16_t recipient,
               message_type_t type,
               const uint8_t* data,
@@ -72,11 +75,11 @@ void send_msg(uint16_t recipient,
 /* the static scheduler implements the following function: */
 void lwb_sched_set_period(uint16_t period);
 
-
 /* global variables */
 extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
 extern uint16_t seq_no_bolt;
 extern uint32_t rst_flag;     /* defined in contiki-cc430-main.c */
+extern config_t cfg;          /* most important config parameters and stats */
 
 
 #endif /* __MAIN_H__ */

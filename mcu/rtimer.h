@@ -69,6 +69,13 @@
 #define RTIMER_CONF_LF_CLKSPEED     ACLK_SPEED
 #endif /* RTIMER_CONF_HF_CLKSRC */
 
+/* toggle the status LED (twice) when the update/overflow interrupt of the
+ * low-frequency timer fires? */
+#ifndef RTIMER_CONF_LF_UPDATE_LED_ON
+#define RTIMER_CONF_LF_UPDATE_LED_ON  0
+#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
+
+
 
 /**
  * @brief the number of timer ticks that (approx.) correspond to 1s

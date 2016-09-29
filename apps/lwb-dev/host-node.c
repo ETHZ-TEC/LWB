@@ -47,13 +47,6 @@ static uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
 void
 host_init(void)
 {
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-  SVS_DISABLE;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-
-  /* init the ADC */
-  adc_init();
-  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -75,9 +68,9 @@ host_run(void)
 #if SEND_HEALTH_DATA
   if((lwb_get_time(0) - t_last_health_pkt) >= health_period) {
     /* generate a health message */
-    if(get_node_health(&msg.comm_health)) {
-      send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH, (uint8_t*)&msg, 0, 1);
-    }
+    get_node_health(&msg.comm_health);
+    send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH,
+             (const uint8_t*)&msg.comm_health, 0, 1);
     t_last_health_pkt = lwb_get_time(0);
   }
 #endif /* SEND_HEALTH_DATA */

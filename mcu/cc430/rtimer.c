@@ -438,6 +438,10 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
+#if RTIMER_CONF_LF_UPDATE_LED_ON
+  PIN_XOR(LED_STATUS);    /* to indicate activity */
+#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
+
   switch(TA1IV) {
   case TA1IV_TA1CCR1:
     RTIMER_LF_CALLBACK(RTIMER_LF_1);
@@ -454,6 +458,10 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
     break;
   default: break;
   }
+
+#if RTIMER_CONF_LF_UPDATE_LED_ON
+  PIN_XOR(LED_STATUS);    /* to indicate activity */
+#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }

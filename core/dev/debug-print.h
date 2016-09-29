@@ -131,7 +131,7 @@
 /* always enabled: highest severity level errors that require a reset */
 #define DEBUG_PRINT_FATAL(...) {\
   DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \
-  watchdog_start(); while(1); \
+  watchdog_reboot(); \
 }
     
 

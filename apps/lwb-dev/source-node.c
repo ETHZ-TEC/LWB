@@ -36,73 +36,9 @@
 #include "main.h"
 
 /*---------------------------------------------------------------------------*/
-
-/* TODO: use different streams for different message types */
-#define STREAM_ID    1
-
-/*---------------------------------------------------------------------------*/
-void
-send_msg(uint16_t recipient,
-         message_type_t type,
-         const uint8_t* data,
-         uint8_t len,
-         uint8_t send_to_bolt)
-{
-  if(!data) {   /* parameter check */
-    return;
-  }
-  /* compose the message header */
-  message_t msg;
-  msg.header.device_id   = node_id;
-  msg.header.type        = type;
-  if(!len) {
-    switch(type) {
-    case MSG_TYPE_COMM_HEALTH:
-      msg.header.payload_len = sizeof(comm_health_t); break;
-    case MSG_TYPE_COMM_CMD:
-      msg.header.payload_len = sizeof(comm_cmd_t); break;
-    default: break;
-    }
-  } else {
-    msg.header.payload_len = len;
-  }
-  msg.header.target_id     = recipient;
-  if(send_to_bolt) {
-    msg.header.seqnr       = seq_no_bolt++;
-  } else {
-    msg.header.seqnr       = seq_no_lwb++;
-  }
-  msg.header.generation_time = lwb_get_timestamp();
-  /* copy the payload */
-  memcpy(msg.payload, data, msg.header.payload_len);
-  /* calculate and append the CRC */
-  uint16_t crc = crc16((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN,0);
-  MSG_SET_CRC16(&msg, crc);
-
-  /* forward the message either to BOLT or the LWB */
-  if(send_to_bolt) {
-    BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
-  } else {
-    if(!lwb_send_pkt(recipient, STREAM_ID,
-                     (uint8_t*)&msg, MSG_LEN(msg))) {
-      DEBUG_PRINT_INFO("message dropped (queue full)");
-    } else {
-      DEBUG_PRINT_INFO("message for node %u added to TX queue", recipient);
-    }
-  }
-}
-/*---------------------------------------------------------------------------*/
 void
 source_init(void)
 {
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-  SVS_DISABLE;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-  /* all other necessary initialization is done in contiki-cc430-main.c */
-
-  /* init the ADC */
-  adc_init();
-  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -115,6 +51,7 @@ source_run(void)
   static uint32_t curr_time         = 0;
   static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
   static uint8_t  ipi_changed       = 1;
+  message_t msg;
 
   curr_time = lwb_get_time(0);
 
@@ -136,38 +73,35 @@ source_run(void)
      LWB_STREAM_STATE_ACTIVE) {
     if((curr_time - t_last_health_pkt) >= health_period) {
       /* generate a node health packet and schedule it for transmission */
-      comm_health_t node_health;
-      if(get_node_health(&node_health)) {
-        send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH,
-                 (const uint8_t*)&node_health, 0, 0);
-      }
+      get_node_health(&msg.comm_health);
+      send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH,
+               (const uint8_t*)&msg.comm_health, 0, 0);
       t_last_health_pkt = curr_time;
     }
   }
 
   /* is there a packet to read? */
-  message_t msg_buffer;
   uint8_t   count = 0;
-  while(lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
+  while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
     count++;
-    if(msg_buffer.header.target_id == node_id ||
-       msg_buffer.header.target_id == DEVICE_ID_BROADCAST) {
-      if(msg_buffer.header.type == MSG_TYPE_COMM_CMD) {
-        switch(msg_buffer.comm_cmd.type) {
+    if(msg.header.target_id == node_id ||
+       msg.header.target_id == DEVICE_ID_BROADCAST) {
+      if(msg.header.type == MSG_TYPE_COMM_CMD) {
+        switch(msg.comm_cmd.type) {
         case COMM_CMD_LWB_SET_HEALTH_PERIOD:
           /* change health/status report interval */
-          health_period = msg_buffer.comm_cmd.value;
-          health_stream.ipi = msg_buffer.comm_cmd.value;
+          health_period = msg.comm_cmd.value;
+          health_stream.ipi = msg.comm_cmd.value;
           ipi_changed = 1;
           break;
         case COMM_CMD_LWB_SET_TX_PWR:
-          glossy_set_tx_pwr(msg_buffer.comm_cmd.value);
+          glossy_set_tx_pwr(msg.comm_cmd.value);
           break;
         default:
           /* unknown command */
           break;
         }
-        LOG_INFO(LOG_EVENT_CFG_CHANGED, msg_buffer.comm_cmd.value);
+        LOG_INFO(LOG_EVENT_CFG_CHANGED, msg.comm_cmd.value);
       } /* else: unknown message type */
     } /* else: target ID does not match node ID */
   }

@@ -34,13 +34,23 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION        0x0100
+#define FW_VERSION      0x0101
+#define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
 
+Changes in v1.001 (2016-09-29):
+- change:  watchdog is now configured at the very beginning of the program
+- change:  node_info_t struct adjusted
+- change:  event 'reset' replaced by a node_info_t packet
+- cleanup: utils.c created, contains general helper functions
+- feature: makefile extended to include the compiler macros COMPILE_TIME
+           (UNIX timestamp) and GIT_HEADREV_SHA (git head revision SHA hash)
+- feature: RTIMER_CONF_LF_UPDATE_LED_ON added for debugging
+- bugfix:  send node health on host (wrong pointer)
 
 Changes in v1.0 (2016-09-27):
 - change:  LWB_CONF_T_GUARD is now only used for ack/data/contention slots,

@@ -114,22 +114,32 @@ typedef struct {
 
 
 typedef struct {
-  comm_cmd_type_t  type : 8;
-  uint16_t         value;
+  comm_cmd_type_t type : 8;
+  uint16_t        value;
 } comm_cmd_t;
 
 
+#define MSG_NODE_INFO_LEN   37    /* bytes */
 typedef struct {
-  uint16_t fw_version;
-  uint8_t  node_type;     /* MCU (TODO: use typedef enum) */
+  uint8_t   component_id;
+  uint8_t   rst_cnt;
+  uint8_t   rst_flag;
+  char      mcu_desc[12];     /* MCU description, i.g. 'CC430F5147' */
+  char      compiler_desc[3]; /* description/name */
+  uint16_t  compiler_ver;
+  uint32_t  compile_date;
+  char      fw_name[8];       /* name of the firmware/application */
+  uint16_t  fw_ver;
+  uint8_t   sw_rev_id[3];     /* repository revision number (GIT or SVN) */
 } node_info_t;
 
 
 typedef struct {
-  log_event_type_t    type : 16;    /* force 16 bits */
-  uint16_t            value;
+  uint8_t           component_id;
+  log_event_type_t  type : 8;
+  uint16_t          value;
   /* depending on the event type, there is extra data */
-  uint8_t             extra_data[MSG_PAYLOAD_LEN - 4];
+  uint8_t           extra_data[MSG_PAYLOAD_LEN - 4];
 } log_event_t;
 
 
@@ -195,7 +205,8 @@ typedef struct {
 
 
 /* error check (max. message length) */
-#if MSG_PAYLOAD_LEN < MSG_COMM_HEALTH_LEN
+#if (MSG_PAYLOAD_LEN < MSG_COMM_HEALTH_LEN) || \
+    (MSG_PAYLOAD_LEN < MSG_NODE_INFO_LEN)
 #error "payload of message_t is too big"
 #endif
 

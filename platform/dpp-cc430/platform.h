@@ -55,12 +55,30 @@
 /*
  * include MCU definitions
  */
-#include <cc430f5147.h>             /* or simply include <msp430.h> */
 
-#define MCU_TYPE                    "CC430F5147"
-#define COMPILER_INFO               "GCC " __VERSION__
-#define GCC_VS                      __GNUC__ __GNUC_MINOR__ __GNUC_PATCHLEVEL__
-#define COMPILE_DATE                __DATE__
+//#include <msp430.h>
+#include <cc430f5147.h>
+
+/* compiler info */
+#if defined(__GNUC__)
+#define COMPILER_DESC               "GCC"
+#define COMPILER_VERSION            (__GNUC__ * 10000 + \
+                                     __GNUC_MINOR__ * 100 + \
+                                     __GNUC_PATCHLEVEL__)
+#define COMPILER_VERSION_ENC        ((__GNUC__ << 10) + \
+                                     (__GNUC_MINOR__ << 5) + \
+                                     (__GNUC_PATCHLEVEL__))
+#define COMPILER_INFO               __VERSION__   /* info string */
+#elif defined(__IAR_SYSTEMS_ICC__)
+#define COMPILER_DESC               "IAR"
+#define COMPILER_VERSION            __VER__
+#elif defined(__TI_COMPILER_VERSION__)
+#define COMPILER_DESC               "TI"
+#define COMPILER_VERSION            __TI_COMPILER_VERSION__
+#endif
+
+#define MCU_DESC                    "CC430F5147"
+#define COMPONENT_ID                0   /* cc430 has ID 0 on the DPP device */
 #define SRAM_START                  0x1c00
 #define SRAM_END                    0x2bff        /* last valid byte in SRAM */
 #define SRAM_SIZE                   4096          /* starting at 0x1C00 */
