@@ -33,7 +33,6 @@
 #ifndef __LOG_H__
 #define __LOG_H__
 
-//#include "config.h"
 
 /*
  * log a message to a target
@@ -71,7 +70,7 @@
 #endif /* LOG_CONF_DISABLE_UART */
 
 #ifndef LOG_CONF_STRING_BUFFER_SIZE
-#define LOG_CONF_STRING_BUFFER_SIZE   128
+#define LOG_CONF_STRING_BUFFER_SIZE   64
 #endif /* LOG_CONF_STRING_BUFFER_SIZE */
 
 #ifndef LOG_CONF_LWB_STREAM_ID
@@ -138,6 +137,17 @@ typedef enum {
     log_event(LOG_LEVEL_VERBOSE, evt, val); }
 #endif /* LOG_CONF_TARGET */
 
+/* log the position in the code (i.e. file name and line) as string */
+#define LOG_POS(lvl)            if(log_lvl >= lvl) { \
+    snprintf(log_buffer, LOG_CONF_STRING_BUFFER_SIZE, "%s, line %u", \
+             FILENAME, __LINE__); \
+    log_generic(lvl, log_buffer); }
+
+/* strrchr() will be evaluated at compile time and the file name inlined */
+#define FILENAME  (strrchr(__FILE__, '/') ? \
+                   strrchr(__FILE__, '/') + 1 : __FILE__)
+
+
 
 /* GLOBAL VARIABLES and FUNCTIONS */
 
@@ -152,7 +162,7 @@ static __inline void log_set_level(log_level_t lvl) { log_lvl = lvl; }
 extern char log_buffer[LOG_CONF_STRING_BUFFER_SIZE];
 
 
-void log_event(log_level_t lvl, log_event_type_t evt, uint16_t val);
+void log_event(log_level_t lvl, log_event_type_t type, uint16_t val);
 void log_event_str(log_level_t lvl, const char* evt_str, uint16_t val);
 void log_generic(log_level_t lvl, const char* str);
 

@@ -538,14 +538,17 @@ ISR(CC1101, radio_interrupt)
 
   switch(RF1AIV) {
 
+  /* note by rdaforno: see errata RF1A5 (false interrupts) */
+
   case RF1AIV_RFIFG3:
-    /* RX FIFO above threshold: read FIFO_CHUNK_SIZE bytes */
-    read_bytes_from_rx_fifo(FIFO_CHUNK_SIZE);
-    break;
+    if(RF1AIN & BIT3) {   /* added by rdaforno */
+      /* RX FIFO above threshold: read FIFO_CHUNK_SIZE bytes */
+      read_bytes_from_rx_fifo(FIFO_CHUNK_SIZE);
+    } break;
 
   case RF1AIV_RFIFG5:
     /* TX FIFO below threshold */
-    if(rf1a_buffer_len > 0) {
+    if((RF1AIN & BIT5) && rf1a_buffer_len > 0) { /* RF1AIN added by rdaforno */
       /* there are still bytes to write into the TX FIFO */
       if(rf1a_buffer_len > FIFO_CHUNK_SIZE) {
         /* write FIFO_CHUNK_SIZE more bytes into the TX FIFO */
@@ -571,16 +574,18 @@ ISR(CC1101, radio_interrupt)
     break;
 
   case RF1AIV_RFIFG7:
-    /* RX FIFO overflowed */
-    rf1a_cb_rx_tx_error(&timestamp);
-    rf1a_state = NO_RX_TX;
-    break;
+    if(RF1AIN & BIT7) {   /* added by rdaforno */
+      /* RX FIFO overflowed */
+      rf1a_cb_rx_tx_error(&timestamp);
+      rf1a_state = NO_RX_TX;
+    } break;
 
   case RF1AIV_RFIFG8:
-    /* TX FIFO underflowed */
-    rf1a_cb_rx_tx_error(&timestamp);
-    rf1a_state = NO_RX_TX;
-    break;
+    if(RF1AIN & BIT8) {   /* added by rdaforno */
+      /* TX FIFO underflowed */
+      rf1a_cb_rx_tx_error(&timestamp);
+      rf1a_state = NO_RX_TX;
+    } break;
 
   case RF1AIV_RFIFG9:
     /* sync word received or transmitted, or end of packet */
@@ -615,7 +620,10 @@ ISR(CC1101, radio_interrupt)
         rf1a_cb_rx_tx_error(&timestamp);
       }
     } else {
-      /* end of packet */
+      /* only proceed if input signal is actually low (added by rdaforno) */
+      if(RF1AIN & BIT9) { break; }
+
+      /* end of packet (high-to-low transition) */
       switch(rf1a_state) {
       case RX:
         /* RX ended */

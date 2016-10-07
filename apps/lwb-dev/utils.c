@@ -35,6 +35,9 @@
 
 #include "main.h"
 
+#ifndef MIN
+#define MIN(x,y)    (((x) < (y)) ? (x) : (y))
+#endif /* MIN */
 /*---------------------------------------------------------------------------*/
 /* convert an ASCII string of up to 8 hex characters to a decimal value */
 uint32_t
@@ -82,13 +85,13 @@ send_msg(uint16_t recipient,
     default: break;
     }
   } else {
-    msg.header.payload_len = len;
+    msg.header.payload_len   = len;
   }
-  msg.header.target_id     = recipient;
+  msg.header.target_id       = recipient;
   if(send_to_bolt) {
-    msg.header.seqnr       = seq_no_bolt++;
+    msg.header.seqnr         = seq_no_bolt++;
   } else {
-    msg.header.seqnr       = seq_no_lwb++;
+    msg.header.seqnr         = seq_no_lwb++;
   }
   msg.header.generation_time = lwb_get_timestamp();
   /* copy the payload */
@@ -169,16 +172,17 @@ get_node_health(comm_health_t* out_data)
 void
 get_node_info(node_info_t* out_data)
 {
+  memset(out_data, 0, sizeof(node_info_t));     /* clear */
   out_data->component_id = COMPONENT_ID;
-  out_data->compiler_ver = COMPILER_VERSION_ENC; /* encoded 16-bit value */
-  out_data->compile_date = COMPILE_TIME;         /* defined in makefile */
+  out_data->compiler_ver = COMPILER_VERSION_ENC;  /* encoded 16-bit value */
+  out_data->compile_date = COMPILE_TIME;          /* defined in makefile */
   out_data->fw_ver       = FW_VERSION;
   out_data->rst_cnt      = cfg.rst_cnt;
   out_data->rst_flag     = rst_flag;
   uint32_t rev_id = hexstr_to_dec(GIT_HEADREV_SHA, 6);
   memcpy(out_data->sw_rev_id, &rev_id, 3);
-  memcpy(out_data->compiler_desc, COMPILER_DESC, 3);
-  memcpy(out_data->fw_name, FW_NAME, 8);
-  memcpy(out_data->mcu_desc, MCU_DESC, 12);
+  memcpy(out_data->compiler_desc, COMPILER_DESC, MIN(3,strlen(COMPILER_DESC)));
+  memcpy(out_data->fw_name, FW_NAME, MIN(8, strlen(FW_NAME)));
+  memcpy(out_data->mcu_desc, MCU_DESC, MIN(12, strlen(MCU_DESC)));
 }
 /*---------------------------------------------------------------------------*/

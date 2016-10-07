@@ -251,6 +251,7 @@ typedef struct {
   uint32_t pkt_cnt_crcok;         /* total # of received packets with CRC ok */
   uint32_t flood_cnt;    /* total # of floods (with >=1x preamble+sync det.) */
   uint32_t flood_cnt_success;      /* total # floods with at least 1x CRC ok */
+  uint16_t error_cnt;              /* total number of errors */
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 } glossy_state_t;
 /*---------------------------------------------------------------------------*/
@@ -678,6 +679,12 @@ glossy_get_n_pkts_crcok(void)
   return g.pkt_cnt_crcok;
 }
 /*---------------------------------------------------------------------------*/
+uint16_t
+glossy_get_n_errors(void)
+{
+  return g.error_cnt;
+}
+/*---------------------------------------------------------------------------*/
 uint32_t
 glossy_get_flood_duration(void)
 {
@@ -925,7 +932,10 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
 {
   GLOSSY_RX_STOPPED;
   GLOSSY_TX_STOPPED;
-  /* notify about the error */
+  /* notify about the error (not supposed to occur) */
+#if GLOSSY_CONF_COLLECT_STATS
+  g.error_cnt++;
+#endif /* GLOSSY_CONF_COLLECT_STATS */
   DEBUG_PRINT_VERBOSE("Glossy RX/TX error (interference?)");
 
   rtimer_update_enable(1);

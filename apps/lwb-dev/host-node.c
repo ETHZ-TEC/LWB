@@ -45,18 +45,13 @@
 static uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
 /*---------------------------------------------------------------------------*/
 void
-host_init(void)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
 host_run(void)
 {
   static uint32_t t_last_health_pkt = 0;
   static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
   message_t msg;
 
-  /* analyze and print the received data */
+  /* forward the received data */
   while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
     /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
     DEBUG_PRINT_MSG_NOW("data packet received from node %u",
@@ -84,12 +79,14 @@ host_run(void)
     msg.header.generation_time = time_last_req * 1000000 / ACLK_SPEED;
     msg.payload16[0] = crc16((uint8_t*)&msg, MSG_HDR_LEN, 0);
     BOLT_WRITE((uint8_t*)&msg, MSG_HDR_LEN + 2);
-    LOG_INFO(LOG_EVENT_COMM_TIMESTAMP_SENT, 0);
+    //LOG_INFO(LOG_EVENT_COMM_TIMESTAMP_SENT, 0);
   } //else: no timestamp request triggered or other unknown error
 
   /* msg available from BOLT? */
+  /* only read as many packets from BOLT as there are spaces in the TX queue */
   uint16_t msg_cnt = 0;
-  while(BOLT_DATA_AVAILABLE) {
+  while(BOLT_DATA_AVAILABLE &&
+        (lwb_tx_buffer_state() < LWB_CONF_OUT_BUFFER_SIZE)) {
     uint8_t msg_len = 0;
     BOLT_READ(bolt_buffer, msg_len);
     if(msg_len) {
@@ -102,8 +99,10 @@ host_run(void)
           switch(msg.comm_cmd.type) {
           case COMM_CMD_LWB_SET_ROUND_PERIOD:
             /* adjust the period */
-            lwb_sched_set_period(msg.comm_cmd.value);
-            DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
+            if(msg.comm_cmd.value < 600) {    /* 10min is max */
+              lwb_sched_set_period(msg.comm_cmd.value);
+              DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
+            }
             break;
           case COMM_CMD_LWB_SET_HEALTH_PERIOD:
             health_period = msg.comm_cmd.value; /* adjust own health period */
@@ -131,7 +130,12 @@ host_run(void)
             }
             break;
           case COMM_CMD_LWB_SET_TX_PWR:
-            glossy_set_tx_pwr(msg.comm_cmd.value);
+            if(msg.comm_cmd.value < N_TX_POWER_LEVELS) {
+              glossy_set_tx_pwr(msg.comm_cmd.value);
+            }
+            break;
+          case COMM_CMD_NODE_RESET:
+            PMM_TRIGGER_BOR;
             break;
           default:
             /* unknown command */
@@ -146,7 +150,7 @@ host_run(void)
                          (uint8_t*)&msg, MSG_LEN(msg))) {
           DEBUG_PRINT_WARNING("message dropped (queue full)");
         } else {
-          DEBUG_PRINT_INFO("message for node %u added to TX queue",
+          DEBUG_PRINT_INFO("message from BOLT forwarded to LWB (target: %u)",
                            msg.header.target_id);
         }
       } // else: invalid target ID

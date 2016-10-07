@@ -86,7 +86,7 @@
 /*
  * include application specific config
  */
-#include "../../apps/lwb-dev/config.h"                 /* application specific configuration */
+#include "config.h"                 /* application specific configuration */
 
 
 #ifndef FW_VERSION
@@ -120,6 +120,10 @@
 #ifndef CLOCK_CONF_FLL_ON
 #define CLOCK_CONF_FLL_ON           1
 #endif /* CLOCK_CONF_FLL_ON */
+
+#ifndef SVS_CONF_ON
+#define SVS_CONF_ON                 0
+#endif /* SVS_CONF_ON */
 
 /* specify the number of timer modules */
 #if RF_CONF_ON
@@ -226,33 +230,35 @@
 
 #define UART_ACTIVE             (UCA0STAT & UCBUSY)
 
-#define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) {\
-                                  SFRIE1  &= ~OFIE;\
-                                  ENABLE_XT2();\
-                                  WAIT_FOR_OSC();\
-                                  UCSCTL4  = SELA | SELS | SELM;\
-                                  UCSCTL7  = 0;\
-                                  WAIT_FOR_OSC();\
-                                  SFRIE1  |= OFIE;\
-                                  TA0CTL  |= MC_2;\
+#define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) { \
+                                  SFRIE1  &= ~OFIE; \
+                                  ENABLE_XT2(); \
+                                  WAIT_FOR_OSC(); \
+                                  UCSCTL4  = SELA | SELS | SELM; \
+                                  __delay_cycles(100); /* errata PMM12? */\
+                                  UCSCTL5  = DIVA | DIVS | DIVM; \
+                                  UCSCTL7  = 0; /* errata UCS11 */ \
+                                  SFRIE1  |= OFIE; \
+                                  TA0CTL  |= MC_2; \
                                   P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                              BIT6 | BIT7);\
+                                              BIT6 | BIT7); \
                                 }
 
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
 #define LWB_BEFORE_DEEPSLEEP()  {\
-                                  FRAM_SLEEP;\
+                                  FRAM_SLEEP; \
                                   TA0CTL &= ~MC_3; /* stop TA0 */\
-                                  PIN_CLR(MUX_SEL_PIN);\
+                                  PIN_CLR(MUX_SEL_PIN); \
                                   P1SEL = 0; /* reconfigure GPIOs */\
                                   /* DPP has a pullup on P1.5! */\
-                                  P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7);\
+                                  P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7); \
                                   P1OUT = 0; \
                                   /* set clock source to DCO */\
-                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV |\
-                                            SELM__DCOCLKDIV;\
-                                  UCSCTL7  = 0;\
-                                  DISABLE_XT2();\
+                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
+                                            SELM__DCOCLKDIV; \
+                                  UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
+                                  UCSCTL7  = 0; \
+                                  DISABLE_XT2(); \
                                 }
 
 /* specify what needs to be done every time before SPI is enabled */
@@ -260,6 +266,7 @@
   if(spi == SPI_0) { spi_reinit(SPI_0); }\
   PIN_CLR(MUX_SEL_PIN); \
 }
+
 
 /*
  * include MCU specific drivers

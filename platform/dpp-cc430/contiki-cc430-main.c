@@ -52,81 +52,45 @@ print_processes(struct process *const processes[])
   printf("\r\n");
 }
 /*---------------------------------------------------------------------------*/
-void
-enter_lpm3(void)
-{
-    PIN_CLR(LED_STATUS);     /* init done */
-    PIN_CLR(COM_MCU_SPARE1);
-    /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-    TA0CTL &= ~MC_3; /* stop TA0 */
-    DISABLE_XT2();
-  #ifdef MUX_SEL_PIN
-    PIN_CLR(MUX_SEL_PIN);
-  #endif /* MUX_SEL_PIN */
-    P1SEL = 0; /* reconfigure GPIOs */
-    P1DIR |= (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
-    /* dont clear BIT6 and 7 on olimex board (pullups!) */
-    P1OUT &= ~(BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
-    /* UART RXD has a pull-up */
-    P1OUT |= BIT5;
-    /* set clock source to DCO */
-    UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
-     SetVCore(PMMCOREV_0);
-    __bis_status_register(SCG0 | SCG1 | CPUOFF);
-    __no_operation();
-}
-/*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
 print_device_info(void)
 {
+  const char* rst_source[14] = { "BOR", "nRST", "SWBOR", "SECV", "SVS", "SVM",
+                                 "SWPOR", "WDT", "WDTPW", "KEYV", "PLLUL",
+                                 "PERF", "PMMKEY", "Unknown" };
+  uint8_t idx;
   /* 
    * note: this device does not offer an LPMx.5 mode, therefore there's no
    * corresponding reset source
    */
   rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
-  
-  printf("\r\n\r\nReset Source: ");
   /* when the PMM causes a reset, a value is generated in the system reset
      interrupt vector generator register (SYSRSTIV), corresponding to the
      source of the reset */
-  /* note: do not use switch .. case construct due to contiki! */
-  if(SYSRSTIV_BOR == rst_flag) {         
-    printf("BOR");        /* brownout reset (BOR) */
-  } else if(SYSRSTIV_RSTNMI == rst_flag) {
-    printf("Reset Pin");
-  } else if(SYSRSTIV_DOBOR == rst_flag) {
-    printf("Software BOR");
-  } else if(SYSRSTIV_SECYV == rst_flag) {
-    printf("Security violation");
-  } else if(SYSRSTIV_SVSL == rst_flag || SYSRSTIV_SVSH == rst_flag) {
-    printf("SVS");
-  } else if(SYSRSTIV_SVML_OVP == rst_flag || SYSRSTIV_SVMH_OVP == rst_flag) {
-    printf("SVM");
-  } else if(SYSRSTIV_DOPOR == rst_flag) {
-    printf("Software POR");
-  } else if(SYSRSTIV_WDTTO == rst_flag) {
-    printf("Watchdog timeout");
-  } else if(SYSRSTIV_WDTKEY == rst_flag) {
-    printf("Watchdog password violation");
-  } else if(SYSRSTIV_KEYV == rst_flag) {
-    printf("KEYV");
-  } else if(SYSRSTIV_PLLUL == rst_flag) {
-    printf("PLLUL");
-  } else if(SYSRSTIV_PERF == rst_flag) {
-    printf("Peripheral area fetch");
-  } else if(SYSRSTIV_PMMKEY == rst_flag) {
-    printf("PMMKEY");
-  } else {
-    printf("Unknown");
+  switch(rst_flag) {
+    case SYSRSTIV_BOR:      idx = 0;  break;
+    case SYSRSTIV_RSTNMI:   idx = 1;  break;
+    case SYSRSTIV_DOBOR:    idx = 2;  break;
+    case SYSRSTIV_SECYV:    idx = 3;  break;
+    case SYSRSTIV_SVSL:
+    case SYSRSTIV_SVSH:     idx = 4;  break;
+    case SYSRSTIV_SVML_OVP:
+    case SYSRSTIV_SVMH_OVP: idx = 5;  break;
+    case SYSRSTIV_DOPOR:    idx = 6;  break;
+    case SYSRSTIV_WDTTO:    idx = 7;  break;
+    case SYSRSTIV_WDTKEY:   idx = 8;  break;
+    case SYSRSTIV_KEYV:     idx = 9;  break; /* flash password violation */
+    case SYSRSTIV_PLLUL:    idx = 10; break;
+    case SYSRSTIV_PERF:     idx = 11; break;
+    case SYSRSTIV_PMMKEY:   idx = 12; break;
+    default:                idx = 13; break;
   }
-  printf("\r\nMCU: " MCU_DESC " (%ukB SRAM, %ukB ROM, %ukB used)\r\n",
-         SRAM_SIZE >> 10,
-         FLASH_SIZE >> 10,
-         flash_code_size() >> 10);
-  printf("Firmware: %u.%03u " __DATE__ "\r\n", FW_VERSION >> 8,
-                                               FW_VERSION & 0xff);
-  // don't disable UART module
+  printf("Reset Source: %s\r\nMCU: " MCU_DESC "\r\nFirmware: %u.%02u " \
+         __DATE__ "\r\n", rst_source[idx], FW_VERSION >> 8, FW_VERSION & 0xff);
+
+  /* note: KEYV indicates an incorrect FCTLx password was written to any flash
+   * control register and generates a PUC when set. */
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -142,8 +106,8 @@ main(int argc, char **argv)
   /* initialize hardware */
 
   /* set default configuration for all GPIOs */
-  /* don't set P1.6 (UART_TXD) and BOLT IND pins (P1.1 and P2.2) as outputs! */
-  P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT5 | BIT7);
+  /* don't set P1.5/P1.6 (UART) and BOLT IND pins (P1.1 and P2.2) as output! */
+  P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT7);
   PORT_CLR_I(1);
   /* don't set the BOLT IND pin as outputs! */
   P2DIR = (BIT0 | BIT1 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
@@ -157,7 +121,6 @@ main(int argc, char **argv)
   
   PIN_CFG_IN(BOLT_CONF_IND_PIN);
   PIN_CFG_IN(BOLT_CONF_IND_OUT_PIN);
-  PIN_CFG_IN_I(1, 5);                   // UART RXD (has a pullup)
   PIN_CFG_OUT(LED_STATUS);
   PIN_SET(LED_STATUS);
       
@@ -215,7 +178,11 @@ main(int argc, char **argv)
 #endif
 #if BOLT_CONF_ON
   bolt_init(0);
-#endif /* BOLT_CONF_ON */  
+#endif /* BOLT_CONF_ON */
+
+#if SVS_CONF_ON
+  SVS_ENABLE;
+#endif /* SVS_CONF_ON */
 
   process_init();
   process_start(&etimer_process, NULL);

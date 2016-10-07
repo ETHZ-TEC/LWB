@@ -56,6 +56,7 @@ typedef enum {
   COMM_CMD_LWB_SET_ROUND_PERIOD,
   COMM_CMD_LWB_SET_HEALTH_PERIOD,
   COMM_CMD_LWB_SET_TX_PWR,
+  COMM_CMD_NODE_RESET = 50,
 } comm_cmd_type_t;
 
 /* the message type (7 bits available, MSB is reserved) */
@@ -70,14 +71,12 @@ typedef enum {
   MSG_TYPE_COMM_CMD = 10,
   MSG_TYPE_COMM_HEALTH = 11,
 
-  /* not yet implemented: */
-  MSG_TYPE_FW_INFO,
-  MSG_TYPE_FW_DATA,
-  MSG_TYPE_FW_VALIDATE,
-  MSG_TYPE_FW_READY,
-  MSG_TYPE_FW_REQ_DATA,
-  MSG_TYPE_FW_UPDATE,
-  MSG_TYPE_FW_ROLLBACK,
+  /* message types concerning the application processor */
+  MSG_TYPE_APP_FW_DATA = 50,
+  MSG_TYPE_APP_FW_VALIDATE, /* request FW validation */
+  MSG_TYPE_APP_FW_READY,    /* response to a FW validation request */
+  MSG_TYPE_APP_FW_REQ_DATA, /* request missing FW data packets */
+  MSG_TYPE_APP_FW_UPDATE,   /* initiate the FW update */
 } message_type_t;
 
 
@@ -134,6 +133,7 @@ typedef struct {
 } node_info_t;
 
 
+#define LOG_EVENT_HDR_LEN   4
 typedef struct {
   uint8_t           component_id;
   log_event_type_t  type : 8;

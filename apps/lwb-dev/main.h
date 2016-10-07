@@ -37,8 +37,6 @@
 #define __MAIN_H__
 
 
-#include <log-events.h>
-
 #include "contiki.h"
 #include "platform.h"
 #include "nvcfg.h"

@@ -20,3 +20,5 @@ How to integrate this source code into Code Composer Studio:
    In the tab 'Target', make sure "Connect to the target on debugger startup" is enabled in the 'launch options'.
    Click 'Apply' and then 'Debug'.
    
+
+Alternatively, you could also just import the application you are interested in (step 1 is sufficient, choose a subfolder within 'apps' as source).

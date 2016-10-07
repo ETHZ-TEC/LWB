@@ -239,7 +239,8 @@ static struct pt        lwb_pt;
 static void*            pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
-static rtimer_clock_t   reception_timestamp;
+static rtimer_clock_t   rx_timestamp;
+static rtimer_clock_t   rx_timestamp_lf;
 static uint32_t         global_time;
 static lwb_statistics_t stats = { 0 };
 static uint8_t          urgent_stream_req = 0;
@@ -524,7 +525,7 @@ uint32_t
 lwb_get_time(rtimer_clock_t* reception_time)
 {
   if(reception_time) {
-    *reception_time = reception_timestamp;
+    *reception_time = rx_timestamp;
   }
   return global_time;
 }
@@ -532,8 +533,15 @@ lwb_get_time(rtimer_clock_t* reception_time)
 uint64_t
 lwb_get_timestamp(void)
 {
-  return (uint64_t)global_time * 1000000 +  /* convert to microseconds */
-         (rtimer_now_hf() - reception_timestamp) * 1000000 / SMCLK_SPEED;
+  /* convert to microseconds */
+  uint64_t timestamp = (uint64_t)global_time * 1000000;
+  if(sync_state <= LWB_STATE_SYNCED_2) {
+    return timestamp + /* convert to microseconds */
+           (rtimer_now_hf() - rx_timestamp) * 1000000 / RTIMER_SECOND_HF;
+  }
+  /* not synced! */
+  return timestamp +
+         (rtimer_now_lf() - rx_timestamp_lf) * 1000000 / RTIMER_SECOND_LF;
 }
 /*---------------------------------------------------------------------------*/
 /* update the sync state machine based */
@@ -556,6 +564,7 @@ lwb_update_sync_state(const lwb_sync_state_t curr_state,
 /*---------------------------------------------------------------------------*/
 /**
  * @brief thread of the host node
+ * @note runs in an interrupt context; don't use switch-case statements here
  */
 PT_THREAD(lwb_thread_host(rtimer_t *rt)) 
 {  
@@ -622,7 +631,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- COMMUNICATION ROUND STARTS --- */
     
     global_time = schedule.time;
-    reception_timestamp = t_start;
+    rx_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
     LWB_SEND_SCHED();            /* send the previously computed schedule */
 
@@ -811,6 +820,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 /*---------------------------------------------------------------------------*/
 /**
  * @brief declaration of the protothread (source node)
+ * @note runs in an interrupt context; don't use switch-case statements here
  */
 PT_THREAD(lwb_thread_src(rtimer_t *rt)) 
 {
@@ -918,14 +928,15 @@ BOOTSTRAP:
     if(glossy_is_t_ref_updated()) {
       /* HF timestamp of first RX; subtract a constant offset */
       t_ref = glossy_get_t_ref() - LWB_CONF_T_REF_OFS;           
-  #if LWB_CONF_USE_LF_FOR_WAKEUP
+  //#if LWB_CONF_USE_LF_FOR_WAKEUP
       /* estimate t_ref_lf by subtracting the elapsed time since t_ref: */
       rtimer_clock_t hf_now;
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
-  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      rx_timestamp_lf = t_ref_lf;
+  //#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       global_time = schedule.time;
-      reception_timestamp = t_ref;
+      rx_timestamp = t_ref;
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
@@ -1264,6 +1275,7 @@ BOOTSTRAP:
     
     /* debug trap (TODO: remove) */
     if(schedule.period > 30) {    /* period should never be > 30s */
+      watchdog_stop();            /* make sure the node is not reset */
       while(1) {
         LED_TOGGLE(LED_STATUS);
         __delay_cycles(MCLK_SPEED/2);

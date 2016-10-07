@@ -32,10 +32,7 @@
  */
 
 /**
- * @brief Low-Power Wireless Bus Test Application
- * 
- * A simple range test application. Each source node sends some status data
- * (RSSI, battery voltage, temperature, ...) to the host in each round.
+ * @brief Low-Power Wireless Bus Development Application (ETZ Test deployment)
  */
 
 
@@ -59,29 +56,18 @@ PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
-{  
+{
   PROCESS_BEGIN();
 
-  /* --- general initialization --- */
-#if DEBUG_INTERRUPT_ENABLE
-  /* enable ISR for debugging! */
-  PIN_CFG_INT_INV(DEBUG_INTERRUPT_PIN);
-#endif /* DEBUG_INTERRUPT_ENABLE */
+  /* --- initialization --- */
 
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-  SVS_DISABLE;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+#if DEBUG_INTERRUPT_ENABLE
+  PIN_CFG_INT_INV(DEBUG_INTERRUPT_PIN);  /* enable ISR for debugging! */
+#endif /* DEBUG_INTERRUPT_ENABLE */
 
   /* init the ADC */
   adc_init();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
-
-  /* --- host/source specific initialization --- */
-  if(HOST_ID == node_id) {
-	  host_init();
-  } else {
-	  source_init();
-  }
 
   /* start the LWB thread */
   lwb_start(0, &app_process);
@@ -93,13 +79,6 @@ PROCESS_THREAD(app_process, ev, data)
   /* update stats and save */
   cfg.rst_cnt++;
   nvcfg_save((uint8_t*)&cfg);
-
-  /* send a node info message */
-  node_info_t tmp;
-  get_node_info(&tmp);
-  send_msg(DEVICE_ID_SINK, MSG_TYPE_NODE_INFO, (uint8_t*)&tmp, 0, 0);
-
-  LOG_INFO(LOG_EVENT_NODE_RST, rst_flag);
 
   /* --- start of application main loop --- */
   while(1) {
@@ -130,7 +109,7 @@ PROCESS_THREAD(app_process, ev, data)
 void
 print_debug_info(uint16_t stack_addr)
 {
-  #define MAX_BSS_SIZE                  3504
+  #define MAX_BSS_SIZE                  3504    /* heap */
 
   /* re-enable the HFXT, required for UART (only change necessary settings!) */
   uint16_t xt2_off = UCSCTL6 & XT2OFF;
@@ -232,9 +211,10 @@ ISR(PORT2, port2_interrupt)
 /* for debugging: define all unused ISRs */
 ISR(SYSNMI, sysnmi_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   switch (SYSSNIV) {
-    case SYSSNIV_VMAIFG:
+    case SYSSNIV_VMAIFG:    /* vacant memory access */
       while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 15); }
       break;
     default:
@@ -244,36 +224,43 @@ ISR(SYSNMI, sysnmi_interrupt)
 }
 ISR(AES, aes_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 20); }
 }
 ISR(RTC, rtc_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 30); }
 }
 ISR(PORT1, p1_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 40); }
 }
 ISR(ADC10, adc_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 50); }
 }
 ISR(USCI_B0, ucb0_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 60); }
 }
 ISR(WDT, wdt_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 70); }
 }
 ISR(COMP_B, comp_interrupt)
 {
+  watchdog_stop();    // TODO: remove
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 80); }
 }

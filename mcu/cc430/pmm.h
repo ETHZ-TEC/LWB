@@ -20,9 +20,19 @@
 
 /* disable the SVS (added by rdaforno) */
 #define SVS_DISABLE       { PMMCTL0_H = 0xA5;\
-                            SVSMHCTL  = 0;\
-                            SVSMLCTL  = 0;\
+                            SVSMHCTL  = 0; /* high-side ctrl register */\
+                            SVSMLCTL  = 0; /* low-side ctrl register */ \
                             PMMCTL0_H = 0x00; }
+/* enable SVS high-side normal perf. mode (monitoring and supervisor)
+ * set reset/release voltage levels to recommended values (user guide p.84)
+ * note: reset is enabled by default in PMMRIE */
+#define SVS_ENABLE        { PMMCTL0_H = 0xA5; \
+                            SVSMHCTL = SVSHE | SVMHE | SVSHRVL_2 | SVSMHRRL_2;\
+                            SVSMLCTL = SVMLE | SVSLE | SVSLRVL_2 | SVSMLRRL_2;\
+                            PMMCTL0_H = 0x00; }
+/* trigger a reset (added by rdaforno) */
+#define PMM_TRIGGER_POR   { PMMCTL0_H  = 0xA5; PMMCTL0_L |= PMMSWPOR; }
+#define PMM_TRIGGER_BOR   { PMMCTL0_H  = 0xA5; PMMCTL0_L |= PMMSWBOR; }
 
 
 /* ==================================================================== */

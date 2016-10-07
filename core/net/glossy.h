@@ -225,6 +225,11 @@ uint32_t glossy_get_n_pkts(void);
 uint32_t glossy_get_n_pkts_crcok(void);
 
 /**
+ * @brief get the total number of errors which occurred (RF RX/TX error)
+ */
+uint16_t glossy_get_n_errors();
+
+/**
  * @brief get the duration of the last flood, in HF clock ticks
  */
 uint32_t glossy_get_flood_duration(void);

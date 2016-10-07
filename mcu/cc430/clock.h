@@ -47,6 +47,7 @@
 #ifndef __CLOCK_H__
 #define __CLOCK_H__
 
+
 /* FLL is only required if one of the following clock sources is used: DCOCLK,
    DCOCLKDIV, FLLREFCLK */
 #ifndef CLOCK_CONF_FLL_ON
@@ -121,7 +122,6 @@
 { \
     UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
     SFRIFG1 &= ~OFIFG; \
-    PIN_XOR(LED_ERROR); \
 } while (SFRIFG1 & OFIFG)
 
 /**

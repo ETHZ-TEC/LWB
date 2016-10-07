@@ -34,19 +34,48 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0101
+#define FW_VERSION      0x0103
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
 
+Feature Suggestions:
+- include an accuracy indicator with the generation_time (depending on the
+  time that has elapsed since the last sync)
+
+
+
 Revision History
 ----------------
 
-Changes in v1.001 (2016-09-29):
+Changes in v1.03 (2016-10-07):
+- change:  component ID introduced (added to log events and node info packets)
+- change:  limiter added for command values for TXPWR and round period
+- change:  more debugging info added to UNMI ISR
+- change:  workaround for errata RF1A5 applied to radio core ISR
+- change:  default RF_CONF_MAX_PKT_LEN changed in lwb.h
+- feature: SVS_CONF_ON define added (default is 0)
+- bugfix:  delay added to wake-up routine after deepsleep to increase stability
+
+Changes in v1.02 (2016-09-30):
+- change:  software POR added to DEBUG_PRINT_FATAL()
+- change:  node info packet is only generated once the node is synced
+- change:  lwb_get_time() delivers an estimate of the current time in case
+           the node is not synchronized (before: wrong timestamp)
+- feature: LOG_POS() added to log the current position (line, file) in the code
+- feature: SVS_ENABLE macro added
+- feature: reset command added to comm_cmd_type_t
+- feature: glossy error counter added
+- bugfix:  in log_generic
+- bugfix:  LWB_BEFORE_DEEPSLEEP() and LWB_AFTER_DEEPSLEEP() adjusted to account
+           for various errata (PMM11, PMM12, UCS11)
+
+Changes in v1.01 (2016-09-29):
 - change:  watchdog is now configured at the very beginning of the program
 - change:  node_info_t struct adjusted
 - change:  event 'reset' replaced by a node_info_t packet
 - cleanup: utils.c created, contains general helper functions
+- cleanup: print_device_info() simplified
 - feature: makefile extended to include the compiler macros COMPILE_TIME
            (UNIX timestamp) and GIT_HEADREV_SHA (git head revision SHA hash)
 - feature: RTIMER_CONF_LF_UPDATE_LED_ON added for debugging

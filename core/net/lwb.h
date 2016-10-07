@@ -72,6 +72,10 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       LWB_CONF_MAX_PKT_LEN
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
+#if LWB_CONF_MAX_DATA_PKT_LEN > LWB_CONF_MAX_PKT_LEN
+#error "LWB_CONF_MAX_DATA_PKT_LEN must not be larger than LWB_CONF_MAX_PKT_LEN"
+#endif
+
 #ifndef LWB_CONF_MAX_DATA_SLOTS
 /* max. number of data slots per round, must not exceed MIN(63, 
  * (LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
@@ -197,8 +201,7 @@
 
 #ifndef LWB_CONF_MAX_PKT_LEN
 /* the max. length of a packet (limits the message size as well as the max. 
- * size of a LWB packet and the schedule); do not change this value before
- * you have adjusted the radio module configuration! */
+ * size of a LWB packet and the schedule) */
 #define LWB_CONF_MAX_PKT_LEN            127
 #endif /* LWB_CONF_MAX_PKT_LEN */
 
@@ -301,8 +304,13 @@
 
 // -> defined in rf1a-core.h
 #ifndef RF_CONF_MAX_PKT_LEN
-#define RF_CONF_MAX_PKT_LEN             LWB_CONF_MAX_PKT_LEN
+#define RF_CONF_MAX_PKT_LEN      (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
 #endif /* RF_CONF_MAX_PKT_LEN */
+
+/* error check */
+#if RF_CONF_MAX_PKT_LEN < (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
+#error "LWB_CONF_MAX_PKT_LEN is too big"
+#endif
 
 /*---------------------------------------------------------------------------*/
 
@@ -485,13 +493,17 @@ void lwb_stats_reset(void);
  * @param reception_time timestamp of the reception of the last schedule,
  * optional parameter (pass 0 if not needed)
  * @return the relative time in seconds since the host started
+ * @note If the node is not synchronized, the time may not be valid. Use
+ * lwb_get_timestamp() instead to get an estimate of the current time even
+ * if the node is not synchronized.
  */
 uint32_t lwb_get_time(rtimer_clock_t* reception_time);
 
 /**
  * @brief get a high-res timestamp in us (based on the LWB time)
  * @return timestamp
- * @note requires that the node is synchronized to the host!
+ * @note if the node is not synced, the current time is estimated based on
+ * the elapsed LFXT clock ticks (max. accuracy: ~100us)
  */
 uint64_t lwb_get_timestamp(void);
 
