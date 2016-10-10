@@ -67,8 +67,7 @@ source_run(void)
   }
 
   /* only send data if the stream is active */
-  if(lwb_stream_get_state(STREAM_ID) ==
-     LWB_STREAM_STATE_ACTIVE) {
+  if(lwb_stream_get_state(STREAM_ID) == LWB_STREAM_STATE_ACTIVE) {
     /* node info already sent? */
     if(!node_info_sent) {
       /* send a node info message */
@@ -83,6 +82,9 @@ source_run(void)
       send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH,
                (const uint8_t*)&msg.comm_health, 0, 0);
       t_last_health_pkt = curr_time;
+      DEBUG_PRINT_INFO("health packet generated");
+    } else {
+      DEBUG_PRINT_INFO("must wait...");
     }
   }
 
@@ -115,7 +117,8 @@ source_run(void)
         LOG_INFO(LOG_EVENT_CFG_CHANGED, msg.comm_cmd.value);
       } else if(msg.header.type >= MSG_TYPE_APP_FW_DATA) {
         /* forward to BOLT */
-        BOLT_WRITE((uint8_t*)&msg, msg.header.payload_len + MSG_HDR_LEN + 2);
+        BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
+        DEBUG_PRINT_MSG_NOW("packet forwarded to BOLT");
       }
     } /* else: target ID does not match node ID */
   }
@@ -129,7 +132,7 @@ source_run(void)
     if(msg_len) {
       /* just forward the message to the LWB */
       if(!lwb_send_pkt(DEVICE_ID_SINK, STREAM_ID,
-                       (uint8_t*)&msg, MSG_LEN(msg))) {
+                       (uint8_t*)bolt_buffer, MSG_LEN(msg))) {
         DEBUG_PRINT_INFO("message from BOLT dropped (LWB queue full)");
       } else {
         DEBUG_PRINT_INFO("message from BOLT forwarded to LWB");

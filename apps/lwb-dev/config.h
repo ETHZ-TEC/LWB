@@ -37,7 +37,7 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         20039
+#define NODE_ID                         20042
 #define HOST_ID                         1
 
 #define SEND_HEALTH_DATA                1
@@ -74,9 +74,10 @@
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 #define APP_TASK_ACT_PIN                COM_MCU_INT2
 #define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
-#define DEBUG_INTERRUPT_ENABLE          1
+#define DEBUG_INTERRUPT_ENABLE          0
 #define DEBUG_INTERRUPT_PIN             PORT2, PIN0  /* must be port 2 */
 #define DEBUG_LED                       COM_MCU_SPARE2
+#define DEBUG_CHECK_PACKET_LEN          0
 #define WATCHDOG_CONF_ON                1
 #define RTIMER_CONF_LF_UPDATE_LED_ON    1
 //#define SVS_CONF_ON                     1

@@ -239,6 +239,12 @@ fw_update_routine(uint16_t fw_size)
    * that needs to be programmed, then it is not necessary to move this 
    * routine into SRAM (use segment erase instead of mass erase */
   
+  /* Note: Another way to execute from RAM on a MSP430 is to use the following
+   * pragma, which will tell the compiler/linker to put the function into the
+   * .data section:
+   * __attribute__((section(".data"), noinline))
+   * void sram_function(void) { ... }  */
+  
 #define FW_UPDATE_SIMULATE      0
 
   PIN_SET(LED_0);       /* to indicate the start */

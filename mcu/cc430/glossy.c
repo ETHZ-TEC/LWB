@@ -476,8 +476,10 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   }
-  /* note: RF_RDY bit must be cleared before entering LPM after a transition 
-   * from idle to RX or TX. RF1ASTATB & 0x80  or  GDO0 */
+  /* note: RF_RDY bit must be cleared by the radio core before entering LPM
+   * after a transition from idle to RX or TX. RF1ASTATB & 0x80  or  GDO0 */
+  while(RF1ASTATB & 0x80);                   /* added by rdaforno */
+  //while(rf1a_get_status_byte() & 0x80);    /* added by rdaforno */
 }
 /*---------------------------------------------------------------------------*/
 uint8_t

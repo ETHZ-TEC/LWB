@@ -39,14 +39,6 @@
 #include "main.h"
 
 /*---------------------------------------------------------------------------*/
-#ifdef APP_TASK_ACT_PIN
-#define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
-#define TASK_SUSPENDED          PIN_CLR(APP_TASK_ACT_PIN)
-#else
-#define TASK_ACTIVE
-#define TASK_SUSPENDED
-#endif /* APP_TASK_ACT_PIN */
-/*---------------------------------------------------------------------------*/
 /* global variables */
 uint16_t seq_no_lwb  = 0;
 uint16_t seq_no_bolt = 0;
@@ -58,6 +50,17 @@ AUTOSTART_PROCESSES(&app_process);
 PROCESS_THREAD(app_process, ev, data) 
 {
   PROCESS_BEGIN();
+
+  /* --- check parameters ---
+   * (for debugging only, compiler will exclude this code from the assembly) */
+
+  if(sizeof(comm_health_t) > MSG_PAYLOAD_LEN ||
+     sizeof(comm_cmd_t) > MSG_PAYLOAD_LEN    ||
+     sizeof(node_info_t) > MSG_PAYLOAD_LEN   ||
+     sizeof(log_event_t) > MSG_PAYLOAD_LEN   ||
+     sizeof(message_t) != MSG_PKT_LEN) {
+    DEBUG_PRINT_MSG_NOW("ERROR: invalid struct message_t");
+  }
 
   /* --- initialization --- */
 
@@ -85,7 +88,9 @@ PROCESS_THREAD(app_process, ev, data)
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-    TASK_ACTIVE;      /* application task runs now */
+#ifdef APP_TASK_ACT_PIN
+    PIN_SET(APP_TASK_ACT_PIN);
+#endif /* APP_TASK_ACT_PIN */
     
     if(HOST_ID == node_id) {
       host_run();
@@ -99,8 +104,10 @@ PROCESS_THREAD(app_process, ev, data)
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_BEFORE_DEEPSLEEP();
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    
-    TASK_SUSPENDED;
+
+#ifdef APP_TASK_ACT_PIN
+    PIN_CLR(APP_TASK_ACT_PIN);
+#endif /* APP_TASK_ACT_PIN */
   } /* --- end of application main loop --- */
 
   PROCESS_END();
@@ -215,12 +222,37 @@ ISR(SYSNMI, sysnmi_interrupt)
   PIN_SET(LED_ERROR);
   switch (SYSSNIV) {
     case SYSSNIV_VMAIFG:    /* vacant memory access */
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 10); }
+      break;
+    case SYSSNIV_SVMLIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 11); }
+      break;
+    case SYSSNIV_SVMHIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 12); }
+      break;
+    case SYSSNIV_DLYLIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 13); }
+      break;
+    case SYSSNIV_DLYHIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 14); }
+      break;
+    case SYSSNIV_JMBOUTIFG:
       while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 15); }
       break;
+    case SYSSNIV_JMBINIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 16); }
+      break;
+    case SYSSNIV_VLRLIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 17); }
+      break;
+    case SYSSNIV_VLRHIFG:
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 18); }
+      break;
     default:
-        break;
+      while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 19); }
+      break;
   }
-  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 10); }
+  while(1);   /* wait for the watchdog to trigger a reset */
 }
 ISR(AES, aes_interrupt)
 {

@@ -92,7 +92,7 @@ void rf1a_configure_gdo_signal(uint8_t gdo, uint8_t signal, uint8_t invert);
 /* get the status byte of the radio core */
 /* rx = 1: returns the number of bytes currently in the RXFIFO queue */
 /* rx = 0: returns the number of bytes currently in the TXFIFO queue */
-uint8_t rf1a_get_status_byte(uint8_t rx);
+uint8_t rf1a_get_status_byte(void);
 
 /* put the radio into the SLEEP state */
 void rf1a_go_to_sleep(void);

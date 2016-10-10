@@ -329,7 +329,7 @@ load_SmartRF_configuration(void)
   write_byte_to_register(TEST1, SMARTRF_TEST1);
 #endif /* SMARTRF_TEST1 */
 #ifdef SMARTRF_TEST0
-  write_byte_to_register(TEST1, SMARTRF_TEST0);
+  write_byte_to_register(TEST0, SMARTRF_TEST0);
 #endif /* SMARTRF_TEST0 */
 }
 /* issue a command strobe and return the corresponding status byte */

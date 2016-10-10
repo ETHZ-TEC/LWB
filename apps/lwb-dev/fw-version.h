@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0103
+#define FW_VERSION      0x0104
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -47,6 +47,15 @@ Feature Suggestions:
 
 Revision History
 ----------------
+
+Changes in v1.04 (2016-10-10):
+- change:  TEST0 register reconfiguration added to glossy_start()
+- change:  wait for RF_RDY added to glossy_start()
+- change:  message_t structure size increased by 2 bytes to include the CRC;
+           consequently, the sizeof operator will now return MSG_PKT_LEN
+- bugfix:  TEST0 register configuration fixed in rf1a-core.h (typo)
+- bugfix:  vacant memory access violation due to inconsistent message_t size
+           handling fixed; mainly concerned lwb_rcv_pkt() and lwb_send_pkt()
 
 Changes in v1.03 (2016-10-07):
 - change:  component ID introduced (added to log events and node info packets)

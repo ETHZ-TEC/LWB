@@ -251,7 +251,7 @@ rf1a_configure_gdo_signal(uint8_t gdo, uint8_t signal, uint8_t invert)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-rf1a_get_status_byte(uint8_t rx)
+rf1a_get_status_byte(void)
 {
   /* issue the SNOP command strobe in order to get the radio core status */
   /* byte without causing any further actions */
@@ -595,7 +595,7 @@ ISR(CC1101, radio_interrupt)
 
     if(!(RF1AIES & BIT9)) {
       /* sync word received or transmitted */
-      switch(GET_RF_STATE(rf1a_get_status_byte(1))) {
+      switch(GET_RF_STATE(rf1a_get_status_byte())) {
       case RF_STATE_RX:
         /* sync word received */
         rf1a_state = RX;

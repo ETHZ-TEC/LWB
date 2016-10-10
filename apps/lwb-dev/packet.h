@@ -147,6 +147,7 @@ typedef struct {
 
 /* crc is calculated over the whole structure and appended to the message */
 typedef struct {
+  /* header: MSG_HDR_LEN bytes */
   struct {
     uint16_t       device_id;   /* sender node ID */
     message_type_t type : 8;    /* force 1 byte */
@@ -155,15 +156,19 @@ typedef struct {
     uint16_t       seqnr;
     uint64_t       generation_time;
   } header;
+  /* none of the union members may be larger than MSG_PAYLOAD_LEN bytes
+   * except for 'payload' */
   union {
     comm_health_t  comm_health;
     comm_cmd_t     comm_cmd;
     node_info_t    node_info;
     log_event_t    log_event;
-    uint8_t        payload[MSG_PAYLOAD_LEN];  /* raw bytes */
-    uint16_t       payload16[MSG_PAYLOAD_LEN / 2];
+    /* add +2 to increase overall structure size to include the crc! */
+    uint8_t        payload[MSG_PAYLOAD_LEN + 2];   /* raw bytes */
+    uint16_t       payload16[MSG_PAYLOAD_LEN / 2]; /* rounded down! */
   };
 } message_t;
+
 
 #define MSG_SET_CRC16(msg, crc) \
   (msg)->payload[(msg)->header.payload_len] = crc & 0xff; \
