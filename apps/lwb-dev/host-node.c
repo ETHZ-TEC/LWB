@@ -131,7 +131,7 @@ host_run(void)
             break;
           case COMM_CMD_LWB_SET_TX_PWR:
             if(msg.comm_cmd.value < N_TX_POWER_LEVELS) {
-              glossy_set_tx_pwr(msg.comm_cmd.value);
+              rf1a_set_tx_power((rf1a_tx_powers_t)msg.comm_cmd.value);
             }
             break;
           case COMM_CMD_NODE_RESET:
@@ -162,7 +162,7 @@ host_run(void)
 }
 /*---------------------------------------------------------------------------*/
 #if !DEBUG_INTERRUPT_ENABLE
-ISR(PORT2, port2_interrupt)
+/*ISR(PORT2, port2_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
@@ -182,6 +182,6 @@ ISR(PORT2, port2_interrupt)
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
-}
+}*/
 #endif /* DEBUG_INTERRUPT_ENABLE */
 /*---------------------------------------------------------------------------*/

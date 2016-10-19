@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Tonio Gsell
  */
 
 #ifndef __CONFIG_H__
@@ -37,7 +38,7 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         20042
+#define NODE_ID                         20048
 #define HOST_ID                         1
 
 #define SEND_HEALTH_DATA                1
@@ -71,16 +72,15 @@
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_PRINT_CONF_NUM_MSG        8
-#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
-#define APP_TASK_ACT_PIN                COM_MCU_INT2
-#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
-#define DEBUG_INTERRUPT_ENABLE          0
+//#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
+//#define APP_TASK_ACT_PIN                COM_MCU_INT2
+//#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
+#define DEBUG_INTERRUPT_ENABLE          1
 #define DEBUG_INTERRUPT_PIN             PORT2, PIN0  /* must be port 2 */
 #define DEBUG_LED                       COM_MCU_SPARE2
-#define DEBUG_CHECK_PACKET_LEN          0
-#define WATCHDOG_CONF_ON                1
+#define WATCHDOG_CONF_ON                0   /* DISABLED!! TODO: reenable */
 #define RTIMER_CONF_LF_UPDATE_LED_ON    1
-//#define SVS_CONF_ON                     1
+//#define SVS_CONF_ON                   1
 
 #define LOG_CONF_ON                     1
 #if NODE_ID == HOST_ID

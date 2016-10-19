@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0104
+#define FW_VERSION      0x0105
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -48,8 +48,25 @@ Feature Suggestions:
 Revision History
 ----------------
 
+Changes in v1.05 (2016-10-19):
+- change:  debug trap removed in lwb-custom.c
+- change:  glossy start/stop indication changed from PIN_SET/CLR to PIN_XOR
+- change:  RF_CONF_ON default value added to platform.h
+- change:  Glossy constants for slot estimation in rf1a config changed
+- change:  LWB HF timer interrupt is now disabled when RX starts in Glossy
+- change:  rf1a_go_to_idle() now executed before reconfiguring the registers in
+           glossy_start()
+- change:  INVERT_INTERRUPT_EDGES() in rf1a moved to beginning for IFG9 ISR
+- change:  rf1a_reconfig_after_sleep() introduced to reconfigure the lost reg.
+           contents when radio awakes from sleep mode (used in glossy_start)
+- feature: host node sends a node info message after reset
+- bugfix:  in source node code: message length for packet forwarding from
+           BOLT to LWB corrected + target_id is now used
+- bugfix:  errata RF1A5 workaround removed, seems to cause more problems
+           (except for falling edge of RFIFG9, if not in RX or TX)
+- bugfix:  endless loop (wait for RF_RDY bit) fixed in glossy_start()
+
 Changes in v1.04 (2016-10-10):
-- change:  TEST0 register reconfiguration added to glossy_start()
 - change:  wait for RF_RDY added to glossy_start()
 - change:  message_t structure size increased by 2 bytes to include the CRC;
            consequently, the sizeof operator will now return MSG_PKT_LEN
@@ -69,8 +86,8 @@ Changes in v1.03 (2016-10-07):
 Changes in v1.02 (2016-09-30):
 - change:  software POR added to DEBUG_PRINT_FATAL()
 - change:  node info packet is only generated once the node is synced
-- change:  lwb_get_time() delivers an estimate of the current time in case
-           the node is not synchronized (before: wrong timestamp)
+- feature: lwb_get_timestamp() added, delivers the current time or an estimate
+           in case the node is not synchronized
 - feature: LOG_POS() added to log the current position (line, file) in the code
 - feature: SVS_ENABLE macro added
 - feature: reset command added to comm_cmd_type_t

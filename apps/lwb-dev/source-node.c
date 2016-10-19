@@ -71,9 +71,9 @@ source_run(void)
     /* node info already sent? */
     if(!node_info_sent) {
       /* send a node info message */
-      node_info_t tmp;
-      get_node_info(&tmp);
-      send_msg(DEVICE_ID_SINK, MSG_TYPE_NODE_INFO, (uint8_t*)&tmp, 0, 0);
+      get_node_info(&msg.node_info);
+      send_msg(DEVICE_ID_SINK, MSG_TYPE_NODE_INFO,
+               (uint8_t*)&msg.node_info, 0, 0);
       node_info_sent = 1;
     }
     if((curr_time - t_last_health_pkt) >= health_period) {
@@ -104,7 +104,7 @@ source_run(void)
           break;
         case COMM_CMD_LWB_SET_TX_PWR:
           if(msg.comm_cmd.value < N_TX_POWER_LEVELS) {
-            glossy_set_tx_pwr(msg.comm_cmd.value);
+            rf1a_set_tx_power((rf1a_tx_powers_t)msg.comm_cmd.value);
           }
           break;
         case COMM_CMD_NODE_RESET:
@@ -129,10 +129,12 @@ source_run(void)
   while(BOLT_DATA_AVAILABLE) {
     uint8_t msg_len = 0;
     BOLT_READ(bolt_buffer, msg_len);
+    /* sanity check for payload length */
     if(msg_len) {
+      memcpy(&msg, bolt_buffer, MSG_PKT_LEN);
       /* just forward the message to the LWB */
-      if(!lwb_send_pkt(DEVICE_ID_SINK, STREAM_ID,
-                       (uint8_t*)bolt_buffer, MSG_LEN(msg))) {
+      if(!lwb_send_pkt(msg.header.target_id, STREAM_ID,
+                       (uint8_t*)&msg, MSG_LEN(msg))) {
         DEBUG_PRINT_INFO("message from BOLT dropped (LWB queue full)");
       } else {
         DEBUG_PRINT_INFO("message from BOLT forwarded to LWB");
@@ -140,8 +142,9 @@ source_run(void)
     }
   }
 
-  if(last_error_cnt != glossy_get_n_errors()) {
-    last_error_cnt = glossy_get_n_errors();
+  uint16_t glossy_error = glossy_get_n_errors();
+  if(last_error_cnt != glossy_error && glossy_error) {
+    last_error_cnt = glossy_error;
     LOG_ERROR(LOG_EVENT_GLOSSY_ERROR, last_error_cnt);  /* notify! */
   }
 

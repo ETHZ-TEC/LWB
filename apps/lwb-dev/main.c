@@ -35,7 +35,6 @@
  * @brief Low-Power Wireless Bus Development Application (ETZ Test deployment)
  */
 
-
 #include "main.h"
 
 /*---------------------------------------------------------------------------*/
@@ -82,6 +81,12 @@ PROCESS_THREAD(app_process, ev, data)
   /* update stats and save */
   cfg.rst_cnt++;
   nvcfg_save((uint8_t*)&cfg);
+
+  if(node_id == HOST_ID) {
+    node_info_t tmp;
+    get_node_info(&tmp);
+    send_msg(DEVICE_ID_SINK, MSG_TYPE_NODE_INFO, (uint8_t*)&tmp, 0, 1);
+  }
 
   /* --- start of application main loop --- */
   while(1) {
@@ -199,9 +204,9 @@ print_debug_info(uint16_t stack_addr)
   printf("\r\n-------------------------------------------------------\r\n");
 }
 /*---------------------------------------------------------------------------*/
-#if DEBUG_INTERRUPT_ENABLE
 ISR(PORT2, port2_interrupt)
 {
+#if DEBUG_INTERRUPT_ENABLE
   LED_TOGGLE(LED_STATUS);
 
   /* see lwb.dis file! (pushm #6 = 6x 16-bit register is pushed onto stack) */
@@ -212,8 +217,12 @@ ISR(PORT2, port2_interrupt)
   print_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2);
 
   PIN_CLR_IFG(DEBUG_INTERRUPT_PIN);
-}
+#else
+  watchdog_stop();    // TODO: remove
+  PIN_SET(LED_ERROR);
+  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 90); }
 #endif /* DEBUG_INTERRUPT_ENABLE */
+}
 /*---------------------------------------------------------------------------*/
 /* for debugging: define all unused ISRs */
 ISR(SYSNMI, sysnmi_interrupt)

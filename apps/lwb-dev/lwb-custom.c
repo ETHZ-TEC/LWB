@@ -828,13 +828,11 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   static lwb_schedule_t schedule;
   static rtimer_clock_t t_ref, 
-                        t_ref_last;
+                        t_ref_last,
+                        t_ref_lf;
 #if !LWB_CONF_RELAY_ONLY
   static rtimer_clock_t t_now; 
 #endif /* LWB_CONF_RELAY_ONLY */
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-  static rtimer_clock_t t_ref_lf;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static int32_t  drift;
   static int32_t  drift_last;
@@ -1273,15 +1271,6 @@ BOOTSTRAP:
       process_poll(post_proc);
     }
     
-    /* debug trap (TODO: remove) */
-    if(schedule.period > 30) {    /* period should never be > 30s */
-      watchdog_stop();            /* make sure the node is not reset */
-      while(1) {
-        LED_TOGGLE(LED_STATUS);
-        __delay_cycles(MCLK_SPEED/2);
-      }
-    }
-
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 

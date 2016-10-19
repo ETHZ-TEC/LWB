@@ -82,7 +82,8 @@ send_msg(uint16_t recipient,
       msg.header.payload_len = sizeof(comm_cmd_t); break;
     case MSG_TYPE_NODE_INFO:
       msg.header.payload_len = sizeof(node_info_t); break;
-    default: break;
+    default:
+      msg.header.payload_len = 0; break;
     }
   } else {
     msg.header.payload_len   = len;

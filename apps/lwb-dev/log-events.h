@@ -44,6 +44,8 @@ typedef enum {
   LOG_EVENT_NODE_RST     = 2,    /* value: reset cause */
   LOG_EVENT_CFG_CHANGED  = 3,    /* value: source or new value */
   LOG_EVENT_GLOSSY_ERROR = 4,    /* value: error count */
+  LOG_EVENT_BOLT_ERROR   = 5,
+  LOG_EVENT_BOLT_INV_MSG = 6,
 
   LOG_EVENT_COMM_TIMESTAMP_SENT = 100,
 } log_event_type_t;
@@ -55,5 +57,6 @@ typedef enum {
 #define LOG_EVENT_COMM_TIMESTAMP_SENT_STR "timestamp sent"
 #define LOG_EVENT_CFG_CHANGED_STR         "config changed"
 #define LOG_EVENT_GLOSSY_ERROR_STR        "Glossy error"
+#define LOG_EVENT_BOLT_INV_MSG_STR        "invalid msg rcvd from BOLT"
 
 #endif /* __LOG_MSG_H__ */
