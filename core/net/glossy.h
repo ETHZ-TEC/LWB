@@ -58,6 +58,9 @@
 #define GLOSSY_CONF_RETRANSMISSION_TIMEOUT      1
 #endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
 
+#ifndef GLOSSY_CONF_RTIMER_ID
+#define GLOSSY_CONF_RTIMER_ID                   RTIMER_HF_3
+#endif /* GLOSSY_CONF_RTIMER_ID */
 
 #ifndef GLOSSY_CONF_COLLECT_STATS
 #define GLOSSY_CONF_COLLECT_STATS               1
@@ -149,12 +152,6 @@ uint8_t glossy_is_t_ref_updated(void);
  * @return 64-bit timestamp (type rtimer_clock_t)
  */
 uint64_t glossy_get_t_ref(void);
-
-/**
- * @brief get the total number of received packets (with CRC ok only)
- */
-void glossy_set_tx_pwr(uint8_t tx_pwr);
-
 
 
 #if GLOSSY_CONF_COLLECT_STATS

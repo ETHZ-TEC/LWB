@@ -73,7 +73,7 @@ extern void rf1a_cb_tx_ended(rtimer_clock_t *timestamp);
 /* reception failed callback */
 extern void rf1a_cb_rx_failed(rtimer_clock_t *timestamp);
 /* reception or transmission error callback */
-extern void rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp);
+extern void rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp, uint8_t flag);
 
 /* initialize radio interface and radio core */
 void rf1a_init(void);
@@ -113,6 +113,9 @@ void rf1a_tx_packet(uint8_t *header,
 /* force a manual calibration of the frequency synthesizer */
 /* NOTE: the radio will be put into the IDLE state */
 void rf1a_manual_calibration(void);
+
+/* reconfigure the lost register contents after waking up from SLEEP state */
+void rf1a_reconfig_after_sleep(void);
 
 /* flush the RX FIFO */
 /* NOTE: the radio will be put into the IDLE state */

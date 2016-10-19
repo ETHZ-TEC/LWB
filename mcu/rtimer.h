@@ -205,7 +205,14 @@ void rtimer_stop(rtimer_id_t timer);
 void rtimer_reset(void);
 
 /**
- * @brief enable or disable the overflow/update interrupts for both
+ * @brief enable or disable the rtimer interrupts (overflow and CCI) for both,
+ * the LF (CCI0 to CCI2) and HF timer (CCI0 to CCI3)
+ * @note the HF timer used by the radio (CCI4) is not modified
+ */
+void rtimer_interrupts_enable(uint8_t enable);
+
+/**
+ * @brief enable or disable the overflow/update interrupts for both,
  * the LF and HF timer
  */
 inline void rtimer_update_enable(uint8_t enable);

@@ -161,7 +161,7 @@ main(int argc, char **argv)
   /* init the radio module and set the parameters */
   rf1a_init();
 #endif /* RF_CONF_ON */
-  
+
   /* set the node ID */
 #ifndef NODE_ID
   node_id = TOS_NODE_ID;
@@ -201,11 +201,11 @@ main(int argc, char **argv)
   /* start processes */
   print_processes(autostart_processes);
   autostart_start(autostart_processes);
-  debug_print_init();  
+  debug_print_init();
   /* note: start debug process as last due to process_poll() execution order */
   
   PIN_CLR(LED_STATUS);     /* init done */
-  
+
   while(1) {
     int r;
     do {

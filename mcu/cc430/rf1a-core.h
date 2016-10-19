@@ -229,7 +229,7 @@ load_SmartRF_configuration(void)
   write_byte_to_register(FSCTRL1, SMARTRF_FSCTRL1);
 #endif /* SMARTRF_FSCTRL1 */
 #ifdef SMARTRF_FSCTRL0
-  write_byte_to_register(FSCTRL1, SMARTRF_FSCTRL0);
+  write_byte_to_register(FSCTRL0, SMARTRF_FSCTRL0);
 #endif /* SMARTRF_FSCTRL0 */
 
   /* frequency control word */

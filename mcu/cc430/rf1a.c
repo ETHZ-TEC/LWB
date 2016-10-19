@@ -62,28 +62,23 @@ const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = {
 /*---------------------------------------------------------------------------*/
 /* state of the radio core */
 static rf1a_rx_tx_states_t rf1a_state;
-
 /* buffer used to manage packets longer than the RX/TX FIFO size (64 bytes) */
 /* force its address to be even in order to avoid misalignment issues */
 /* when executing the callback functions */
 static uint8_t rf1a_buffer[RF_CONF_MAX_PKT_LEN] __attribute__((aligned(2)));
-
 /* variables to indicate where is the starting point of the buffer (used for
    TX) and its length */
 static uint8_t rf1a_buffer_start, rf1a_buffer_len;
-
 /* length of the packet being received or transmitted */
 static uint8_t packet_len;
-
 static uint8_t packet_len_max;
-
 static uint8_t header_len_rx, header_len_notified;
-
 /* timestamp of radio events */
 static rtimer_clock_t timestamp;
-
 /* automatic mode switches at the end of RX and TX */
 static rf1a_off_modes_t rxoff_mode, txoff_mode;
+/* TX power level */
+static rf1a_tx_powers_t rf1a_tx_pwr = RF_CONF_TX_POWER;
 /*---------------------------------------------------------------------------*/
 static inline void
 read_bytes_from_rx_fifo(uint8_t n_bytes)
@@ -107,7 +102,7 @@ read_bytes_from_rx_fifo(uint8_t n_bytes)
     }
   } else {
     /* too many bytes: something went wrong */
-    rf1a_cb_rx_tx_error(&timestamp);
+    rf1a_cb_rx_tx_error(&timestamp, 0x01);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -157,11 +152,11 @@ rf1a_init(void)
      after an interrupt */
   write_byte_to_register(FIFOTHR, (FIFO_CHUNK_SIZE - 3) / 4);
 
-
-  /* output RF_RDY to GDO0 */
+  /* output RF_RDY to GDO0 (RFIN0) -> if changed, don't forget to adjust
+   * glossy_start() */
   rf1a_configure_gdo_signal(0, 0x29, 0);
   
-  /* output CRC_OK to GDO1 */
+  /* output CRC_OK to GDO1 (RFIN1) */
   rf1a_configure_gdo_signal(1, 7, 0);  
   /* output the serial clock on GDO1 */
   /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
@@ -239,6 +234,7 @@ rf1a_set_tx_power(rf1a_tx_powers_t tx_power_level)
     { 0x03, 0x25, 0x2d, 0x8d, 0xc3, 0xc0 };
     write_data_to_register(PATABLE, (uint8_t *)pa_values, N_TX_POWER_LEVELS);
     set_register_field(FREND0, tx_power_level, 3, 0);
+    rf1a_tx_pwr = tx_power_level;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -308,6 +304,22 @@ rf1a_manual_calibration(void)
   strobe(RF_SCAL, 1);
   /* wait until the calibration is finished */
   while(read_byte_from_register(MARCSTATE) != 1) ;
+}
+/*---------------------------------------------------------------------------*/
+void
+rf1a_reconfig_after_sleep(void)
+{
+  /* re-configure the lost registers after SLEEP state */
+  /* patable and power level */
+  rf1a_set_tx_power(rf1a_tx_pwr);
+  /* re-configure the TESTx registers (lost in sleep) */
+  write_byte_to_register(TEST0, SMARTRF_TEST0);
+#ifdef SMARTRF_TEST1
+  write_byte_to_register(TEST1, SMARTRF_TEST1);
+#endif /* SMARTRF_TEST1 */
+#ifdef SMARTRF_TEST2
+  write_byte_to_register(TEST2, SMARTRF_TEST2);
+#endif /* SMARTRF_TEST2 */
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -538,17 +550,14 @@ ISR(CC1101, radio_interrupt)
 
   switch(RF1AIV) {
 
-  /* note by rdaforno: see errata RF1A5 (false interrupts) */
-
   case RF1AIV_RFIFG3:
-    if(RF1AIN & BIT3) {   /* added by rdaforno */
-      /* RX FIFO above threshold: read FIFO_CHUNK_SIZE bytes */
-      read_bytes_from_rx_fifo(FIFO_CHUNK_SIZE);
-    } break;
+    /* RX FIFO above threshold: read FIFO_CHUNK_SIZE bytes */
+    read_bytes_from_rx_fifo(FIFO_CHUNK_SIZE);
+    break;
 
   case RF1AIV_RFIFG5:
     /* TX FIFO below threshold */
-    if((RF1AIN & BIT5) && rf1a_buffer_len > 0) { /* RF1AIN added by rdaforno */
+    if(rf1a_buffer_len > 0) { /* RF1AIN added by rdaforno */
       /* there are still bytes to write into the TX FIFO */
       if(rf1a_buffer_len > FIFO_CHUNK_SIZE) {
         /* write FIFO_CHUNK_SIZE more bytes into the TX FIFO */
@@ -574,26 +583,28 @@ ISR(CC1101, radio_interrupt)
     break;
 
   case RF1AIV_RFIFG7:
-    if(RF1AIN & BIT7) {   /* added by rdaforno */
-      /* RX FIFO overflowed */
-      rf1a_cb_rx_tx_error(&timestamp);
-      rf1a_state = NO_RX_TX;
-    } break;
+    /* RX FIFO overflowed */
+    rf1a_cb_rx_tx_error(&timestamp, 0x02);
+    rf1a_state = NO_RX_TX;
+    break;
 
   case RF1AIV_RFIFG8:
-    if(RF1AIN & BIT8) {   /* added by rdaforno */
-      /* TX FIFO underflowed */
-      rf1a_cb_rx_tx_error(&timestamp);
-      rf1a_state = NO_RX_TX;
-    } break;
+    /* TX FIFO underflowed */
+    rf1a_cb_rx_tx_error(&timestamp, 0x04);
+    rf1a_state = NO_RX_TX;
+    break;
 
+  /* Asserts when sync word has been sent or received, and deasserts at the end
+   * of the packet. In RX, the pin deassert when the optional address check
+   * fails or the RX FIFO overflows. In TX the pin deasserts if the TX FIFO
+   * underflows. */
   case RF1AIV_RFIFG9:
     /* sync word received or transmitted, or end of packet */
-
     /* correct the timestamp based on the time captured by timer 4 */
     timestamp = timestamp - ((uint16_t)(timestamp & 0xffff) - TA0CCR4);
-
     if(!(RF1AIES & BIT9)) {
+      /* invert the edge for the next interrupt */
+      INVERT_INTERRUPT_EDGES(BIT9);
       /* sync word received or transmitted */
       switch(GET_RF_STATE(rf1a_get_status_byte())) {
       case RF_STATE_RX:
@@ -603,69 +614,59 @@ ISR(CC1101, radio_interrupt)
         rf1a_buffer_len = 0;
         rf1a_buffer_start = 0;
         header_len_notified = 0;
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         rf1a_cb_rx_started(&timestamp);
         break;
       case RF_STATE_TX:
         /* sync word transmitted */
         rf1a_state = TX;
         /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         rf1a_cb_tx_started(&timestamp);
         break;
       default:
         /* RX or TX already ended, or some other error has occurred */
         rf1a_state = NO_RX_TX;
-        rf1a_cb_rx_tx_error(&timestamp);
+        rf1a_cb_rx_tx_error(&timestamp, 0x08);
       }
     } else {
-      /* only proceed if input signal is actually low (added by rdaforno) */
-      if(RF1AIN & BIT9) { break; }
+      /* Errata RF1A5: only proceed if input signal is low (added by rdaforno)
+       * -> removed, seems to cause problems! */
+      //if(RF1AIN & BIT9) { break; }
 
+      /* invert the edge for the next interrupt */
+      INVERT_INTERRUPT_EDGES(BIT9);
       /* end of packet (high-to-low transition) */
       switch(rf1a_state) {
       case RX:
         /* RX ended */
-        rf1a_state = NO_RX_TX;
         energest_off_mode(rxoff_mode);
-
         if(read_byte_from_register(PKTSTATUS) & BIT7) {
           /* CRC OK */
           /* read the remaining bytes from the RX FIFO */
           read_bytes_from_rx_fifo(read_byte_from_register(RXBYTES));
-          /* invert the edge for the next interrupt */
-          INVERT_INTERRUPT_EDGES(BIT9);
           /* execute the callback function */
           rf1a_cb_rx_ended(&timestamp, rf1a_buffer, packet_len);
         } else {
           /* CRC not OK */
-          /* invert the edge for the next interrupt */
-          INVERT_INTERRUPT_EDGES(BIT9);
-          /* print the first 5 bytes */
-          /*DEBUG_PRINT_INFO("crc_inv: 0x%x, 0x%x 0x%x 0x%x 0x%x 0x%x", 
-                           packet_len, 
-                           rf1a_buffer[0], rf1a_buffer[1], rf1a_buffer[2], 
-                           rf1a_buffer[3], rf1a_buffer[4]);*/
           rf1a_cb_rx_failed(&timestamp);
         }
         break;
       case TX:
         /* TX ended */
-        rf1a_state = NO_RX_TX;
         energest_off_mode(txoff_mode);
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         rf1a_cb_tx_ended(&timestamp);
         break;
       default:
         /* there is no RX or TX to end, some error must have occurred */
-        rf1a_state = NO_RX_TX;
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
-        rf1a_cb_rx_tx_error(&timestamp);
+        if((RF1AIN & BIT9) == 0) {
+          /* only handle error if RF1AIN signal is low (RF1A5 errata) */
+          rf1a_cb_rx_tx_error(&timestamp, 0x10);
+        }
       }
+      rf1a_state = NO_RX_TX;
     }
+    break;
+
+  default:
     break;
   }
 

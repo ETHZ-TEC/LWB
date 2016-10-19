@@ -225,6 +225,44 @@ rtimer_update_enabled(void)
   // ((TA1CTL & TAIE) > 0)
 }
 /*---------------------------------------------------------------------------*/
+void
+rtimer_interrupts_enable(uint8_t enable)
+{
+  static uint16_t int_state = 0;
+  if(enable) {
+    /* re-enable interrupts */
+    TA0CTL |= TAIE;
+    TA1CTL |= TAIE;
+    TA0CCTL0 |= (int_state << 4) & CCIE;
+    TA0CCTL1 |= (int_state << 3) & CCIE;
+    TA0CCTL2 |= (int_state << 2) & CCIE;
+    TA0CCTL3 |= (int_state << 1) & CCIE;
+    TA1CCTL0 |= (int_state) & CCIE;
+    TA1CCTL1 |= (int_state >> 1) & CCIE;
+    TA1CCTL2 |= (int_state >> 2) & CCIE;
+  } else {
+    /* disable all timer related interrupts (overflow and ccr) except for
+     * radio/glossy! */
+    /* store current interrupt enable state */
+    int_state = (TA0CCTL0 & CCIE) >> 4 |
+                (TA0CCTL1 & CCIE) >> 3 |
+                (TA0CCTL2 & CCIE) >> 2 |
+                (TA0CCTL3 & CCIE) >> 1 |
+                (TA1CCTL0 & CCIE)      |
+                (TA1CCTL1 & CCIE) << 1 |
+                (TA1CCTL2 & CCIE) << 2;
+    TA0CCTL0 &= ~CCIE;
+    TA0CCTL1 &= ~CCIE;
+    TA0CCTL2 &= ~CCIE;
+    TA0CCTL3 &= ~CCIE;
+    TA1CCTL0 &= ~CCIE;
+    TA1CCTL1 &= ~CCIE;
+    TA1CCTL2 &= ~CCIE;
+    TA0CTL &= ~TAIE;
+    TA1CTL &= ~TAIE;
+  }
+}
+/*---------------------------------------------------------------------------*/
 rtimer_clock_t
 rtimer_now_hf(void)
 {

@@ -44,7 +44,7 @@ static int32_t slope;    /* needed to transform the sampled values (ADC) */
 #define ADC_TEMP_2_0V_30   0x1a1e   /* value at 30°C for 2.0V ref */
 #define ADC_TEMP_2_0V_85   0x1a20   /* value at 85°C for 2.0V ref */
 /*---------------------------------------------------------------------------*/
-#ifdef MCU_HAS_ADC12
+#ifdef ADC12CTL0_
 /*---------------------------------------------------------------------------*/
 void
 adc_init(void)
@@ -120,7 +120,7 @@ adc_get_vcc(void)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-#elif defined(MCU_HAS_ADC10)
+#elif defined(ADC10CTL0_)
 /*---------------------------------------------------------------------------*/
 void
 adc_init(void)
@@ -139,7 +139,7 @@ adc_init(void)
   REFCTL0 |= REFVSEL_1 + REFON;             /* select internal ref = 2.0V */
                                                 
   /* values for the 2.0V reference, see datasheet p.105 */
-  slope = ((int32_t)5500 * 32) / 
+  slope = ((int32_t)5500 << 5) /
           (*(int16_t*)ADC_TEMP_2_0V_85 - *(int16_t*)ADC_TEMP_2_0V_30);
             
   //ADC10IE |= ADC10IE0; 
@@ -177,6 +177,6 @@ adc_get_vcc(void)
   return 0;  
 }
 /*---------------------------------------------------------------------------*/
-#endif /* MCU_HAS_ADCx */
+#endif
 
 

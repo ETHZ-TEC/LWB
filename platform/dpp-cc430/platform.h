@@ -125,18 +125,21 @@
 #define SVS_CONF_ON                 0
 #endif /* SVS_CONF_ON */
 
+#ifndef RF_CONF_ON
+#define RF_CONF_ON                  1
+#endif /* RF_CONF_ON */
+
 /* specify the number of timer modules */
 #if RF_CONF_ON
 #define RTIMER_CONF_NUM_HF          4  /* number of high-frequency timers */
-#else
+#else /* RF_CONF_ON */
 #define RTIMER_CONF_NUM_HF          5
 #endif /* RF_CONF_ON */
+
 #define RTIMER_CONF_NUM_LF          3  /* number of low-frequency timers */     
 
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2
-
-#define MCU_HAS_ADC10
 
 
 /*
@@ -170,16 +173,16 @@
 #ifndef GLOSSY_START_PIN
 #define GLOSSY_START_PIN            LED_0
 #endif /* GLOSSY_START_PIN */
-//#define GLOSSY_RX_PIN               COM_MCU_INT1
-//#define GLOSSY_TX_PIN               COM_MCU_INT2
-//#define RF_GDO0_PIN                 COM_MCU_INT1
-//#define RF_GDO1_PIN                 COM_MCU_INT1
+//#define GLOSSY_RX_PIN             COM_MCU_INT1
+//#define GLOSSY_TX_PIN             COM_MCU_INT2
+//#define RF_GDO0_PIN               COM_MCU_INT1
+//#define RF_GDO1_PIN               COM_MCU_INT1
 #ifndef RF_GDO2_PIN
 #define RF_GDO2_PIN                 COM_MCU_INT1
 #endif /* RF_GDO2_PIN */
-//#define MCLK_PIN                    COM_MCU_INT1
-//#define ACLK_PIN                    COM_MCU_INT2
-//#define SMCLK_PIN                   COM_MCU_INT1
+//#define MCLK_PIN                  COM_MCU_INT1
+//#define ACLK_PIN                  COM_MCU_INT2
+//#define SMCLK_PIN                 COM_MCU_INT1
 
 /* the following pins assignments are given by FlockLAB, do not change */
 #define FLOCKLAB_LED1               LED_0
@@ -237,6 +240,7 @@
                                   UCSCTL4  = SELA | SELS | SELM; \
                                   __delay_cycles(100); /* errata PMM12? */\
                                   UCSCTL5  = DIVA | DIVS | DIVM; \
+                                  /*__delay_cycles(100);*/ /* errata PMM12? */\
                                   UCSCTL7  = 0; /* errata UCS11 */ \
                                   SFRIE1  |= OFIE; \
                                   TA0CTL  |= MC_2; \
