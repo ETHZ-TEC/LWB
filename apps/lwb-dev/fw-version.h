@@ -59,6 +59,7 @@ Changes in v1.05 (2016-10-19):
 - change:  INVERT_INTERRUPT_EDGES() in rf1a moved to beginning for IFG9 ISR
 - change:  rf1a_reconfig_after_sleep() introduced to reconfigure the lost reg.
            contents when radio awakes from sleep mode (used in glossy_start)
+- change:  glossy_set_tx_pwr() removed
 - feature: host node sends a node info message after reset
 - bugfix:  in source node code: message length for packet forwarding from
            BOLT to LWB corrected + target_id is now used
