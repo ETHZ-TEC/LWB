@@ -73,7 +73,7 @@ extern void rf1a_cb_tx_ended(rtimer_clock_t *timestamp);
 /* reception failed callback */
 extern void rf1a_cb_rx_failed(rtimer_clock_t *timestamp);
 /* reception or transmission error callback */
-extern void rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp, uint8_t flag);
+extern void rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp);
 
 /* initialize radio interface and radio core */
 void rf1a_init(void);

@@ -327,7 +327,6 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     /* clear last_flood_rssi and last_flood_hops in one memset call */
     memset(g.stats.last_flood_rssi, 0, 6);
   }
-  g.stats.error_cnt = 0;  //TODO: remove
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
   /* prepare the Glossy header, with the information known so far */
@@ -829,14 +828,15 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
 }
 /*---------------------------------------------------------------------------*/
 void
-rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp, uint8_t flag)
+rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
 {
   GLOSSY_RX_STOPPED;
   GLOSSY_TX_STOPPED;
   /* notify about the error (not supposed to occur) */
 #if GLOSSY_CONF_COLLECT_STATS
-  g.stats.error_cnt |= flag;
+  g.stats.error_cnt++;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
+  /* in >99% of the cases it's an unexpected falling edge of RFIFG9 */
   DEBUG_PRINT_VERBOSE("Glossy RX/TX error (interference?)");
 
   LWB_INT_ENABLE;
