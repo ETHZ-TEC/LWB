@@ -69,6 +69,13 @@
 #define RTIMER_CONF_LF_CLKSPEED     ACLK_SPEED
 #endif /* RTIMER_CONF_HF_CLKSRC */
 
+/* toggle the status LED (twice) when the update/overflow interrupt of the
+ * low-frequency timer fires? */
+#ifndef RTIMER_CONF_LF_UPDATE_LED_ON
+#define RTIMER_CONF_LF_UPDATE_LED_ON  0
+#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
+
+
 
 /**
  * @brief the number of timer ticks that (approx.) correspond to 1s
@@ -135,10 +142,10 @@ typedef enum {
 } rtimer_id_t;
 
 /* this is necessary for the rtimer_callback_t prototype declaration */
-typedef struct rtimer rtimer_t;
+struct rtimer;
 
 /* prototype of a rtimer callback function */
-typedef char (*rtimer_callback_t)(rtimer_t *rt);
+typedef char (*rtimer_callback_t)(struct rtimer *rt);
 
 typedef enum {
   RTIMER_INACTIVE = 0,
@@ -198,7 +205,14 @@ void rtimer_stop(rtimer_id_t timer);
 void rtimer_reset(void);
 
 /**
- * @brief enable or disable the overflow/update interrupts for both
+ * @brief enable or disable the rtimer interrupts (overflow and CCI) for both,
+ * the LF (CCI0 to CCI2) and HF timer (CCI0 to CCI3)
+ * @note the HF timer used by the radio (CCI4) is not modified
+ */
+void rtimer_interrupts_enable(uint8_t enable);
+
+/**
+ * @brief enable or disable the overflow/update interrupts for both,
  * the LF and HF timer
  */
 inline void rtimer_update_enable(uint8_t enable);
@@ -237,7 +251,15 @@ void rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val);
  * @param[in] timer the ID of an rtimer 
  * @return the address of the software extension
  */
-uint16_t rtimer_get_swext_addr(rtimer_id_t timer);
+uint16_t rtimer_swext_addr(rtimer_id_t timer);
+
+/**
+ * @brief get the timestamp of the next scheduled expiration
+ * @param[in] timer the ID of an rtimer
+ * @param[out] exp_time expiration time
+ * @return 1 if the timer is still active, 0 otherwise
+ */
+uint8_t rtimer_next_expiration(rtimer_id_t timer, rtimer_clock_t* exp_time);
 
 
 #endif /* __RTIMER_H__ */

@@ -71,6 +71,10 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       LWB_CONF_MAX_PKT_LEN
 #endif /* LWB_CONF_MAX_DATA_PKT_LEN */
 
+#if LWB_CONF_MAX_DATA_PKT_LEN > LWB_CONF_MAX_PKT_LEN
+#error "LWB_CONF_MAX_DATA_PKT_LEN must not be larger than LWB_CONF_MAX_PKT_LEN"
+#endif
+
 #ifndef LWB_CONF_MAX_DATA_SLOTS
 /* max. number of data slots per round, must not exceed MIN(63, 
  * (LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2), 
@@ -193,10 +197,15 @@
 #endif /* LWB_CONF_STATS_NVMEM */
 
 #ifndef LWB_CONF_MAX_PKT_LEN
-/* the max. length of a packet (limits the message size as well as the max. 
- * size of a LWB packet and the schedule); do not change this value before
- * you have adjusted the radio module configuration! */
-#define LWB_CONF_MAX_PKT_LEN            127
+ #ifdef RF_CONF_MAX_PKT_LEN
+  #define LWB_CONF_MAX_PKT_LEN          (RF_CONF_MAX_PKT_LEN - \
+                                         GLOSSY_MAX_HEADER_LEN)
+ #else /* RF_CONF_MAX_PKT_LEN */
+  /* the max. length of a packet (limits the message size as well as the max. 
+   * size of a LWB packet and the schedule); do not change this value before
+   * you have adjusted the radio module configuration! */
+  #define LWB_CONF_MAX_PKT_LEN          123
+ #endif /* RF_CONF_MAX_PKT_LEN */
 #endif /* LWB_CONF_MAX_PKT_LEN */
 
 #ifndef LWB_CONF_TX_CNT_SCHED
@@ -298,8 +307,13 @@
 
 // -> defined in rf1a-core.h
 #ifndef RF_CONF_MAX_PKT_LEN
-#define RF_CONF_MAX_PKT_LEN             LWB_CONF_MAX_PKT_LEN
+#define RF_CONF_MAX_PKT_LEN      (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
 #endif /* RF_CONF_MAX_PKT_LEN */
+
+/* error check */
+#if RF_CONF_MAX_PKT_LEN < (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
+#error "LWB_CONF_MAX_PKT_LEN is too big"
+#endif
 
 /*---------------------------------------------------------------------------*/
 
@@ -325,8 +339,7 @@
                                      (2 * LWB_CONF_TX_CNT_DATA) - 2) * \
                                      LWB_T_HOP(len))
                                                                          
-#define LWB_RECIPIENT_HOST          0x0000  /* to the host */
-#define LWB_RECIPIENT_SINKS         0xfffe  /* to all sinks */
+#define LWB_RECIPIENT_SINK          0x0000  /* to all sinks and the host */
 #define LWB_RECIPIENT_BROADCAST     0xffff  /* to all nodes / sinks */
 
 #define LWB_RECIPIENT_GROUP_MASK    0xf000  /* group ID mask */
@@ -341,17 +354,19 @@
  * @brief keep some statistics
  */
 typedef struct {
-    uint8_t  relay_cnt;
-    uint8_t  period_last;
-    uint8_t  unsynced_cnt;
-    uint8_t  bootstrap_cnt;
-    uint16_t reset_cnt;
-    uint16_t pck_cnt;     /* total number of received packets */
-    uint16_t t_sched_max; /* max. time needed to calculate the new schedule */
-    uint16_t t_proc_max;  /* max. time needed to process the rcvd data pkts */
-    uint16_t crc;         /* crc of this struct (with crc set to 0!) */
-    uint32_t t_slot_last; /* last slot assignment (in seconds) */
-    uint32_t data_tot;
+  uint8_t  relay_cnt;
+  uint8_t  unsynced_cnt;
+  uint8_t  bootstrap_cnt;
+  uint8_t  reset_cnt;
+  uint16_t pck_cnt;     /* total number of received packets */
+  uint16_t t_sched_max; /* max. time needed to calc new schedule */
+  uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */
+  uint32_t t_slot_last; /* last slot assignment (in seconds) */
+  uint32_t rx_total;    /* total amount of received bytes (payload) */
+  uint16_t rxbuf_drop;  /* packets dropped due to input buffer full */
+  uint16_t txbuf_drop;  /* packets dropped due to output buffer full */
+  /* crc must be the last element! */
+  uint16_t crc;         /* crc of this struct (without the crc) */
 } lwb_statistics_t;
 
 /**
@@ -363,9 +378,9 @@ typedef struct {
  * LWB_STATE_CONN_LOST.
  */
 typedef enum {
-    LWB_STATE_INIT = 0, /* bootstrap */
-    LWB_STATE_CONNECTED, 
-    LWB_STATE_CONN_LOST,
+  LWB_STATE_INIT = 0, /* bootstrap */
+  LWB_STATE_CONNECTED, 
+  LWB_STATE_CONN_LOST,
 } lwb_conn_state_t;
 
 
@@ -375,11 +390,12 @@ typedef enum {
 
 /**
  * @brief start the Low-Power Wireless Bus
- * @param pre_lwb_proc a pointer to a function that needs to be executed
+ * @param pre_lwb_func a pointer to a function that needs to be executed
  * before an LWB round. Set LWB_T_PREPROCESS to the worst-case 
  * execution time of this function.
- * @param pre_lwb_proc a pointer to the application task process control 
- * block (struct process)
+ * @param post_lwb_proc a pointer to the application task process control
+ * block (struct process), this process will be called (polled) at the end
+ * of an LWB round
  */
 void lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc);
 
@@ -409,10 +425,10 @@ lwb_conn_state_t lwb_get_state(void);
  * @return 1 if successful, 0 otherwise (queue full)
  */
 #if LWB_VERSION == 2
-uint8_t lwb_put_data(const uint8_t * const data, 
+uint8_t lwb_send_pkt(const uint8_t * const data,
                      uint8_t len);
 #else
-uint8_t lwb_put_data(uint16_t recipient, 
+uint8_t lwb_send_pkt(uint16_t recipient,
                      uint8_t stream_id, 
                      const uint8_t * const data, 
                      uint8_t len);
@@ -432,16 +448,16 @@ uint8_t lwb_put_data(uint16_t recipient,
  * buffer
  */
 #if LWB_VERSION == 2
-uint8_t lwb_get_data(uint8_t* out_data);
+uint8_t lwb_rcv_pkt(uint8_t* out_data);
 #else
-uint8_t lwb_get_data(uint8_t* out_data, 
+uint8_t lwb_rcv_pkt(uint8_t* out_data,
                      uint16_t * const out_node_id, 
                      uint8_t * const out_stream_id);
 #endif
 
 /**
  * @brief check the status of the receive buffer (incoming messages)
- * @return 1 if there is at least 1 message in the queue, 0 otherwise
+ * @return the number of packets in the queue
  */
 uint8_t lwb_get_rcv_buffer_state(void);
 
@@ -479,8 +495,19 @@ void lwb_stats_reset(void);
  * @param reception_time timestamp of the reception of the last schedule,
  * optional parameter (pass 0 if not needed)
  * @return the relative time in seconds since the host started
+ * @note If the node is not synchronized, the time may not be valid. Use
+ * lwb_get_timestamp() instead to get an estimate of the current time even
+ * if the node is not synchronized.
  */
 uint32_t lwb_get_time(rtimer_clock_t* reception_time);
+
+/**
+ * @brief get a high-res timestamp in us (based on the LWB time)
+ * @return timestamp
+ * @note if the node is not synced, the current time is estimated based on
+ * the elapsed LFXT clock ticks (max. accuracy: ~100us)
+ */
+uint64_t lwb_get_timestamp(void);
 
 
 #endif /* __LWB_H__ */

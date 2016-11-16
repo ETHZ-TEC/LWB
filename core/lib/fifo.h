@@ -76,6 +76,7 @@ struct fifo {
 };
 
 #define FIFO_RESET(f)       ((f)->read = (f)->write = (f)->count = 0)
+#define FIFO_CNT(f)         ((f)->count)
 #define FIFO_EMPTY(f)       ((f)->count == 0)
 #define FIFO_FULL(f)        ((f)->count > (f)->last)
 #define FIFO_FREE_SPACE(f)  ((f)->last + 1 - (f)->count)

@@ -84,7 +84,7 @@ PROCESS_THREAD(app_process, ev, data)
       uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN];
       uint16_t sender_id;
       while(1) {
-        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, 0);
+        uint8_t pkt_len = lwb_rcv_pkt(pkt_buffer, &sender_id, 0);
         if(pkt_len) {
           /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
           DEBUG_PRINT_MSG_NOW("data packet received from node %u",
@@ -108,7 +108,7 @@ PROCESS_THREAD(app_process, ev, data)
       } else {
         /* generate a dummy packet */
         uint16_t data = 0xaa;
-        if(!lwb_put_data(0, 1, (uint8_t*)&data, 2)) {
+        if(!lwb_send_pkt(0, 1, (uint8_t*)&data, 2)) {
           DEBUG_PRINT_WARNING("out queue full, packet dropped");
         } /* else: data packet successfully passed to the LWB */
       }

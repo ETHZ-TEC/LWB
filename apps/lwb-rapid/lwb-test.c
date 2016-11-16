@@ -87,7 +87,7 @@ PROCESS_THREAD(app_process, ev, data)
       uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN], stream_id;
       uint16_t sender_id;
       while(1) {
-        uint8_t pkt_len = lwb_get_data(pkt_buffer, &sender_id, &stream_id);
+        uint8_t pkt_len = lwb_rcv_pkt(pkt_buffer, &sender_id, &stream_id);
         if(pkt_len) {
           /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
           DEBUG_PRINT_MSG_NOW("data packet received (stream %u.%u)",
@@ -111,7 +111,7 @@ PROCESS_THREAD(app_process, ev, data)
       if((round_cnt % 10) == 0) {
         /* generate a dummy packet (just send the 16-bit node ID) */
         uint16_t id = node_id;
-        lwb_put_data(0, 1, (uint8_t*)&id, 2);
+        lwb_send_pkt(0, 1, (uint8_t*)&id, 2);
       }
       /* allocate a high data-rate stream after 5 idle rounds */
       if(round_cnt > 5 && round_cnt < 20) {
@@ -133,7 +133,7 @@ PROCESS_THREAD(app_process, ev, data)
         }
         /* generate a dummy packet (note: max. packet payload length is 
          * LWB_CONF_MAX_DATA_PKT_LEN - 3 bytes) */
-        if(!lwb_put_data(0, 2, (uint8_t*)data_pkt,
+        if(!lwb_send_pkt(0, 2, (uint8_t*)data_pkt,
                          LWB_CONF_MAX_DATA_PKT_LEN - 3)) {
           DEBUG_PRINT_WARNING("LWB queue is full");
         }

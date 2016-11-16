@@ -126,10 +126,16 @@ ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
     case SYSUNIV_OFIFG:         /* oscillator fault */
       WAIT_FOR_OSC();           /* try to clear the fault flag */
       break;
-    case SYSUNIV_ACCVIFG:       /* Access Violation */
+    case SYSUNIV_ACCVIFG:       /* Flash Memory Access Violation */
+      /* will be accidentially triggered after flash programming when using
+       * a voltage between 2.4 and 2.6V (errata SYS12) */
+      while(1);
+      break;
+    case SYSUNIV_SYSBERRIV:
       while(1);
       break;
     default:
+      while(1);
       break;
   }
   PIN_CLR(LED_ERROR);

@@ -92,7 +92,7 @@ void rf1a_configure_gdo_signal(uint8_t gdo, uint8_t signal, uint8_t invert);
 /* get the status byte of the radio core */
 /* rx = 1: returns the number of bytes currently in the RXFIFO queue */
 /* rx = 0: returns the number of bytes currently in the TXFIFO queue */
-uint8_t rf1a_get_status_byte(uint8_t rx);
+uint8_t rf1a_get_status_byte(void);
 
 /* put the radio into the SLEEP state */
 void rf1a_go_to_sleep(void);
@@ -113,6 +113,9 @@ void rf1a_tx_packet(uint8_t *header,
 /* force a manual calibration of the frequency synthesizer */
 /* NOTE: the radio will be put into the IDLE state */
 void rf1a_manual_calibration(void);
+
+/* reconfigure the lost register contents after waking up from SLEEP state */
+void rf1a_reconfig_after_sleep(void);
 
 /* flush the RX FIFO */
 /* NOTE: the radio will be put into the IDLE state */

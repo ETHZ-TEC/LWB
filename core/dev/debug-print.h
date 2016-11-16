@@ -85,17 +85,15 @@
 #ifndef DEBUG_CONF_STACK_GUARD
   #ifdef SRAM_END
     #define DEBUG_CONF_STACK_GUARD      (SRAM_END - 0x01ff)
+  #else  /* SRAM_END */
+    #define DEBUG_CONF_STACK_GUARD      0   /* disable stack guard */
+  #endif /* SRAM_END */
   #else
-    #define DEBUG_CONF_STACK_GUARD      0
-  #endif
-#elif DEBUG_CONF_STACK_GUARD
-  #if !defined(SRAM_START) || !defined(SRAM_END)
-    #error "SRAM_START or SRAM_END not defined!"
-  #endif
-  #if DEBUG_CONF_STACK_GUARD < SRAM_START || DEBUG_CONF_STACK_GUARD > SRAM_END
+  #if DEBUG_CONF_STACK_GUARD && (DEBUG_CONF_STACK_GUARD < SRAM_START || \
+                                 DEBUG_CONF_STACK_GUARD > SRAM_END)
     #error "Invalid value for DEBUG_CONF_STACK_GUARD"
-  #endif
-#endif /* DEBUG_CONF_STACK_GUARD */
+  #endif /* if DEBUG_CONF_STACK_GUARD */
+#endif /* ifndef DEBUG_CONF_STACK_GUARD */
 
 /**
  * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each
@@ -133,7 +131,7 @@
 /* always enabled: highest severity level errors that require a reset */
 #define DEBUG_PRINT_FATAL(...) {\
   DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \
-  watchdog_start(); while(1); \
+  PMM_TRIGGER_POR; \
 }
     
 

@@ -34,6 +34,7 @@
 #ifndef __RF1A_CORE_H__
 #define __RF1A_CORE_H__
 
+
 /* status byte (see Table 25-8) */
 #define GET_RADIO_CORE_READY(status)  ((status & 0x80) >> 7)
 #define GET_RF_STATE(status)          ((status & 0x70) >> 4)
@@ -219,13 +220,17 @@ write_data_to_register(uint8_t addr, uint8_t *buffer, uint16_t n_bytes)
 static inline void
 load_SmartRF_configuration(void)
 {
+  /* packet control */
+#ifdef SMARTRF_PKTCTRL0  
+  write_byte_to_register(PKTCTRL0, SMARTRF_PKTCTRL0);
+#endif /* SMARTRF_PKTCTRL0 */
 
   /* frequency synthesizer */
 #ifdef SMARTRF_FSCTRL1
   write_byte_to_register(FSCTRL1, SMARTRF_FSCTRL1);
 #endif /* SMARTRF_FSCTRL1 */
 #ifdef SMARTRF_FSCTRL0
-  write_byte_to_register(FSCTRL1, SMARTRF_FSCTRL0);
+  write_byte_to_register(FSCTRL0, SMARTRF_FSCTRL0);
 #endif /* SMARTRF_FSCTRL0 */
 
   /* frequency control word */
@@ -325,7 +330,7 @@ load_SmartRF_configuration(void)
   write_byte_to_register(TEST1, SMARTRF_TEST1);
 #endif /* SMARTRF_TEST1 */
 #ifdef SMARTRF_TEST0
-  write_byte_to_register(TEST1, SMARTRF_TEST0);
+  write_byte_to_register(TEST0, SMARTRF_TEST0);
 #endif /* SMARTRF_TEST0 */
 }
 /* issue a command strobe and return the corresponding status byte */

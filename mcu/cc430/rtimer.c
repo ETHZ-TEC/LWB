@@ -227,6 +227,44 @@ rtimer_update_enabled(void)
   // ((TA1CTL & TAIE) > 0)
 }
 /*---------------------------------------------------------------------------*/
+void
+rtimer_interrupts_enable(uint8_t enable)
+{
+  static uint16_t int_state = 0;
+  if(enable) {
+    /* re-enable interrupts */
+    TA0CTL |= TAIE;
+    TA1CTL |= TAIE;
+    TA0CCTL0 |= (int_state << 4) & CCIE;
+    TA0CCTL1 |= (int_state << 3) & CCIE;
+    TA0CCTL2 |= (int_state << 2) & CCIE;
+    TA0CCTL3 |= (int_state << 1) & CCIE;
+    TA1CCTL0 |= (int_state) & CCIE;
+    TA1CCTL1 |= (int_state >> 1) & CCIE;
+    TA1CCTL2 |= (int_state >> 2) & CCIE;
+  } else {
+    /* disable all timer related interrupts (overflow and ccr) except for
+     * radio/glossy! */
+    /* store current interrupt enable state */
+    int_state = (TA0CCTL0 & CCIE) >> 4 |
+                (TA0CCTL1 & CCIE) >> 3 |
+                (TA0CCTL2 & CCIE) >> 2 |
+                (TA0CCTL3 & CCIE) >> 1 |
+                (TA1CCTL0 & CCIE)      |
+                (TA1CCTL1 & CCIE) << 1 |
+                (TA1CCTL2 & CCIE) << 2;
+    TA0CCTL0 &= ~CCIE;
+    TA0CCTL1 &= ~CCIE;
+    TA0CCTL2 &= ~CCIE;
+    TA0CCTL3 &= ~CCIE;
+    TA1CCTL0 &= ~CCIE;
+    TA1CCTL1 &= ~CCIE;
+    TA1CCTL2 &= ~CCIE;
+    TA0CTL &= ~TAIE;
+    TA1CTL &= ~TAIE;
+  }
+}
+/*---------------------------------------------------------------------------*/
 rtimer_clock_t
 rtimer_now_hf(void)
 {
@@ -302,9 +340,8 @@ rtimer_now_lf(void)
 void
 rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
 {
-  /* NOTE: This function will only work properly if the CPU is running on the
-   * same clock source as the timer TA0 (HF) and this function can be executed 
-   * within one TA0 period (i.e. ~20ms @ 3.25 MHz). */
+  /* NOTE: This function will only work properly if the CPU and timer TA0 (HF)
+   * are running from the same clock source */
   if(hf_val && lf_val) {
     /* disable all interrupts */
     uint16_t interrupt_enabled = __get_interrupt_state() & GIE;//READ_SR & GIE;
@@ -346,12 +383,22 @@ capture_values: ;
 }
 /*---------------------------------------------------------------------------*/
 uint16_t
-rtimer_get_swext_addr(rtimer_id_t timer)
+rtimer_swext_addr(rtimer_id_t timer)
 {
    if(timer < RTIMER_CONF_NUM_HF) {
      return (uint16_t)&ta0_sw_ext;
    } 
    return (uint16_t)&ta1_sw_ext;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+rtimer_next_expiration(rtimer_id_t timer, rtimer_clock_t* exp_time)
+{
+   if(timer < NUM_OF_RTIMERS) {
+     *exp_time = rt[timer].time;
+     return (rt[timer].state == RTIMER_SCHEDULED);
+   }
+   return 0;
 }
 /*---------------------------------------------------------------------------*/
 clock_time_t
@@ -431,6 +478,10 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
 {
   ENERGEST_ON(ENERGEST_TYPE_CPU);
   
+#if RTIMER_CONF_LF_UPDATE_LED_ON
+  PIN_XOR(LED_STATUS);    /* to indicate activity */
+#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
+
   switch(TA1IV) {
   case TA1IV_TA1CCR1:
     RTIMER_LF_CALLBACK(RTIMER_LF_1);
@@ -441,9 +492,16 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
   case TA1IV_TA1IFG:
     /* overflow of timer A1: increment its software extension */
     ta1_sw_ext++;
+#if WATCHDOG_CONF_ON && WATCHDOG_RESET_ON_TA1IFG
+    watchdog_reset();
+#endif /* WATCHDOG */
     break;
   default: break;
   }
+
+#if RTIMER_CONF_LF_UPDATE_LED_ON
+  PIN_XOR(LED_STATUS);    /* to indicate activity */
+#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
 }

@@ -68,6 +68,15 @@ void adc_get_data(uint8_t *out_data);
  */
 int16_t adc_get_temp(void);
 
+/**
+ * @brief get the supply voltage
+ * @return Vcc
+ * @note adc_init() must be called prior to this function
+ * @remark this function will perform sample+conversion and blocks
+ * until a result is available
+ */
+int16_t adc_get_vcc(void);
+
 
 #endif /* __ADC_H__ */
 
