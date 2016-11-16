@@ -490,7 +490,7 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
   case TA1IV_TA1IFG:
     /* overflow of timer A1: increment its software extension */
     ta1_sw_ext++;
-#if WATCHDOG_CONF_ON && WATCHDOG_RESET_ON_TA1IFG
+#if WATCHDOG_CONF_ON && WATCHDOG_CONF_RESET_ON_TA1IFG
     watchdog_reset();
 #endif /* WATCHDOG */
     break;

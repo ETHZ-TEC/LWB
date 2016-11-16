@@ -48,7 +48,9 @@
 
 
 /* reset the watchdog counter during a TA1 timer overflow/update */
-#define WATCHDOG_RESET_ON_TA1IFG    1
+#ifndef WATCHDOG_CONF_RESET_ON_TA1IFG
+#define WATCHDOG_CONF_RESET_ON_TA1IFG    1
+#endif /* WATCHDOG_CONF_RESET_ON_TA1IFG */
 
 /**
  * @brief sets the clock source (ACLK) and divider

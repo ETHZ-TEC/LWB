@@ -42,9 +42,11 @@
 
 #if LWB_VERSION == 1
 /*---------------------------------------------------------------------------*/
-#define LWB_DATA_PKT_HEADER_LEN     3  
+#if LWB_CONF_HEADER_LEN != 3
+#error "LWB_CONF_HEADER_LEN must be 3!"
+#endif
 #define LWB_DATA_PKT_PAYLOAD_LEN    (LWB_CONF_MAX_DATA_PKT_LEN - \
-                                     LWB_DATA_PKT_HEADER_LEN)
+                                     LWB_CONF_HEADER_LEN)
 #define STREAM_REQ_PKT_SIZE         5
 
 /* indicates when this node is about to send a request */
@@ -245,7 +247,8 @@ static struct pt        lwb_pt;
 static void*            pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
-static rtimer_clock_t   reception_timestamp;
+static rtimer_clock_t   rx_timestamp;
+static rtimer_clock_t   rx_timestamp_lf;
 static uint32_t         global_time;
 static lwb_statistics_t stats = { 0 };
 static uint8_t          urgent_stream_req = 0;
@@ -334,6 +337,7 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
+  stats.rxbuf_drop++;
   DEBUG_PRINT_VERBOSE("in queue full");
   return 0;
 }
@@ -384,6 +388,7 @@ lwb_send_pkt(uint16_t recipient,
   /* data has the max. length LWB_DATA_PKT_PAYLOAD_LEN, lwb header needs 
    * to be added before the data is inserted into the queue */
   if(len > LWB_DATA_PKT_PAYLOAD_LEN || !data) {
+    DEBUG_PRINT_ERROR("invalid payload length");
     return 0;
   }
   uint32_t pkt_addr = fifo_put(&out_buffer);
@@ -394,19 +399,20 @@ lwb_send_pkt(uint16_t recipient,
     *(next_msg) = (uint8_t)recipient;   /* recipient L */  
     *(next_msg + 1) = recipient >> 8;   /* recipient H */  
     *(next_msg + 2) = stream_id; 
-    *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_DATA_PKT_HEADER_LEN;
-    memcpy(next_msg + LWB_DATA_PKT_HEADER_LEN, data, len);
+    *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_CONF_HEADER_LEN;
+    memcpy(next_msg + LWB_CONF_HEADER_LEN, data, len);
 #else /* LWB_CONF_USE_XMEM */
     *(data_buffer) = (uint8_t)recipient;   /* recipient L */  
     *(data_buffer + 1) = recipient >> 8;   /* recipient H */
     *(data_buffer + 2) = stream_id;
-    *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_DATA_PKT_HEADER_LEN;
-    memcpy(data_buffer + LWB_DATA_PKT_HEADER_LEN, data, len);
+    *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_CONF_HEADER_LEN;
+    memcpy(data_buffer + LWB_CONF_HEADER_LEN, data, len);
     /* always read the max length since we don't know how long the packet is */
     xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
+  stats.txbuf_drop++;
   DEBUG_PRINT_VERBOSE("out queue full");
   return 0;
 }
@@ -415,8 +421,8 @@ lwb_send_pkt(uint16_t recipient,
  * the message size (in bytes) */
 uint8_t
 lwb_rcv_pkt(uint8_t* out_data,
-            uint16_t * const out_node_id,
-            uint8_t * const out_stream_id)
+             uint16_t * const out_node_id, 
+             uint8_t * const out_stream_id)
 { 
   if(!out_data) { return 0; }
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
@@ -428,8 +434,11 @@ lwb_rcv_pkt(uint8_t* out_data,
     /* assume pointers are 16-bit */
     uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr; 
     uint8_t msg_len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) -
-                      LWB_DATA_PKT_HEADER_LEN;
-    memcpy(out_data, next_msg + LWB_DATA_PKT_HEADER_LEN, msg_len);
+                      LWB_CONF_HEADER_LEN;
+    if(msg_len > LWB_CONF_MAX_DATA_PKT_LEN) {
+      msg_len = LWB_CONF_MAX_DATA_PKT_LEN;
+    }
+    memcpy(out_data, next_msg + LWB_CONF_HEADER_LEN, msg_len);
     if(out_node_id) {
       /* cant just treat next_msg as 16-bit value due to misalignment */
       *out_node_id = (uint16_t)next_msg[1] << 8 | next_msg[0];
@@ -440,8 +449,8 @@ lwb_rcv_pkt(uint8_t* out_data,
 #else /* LWB_CONF_USE_XMEM */
     xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
     uint8_t msg_len = *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) -
-                      LWB_DATA_PKT_HEADER_LEN;
-    memcpy(out_data, data_buffer + LWB_DATA_PKT_HEADER_LEN, msg_len);
+                      LWB_CONF_HEADER_LEN;
+    memcpy(out_data, data_buffer + LWB_CONF_HEADER_LEN, msg_len);
     if(out_node_id) {
       memcpy(out_node_id, data_buffer, 2);
     }
@@ -458,13 +467,13 @@ lwb_rcv_pkt(uint8_t* out_data,
 uint8_t
 lwb_get_rcv_buffer_state(void)
 {
-  return !FIFO_EMPTY(&in_buffer);
+  return FIFO_CNT(&in_buffer);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
 lwb_get_send_buffer_state(void)
 {
-  return out_buffer.count; /* !FIFO_EMPTY(&out_buffer); */
+  return FIFO_CNT(&out_buffer);
 }
 #endif /* LWB_CONF_RELAY_ONLY */
 /*---------------------------------------------------------------------------*/
@@ -496,9 +505,23 @@ uint32_t
 lwb_get_time(rtimer_clock_t* reception_time)
 {
   if(reception_time) {
-    *reception_time = reception_timestamp;
+    *reception_time = rx_timestamp;
   }
   return global_time;
+}
+/*---------------------------------------------------------------------------*/
+uint64_t
+lwb_get_timestamp(void)
+{
+  /* convert to microseconds */
+  uint64_t timestamp = (uint64_t)global_time * 1000000;
+  if(sync_state <= SYNCED_2) {
+    return timestamp + /* convert to microseconds */
+           (rtimer_now_hf() - rx_timestamp) * 1000000 / RTIMER_SECOND_HF;
+  }
+  /* not synced! */
+  return timestamp +
+         (rtimer_now_lf() - rx_timestamp_lf) * 1000000 / RTIMER_SECOND_LF;
 }
 /*---------------------------------------------------------------------------*/
 #if !LWB_CONF_RELAY_ONLY
@@ -522,7 +545,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static uint8_t schedule_len, 
                  payload_len;
   static uint8_t rcvd_data_pkts;
-  static int8_t  glossy_rssi = 0;
+  static int8_t  glossy_rssi;
   static const void* callback_func = lwb_thread_host;
 
   /* note: all statements above PT_BEGIN() will be executed each time the 
@@ -568,12 +591,13 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- COMMUNICATION ROUND STARTS --- */
     
     global_time = schedule.time;
-    reception_timestamp = t_start;
+    rx_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
-    LWB_SEND_SCHED();               /* send the previously computed schedule */
+    LWB_SEND_SCHED();            /* send the previously computed schedule */
 
     glossy_rssi = glossy_get_rssi(0);
-    slot_idx    = 0;     /* reset the packet counter */
+    stats.relay_cnt = glossy_get_relay_cnt_first_rx();
+    slot_idx = 0;     /* reset the packet counter */
     
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
@@ -596,7 +620,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       DEBUG_PRINT_VERBOSE("S-ACK sent");
       slot_idx++;   /* increment the packet counter */
     } else {
-      DEBUG_PRINT_VERBOSE("no sack slot");
+      DEBUG_PRINT_VERBOSE("no S-ACK slot");
     }
          
     /* --- DATA SLOTS --- */
@@ -649,7 +673,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
                                   payload_len);
               }
             } else {
-              DEBUG_PRINT_VERBOSE("packet dropped, not destined for me");      
+              DEBUG_PRINT_VERBOSE("packet dropped, target_id != node_id");
             }
             /* update statistics */
             stats.rx_total += payload_len;
@@ -696,7 +720,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* time for other computations */
     
     /* print out some stats */
-    DEBUG_PRINT_INFO("t=%lu ts=%u td=%u dp=%u p=%u per=%d%% rssi=%ddBm", 
+    DEBUG_PRINT_INFO("t=%lu ts=%u td=%u dp=%u p=%u per=%d rssi=%ddBm", 
                      global_time,
                      stats.t_sched_max, 
                      stats.t_proc_max, 
@@ -761,7 +785,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint8_t  relay_cnt_first_rx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
-  static uint8_t  rounds_to_wait = 0; 
+  static uint8_t  rounds_to_wait;
 #endif /* LWB_CONF_RELAY_ONLY */
   static int8_t   glossy_snr = 0;
   static const void* callback_func = lwb_thread_src;
@@ -844,7 +868,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       global_time = schedule.time;
-      reception_timestamp = t_ref;
+      rx_timestamp = t_ref;
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
@@ -920,7 +944,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             /* is there an 'urgent' stream request? -> if so, piggyback it 
              * onto the data packet */
             if(urgent_stream_req) {
-              glossy_payload.data_pkt.recipient = 0;
+              glossy_payload.data_pkt.recipient = LWB_RECIPIENT_SINK;
               glossy_payload.data_pkt.stream_id = LWB_INVALID_STREAM_ID;
               if(lwb_stream_prepare_req((lwb_stream_req_t*)
                                         &glossy_payload.raw_data[3], 
@@ -1059,7 +1083,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                       RTIMER_SECOND_HF)) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-
     period_last = schedule.period;
 #endif /* LWB_CONF_TIME_SCALE */
     
@@ -1068,7 +1091,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
     DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u tp=%u p=%u r=%u b=%u "
-                     "u=%u dr=%d per=%d%% snr=%d", 
+                     "u=%u dr=%d per=%d snr=%d", 
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time, 
                      schedule.period, 

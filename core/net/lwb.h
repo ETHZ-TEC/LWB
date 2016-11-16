@@ -63,8 +63,7 @@
 /*---------------------------------------------------------------------------*/
 
 #ifndef LWB_CONF_MAX_DATA_PKT_LEN
-/* max. length of a data packet incl. the LWB header (node + stream ID) and
- * Glossy header (4 bytes)
+/* max. length of a data packet incl. the LWB header (node + stream ID), 
  * determines T_Slot (LWB_CONF_T_DATA) and influences the power dissipation, 
  * choose as small as possible; must be <= (LWB_CONF_MAX_PKT_LEN - 5) 
  * NOTE: LWB_CONF_MAX_DATA_PKT_LEN must not exceed LWB_CONF_MAX_PKT_LEN
@@ -200,9 +199,15 @@
 #endif /* LWB_CONF_STATS_NVMEM */
 
 #ifndef LWB_CONF_MAX_PKT_LEN
+ #ifdef RF_CONF_MAX_PKT_LEN
+  #define LWB_CONF_MAX_PKT_LEN          (RF_CONF_MAX_PKT_LEN - \
+                                         GLOSSY_MAX_HEADER_LEN)
+ #else /* RF_CONF_MAX_PKT_LEN */
 /* the max. length of a packet (limits the message size as well as the max. 
- * size of a LWB packet and the schedule) */
-#define LWB_CONF_MAX_PKT_LEN            127
+   * size of a LWB packet and the schedule); do not change this value before
+   * you have adjusted the radio module configuration! */
+  #define LWB_CONF_MAX_PKT_LEN          123
+ #endif /* RF_CONF_MAX_PKT_LEN */
 #endif /* LWB_CONF_MAX_PKT_LEN */
 
 #ifndef LWB_CONF_TX_CNT_SCHED
