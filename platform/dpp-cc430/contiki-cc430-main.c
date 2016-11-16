@@ -86,7 +86,7 @@ print_device_info(void)
     case SYSRSTIV_PMMKEY:   idx = 12; break;
     default:                idx = 13; break;
   }
-  printf("Reset Source: %s\r\nMCU: " MCU_DESC "\r\nFirmware: %u.%02u " \
+  printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFirmware: %u.%02u " \
          __DATE__ "\r\n", rst_source[idx], FW_VERSION >> 8, FW_VERSION & 0xff);
 
   /* note: KEYV indicates an incorrect FCTLx password was written to any flash
