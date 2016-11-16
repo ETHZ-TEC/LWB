@@ -655,9 +655,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             /* wait until the data slot starts */
             LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));  
             LWB_SEND_PACKET();
-            DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
+            DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
           } else {
-            DEBUG_PRINT_WARNING("no data to send!");
+            DEBUG_PRINT_VERBOSE("no data to send!");
           }
         } else { 
           /* wait until the data slot starts */
@@ -1003,7 +1003,7 @@ BOOTSTRAP:
       #endif /* LWB_CONF_DATA_ACK */
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
-              DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
+              DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
             } else {              
               DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
             }
@@ -1077,7 +1077,7 @@ BOOTSTRAP:
                 }
                 lwb_resend_packet(elem);
               } else {
-                DEBUG_PRINT_WARNING("can't resend, data overwritten");
+                DEBUG_PRINT_VERBOSE("can't resend, data overwritten");
                 stats.txbuf_drop++;
               }
               stats.pkts_nack++;
