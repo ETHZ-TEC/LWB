@@ -351,20 +351,25 @@
  * @brief keep some statistics
  */
 typedef struct {
-    uint8_t  relay_cnt;
-    uint8_t  unsynced_cnt;
-    uint8_t  bootstrap_cnt;
-    uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
-    uint8_t  reset_cnt;
-    uint16_t pck_cnt;     /* total number of received packets */
-    uint16_t t_sched_max; /* max. time needed to calc new schedule */
-    uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */
-    uint32_t t_slot_last; /* last slot assignment (in seconds) */
-    uint32_t rx_total;    /* total amount of received bytes (payload) */
-    uint16_t rxbuf_drop;  /* packets dropped due to input buffer full */
-    uint16_t txbuf_drop;  /* packets dropped due to output buffer full */
-    /* crc must be the last element! */
-    uint16_t crc;         /* crc of this struct (without the crc) */
+  uint8_t  relay_cnt;
+  uint8_t  unsynced_cnt;
+  uint8_t  bootstrap_cnt;
+  uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
+  uint8_t  reset_cnt;
+  uint8_t  reserved;
+  uint16_t pck_cnt;     /* total number of received packets */
+  uint16_t t_sched_max; /* max. time needed to calc new schedule */
+  uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */
+  uint32_t t_slot_last; /* last slot assignment (in seconds) */
+  uint32_t rx_total;    /* total amount of received bytes (payload) */
+  uint16_t rxbuf_drop;  /* packets dropped due to input buffer full */
+  uint16_t txbuf_drop;  /* packets dropped due to output buffer full */
+#if LWB_CONF_DATA_ACK
+  uint32_t pkts_nack;   /* not acknowledged data packets */
+  uint32_t pkts_sent;   /* total number of sent data packets */
+#endif /* LWB_CONF_DATA_ACK */
+  /* crc must be the last element! */
+  uint16_t crc;         /* crc of this struct (without the crc) */
 } lwb_statistics_t;
 
 /**
@@ -376,9 +381,9 @@ typedef struct {
  * LWB_STATE_CONN_LOST.
  */
 typedef enum {
-    LWB_STATE_INIT = 0, /* bootstrap */
-    LWB_STATE_CONNECTED, 
-    LWB_STATE_CONN_LOST,
+  LWB_STATE_INIT = 0, /* bootstrap */
+  LWB_STATE_CONNECTED,
+  LWB_STATE_CONN_LOST,
 } lwb_conn_state_t;
 
 

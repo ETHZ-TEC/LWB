@@ -1219,6 +1219,9 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
   if((LWB_CONF_T_SCHED2_START > RTIMER_SECOND_HF / LWB_CONF_TIME_SCALE)) {
     printf("WARNING: LWB_CONF_T_SCHED2_START > 1s\r\n");
   }
+  if(LWB_CONF_T_SCHED2_START < LWB_T_ROUND_MAX) {
+    printf("WARNING: LWB_CONF_T_SCHED2_START < LWB_T_ROUND_MAX!");
+  }
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
