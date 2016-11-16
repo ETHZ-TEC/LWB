@@ -188,7 +188,10 @@
                                       ENABLE_XT2();\
                                       WAIT_FOR_OSC();\
                                       UCSCTL4  = SELA | SELS | SELM;\
-                                      UCSCTL7  = 0;\
+	                              __delay_cycles(100); /* errata PMM12? */\
+	                              UCSCTL5  = DIVA | DIVS | DIVM; \
+	                              /*__delay_cycles(100);*/ /* errata PMM12? */\
+	                              UCSCTL7  = 0; /* errata UCS11 */ \
                                       SFRIE1  |= OFIE;\
                                       TA0R    = 0;\
                                       TA0CTL  |= MC_2;\
@@ -209,7 +212,7 @@
 #include "flash.h"
 #include "gpio.h"
 #include "pmm.h"
-#include "rf1a.h"        /* RF1A config must be include before rf1a.h! */
+#include "rf1a.h"        /* RF1A config must be included BEFORE rf1a.h */
 #include "rtimer.h"
 #include "spi.h"
 #include "uart.h"

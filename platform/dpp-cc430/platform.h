@@ -103,7 +103,7 @@
 
 #ifndef LED_CONF_ON 
 #define LED_CONF_ON                 1
-#endif /* LEDS_CONF_ON */
+#endif /* LED_CONF_ON */
 
 #ifndef FRAM_CONF_ON
 #define FRAM_CONF_ON                0
