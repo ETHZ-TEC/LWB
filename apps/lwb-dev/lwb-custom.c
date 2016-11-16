@@ -39,7 +39,7 @@
  * data ACK slot
  */
  
-#include "contiki.h"
+#include "main.h"
 
 /*---------------------------------------------------------------------------*/
 #if LWB_CONF_HEADER_LEN != 3
@@ -47,33 +47,6 @@
 #endif
 #define LWB_DATA_PKT_PAYLOAD_LEN    (LWB_CONF_MAX_DATA_PKT_LEN - \
                                      LWB_CONF_HEADER_LEN)
-#define STREAM_REQ_PKT_SIZE         5
-
-/* indicates when this node is about to send a request */
-#ifdef LWB_REQ_IND_PIN
-  #define LWB_REQ_IND               { PIN_SET(LWB_REQ_IND_PIN); \
-                                      PIN_CLR(LWB_REQ_IND_PIN); }
-#else /* LWB_CONF_REQ_SENT_PIN */
-  #define LWB_REQ_IND
-#endif /* LWB_CONF_REQ_SENT_PIN */
-
-/* code that is executed upon detection of a contention */
-#ifndef LWB_REQ_DETECTED
-#define LWB_REQ_DETECTED
-#endif /* LWB_REQ_DETECTED */
-
-/* indicates when this node is about to send a data packet */ 
-#ifdef LWB_DATA_IND_PIN
-  #define LWB_DATA_IND              { PIN_SET(LWB_DATA_IND_PIN); \
-                                      PIN_CLR(LWB_DATA_IND_PIN); }
-#else /* LWB_CONF_DATA_IND_PIN */
-  #define LWB_DATA_IND
-#endif /* LWB_CONF_DATA_IND_PIN */
-
-/* is executed before each data slot */
-#ifndef LWB_DATA_SLOT_STARTS
-#define LWB_DATA_SLOT_STARTS
-#endif /* LWB_DATA_SLOT_STARTS */
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB on the source node */
 typedef enum {
@@ -471,6 +444,9 @@ lwb_resend_packet(uint32_t pkt_addr)
       if(new_pkt_addr != FIFO_ERROR) {
         memcpy((uint8_t*)(uint16_t)new_pkt_addr, buffer, 
                LWB_CONF_MAX_DATA_PKT_LEN + 1);
+      } else {
+        stats.txbuf_drop++;
+        DEBUG_PRINT_VERBOSE("resend failed, out queue full");
       }
     }
 #else /* LWB_CONF_USE_XMEM */
@@ -685,7 +661,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
           }
         } else { 
           /* wait until the data slot starts */
-          LWB_DATA_SLOT_STARTS;
           LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) -
                          LWB_CONF_T_GUARD);
           LWB_RCV_PACKET();  /* receive a data packet */
@@ -759,10 +734,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - LWB_CONF_T_GUARD);
       LWB_RCV_SRQ();
       if(LWB_DATA_RCVD) {
-        LWB_REQ_DETECTED;
-#if QUICK_CONFIG != 3
         lwb_sched_proc_srq(&glossy_payload.srq_pkt);
-#endif
       }
     }
 
@@ -1028,8 +1000,7 @@ BOOTSTRAP:
                 first_slot = i;
               }
               num_slots++;
-      #endif /* LWB_CONF_DATA_ACK */  
-              LWB_DATA_IND;
+      #endif /* LWB_CONF_DATA_ACK */
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
               DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
@@ -1106,17 +1077,20 @@ BOOTSTRAP:
                 }
                 lwb_resend_packet(elem);
               } else {
-                DEBUG_PRINT_WARNING("can't resend, data overwritten");   
+                DEBUG_PRINT_WARNING("can't resend, data overwritten");
+                stats.txbuf_drop++;
               }
+              stats.pkts_nack++;
             }
           }
+          stats.pkts_sent += num_slots;
         } else {
           DEBUG_PRINT_VERBOSE("no data received in d-ack slot");
         }
+        /* must always be smaller than LWB_CONF_T_GAP */
+        stats.t_proc_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_proc_max);
     #endif /* LWB_CONF_RELAY_ONLY */
         slot_idx++;   /* increment the packet counter */
-        /* must always be smaller than LWB_CONF_T_GAP */
-        stats.t_proc_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_proc_max); 
       }
       first_slot = 0xffff;
       num_slots  = 0;
@@ -1140,19 +1114,10 @@ BOOTSTRAP:
       #endif /* LWB_CONF_MAX_CONT_BACKOFF */
               payload_len = sizeof(lwb_stream_req_t);
               /* wait until the contention slot starts */
-              LWB_REQ_IND;
-              
-              static int16_t forced_ofs = 0;
-      #if ADD_OFFSET
-              if(schedule.time >= 30) {  /* start after 30 seconds */
-                forced_ofs = ((int32_t)schedule.time - 30) / 10 - 15;
-              }
-              if(forced_ofs > 15) { forced_ofs = 0; }
-      #endif
-              LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) + forced_ofs);
+              LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_SRQ();  
-              DEBUG_PRINT_INFO("request for stream %u sent (ofs: %d)", 
-                               glossy_payload.srq_pkt.stream_id, forced_ofs);
+              DEBUG_PRINT_INFO("request for stream %u sent",
+                               glossy_payload.srq_pkt.stream_id);
             } else {
               DEBUG_PRINT_ERROR("failed to prepare stream request packet");
             }
@@ -1256,6 +1221,12 @@ BOOTSTRAP:
       }
     }
 #endif
+
+    /* check processing time */
+    if(stats.t_proc_max > LWB_CONF_T_GAP) {
+      DEBUG_PRINT_WARNING("t_proc_max exceeds T_GAP!");
+      LOG_ERROR(LOG_EVENT_LWB_ERROR, 1);
+    }
 
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
@@ -1371,9 +1342,13 @@ lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc)
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
-         LWB_CONF_MAX_HOPS);  
+         LWB_CONF_MAX_HOPS);
+  /* check validity of round length */
   if((LWB_CONF_T_SCHED2_START > RTIMER_SECOND_HF / LWB_CONF_TIME_SCALE)) {
     printf("WARNING: LWB_CONF_T_SCHED2_START > 1s\r\n");
+  }
+  if(LWB_CONF_T_SCHED2_START < LWB_T_ROUND_MAX) {
+    printf("WARNING: LWB_CONF_T_SCHED2_START < LWB_T_ROUND_MAX!");
   }
   process_start(&lwb_process, NULL);
 }

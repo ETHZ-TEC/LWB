@@ -71,12 +71,7 @@ typedef enum {
   MSG_TYPE_COMM_CMD = 10,
   MSG_TYPE_COMM_HEALTH = 11,
 
-  /* message types concerning the application processor */
-  MSG_TYPE_APP_FW_DATA = 50,
-  MSG_TYPE_APP_FW_VALIDATE, /* request FW validation */
-  MSG_TYPE_APP_FW_READY,    /* response to a FW validation request */
-  MSG_TYPE_APP_FW_REQ_DATA, /* request missing FW data packets */
-  MSG_TYPE_APP_FW_UPDATE,   /* initiate the FW update */
+  MSG_TYPE_APP_FW = 50, /* application processor FW update */
 } message_type_t;
 
 
@@ -108,7 +103,7 @@ typedef struct {
   uint16_t lwb_t_to_rx;   /* time[us] to first rx (offset to glossy_start) */
   uint16_t lwb_t_flood;   /* flood duration [us] */
   uint8_t  lwb_n_rx_started;  /* # preambles+sync det. in last flood */
-  uint8_t  reserved;
+  uint8_t  reserved;      /* packet delivery rate */
 } comm_health_t;
 
 

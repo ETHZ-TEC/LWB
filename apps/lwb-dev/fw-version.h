@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0105
+#define FW_VERSION      0x0106
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -47,6 +47,19 @@ Feature Suggestions:
 
 Revision History
 ----------------
+
+Changes in v1.06 (2016-11-15):
+- change:  in clock.c, all debug code removed from UNMI ISR
+- change:  default target in Makefile.include set to DPP
+- change:  elapsed time for sending health packets is now based on local clock
+- change:  #dropped packets (queue full) is now continuously increasing, not
+           a delta
+- change:  LWB_CONF_T_SCHED2_START set in config.h to 800ms
+- change:  LWB ACKs activated
+- change:  LWB_CONF_MAX_HOPS set to 3 to reduce data slot length
+- change:  INVERT_INTERRUPT_EDGES in RF interrupt for BIT9 moved down to the
+           case statements
+- change:  message types for APP_FW consolidated
 
 Changes in v1.05 (2016-10-19):
 - change:  debug trap removed in lwb-custom.c

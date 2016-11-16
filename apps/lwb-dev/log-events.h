@@ -46,6 +46,7 @@ typedef enum {
   LOG_EVENT_GLOSSY_ERROR = 4,    /* value: error count */
   LOG_EVENT_BOLT_ERROR   = 5,
   LOG_EVENT_BOLT_INV_MSG = 6,
+  LOG_EVENT_LWB_ERROR    = 7,
 
   LOG_EVENT_COMM_TIMESTAMP_SENT = 100,
 } log_event_type_t;

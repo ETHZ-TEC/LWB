@@ -51,7 +51,7 @@ source_run(void)
   static uint16_t last_error_cnt    = 0;
   message_t msg;
 
-  curr_time = lwb_get_time(0);
+  curr_time = rtimer_now_lf() / RTIMER_SECOND_LF;
 
   /* adjust the IPI in case the fill level of the output queue reaches a
    * certain threshold */
@@ -83,8 +83,6 @@ source_run(void)
                (const uint8_t*)&msg.comm_health, 0, 0);
       t_last_health_pkt = curr_time;
       DEBUG_PRINT_INFO("health packet generated");
-    } else {
-      DEBUG_PRINT_INFO("must wait...");
     }
   }
 
@@ -115,7 +113,7 @@ source_run(void)
           break;
         }
         LOG_INFO(LOG_EVENT_CFG_CHANGED, msg.comm_cmd.value);
-      } else if(msg.header.type >= MSG_TYPE_APP_FW_DATA) {
+      } else if(msg.header.type == MSG_TYPE_APP_FW) {
         /* forward to BOLT */
         BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
         DEBUG_PRINT_MSG_NOW("packet forwarded to BOLT");
@@ -143,9 +141,9 @@ source_run(void)
   }
 
   uint16_t glossy_error = glossy_get_n_errors();
-  if(last_error_cnt != glossy_error && glossy_error) {
+  if(last_error_cnt != glossy_error) {
     last_error_cnt = glossy_error;
-    LOG_ERROR(LOG_EVENT_GLOSSY_ERROR, last_error_cnt);  /* notify! */
+    LOG_ERROR(LOG_EVENT_GLOSSY_ERROR, last_error_cnt);
   }
 
   if(ipi_changed) {

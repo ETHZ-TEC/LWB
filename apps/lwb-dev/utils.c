@@ -119,8 +119,8 @@ get_node_health(comm_health_t* out_data)
 {
   static int16_t          temp = 0;
   static rtimer_clock_t   last_energest_rst = 0;
-  static uint16_t         last_rx_drop = 0,
-                          last_tx_drop = 0;
+  //static uint16_t         last_rx_drop = 0,
+  //                        last_tx_drop = 0;
   const lwb_statistics_t* lwb_stats = lwb_get_stats();
 
   while(REFCTL0 & REFGENBUSY);
@@ -151,23 +151,24 @@ get_node_health(comm_health_t* out_data)
                             1000 / (now - last_energest_rst));
   out_data->lwb_tx_buf    = lwb_tx_buffer_state();
   out_data->lwb_rx_buf    = lwb_rx_buffer_state();
-  out_data->lwb_tx_drop   = lwb_stats->txbuf_drop - last_tx_drop;
-  out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop - last_rx_drop;
+  out_data->lwb_tx_drop   = lwb_stats->txbuf_drop; // - last_tx_drop;
+  out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop; // - last_rx_drop;
   out_data->lwb_sleep_cnt = lwb_stats->sleep_cnt;
   out_data->lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
-  //out_data->lfxt_ticks    = now;
   out_data->uptime        = now / XT1CLK_SPEED;
   out_data->lwb_n_rx_started = glossy_get_n_rx_started();
   out_data->lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
   out_data->lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
+  /* packet delivery rate */
+  out_data->reserved      = (lwb_stats->pkts_nack * 200) /lwb_stats->pkts_sent;
 
   /* reset values */
   last_energest_rst  = now;
   energest_type_set(ENERGEST_TYPE_CPU, 0);
   energest_type_set(ENERGEST_TYPE_TRANSMIT, 0);
   energest_type_set(ENERGEST_TYPE_LISTEN, 0);
-  last_rx_drop = lwb_stats->rxbuf_drop;
-  last_tx_drop = lwb_stats->txbuf_drop;
+  //last_rx_drop = lwb_stats->rxbuf_drop;
+  //last_tx_drop = lwb_stats->txbuf_drop;
 }
 /*---------------------------------------------------------------------------*/
 void
