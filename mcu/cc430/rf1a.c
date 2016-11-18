@@ -627,9 +627,14 @@ ISR(CC1101, radio_interrupt)
         /* RX or TX already ended, or some other error has occurred */
         rf1a_state = NO_RX_TX;
         rf1a_cb_rx_tx_error(&timestamp);
+        break;
       }
     } else {
       /* end of packet */
+      
+      /* invert the edge for the next interrupt */
+      INVERT_INTERRUPT_EDGES(BIT9);
+      
       switch(rf1a_state) {
       case RX:
         /* RX ended */
@@ -639,19 +644,10 @@ ISR(CC1101, radio_interrupt)
           /* CRC OK */
           /* read the remaining bytes from the RX FIFO */
           read_bytes_from_rx_fifo(read_byte_from_register(RXBYTES));
-          /* invert the edge for the next interrupt */
-          INVERT_INTERRUPT_EDGES(BIT9);
           /* execute the callback function */
           rf1a_cb_rx_ended(&timestamp, rf1a_buffer, packet_len);
         } else {
           /* CRC not OK */
-          /* invert the edge for the next interrupt */
-          INVERT_INTERRUPT_EDGES(BIT9);
-          /* print the first 5 bytes */
-          /*DEBUG_PRINT_INFO("crc_inv: 0x%x, 0x%x 0x%x 0x%x 0x%x 0x%x", 
-                           packet_len, 
-                           rf1a_buffer[0], rf1a_buffer[1], rf1a_buffer[2], 
-                           rf1a_buffer[3], rf1a_buffer[4]);*/
           rf1a_cb_rx_failed(&timestamp);
         }
         break;
@@ -659,16 +655,13 @@ ISR(CC1101, radio_interrupt)
         /* TX ended */
         rf1a_state = NO_RX_TX;
         energest_off_mode(txoff_mode);
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         rf1a_cb_tx_ended(&timestamp);
         break;
       default:
         /* there is no RX or TX to end, some error must have occurred */
         rf1a_state = NO_RX_TX;
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         rf1a_cb_rx_tx_error(&timestamp);
+        break;
       }
     }
     break;

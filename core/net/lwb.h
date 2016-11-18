@@ -147,7 +147,7 @@
 
 #ifndef LWB_CONF_T_CONT
 /* length of a contention slot */
-#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200)
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 125)
 #endif /* LWB_CONF_T_CONT */
 
 #ifndef LWB_CONF_T_GAP
@@ -357,7 +357,10 @@ typedef struct {
   uint8_t  relay_cnt;
   uint8_t  unsynced_cnt;
   uint8_t  bootstrap_cnt;
+  uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
   uint8_t  reset_cnt;
+  uint8_t  reserved;
+  int16_t  drift;
   uint16_t pck_cnt;     /* total number of received packets */
   uint16_t t_sched_max; /* max. time needed to calc new schedule */
   uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */

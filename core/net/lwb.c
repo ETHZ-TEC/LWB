@@ -779,7 +779,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static int32_t  drift = 0;
   static uint16_t period_last = LWB_CONF_SCHED_PERIOD_MIN;
 #endif /* LWB_CONF_TIME_SCALE == 1 */
-  static int32_t  drift_last = 0;  
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static uint8_t  slot_idx;
   static uint8_t  relay_cnt_first_rx;
@@ -821,25 +820,23 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
     if(sync_state == BOOTSTRAP) {
+BOOTSTRAP_MODE:
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
       stats.bootstrap_cnt++;
-      drift_last = 0;
       lwb_stream_rejoin();  /* rejoin all (active) streams */
       /* synchronize first! wait for the first schedule... */
       do {
         LWB_RCV_SCHED();
         if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT) {
           DEBUG_PRINT_MSG_NOW("communication timeout, going to sleep...");
+          stats.sleep_cnt++;
           LWB_BEFORE_DEEPSLEEP();
           LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
           t_ref = rtimer_now_hf();
-          DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
           /* alternative: implement a host failover policy */
         }
       } while(!glossy_is_t_ref_updated() || !LWB_SCHED_IS_1ST(&schedule));
       /* schedule received! */
-      putchar('\r');
-      putchar('\n');
     } else {
       LWB_RCV_SCHED();  
     }
@@ -855,7 +852,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     LWB_UPDATE_SYNC_STATE;  
     if(BOOTSTRAP == sync_state) {
       /* something went wrong */
-      continue;
+      goto BOOTSTRAP_MODE;
     } 
     LWB_SCHED_SET_AS_2ND(&schedule);    /* clear the last bit of 'period' */
     if(glossy_is_t_ref_updated()) {
@@ -872,14 +869,16 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
-      t_ref += schedule.period * (RTIMER_SECOND_HF + drift_last) /
-               LWB_CONF_TIME_SCALE; 
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* since HF clock was off, we need a new timestamp; subtract a const.
        * processing offset to adjust (if needed) */
       t_ref_lf += (schedule.period * RTIMER_SECOND_LF + 
-                  ((int32_t)schedule.period * drift_last >> 8)) /
+                  ((int32_t)schedule.period * stats.drift >> 8)) /
                   LWB_CONF_TIME_SCALE;
+      /* do not update t_ref here */
+  #else
+      t_ref += schedule.period * (RTIMER_SECOND_HF + stats.drift) /
+                                  LWB_CONF_TIME_SCALE;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       /* don't update schedule.time here! */
     }
@@ -1055,7 +1054,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* update the state machine and the guard time */
     LWB_UPDATE_SYNC_STATE;
     if(BOOTSTRAP == sync_state) {
-      continue;
+      goto BOOTSTRAP_MODE;
     }
     
     /* --- COMMUNICATION ROUND ENDS --- */    
@@ -1084,6 +1083,13 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     period_last = schedule.period;
+
+    if(sync_state <= MISSED) {
+      if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
+         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
+        stats.drift = (stats.drift + drift) / 2;  /* low-pass filter */
+      }
+    }
 #endif /* LWB_CONF_TIME_SCALE */
     
     if(sync_state > SYNCED_2) {
@@ -1103,26 +1109,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-                     (int16_t)(drift_last / 8),       /* in ppm */
+                     (int16_t)(stats.drift / 8),     /* in ppm (approx.) */
 #else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-                     (int16_t)(drift_last * 100 / 325),       /* in ppm */                     
+                     (int16_t)(stats.drift * 100 / 325),       /* in ppm */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
                      glossy_get_per(),
                      glossy_snr);
-#if (LWB_CONF_TIME_SCALE == 1)
-    if(sync_state <= MISSED) {
-      if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
-         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
-        drift_last = (drift_last + drift) / 2;
-      } else if(drift_last) {  /* only if not zero */
-        /* most probably a timer update overrun or a host failure
-         * usually, the deviation per second is not higher than 50 cycles; 
-         * if only one timer update is missed in 30 seconds, the deviation per
-         * second is still more than 1k cycles and therefore detectable */
-        DEBUG_PRINT_WARNING("Critical timing error, d=%ld", drift);
-      }
-    }
-#endif
 
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
@@ -1141,14 +1133,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 
-                       ((int32_t)schedule.period * drift_last / 256)) /
+                       (((int32_t)schedule.period * stats.drift) >> 8)) /
                       LWB_CONF_TIME_SCALE - 
                       t_guard / (uint32_t)RTIMER_HF_LF_RATIO - 
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_ref + 
                    (rtimer_clock_t)schedule.period *
-                   (RTIMER_SECOND_HF + drift_last) / 
+                   (RTIMER_SECOND_HF + stats.drift) /
                    LWB_CONF_TIME_SCALE - t_guard - 
                    LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
