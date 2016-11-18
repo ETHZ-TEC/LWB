@@ -245,7 +245,7 @@ lwb_stats_load(void)
      !xmem_read(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_MSG_NOW("WARNING: failed to load stats");
   }
-  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2) != stats.crc) {
+  if(crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2, 0) != stats.crc) {
     DEBUG_PRINT_MSG_NOW("WARNING: stats corrupted, values reset");
     memset(&stats, 0, sizeof(lwb_statistics_t));
   }
@@ -261,7 +261,7 @@ void
 lwb_stats_save(void) 
 {
 #if LWB_CONF_USE_XMEM
-  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2);
+  stats.crc = crc16((uint8_t*)&stats, sizeof(lwb_statistics_t) - 2, 0);
   if(!xmem_write(stats_addr, sizeof(lwb_statistics_t), (uint8_t*)&stats)) {
     DEBUG_PRINT_WARNING("failed to write stats");
   }
@@ -461,13 +461,13 @@ lwb_resend_packet(uint32_t pkt_addr)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_rx_buffer_state(void)
+lwb_get_rcv_buffer_state(void)
 {
   return FIFO_CNT(&in_buffer);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-lwb_tx_buffer_state(void)
+lwb_get_send_buffer_state(void)
 {
   return FIFO_CNT(&out_buffer);
 }
@@ -511,13 +511,17 @@ lwb_get_timestamp(void)
 {
   /* convert to microseconds */
   uint64_t timestamp = (uint64_t)global_time * 1000000;
+#if LWB_CONF_USE_LF_FOR_WAKEUP
   if(sync_state <= LWB_STATE_SYNCED_2) {
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     return timestamp + /* convert to microseconds */
            (rtimer_now_hf() - rx_timestamp) * 1000000 / RTIMER_SECOND_HF;
+#if LWB_CONF_USE_LF_FOR_WAKEUP
   }
   /* not synced! */
   return timestamp +
          (rtimer_now_lf() - rx_timestamp_lf) * 1000000 / RTIMER_SECOND_LF;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 }
 /*---------------------------------------------------------------------------*/
 /* update the sync state machine based */
@@ -742,7 +746,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     RTIMER_CAPTURE;
     schedule_len = lwb_sched_compute(&schedule, 
                                      streams_to_update, 
-                                     lwb_tx_buffer_state());
+                                     lwb_get_send_buffer_state());
     stats.t_sched_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_sched_max);
 
     LWB_WAIT_UNTIL(t_start + LWB_CONF_T_SCHED2_START);
@@ -807,7 +811,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #endif /* LWB_CONF_RELAY_ONLY */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
   static int32_t  drift;
-  static int32_t  drift_last;
   static uint16_t period_last;
   static uint8_t  slot_idx;
   static uint8_t  relay_cnt_first_rx;
@@ -857,7 +860,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 BOOTSTRAP:
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
       stats.bootstrap_cnt++;
-      drift_last = 0;      
   #if LWB_CONF_DATA_ACK
       first_slot = 0xffff;
       num_slots  = 0;
@@ -872,7 +874,6 @@ BOOTSTRAP:
           LWB_BEFORE_DEEPSLEEP();
           LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
           t_ref = rtimer_now_hf();
-          DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
           /* alternative: implement a host failover policy */
         }
       } while(!glossy_is_t_ref_updated() || !LWB_SCHED_IS_1ST(&schedule));
@@ -898,26 +899,28 @@ BOOTSTRAP:
     if(glossy_is_t_ref_updated()) {
       /* HF timestamp of first RX; subtract a constant offset */
       t_ref = glossy_get_t_ref() - LWB_CONF_T_REF_OFS;           
-  //#if LWB_CONF_USE_LF_FOR_WAKEUP
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* estimate t_ref_lf by subtracting the elapsed time since t_ref: */
       rtimer_clock_t hf_now;
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
       rx_timestamp_lf = t_ref_lf;
-  //#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       global_time = schedule.time;
       rx_timestamp = t_ref;
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
-      t_ref += schedule.period * (RTIMER_SECOND_HF + drift_last) /
-               LWB_CONF_TIME_SCALE; 
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* since HF clock was off, we need a new timestamp; subtract a const.
        * processing offset to adjust (if needed) */
       t_ref_lf += (schedule.period * RTIMER_SECOND_LF + 
-                  ((int32_t)schedule.period * drift_last >> 8)) /
+                  ((int32_t)schedule.period * stats.drift >> 8)) /
                   LWB_CONF_TIME_SCALE;
+      /* do NOT update t_ref here! */
+  #else
+      t_ref += schedule.period * (RTIMER_SECOND_HF + stats.drift) /
+               LWB_CONF_TIME_SCALE;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       /* don't update schedule.time here! */
     }
@@ -1181,6 +1184,13 @@ BOOTSTRAP:
                       RTIMER_SECOND_HF)) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
+    if(sync_state <= LWB_STATE_MISSED) {
+      if((drift < LWB_CONF_MAX_CLOCK_DEV) &&
+         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
+        stats.drift = (stats.drift + drift) / 2;  /* low-pass filter */
+      }
+    }
 #endif /* LWB_CONF_TIME_SCALE */
     
     period_last = schedule.period;
@@ -1201,28 +1211,14 @@ BOOTSTRAP:
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-                     (int16_t)(drift_last / 8),       /* in ppm */
+                     stats.drift / 8,               /* in ppm (approx.) */
 #else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-                     (int16_t)(drift_last * 100 / 325),       /* in ppm */                     
+                     (stats.drift * 100 / 325),     /* in ppm */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
                      glossy_get_per(),
                      glossy_snr);
-#if (LWB_CONF_TIME_SCALE == 1)
-    if(sync_state <= LWB_STATE_MISSED) {
-      if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
-         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
-        drift_last = (drift_last + drift) / 2;  /* low-pass filter */
-      } else if(drift_last) {  /* only if not zero */
-        /* most probably a timer update overrun or a host failure
-         * usually, the deviation per second is not higher than 50 cycles; 
-         * if only one timer update is missed in 30 seconds, the deviation per
-         * second is still more than 1k cycles and therefore detectable */
-        DEBUG_PRINT_WARNING("Critical timing error, d=%ld", drift);
-      }
-    }
-#endif
 
-    /* check processing time */
+    /* DEBUG: check processing time (TODO remove) */
     if(stats.t_proc_max > LWB_CONF_T_GAP) {
       DEBUG_PRINT_WARNING("t_proc_max exceeds T_GAP!");
       LOG_ERROR(LOG_EVENT_LWB_ERROR, 1);
@@ -1245,14 +1241,14 @@ BOOTSTRAP:
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 
-                       (((int32_t)schedule.period * drift_last) >> 8)) /
+                       (((int32_t)schedule.period * stats.drift) >> 8)) /
                       LWB_CONF_TIME_SCALE - 
                       t_guard / (uint32_t)RTIMER_HF_LF_RATIO - 
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_ref + 
                    (rtimer_clock_t)schedule.period *
-                   (RTIMER_SECOND_HF + drift_last) / 
+                   (RTIMER_SECOND_HF + stats.drift) /
                    LWB_CONF_TIME_SCALE - t_guard - 
                    LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

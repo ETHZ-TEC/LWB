@@ -149,8 +149,8 @@ get_node_health(comm_health_t* out_data)
                             ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
                             energest_type_time(ENERGEST_TYPE_LISTEN)) *
                             1000 / (now - last_energest_rst));
-  out_data->lwb_tx_buf    = lwb_tx_buffer_state();
-  out_data->lwb_rx_buf    = lwb_rx_buffer_state();
+  out_data->lwb_tx_buf    = lwb_get_send_buffer_state();
+  out_data->lwb_rx_buf    = lwb_get_rcv_buffer_state();
   out_data->lwb_tx_drop   = lwb_stats->txbuf_drop; // - last_tx_drop;
   out_data->lwb_rx_drop   = lwb_stats->rxbuf_drop; // - last_rx_drop;
   out_data->lwb_sleep_cnt = lwb_stats->sleep_cnt;

@@ -54,7 +54,7 @@
 /*---------------------------------------------------------------------------*/
 void handle_timereq(void)
 {     
-  uint8_t* sw_ext_addr = (uint8_t*)rtimer_get_swext_addr(RTIMER_LF_0);
+  uint8_t* sw_ext_addr = (uint8_t*)rtimer_swext_addr(RTIMER_LF_0);
   uint32_t sw_ext = 0;
   uint64_t timestamp;
   memcpy((uint8_t*)&sw_ext, sw_ext_addr, 8);

@@ -48,6 +48,15 @@ Feature Suggestions:
 Revision History
 ----------------
 
+Changes in v1.07 (??):
+- change:  default duration of contention slot increased from 5 to 8ms
+- change:  falling edge of IFG9 in rf core ISR adjusted
+- change:  code in lwb-custom.c for src node slightly rearranged
+- change:  drift variable added to statistics struct; not reset when entering
+           BOOTSTRAP mode
+- change:  lwb_get_timestamp() adjusted
+- bugfix:  estimation of t_ref (in case the schedule is missed) corrected
+
 Changes in v1.06 (2016-11-15):
 - change:  in clock.c, all debug code removed from UNMI ISR
 - change:  default target in Makefile.include set to DPP
@@ -55,7 +64,7 @@ Changes in v1.06 (2016-11-15):
 - change:  #dropped packets (queue full) is now continuously increasing, not
            a delta
 - change:  LWB_CONF_T_SCHED2_START set in config.h to 800ms
-- change:  LWB ACKs activated
+- change:  LWB data ACKs activated
 - change:  LWB_CONF_MAX_HOPS set to 3 to reduce data slot length
 - change:  INVERT_INTERRUPT_EDGES in RF interrupt for BIT9 moved down to the
            case statements

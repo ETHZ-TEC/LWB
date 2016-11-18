@@ -56,11 +56,11 @@ source_run(void)
   /* adjust the IPI in case the fill level of the output queue reaches a
    * certain threshold */
   if(health_stream.ipi == health_period) {
-    if(lwb_tx_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
+    if(lwb_get_send_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
       health_stream.ipi = health_period / 2; /* reduce the IPI */
       ipi_changed = 1;
     }
-  } else if(lwb_tx_buffer_state() < 2) {
+  } else if(lwb_get_send_buffer_state() < 2) {
     /* only 0 or 1 element left in the queue -> set IPI back to default */
     health_stream.ipi = health_period;
     ipi_changed = 1;

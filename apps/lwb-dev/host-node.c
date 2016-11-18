@@ -86,7 +86,7 @@ host_run(void)
   /* only read as many packets from BOLT as there are spaces in the TX queue */
   uint16_t msg_cnt = 0;
   while(BOLT_DATA_AVAILABLE &&
-        (lwb_tx_buffer_state() < LWB_CONF_OUT_BUFFER_SIZE)) {
+        (lwb_get_send_buffer_state() < LWB_CONF_OUT_BUFFER_SIZE)) {
     uint8_t msg_len = 0;
     BOLT_READ(bolt_buffer, msg_len);
     if(msg_len) {
