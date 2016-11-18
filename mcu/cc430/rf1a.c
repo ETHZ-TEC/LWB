@@ -603,8 +603,6 @@ ISR(CC1101, radio_interrupt)
     /* correct the timestamp based on the time captured by timer 4 */
     timestamp = timestamp - ((uint16_t)(timestamp & 0xffff) - TA0CCR4);
     if(!(RF1AIES & BIT9)) {
-      /* invert the edge for the next interrupt */
-      INVERT_INTERRUPT_EDGES(BIT9);
       /* sync word received or transmitted */
       switch(GET_RF_STATE(rf1a_get_status_byte())) {
       case RF_STATE_RX:
@@ -614,29 +612,38 @@ ISR(CC1101, radio_interrupt)
         rf1a_buffer_len = 0;
         rf1a_buffer_start = 0;
         header_len_notified = 0;
+        /* invert the edge for the next interrupt */
+        INVERT_INTERRUPT_EDGES(BIT9);
         rf1a_cb_rx_started(&timestamp);
         break;
       case RF_STATE_TX:
         /* sync word transmitted */
         rf1a_state = TX;
         /* invert the edge for the next interrupt */
+        INVERT_INTERRUPT_EDGES(BIT9);
+        /* invert the edge for the next interrupt */
         rf1a_cb_tx_started(&timestamp);
         break;
       default:
-        /* RX or TX already ended, or some other error has occurred */
+        /* RX or TX already ended, or some other error has occurred 
+         * (should never happen) */
         rf1a_state = NO_RX_TX;
         rf1a_cb_rx_tx_error(&timestamp);
+        break;
       }
     } else {
       /* Errata RF1A5: only proceed if input signal is low (added by rdaforno)
        * -> removed, seems to cause problems! */
       //if(RF1AIN & BIT9) { break; }
+      
+      if(!(RF1AIN & BIT9)) {
+        /* invert the edge for the next interrupt */
+        INVERT_INTERRUPT_EDGES(BIT9);
+      }
 
       /* end of packet (high-to-low transition) */
       switch(rf1a_state) {
       case RX:
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         /* RX ended */
         energest_off_mode(rxoff_mode);
         if(read_byte_from_register(PKTSTATUS) & BIT7) {
@@ -651,20 +658,15 @@ ISR(CC1101, radio_interrupt)
         }
         break;
       case TX:
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
         /* TX ended */
         energest_off_mode(txoff_mode);
         rf1a_cb_tx_ended(&timestamp);
         break;
       default:
-        /* there is no RX or TX to end, some error must have occurred */
-        if((RF1AIN & BIT9) == 0) {
-          /* invert the edge for the next interrupt */
-          INVERT_INTERRUPT_EDGES(BIT9);
-          /* only handle error if RF1AIN signal is low (RF1A5 errata) */
-          rf1a_cb_rx_tx_error(&timestamp);
-        }
+        /* there is no RX or TX to end, some error must have occurred
+         * (this happens quite often, maybe related to errata RF1A5) */
+        rf1a_cb_rx_tx_error(&timestamp);
+        break;
       }
       rf1a_state = NO_RX_TX;
     }

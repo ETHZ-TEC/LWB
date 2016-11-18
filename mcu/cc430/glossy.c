@@ -451,7 +451,6 @@ glossy_stop(void)
 
     /* re-enable interrupts */
     GLOSSY_ENABLE_INTERRUPTS;
-    rtimer_update_enable(1);  /* make sure the overflow interrupt is enabled */
   }
 
   return g.n_rx;
