@@ -103,7 +103,7 @@ typedef struct {
   uint16_t lwb_t_to_rx;   /* time[us] to first rx (offset to glossy_start) */
   uint16_t lwb_t_flood;   /* flood duration [us] */
   uint8_t  lwb_n_rx_started;  /* # preambles+sync det. in last flood */
-  uint8_t  reserved;      /* packet delivery rate */
+  uint8_t  test_byte;     /* packet delivery rate */
 } comm_health_t;
 
 

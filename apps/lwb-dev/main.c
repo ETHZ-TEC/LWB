@@ -218,16 +218,16 @@ ISR(PORT2, port2_interrupt)
 
   PIN_CLR_IFG(DEBUG_INTERRUPT_PIN);
 #else
-  watchdog_stop();    // TODO: remove
-  PIN_SET(LED_ERROR);
-  while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 90); }
+  while(1);
 #endif /* DEBUG_INTERRUPT_ENABLE */
 }
 /*---------------------------------------------------------------------------*/
-/* for debugging: define all unused ISRs */
+/* --- for DEBUGGING: define all unused ISRs --- */
+
 ISR(SYSNMI, sysnmi_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   switch (SYSSNIV) {
     case SYSSNIV_VMAIFG:    /* vacant memory access */
@@ -261,48 +261,78 @@ ISR(SYSNMI, sysnmi_interrupt)
       while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 19); }
       break;
   }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
   while(1);   /* wait for the watchdog to trigger a reset */
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(AES, aes_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 20); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(RTC, rtc_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 30); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(PORT1, p1_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 40); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(ADC10, adc_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 50); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(USCI_B0, ucb0_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 60); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(WDT, wdt_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 70); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 ISR(COMP_B, comp_interrupt)
 {
-  watchdog_stop();    // TODO: remove
+#if DEBUG_ISR_TRAPS_ENABLE
+  watchdog_stop();
   PIN_SET(LED_ERROR);
   while(1) { PIN_XOR(DEBUG_LED); __delay_cycles(MCLK_SPEED / 80); }
+#else  /* DEBUG_ISR_TRAPS_ENABLE */
+  while(1);
+#endif /* DEBUG_ISR_TRAPS_ENABLE */
 }
 /*---------------------------------------------------------------------------*/

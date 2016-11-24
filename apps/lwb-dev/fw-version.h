@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0106
+#define FW_VERSION      0x0108
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -48,10 +48,32 @@ Feature Suggestions:
 Revision History
 ----------------
 
-Changes in v1.07 (??):
+Changes in v1.08 (2016-11-24):
+- change:  condition for IES toggling removed for falling edge of IFG9 in rf
+           core ISR
+- change:  SVS is now disabled by default
+- change:  default value for LWB_CONF_T_SCHED2_START increased by 20ms
+- change:  GLOSSY_STARTED indicator moved to the end of glossy_start() routine
+- change:  GDO1 changed to RSSI_VALID signal
+- change:  in glossy_start: wait for RSSI_VALID signal instead of const delay
+- change:  for the falling edge of IFG9 in rf1a core isr, the default case is
+           not handled with rf1a_cb_rx_tx_error() anymore
+- change:  error handling for rf core IFG9 (rising) removed for default case
+- change:  calculations in estimate_T_slot() in glossy.c optimized, using
+           32-bit calculations for slot measurements; reduces tx_started ISR
+           execution time from ~210us to ~45us
+- change:  RF1A5 errata workaround re-added to IFG7 and IFG8 in rf core ISR
+- feature: DEBUG_CONF_ISR_INDICATOR added to show interrupt activity
+- feature: dcstat added, a minimal implementation of ENERGEST for CPU and RF
+           duty cycle (uses 2.9kB less ROM), replaces ENERGEST by default
+- feature: DEBUG_ISR_TRAPS_ENABLE define added to (de-)activate interrupt traps
+- bugfix:  LED indicator in rtimer ISR moved into update/OVF case
+- bugfix:  rf1a_buffer size increased by 3 bytes to account for length + status
+
+Changes in v1.07 (2016-11-18):
 - change:  default duration of contention slot increased from 5 to 8ms
 - change:  falling edge of IFG9 in rf core ISR adjusted
-- change:  code in lwb-custom.c for src node slightly rearranged
+- change:  code in lwb-custom.c/lwb.c for src node slightly rearranged
 - change:  drift variable added to statistics struct; not reset when entering
            BOOTSTRAP mode
 - change:  lwb_get_timestamp() adjusted

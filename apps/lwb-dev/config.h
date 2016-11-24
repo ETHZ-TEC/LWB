@@ -38,22 +38,19 @@
  * application specific config file to override default settings
  */
 
-#define NODE_ID                         20048
+/* main parameters */
+#define NODE_ID                         13
 #define HOST_ID                         13
-
-#define SEND_HEALTH_DATA                1
-/* rooftop: dozer is on 868.875 MHz (CH12) -> choose CH10 (870 MHz) */
-#define RF_CONF_TX_CH                   10
-#define ENERGEST_CONF_ON                1
-#define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
+#define RF_CONF_TX_CH                   2     /* note: use CH/870MHz on roof */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
-#define LWB_CONF_DATA_ACK               1                  /* use data ACKs? */
-#define LWB_CONF_T_SCHED2_START         (RTIMER_SECOND_HF * 800 / 1000)
-#define LWB_CONF_MAX_HOPS               3
 
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_VERSION                     0          /* use the custom version */
+#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
+#define LWB_CONF_DATA_ACK               1                  /* use data ACKs? */
+#define LWB_CONF_T_SCHED2_START         (RTIMER_SECOND_HF * 800 / 1000)
+#define LWB_CONF_MAX_HOPS               3
 #define LWB_CONF_OUT_BUFFER_SIZE        5
 #if NODE_ID == HOST_ID
   #define LWB_CONF_IN_BUFFER_SIZE       10
@@ -61,7 +58,7 @@
   #define LWB_CONF_IN_BUFFER_SIZE       5  /* smaller queue for source nodes */
 #endif /* NODE_ID == HOST_ID */
 /* note: for better performance, PKT_LEN should be set as low as possible
- * set it to 61 bytes to allow all bytes to fit into the RXFIFO (64 bytes) */
+ * set it to 61 bytes to allow all bytes to fit into the RXFIFO (64 bytes)   */
 #define LWB_CONF_MAX_PKT_LEN            62
 #define LWB_CONF_MAX_DATA_PKT_LEN       62   /* leave 1 byte for payload_len */
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
@@ -71,25 +68,35 @@
 #define BOLT_CONF_MAX_MSG_LEN           64
 #define BOLT_CONF_TIMEREQ_ENABLE        1
 
-/* debug config */
-#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-#define DEBUG_PRINT_CONF_NUM_MSG        8
-//#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
-//#define APP_TASK_ACT_PIN                COM_MCU_INT2
-//#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
-#define DEBUG_INTERRUPT_ENABLE          0
-#define DEBUG_INTERRUPT_PIN             PORT2, PIN0  /* must be port 2 */
-#define DEBUG_LED                       COM_MCU_SPARE2
-#define WATCHDOG_CONF_ON                0   /* DISABLED!! TODO: reenable */
+/* MISC */
+#define SEND_HEALTH_DATA                1
+#define WATCHDOG_CONF_ON                0                  /* TODO: reenable */
 #define RTIMER_CONF_LF_UPDATE_LED_ON    1
-//#define SVS_CONF_ON                   1
-
+#define ENERGEST_CONF_ON                0
+#if !ENERGEST_CONF_ON
+  #define DCSTAT_CONF_ON                1
+#endif /* ENERGEST_CONF_ON */
 #define LOG_CONF_ON                     1
 #if NODE_ID == HOST_ID
   #define LOG_CONF_TARGET               LOG_TARGET_BOLT
-#else
+#else /* LOG_CONF_ON */
   #define LOG_CONF_TARGET               LOG_TARGET_LWB
-#endif
+#endif /* LOG_CONF_ON */
+
+/* DEBUG config */
+#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#define DEBUG_PRINT_CONF_NUM_MSG        8
+#define DEBUG_ISR_TRAPS_ENABLE          0
+#define DEBUG_INTERRUPT_ENABLE          0
+#define DEBUG_INTERRUPT_PIN             PORT2, PIN0        /* must be port 2 */
+#define DEBUG_LED                       COM_MCU_SPARE2
+//#define DEBUG_PRINT_CONF_TASK_ACT_PIN COM_MCU_INT2
+//#define APP_TASK_ACT_PIN              COM_MCU_INT2
+//#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT2
+//#define SVS_CONF_ON                   1
+//#define DEBUG_CONF_ISR_INDICATOR      1           /* indicate CPU activity */
+//#define DEBUG_CONF_ISR_IND_PIN        COM_MCU_INT2      /* show interrupts */
+
 
 
 /* global includes */

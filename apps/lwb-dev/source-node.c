@@ -41,7 +41,7 @@ source_run(void)
 {
 #if SEND_HEALTH_DATA
   static uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
-  static lwb_stream_req_t health_stream = { node_id, 0, STREAM_ID,
+  static lwb_stream_req_t health_stream = { 0, 0, STREAM_ID,
                                             LWB_CONF_SCHED_PERIOD_IDLE };
   static uint32_t t_last_health_pkt = 0;
   static uint32_t curr_time         = 0;
@@ -50,6 +50,7 @@ source_run(void)
   static uint8_t  node_info_sent    = 0;
   static uint16_t last_error_cnt    = 0;
   message_t msg;
+  health_stream.id = node_id;
 
   curr_time = rtimer_now_lf() / RTIMER_SECOND_LF;
 

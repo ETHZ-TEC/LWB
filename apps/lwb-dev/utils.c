@@ -118,9 +118,9 @@ void
 get_node_health(comm_health_t* out_data)
 {
   static int16_t          temp = 0;
+#if ENERGEST_CONF_ON
   static rtimer_clock_t   last_energest_rst = 0;
-  //static uint16_t         last_rx_drop = 0,
-  //                        last_tx_drop = 0;
+#endif /* ENERGEST_CONF_ON */
   const lwb_statistics_t* lwb_stats = lwb_get_stats();
 
   while(REFCTL0 & REFGENBUSY);
@@ -142,13 +142,6 @@ get_node_health(comm_health_t* out_data)
   out_data->lwb_n_rx_hops = glossy_get_n_rx() |
                             (glossy_get_relay_cnt() << 4);
   out_data->lwb_fsr       = glossy_get_fsr();
-  out_data->cpu_dc        = (uint16_t)
-                            (energest_type_time(ENERGEST_TYPE_CPU) *
-                            1000 / (now - last_energest_rst));
-  out_data->rf_dc         = (uint16_t)
-                            ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
-                            energest_type_time(ENERGEST_TYPE_LISTEN)) *
-                            1000 / (now - last_energest_rst));
   out_data->lwb_tx_buf    = lwb_get_send_buffer_state();
   out_data->lwb_rx_buf    = lwb_get_rcv_buffer_state();
   out_data->lwb_tx_drop   = lwb_stats->txbuf_drop; // - last_tx_drop;
@@ -160,15 +153,28 @@ get_node_health(comm_health_t* out_data)
   out_data->lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
   out_data->lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
   /* packet delivery rate */
-  out_data->reserved      = (lwb_stats->pkts_nack * 200) /lwb_stats->pkts_sent;
+  out_data->test_byte     = (lwb_stats->pkts_nack * 200) /lwb_stats->pkts_sent;
 
-  /* reset values */
+  /* duty cycle */
+#if ENERGEST_CONF_ON
+  out_data->cpu_dc        = (uint16_t)
+                            (energest_type_time(ENERGEST_TYPE_CPU) *
+                            1000 / (now - last_energest_rst));
+  out_data->rf_dc         = (uint16_t)
+                            ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
+                            energest_type_time(ENERGEST_TYPE_LISTEN)) *
+                            1000 / (now - last_energest_rst));
   last_energest_rst  = now;
   energest_type_set(ENERGEST_TYPE_CPU, 0);
   energest_type_set(ENERGEST_TYPE_TRANSMIT, 0);
   energest_type_set(ENERGEST_TYPE_LISTEN, 0);
-  //last_rx_drop = lwb_stats->rxbuf_drop;
-  //last_tx_drop = lwb_stats->txbuf_drop;
+#else  /* ENERGEST_CONF_ON */
+  DCSTAT_CPU_OFF;
+  out_data->cpu_dc        = DCSTAT_CPU_DC;
+  out_data->rf_dc         = DCSTAT_RF_DC;
+  DCSTAT_RESET;
+  DCSTAT_CPU_ON;
+#endif /* ENERGEST_CONF_ON */
 }
 /*---------------------------------------------------------------------------*/
 void

@@ -92,7 +92,7 @@ host_run(void)
     if(msg_len) {
       msg_cnt++;
       memcpy(&msg, bolt_buffer, MSG_PKT_LEN);
-      if(msg.header.target_id == NODE_ID ||
+      if(msg.header.target_id == node_id ||
          msg.header.target_id == DEVICE_ID_BROADCAST) {
         if(msg.header.type == MSG_TYPE_COMM_CMD) {
           DEBUG_PRINT_INFO("command received");
@@ -144,7 +144,7 @@ host_run(void)
           LOG_INFO(LOG_EVENT_CFG_CHANGED, msg.comm_cmd.value);
         } /* else: unknown message type */
       }
-      if(msg.header.target_id != NODE_ID) {
+      if(msg.header.target_id != node_id) {
         /* all other message types: forward to LWB */
         if(!lwb_send_pkt(msg.header.target_id, 0,
                          (uint8_t*)&msg, MSG_LEN(msg))) {
@@ -164,6 +164,8 @@ host_run(void)
 #if !DEBUG_INTERRUPT_ENABLE
 /*ISR(PORT2, port2_interrupt)
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   if(PIN_IFG(BOLT_CONF_IND_PIN)) {
@@ -182,6 +184,8 @@ host_run(void)
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }*/
 #endif /* DEBUG_INTERRUPT_ENABLE */
 /*---------------------------------------------------------------------------*/
