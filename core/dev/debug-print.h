@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -94,6 +93,22 @@
     #error "Invalid value for DEBUG_CONF_STACK_GUARD"
   #endif /* if DEBUG_CONF_STACK_GUARD */
 #endif /* ifndef DEBUG_CONF_STACK_GUARD */
+
+/* interrupt activity indicator */
+#ifndef DEBUG_CONF_ISR_INDICATOR
+#define DEBUG_CONF_ISR_INDICATOR        0
+#endif /* DEBUG_CONF_ISR_INDICATOR */
+
+#if DEBUG_CONF_ISR_INDICATOR
+  #ifndef DEBUG_CONF_ISR_IND_PIN
+    #define DEBUG_CONF_ISR_IND_PIN      LED_STATUS
+  #endif /* DEBUG_CONF_ISR_IND_PIN */
+  #define DEBUG_ISR_ENTRY               PIN_SET(DEBUG_CONF_ISR_IND_PIN)
+  #define DEBUG_ISR_EXIT                PIN_CLR(DEBUG_CONF_ISR_IND_PIN)
+#else /* DEBUG_CONF_ISR_INDICATOR */
+  #define DEBUG_ISR_ENTRY
+  #define DEBUG_ISR_EXIT
+#endif /* DEBUG_CONF_ISR_INDICATOR */
 
 /**
  * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each

@@ -26,42 +26,58 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author:  Reto Da Forno
  */
 
-#ifndef __CONTIKI_H__
-#define __CONTIKI_H__
+/* Duty cycle statistics: a minimal implementation of ENERGEST for CPU and
+ * RF duty cycle with reduced overhead and accuracy.
+ *
+ * The duty cycle value is between 0 (no load) and 10000 (full load).
+ */
 
-#ifndef CONTIKI_VERSION_STRING
-#define CONTIKI_VERSION_STRING "Contiki 2.7"
-#endif /* CONTIKI_VERSION_STRING */
+#ifndef __DC_STAT_H__
+#define __DC_STAT_H__
 
-#include "contiki-conf.h"
 
-/* unchanged Contiki files: */
-#include "sys/process.h"
-#include "sys/autostart.h"
+#ifndef DCSTAT_CONF_ON
+#define DCSTAT_CONF_ON    0
+#endif /* DCSTAT_CONF_ON */
 
-#include "sys/timer.h"
-#include "sys/etimer.h"
-#include "sys/pt.h"
-#include "sys/energest.h"
 
-#include "lib/list.h"
-#include "lib/memb.h"
-#include "lib/random.h"
+#if DCSTAT_CONF_ON
 
-#include "dev/serial-line.h"
+#define DCSTAT_CPU_ON   dcstat_cpu_on()
+#define DCSTAT_CPU_OFF  dcstat_cpu_off()
+#define DCSTAT_CPU_DC   dcstat_get_cpu_dc()
 
-/* custom files: */
-#include "sys/dc-stat.h"
-#include "lib/membx.h"
-#include "lib/fifo.h"
-#include "net/glossy.h"
-#include "net/lwb.h"
-#include "net/nullmac.h"
-#include "dev/xmem.h"
-#include "dev/debug-print.h"
-#include "dev/bolt.h"
-#include "dev/fram.h"
+#define DCSTAT_RF_ON    dcstat_rf_on()
+#define DCSTAT_RF_OFF   dcstat_rf_off()
+#define DCSTAT_RF_DC    dcstat_get_rf_dc()
 
-#endif /* __CONTIKI_H__ */
+#define DCSTAT_RESET    dcstat_reset()
+
+void dcstat_cpu_on(void);
+void dcstat_cpu_off(void);
+void dcstat_rf_on(void);
+void dcstat_rf_off(void);
+uint16_t dcstat_get_cpu_dc(void);
+uint16_t dcstat_get_rf_dc(void);
+void dcstat_reset(void);
+
+#else /* DCCALC_CONF_ON */
+
+#define DCSTAT_CPU_ON
+#define DCSTAT_CPU_OFF
+#define DCSTAT_CPU_DC   0
+
+#define DCSTAT_RF_ON
+#define DCSTAT_RF_OFF
+#define DCSTAT_RF_DC    0
+
+#define DCSTAT_RESET
+
+#endif /* DCCALC_CONF_ON */
+
+
+#endif /* __DC_STAT_H__ */

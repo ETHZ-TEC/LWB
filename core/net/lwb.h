@@ -47,9 +47,10 @@
 #ifndef __LWB_H__
 #define __LWB_H__
 
-
 #include "contiki.h"
-#include "platform.h"   /* necessary for SMCLK_SPEED in clock.h */
+/* necessary for SMCLK_SPEED in clock.h and LWB_AFTER_DEEPSLEEP in platform.h
+ * and to override default parameters with config.h */
+#include "platform.h"
 
 #ifndef HOST_ID
 #warning "HOST_ID not defined, set to 0"
@@ -242,7 +243,7 @@
  * must be after LWB_T_ROUND_MAX; this ensures that the host node has at least
  * LWB_CONF_T_SCHED timer clock ticks to compute the new schedule before
  * transmitting it at the end of the round */
-#define LWB_CONF_T_SCHED2_START         LWB_T_ROUND_MAX
+#define LWB_CONF_T_SCHED2_START         (LWB_T_ROUND_MAX + RTIMER_SECOND_HF/50)
 #endif /* LWB_CONF_T_SCHED2_START */
 
 #ifndef LWB_CONF_T_PREPROCESS
