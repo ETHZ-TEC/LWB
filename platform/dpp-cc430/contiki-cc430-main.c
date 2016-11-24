@@ -182,6 +182,8 @@ main(int argc, char **argv)
 
 #if SVS_CONF_ON
   SVS_ENABLE;
+#else
+  SVS_DISABLE;
 #endif /* SVS_CONF_ON */
 
   process_init();
@@ -193,6 +195,7 @@ main(int argc, char **argv)
 
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_ON;
 
 #if NULLMAC_CONF_ON
   nullmac_init();
@@ -225,6 +228,7 @@ main(int argc, char **argv)
     } else {
       /* re-enable interrupts and go to sleep atomically */
       ENERGEST_OFF(ENERGEST_TYPE_CPU);
+      DCSTAT_CPU_OFF;
 #if WATCHDOG_CONF_ON && !WATCHDOG_RESET_ON_TA1IFG
       /* no need to stop the watchdog in the low-power mode if it is reset
        * within the timer update interrupt (which occurs every 2 seconds) */
@@ -236,6 +240,7 @@ main(int argc, char **argv)
 #if WATCHDOG_CONF_ON && !WATCHDOG_RESET_ON_TA1IFG
       watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
+      DCSTAT_CPU_ON;
       ENERGEST_ON(ENERGEST_TYPE_CPU);
     }
   }

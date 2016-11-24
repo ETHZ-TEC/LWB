@@ -238,9 +238,8 @@
                                   ENABLE_XT2(); \
                                   WAIT_FOR_OSC(); \
                                   UCSCTL4  = SELA | SELS | SELM; \
-                                  __delay_cycles(100); /* errata PMM12? */\
+                                  __delay_cycles(100); /* errata PMM11/12? */\
                                   UCSCTL5  = DIVA | DIVS | DIVM; \
-                                  /*__delay_cycles(100);*/ /* errata PMM12? */\
                                   UCSCTL7  = 0; /* errata UCS11 */ \
                                   SFRIE1  |= OFIE; \
                                   TA0CTL  |= MC_2; \

@@ -195,6 +195,7 @@ main(int argc, char **argv)
 
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_ON;
 
 #if NULLMAC_CONF_ON
   nullmac_init();
@@ -233,6 +234,7 @@ main(int argc, char **argv)
     } else {
       /* re-enable interrupts and go to sleep atomically */
       ENERGEST_OFF(ENERGEST_TYPE_CPU);
+      DCSTAT_CPU_OFF;
 #if WATCHDOG_CONF_ON
       watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
@@ -242,6 +244,7 @@ main(int argc, char **argv)
 #if WATCHDOG_CONF_ON
       watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
+      DCSTAT_CPU_ON;
       ENERGEST_ON(ENERGEST_TYPE_CPU);
     }
   }
