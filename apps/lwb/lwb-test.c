@@ -62,12 +62,7 @@ PROCESS_THREAD(app_process, ev, data)
   static uint8_t stream_state = 0;
   
   PROCESS_BEGIN();
-          
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-  SVS_DISABLE;
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-  /* all other necessary initialization is done in contiki-cc430-main.c */
-  
+            
   /* start the LWB thread */
   lwb_start(0, &app_process);
   
@@ -107,7 +102,7 @@ PROCESS_THREAD(app_process, ev, data)
         }
       } else {
         /* generate a dummy packet */
-        uint16_t data = 0xaa;
+        uint16_t data = 0xaaaa;
         if(!lwb_send_pkt(0, 1, (uint8_t*)&data, 2)) {
           DEBUG_PRINT_WARNING("out queue full, packet dropped");
         } /* else: data packet successfully passed to the LWB */
@@ -120,19 +115,7 @@ PROCESS_THREAD(app_process, ev, data)
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */
 #if LWB_CONF_USE_LF_FOR_WAKEUP
-  #if FRAM_CONF_ON
-    fram_sleep();
-  #endif /* FRAM_CONF_ON */
-    /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-    TA0CTL   &= ~MC_3; /* stop TA0 */
-    DISABLE_XT2();
-  #ifdef MUX_SEL_PIN
-    PIN_CLR(MUX_SEL_PIN);
-  #endif /* MUX_SEL_PIN */
-    P1SEL = 0; /* reconfigure GPIOs */
-    P1DIR = 0xff;
-    /* set clock source to DCO */
-    UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
+    LWB_BEFORE_DEEPSLEEP();
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
     TASK_SUSPENDED;

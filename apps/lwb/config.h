@@ -37,13 +37,13 @@
  * application specific config file to override default settings
  */
 
-#define FLOCKLAB                           /* uncomment to run on FlockLAB */
-#define HOST_ID    1
+#define FLOCKLAB                             /* uncomment to run on FlockLAB */
+#define HOST_ID                         1
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm 
+  #define RF_CONF_TX_CH                 2      /* approx. 870 MHz */   
   #define GLOSSY_START_PIN              FLOCKLAB_LED1
   #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT2
   #define RF_GDO2_PIN                   FLOCKLAB_INT1
@@ -51,23 +51,25 @@
   #define APP_TASK_ACT_PIN              FLOCKLAB_INT2
   /* note: FLOCKLAB_LED2 should not be used */
 #else
-  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
+  /* only define a node ID if FlockLab is not used (FlockLab automatically
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
   #define NODE_ID                       1
 #endif /* FLOCKLAB */
 
-#define LWB_CONF_OUT_BUFFER_SIZE        2
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define LWB_CONF_MAX_PKT_LEN            63
-#define LWB_CONF_MAX_DATA_PKT_LEN       32
-#define LWB_CONF_MAX_DATA_SLOTS         20
-                                                       
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
+#define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */
+#define LWB_CONF_OUT_BUFFER_SIZE        2
+#define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_MAX_PKT_LEN            50
+#define LWB_CONF_MAX_DATA_PKT_LEN       32
+#define LWB_CONF_MAX_DATA_SLOTS         20
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+//#define DEBUG_CONF_ISR_INDICATOR      1           /* indicate CPU activity */
+//#define DEBUG_CONF_ISR_IND_PIN        COM_MCU_INT2      /* show interrupts */
+
 
 #endif /* __CONFIG_H__ */
