@@ -62,20 +62,22 @@
 /* values for Glossy (measured with the logic analyzer, in ns) */
 /* TAU1: beginning of tx to beginning of rx (rising edges of GDO pins) */
 //#define TAU1               (rtimer_clock_t)13540  /* 13.54 us */
-#define TAU1               (rtimer_clock_t)13600  /* changed by rdaforno */
+#define TAU1               13600  /* changed by rdaforno */
 //varies from 13.54 to 13.76
 /* TAU2: end of tx to end of rx (falling edges of GDO pins) */
 #define TAU2               (rtimer_clock_t)11860  /* 11.86 us */
 //varies from 11.84 to 12.05
 /* tx to rx switching (falling to rising edge of GDO), varies from 312210 to 312400 */
 //#define T2R                (rtimer_clock_t)302100 /* 302.1 us */
-#define T2R                (rtimer_clock_t)312310  /* changed by rdaforno */
+#define T2R                312310  /* changed by rdaforno */
 /* rx to tx switching (falling to rising edge of GDO), quite stable */
 //#define R2T                (rtimer_clock_t)276700 /* 276.7 us */
 #define R2T                (rtimer_clock_t)286760  /* changed by rdaforno */
 /* time to transmit one byte @250kBaud */
-#define T_TX_BYTE          (rtimer_clock_t)32010 /* 32.01 us */
-#define T_TX_OFFSET        (rtimer_clock_t)4100  /* 4.100 us */
+//#define T_TX_BYTE          (rtimer_clock_t)32010 /* 32.01 us */
+#define T_TX_BYTE          32010 /* changed by rdaforno */
+//#define T_TX_OFFSET        (rtimer_clock_t)4100  /* 4.100 us */
+#define T_TX_OFFSET        4100  /* changed by rdaforno */
 
 #endif /* __SMARTRF_CC430_H__ */
 

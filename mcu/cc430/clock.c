@@ -116,6 +116,8 @@ clock_init(void)
 /*---------------------------------------------------------------------------*/
 ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
 {    
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   PIN_SET(LED_ERROR);           /* use PIN_SET instead of LED_ON */
@@ -141,5 +143,7 @@ ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */
   PIN_CLR(LED_ERROR);
   
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/

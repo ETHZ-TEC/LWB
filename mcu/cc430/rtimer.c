@@ -203,7 +203,8 @@ rtimer_reset(void)
   TA0CTL &= ~TAIFG;
   TA1CTL &= ~TAIFG;
   ta0_sw_ext = 0;
-  ta1_sw_ext = 0;    
+  ta1_sw_ext = 0;
+  DCSTAT_RESET;
 }
 /*---------------------------------------------------------------------------*/
 inline void
@@ -413,19 +414,25 @@ clock_time(void)
 /* Timer A0, CCR0 interrupt service routine */
 ISR(TIMER0_A0, timer0_a0_interrupt) 
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-  
+
   RTIMER_HF_CALLBACK(RTIMER_HF_0);
   if(process_nevents() > 0) {
     __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 /* Timer A0, CCR1-4 interrupt service routine */
 ISR(TIMER0_A1, timer0_a1_interrupt) 
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   switch(TA0IV) {
@@ -457,28 +464,32 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
     break;
   default: break;
   }
-  
+
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 /* Timer A1, CCR0 interrupt service routine (higher priority than TIMER1_A1) */
 ISR(TIMER1_A0, timer1_a0_interrupt) 
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
   
   RTIMER_LF_CALLBACK(RTIMER_LF_0);
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 /* Timer A1, CCR1-2 interrupt service routine */
 ISR(TIMER1_A1, timer1_a1_interrupt) 
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-
-#if RTIMER_CONF_LF_UPDATE_LED_ON
-  PIN_XOR(LED_STATUS);    /* to indicate activity */
-#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
 
   switch(TA1IV) {
   case TA1IV_TA1CCR1:
@@ -488,19 +499,23 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
     RTIMER_LF_CALLBACK(RTIMER_LF_2);
     break;
   case TA1IV_TA1IFG:
+  #if RTIMER_CONF_LF_UPDATE_LED_ON
+    PIN_XOR(LED_STATUS);    /* to indicate activity */
+  #endif /* RTIMER_CONF_LF_UPDATE_LED_ON */
     /* overflow of timer A1: increment its software extension */
     ta1_sw_ext++;
-#if WATCHDOG_CONF_ON && WATCHDOG_CONF_RESET_ON_TA1IFG
+  #if WATCHDOG_CONF_ON && WATCHDOG_CONF_RESET_ON_TA1IFG
     watchdog_reset();
-#endif /* WATCHDOG */
+  #endif /* WATCHDOG */
+  #if RTIMER_CONF_LF_UPDATE_LED_ON
+    PIN_XOR(LED_STATUS);    /* to indicate activity */
+  #endif /* RTIMER_CONF_LF_UPDATE_LED_ON */
     break;
   default: break;
   }
 
-#if RTIMER_CONF_LF_UPDATE_LED_ON
-  PIN_XOR(LED_STATUS);    /* to indicate activity */
-#endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
-
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/

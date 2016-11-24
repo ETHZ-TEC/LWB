@@ -198,6 +198,8 @@ dma_set_dummy_byte_value(uint8_t c)
 /*---------------------------------------------------------------------------*/
 ISR(DMA, dma_interrupt)
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   if(DMA0CTL & DMAIFG) {
@@ -216,5 +218,7 @@ ISR(DMA, dma_interrupt)
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/

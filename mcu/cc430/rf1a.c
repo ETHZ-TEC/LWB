@@ -65,7 +65,8 @@ static rf1a_rx_tx_states_t rf1a_state;
 /* buffer used to manage packets longer than the RX/TX FIFO size (64 bytes) */
 /* force its address to be even in order to avoid misalignment issues */
 /* when executing the callback functions */
-static uint8_t rf1a_buffer[RF_CONF_MAX_PKT_LEN] __attribute__((aligned(2)));
+/* add +3 to account for length byte, rssi and lqi */
+static uint8_t rf1a_buffer[RF_CONF_MAX_PKT_LEN +3] __attribute__((aligned(2)));
 /* variables to indicate where is the starting point of the buffer (used for
    TX) and its length */
 static uint8_t rf1a_buffer_start, rf1a_buffer_len;
@@ -156,8 +157,10 @@ rf1a_init(void)
    * glossy_start() */
   rf1a_configure_gdo_signal(0, 0x29, 0);
   
+  /* RSSI valid indicator */
+  rf1a_configure_gdo_signal(1, 0x1e, 0); /* adjust glossy_start if changed! */
   /* output CRC_OK to GDO1 (RFIN1) */
-  rf1a_configure_gdo_signal(1, 7, 0);  
+  //rf1a_configure_gdo_signal(1, 7, 0);
   /* output the serial clock on GDO1 */
   /*rf1a_configure_gdo_signal(1, 0x0B, 0);*/
   
@@ -543,6 +546,8 @@ rf1a_clear_pending_interrupts(void)
 /*---------------------------------------------------------------------------*/
 ISR(CC1101, radio_interrupt) 
 {
+  DEBUG_ISR_ENTRY;
+  DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   /* take a timestamp */
@@ -557,7 +562,7 @@ ISR(CC1101, radio_interrupt)
 
   case RF1AIV_RFIFG5:
     /* TX FIFO below threshold */
-    if(rf1a_buffer_len > 0) { /* RF1AIN added by rdaforno */
+    if(rf1a_buffer_len > 0) {
       /* there are still bytes to write into the TX FIFO */
       if(rf1a_buffer_len > FIFO_CHUNK_SIZE) {
         /* write FIFO_CHUNK_SIZE more bytes into the TX FIFO */
@@ -584,14 +589,18 @@ ISR(CC1101, radio_interrupt)
 
   case RF1AIV_RFIFG7:
     /* RX FIFO overflowed */
-    rf1a_cb_rx_tx_error(&timestamp);
-    rf1a_state = NO_RX_TX;
+    if(RF1AIN & BIT7) {       /* RF1A5 errata, only handle if signal is high */
+      rf1a_cb_rx_tx_error(&timestamp);
+      rf1a_state = NO_RX_TX;
+    }
     break;
 
   case RF1AIV_RFIFG8:
     /* TX FIFO underflowed */
-    rf1a_cb_rx_tx_error(&timestamp);
-    rf1a_state = NO_RX_TX;
+    if(RF1AIN & BIT8) {       /* RF1A5 errata, only handle if signal is high */
+      rf1a_cb_rx_tx_error(&timestamp);
+      rf1a_state = NO_RX_TX;
+    }
     break;
 
   /* Asserts when sync word has been sent or received, and deasserts at the end
@@ -626,9 +635,10 @@ ISR(CC1101, radio_interrupt)
         break;
       default:
         /* RX or TX already ended, or some other error has occurred 
-         * (should never happen) */
+         * This could e.g. happen with bad timing, when TX or RX has just
+         * started when glossy_stop() is called */
         rf1a_state = NO_RX_TX;
-        rf1a_cb_rx_tx_error(&timestamp);
+        //rf1a_cb_rx_tx_error(&timestamp);
         break;
       }
     } else {
@@ -636,10 +646,8 @@ ISR(CC1101, radio_interrupt)
        * -> removed, seems to cause problems! */
       //if(RF1AIN & BIT9) { break; }
       
-      if(!(RF1AIN & BIT9)) {
-        /* invert the edge for the next interrupt */
-        INVERT_INTERRUPT_EDGES(BIT9);
-      }
+      /* invert the edge for the next interrupt */
+      INVERT_INTERRUPT_EDGES(BIT9);
 
       /* end of packet (high-to-low transition) */
       switch(rf1a_state) {
@@ -663,9 +671,11 @@ ISR(CC1101, radio_interrupt)
         rf1a_cb_tx_ended(&timestamp);
         break;
       default:
-        /* there is no RX or TX to end, some error must have occurred
-         * (this happens quite often, maybe related to errata RF1A5) */
-        rf1a_cb_rx_tx_error(&timestamp);
+        /* there is no RX or TX to end, either some error occurred or the RX
+         * was ended earlier already (e.g. because of corrupted header or if
+         * glossy_stop was called when SFD was high) */
+        /* some occurances could also be due to errata RF1A5 */
+        //rf1a_cb_rx_tx_error(&timestamp);
         break;
       }
       rf1a_state = NO_RX_TX;
@@ -677,6 +687,8 @@ ISR(CC1101, radio_interrupt)
   }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
+  DCSTAT_CPU_OFF;
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 

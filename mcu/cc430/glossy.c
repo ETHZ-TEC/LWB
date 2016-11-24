@@ -65,19 +65,17 @@
 #define SET_N_TX_MAX(pkt_type, n_tx_max) \
   (pkt_type = ((pkt_type) & 0xf0) | ((n_tx_max) & 0x0f))
 
-#define GET_COMMON_HEADER(pkt_type)     ((pkt_type) & 0xc0)
-#define GET_SYNC(pkt_type)              ((pkt_type) & 0x30)
-#define GET_N_TX_MAX(pkt_type)          ((pkt_type) & 0x0f)
+#define GET_COMMON_HEADER(pkt_type)   ((pkt_type) & 0xc0)
+#define GET_SYNC(pkt_type)            ((pkt_type) & 0x30)
+#define GET_N_TX_MAX(pkt_type)        ((pkt_type) & 0x0f)
 
-#define IS_INITIATOR() \
-  (g.header.initiator_id == node_id)
-#define WITH_SYNC() \
-  (GET_SYNC(g.header.pkt_type) == GLOSSY_WITH_SYNC)
-#define WITH_RELAY_CNT() \
-  ((WITH_SYNC()) || (GET_SYNC(g.header.pkt_type) == GLOSSY_ONLY_RELAY_CNT))
+#define IS_INITIATOR()    (g.header.initiator_id == node_id)
+#define WITH_SYNC()       (GET_SYNC(g.header.pkt_type) == GLOSSY_WITH_SYNC)
+#define WITH_RELAY_CNT()  ((WITH_SYNC()) || \
+                           (GET_SYNC(g.header.pkt_type) == GLOSSY_ONLY_RELAY_CNT))
 
 #define GLOSSY_HEADER_LEN(pkt_type) \
-  ((GET_SYNC(pkt_type) == GLOSSY_WITHOUT_SYNC) ? 3 : 4)
+                          ((GET_SYNC(pkt_type) == GLOSSY_WITHOUT_SYNC) ? 3 : 4)
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
@@ -89,16 +87,16 @@
 #endif
 
 #ifdef GLOSSY_RX_PIN 
-  #define GLOSSY_RX_STARTED   PIN_XOR(GLOSSY_RX_PIN)
-  #define GLOSSY_RX_STOPPED   PIN_XOR(GLOSSY_RX_PIN)
+  #define GLOSSY_RX_STARTED   PIN_SET(GLOSSY_RX_PIN)
+  #define GLOSSY_RX_STOPPED   PIN_CLR(GLOSSY_RX_PIN)
 #else
   #define GLOSSY_RX_STARTED
   #define GLOSSY_RX_STOPPED
 #endif
 
 #ifdef GLOSSY_TX_PIN
-  #define GLOSSY_TX_STARTED   PIN_XOR(GLOSSY_TX_PIN)
-  #define GLOSSY_TX_STOPPED   PIN_XOR(GLOSSY_TX_PIN)
+  #define GLOSSY_TX_STARTED   PIN_SET(GLOSSY_TX_PIN)
+  #define GLOSSY_TX_STOPPED   PIN_CLR(GLOSSY_TX_PIN)
 #else
   #define GLOSSY_TX_STARTED
   #define GLOSSY_TX_STOPPED
@@ -120,22 +118,26 @@
 /*---------------------------------------------------------------------------*/
 enum {
   GLOSSY_SUCCESS = 0,
-  GLOSSY_FAIL = 1
+  GLOSSY_FAIL    = 1
 };
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint16_t initiator_id;
-  uint8_t pkt_type;
-  uint8_t relay_cnt;
+  uint8_t  pkt_type;
+  uint8_t  relay_cnt;
 } glossy_header_t;
 /*---------------------------------------------------------------------------*/
 typedef struct {
-  rtimer_clock_t t_ref, t_tx_stop, t_rx_start, t_rx_stop, t_tx_start;
-  rtimer_clock_t T_slot_sum;
-  rtimer_clock_t T_slot_estimated;
-  rtimer_clock_t t_timeout;
+  rtimer_clock_t  t_ref,
+                  t_tx_stop,
+                  t_rx_start,
+                  t_rx_stop,
+                  t_tx_start;
+  rtimer_clock_t  T_slot_sum;
+  rtimer_clock_t  t_timeout;
+  uint32_t        T_slot_estimated;                  /* 32-bit is sufficient */
   glossy_header_t header;
-  uint8_t  *payload;
+  uint8_t* payload;
   uint8_t  payload_len;
   uint8_t  n_T_slot;
   uint8_t  active;
@@ -228,12 +230,14 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
   return GLOSSY_SUCCESS;
 }
 /*---------------------------------------------------------------------------*/
-static inline rtimer_clock_t
+static inline uint32_t
 estimate_T_slot(uint8_t pkt_len)
 {
   /* T_slot = T_rx + T_rx2tx + tau1 = T_tx + T_tx2rx - tau1 */
-  rtimer_clock_t T_tx_estim = T_TX_BYTE * (pkt_len + 3) + T_TX_OFFSET;
-  return NS_TO_RTIMER_HF(T_tx_estim + T2R - TAU1);
+  //rtimer_clock_t T_tx_estim = T_TX_BYTE * (pkt_len + 3) + T_TX_OFFSET;
+  /* perform calculations in 32-bit, faster */
+  uint32_t T_tx_estim = T_TX_BYTE * ((uint32_t)pkt_len + 3) + T_TX_OFFSET;
+  return NS_TO_RTIMER_HF_32(T_tx_estim + T2R - TAU1);
 }
 /*---------------------------------------------------------------------------*/
 static inline char
@@ -269,7 +273,7 @@ schedule_timeout(void)
     g.relay_cnt_timeout = g.header.relay_cnt + slot_timeout;
   }
   rtimer_schedule(GLOSSY_CONF_RTIMER_ID, 
-                  g.t_timeout + slot_timeout * g.T_slot_estimated, 
+                  g.t_timeout + (uint32_t)slot_timeout * g.T_slot_estimated,
                   0,
                   timeout_expired);
 }
@@ -277,16 +281,16 @@ schedule_timeout(void)
 static inline void
 update_t_ref(rtimer_clock_t t_ref, uint8_t relay_cnt)
 {
-  g.t_ref = t_ref;
-  g.t_ref_updated = 1;
+  g.t_ref           = t_ref;
+  g.t_ref_updated   = 1;
   g.relay_cnt_t_ref = relay_cnt;
 }
 /*---------------------------------------------------------------------------*/
 static inline void
-add_T_slot_measurement(rtimer_clock_t T_slot_measured)
+add_T_slot_measurement(uint32_t T_slot_measured)
 {
-  if((T_slot_measured > g.T_slot_estimated - T_SLOT_TOLERANCE) &&
-     (T_slot_measured < g.T_slot_estimated + T_SLOT_TOLERANCE)) {
+  if((T_slot_measured > (g.T_slot_estimated - T_SLOT_TOLERANCE)) &&
+     (T_slot_measured < (g.T_slot_estimated + T_SLOT_TOLERANCE))) {
     g.T_slot_sum += T_slot_measured;
     g.n_T_slot++;
   }
@@ -296,7 +300,6 @@ void
 glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
              uint8_t n_tx_max, glossy_sync_t sync, glossy_rf_cal_t rf_cal)
 {
-  GLOSSY_STARTED;
   DEBUG_PRINT_VERBOSE("Glossy started: in=%u, pl=%u, n=%u, s=%u", initiator_id,
                       payload_len, n_tx_max, sync);
 
@@ -377,16 +380,21 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
 #if GLOSSY_CONF_COLLECT_STATS
     /* measure the channel noise (but only if waiting for the schedule */
     if(sync == GLOSSY_WITH_SYNC) {
-      /* wait after entering RX mode before reading RSSI (see swra114d.pdf) */
-      __delay_cycles(MCLK_SPEED / 3000);          /* wait 0.33 ms */
-      g.stats.last_flood_rssi_noise = rf1a_get_rssi();  /* RSSI of the noise floor */
+      /* wait after entering RX mode before reading RSSI (see swra114d.pdf)  */
+      //__delay_cycles(MCLK_SPEED / 3000);                     /* wait 0.33 ms */
+      while(!(RF1AIN & BIT1));              /* wait for RSSI to become valid */
+      g.stats.last_flood_rssi_noise = rf1a_get_rssi();        /* noise floor */
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   }
+  DCSTAT_RF_ON;
+
   /* note: RF_RDY bit must be cleared by the radio core before entering LPM
    * after a transition from idle to RX or TX. Either poll the status of the
    * radio core (SNOP strobe) or read the GDOx signal assigned to RF_RDY */
   while(RF1AIN & BIT0);    /* check GDO0 signal (added by rdaforno) */
+      
+  GLOSSY_STARTED;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -407,13 +415,14 @@ glossy_stop(void)
     GLOSSY_RX_STOPPED;
     GLOSSY_TX_STOPPED;
     GLOSSY_STOPPED;
+    DCSTAT_RF_OFF;
     g.active = 0;
 
     if(g.t_ref_updated) {
       if(g.n_T_slot > 0) {
         g.t_ref -= (g.relay_cnt_t_ref * g.T_slot_sum) / g.n_T_slot;
       } else {
-        g.t_ref -= g.relay_cnt_t_ref * g.T_slot_estimated;
+        g.t_ref -= (uint32_t)g.relay_cnt_t_ref * g.T_slot_estimated;
       }
     }
 
@@ -425,7 +434,7 @@ glossy_stop(void)
                           GET_SYNC(g.header.pkt_type), g.relay_cnt_last_rx,
                           g.relay_cnt_last_tx);
       DEBUG_PRINT_VERBOSE("Glossy n_Ts=%u, rc_tref=%u, Ts=%llu, tref=%llu, "
-                          "Ts_est=%llu", g.n_T_slot, g.relay_cnt_t_ref,
+                          "Ts_est=%lu", g.n_T_slot, g.relay_cnt_t_ref,
                           (g.n_T_slot > 0) ? (g.T_slot_sum / g.n_T_slot) : 0,
                           g.t_ref, g.T_slot_estimated);
     } else {
@@ -699,6 +708,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
        (g.n_tx < GET_N_TX_MAX(g.header.pkt_type))) {
       /* if n_tx_max is either unknown or not yet reached, transmit the
        * packet */
+      /* takes ~32us */
       rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                             GLOSSY_HEADER_LEN(g.header.pkt_type),
                             payload, g.payload_len);
@@ -803,7 +813,7 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
       schedule_timeout();
     }
 #endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
-  }     
+  }
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -832,6 +842,7 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
 {
   GLOSSY_RX_STOPPED;
   GLOSSY_TX_STOPPED;
+
   /* notify about the error (not supposed to occur) */
 #if GLOSSY_CONF_COLLECT_STATS
   g.stats.error_cnt++;

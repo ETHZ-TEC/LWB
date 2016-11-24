@@ -90,6 +90,8 @@
  */
 #define RTIMER_HF_TO_MS(t)          ((t) / (RTIMER_SECOND_HF / 1000))
 #define RTIMER_LF_TO_MS(t)          ((t * 1000) / (RTIMER_SECOND_LF))
+#define NS_TO_RTIMER_HF_32(ns)      ((uint32_t)(ns) / \
+                                     (1000000000 / RTIMER_SECOND_HF))
 #define NS_TO_RTIMER_HF(ns)         (((rtimer_clock_t)(ns) * \
                                       (rtimer_clock_t)RTIMER_SECOND_HF) / \
                                      (rtimer_clock_t)1000000000)
