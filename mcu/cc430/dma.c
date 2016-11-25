@@ -173,7 +173,7 @@ dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
     }  
   } else {
     if(!tx_buf_addr) {
-      DEBUG_PRINT_ERROR("DMA: invalid rx/tx buffer address");
+      DEBUG_PRINT_WARNING("DMA: invalid rx/tx buffer address");
       return 0;         /* error */
     }
     /* only the transmitted data matters */

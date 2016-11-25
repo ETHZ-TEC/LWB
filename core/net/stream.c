@@ -115,7 +115,7 @@ lwb_stream_add(const lwb_stream_req_t* const stream_info)
                      streams[idx].id, streams[idx].ipi);
     return 1;
   } else {
-    DEBUG_PRINT_ERROR("no more space for new streams");
+    DEBUG_PRINT_WARNING("no more space for new streams");
   }
   return 0;
 }

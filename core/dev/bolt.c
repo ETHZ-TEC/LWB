@@ -107,7 +107,11 @@ bolt_init(bolt_callback_t IND_line_callback)
   
   bolt_state = BOLT_STATE_IDLE;
   
-  DEBUG_PRINT_INFO("BOLT initialized");
+  if(bolt_status()) {
+    DEBUG_PRINT_ERROR("BOLT not accessible, init failed");
+  } else {
+    DEBUG_PRINT_INFO("BOLT initialized");
+  }
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -192,11 +196,11 @@ bolt_acquire(bolt_op_mode_t mode)
   }
   if(PIN_GET(BOLT_CONF_REQ_PIN) || 
      PIN_GET(BOLT_CONF_ACK_PIN)) {
-    DEBUG_PRINT_ERROR("BOLT request failed (REQ or ACK still high)");
+    DEBUG_PRINT_WARNING("BOLT request failed (REQ or ACK still high)");
     return 0;
   }
   if(BOLT_STATE_IDLE != bolt_state) {
-    DEBUG_PRINT_ERROR("BOLT not in idle state, operation skipped");
+    DEBUG_PRINT_WARNING("BOLT not in idle state, operation skipped");
     return 0;
   } 
 
@@ -227,7 +231,7 @@ bolt_acquire(bolt_op_mode_t mode)
     /* ack is still low -> failed */
     bolt_state = BOLT_STATE_IDLE;
     PIN_CLR(BOLT_CONF_REQ_PIN);
-    DEBUG_PRINT_ERROR("BOLT access denied (queue full?)");
+    DEBUG_PRINT_WARNING("BOLT access denied (queue full?)");
     return 0;
   }
   
@@ -265,7 +269,7 @@ bolt_start(uint8_t *data, uint16_t num_bytes)
       data++;
       count++;
       if(!BOLT_ACK_STATUS) {  /* aborted */
-        DEBUG_PRINT_ERROR("transfer aborted by BOLT");
+        DEBUG_PRINT_WARNING("transfer aborted by BOLT");
         return 0;
       }
     }

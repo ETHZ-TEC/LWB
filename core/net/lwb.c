@@ -388,7 +388,7 @@ lwb_send_pkt(uint16_t recipient,
   /* data has the max. length LWB_DATA_PKT_PAYLOAD_LEN, lwb header needs 
    * to be added before the data is inserted into the queue */
   if(len > LWB_DATA_PKT_PAYLOAD_LEN || !data) {
-    DEBUG_PRINT_ERROR("invalid payload length");
+    DEBUG_PRINT_WARNING("invalid payload length");
     return 0;
   }
   uint32_t pkt_addr = fifo_put(&out_buffer);
@@ -1021,9 +1021,9 @@ BOOTSTRAP_MODE:
               LWB_SEND_SRQ();  
               DEBUG_PRINT_INFO("request for stream %u sent", 
                                glossy_payload.srq_pkt.stream_id);
-            } else {
+            } /* else {
               DEBUG_PRINT_ERROR("failed to prepare stream request packet");
-            }
+            }*/
           } else {
             DEBUG_PRINT_VERBOSE("must wait %u rounds", rounds_to_wait);
             /* keep waiting and just relay incoming packets */

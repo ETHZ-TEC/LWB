@@ -150,7 +150,8 @@ rtimer_schedule(rtimer_id_t timer,
       *(&TA0CCTL0 + timer) = CCIE | OUTMOD_4;            /* enable interrupt */
     }
   } else {
-    DEBUG_PRINT_ERROR("invalid rtimer ID %u", timer);
+    /* verbose because this will only be needed for debugging purposes */
+    DEBUG_PRINT_VERBOSE("ERROR: invalid rtimer ID %u", timer);
   }
 }
 /*---------------------------------------------------------------------------*/
