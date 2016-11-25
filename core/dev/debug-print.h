@@ -129,6 +129,16 @@
   if(DEBUG_PRINT_CONF_LEVEL >= level) { \
     DEBUG_PRINT_MSG(time, title, __VA_ARGS__); }
 
+/*
+ * severity levels:
+ * - VERBOSE: debug information, not important
+ * - INFO:    information about the system, might be of interest
+ * - WARNING: critical event, something the user should be aware of (e.g.
+ *            buffer full)
+ * - ERROR:   unexpected event or a (recoverable) failure
+ * - FATAL:   unrecoverable failure, system reset required (eg. stack overflow)
+ */
+
 #define DEBUG_PRINT_ERROR(...) \
   if(DEBUG_PRINT_CONF_LEVEL >= DEBUG_PRINT_LVL_ERROR) { \
     DEBUG_PRINT_MSG(0, DEBUG_PRINT_LVL_ERROR, __VA_ARGS__); \
@@ -142,7 +152,6 @@
 #define DEBUG_PRINT_VERBOSE(...) \
   if(DEBUG_PRINT_CONF_LEVEL >= DEBUG_PRINT_LVL_VERBOSE) { \
     DEBUG_PRINT_MSG(0, DEBUG_PRINT_LVL_VERBOSE, __VA_ARGS__); }
-        
 /* always enabled: highest severity level errors that require a reset */
 #define DEBUG_PRINT_FATAL(...) {\
   DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \

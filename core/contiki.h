@@ -63,5 +63,6 @@
 #include "dev/debug-print.h"
 #include "dev/bolt.h"
 #include "dev/fram.h"
+#include "dev/nvcfg.h"
 
 #endif /* __CONTIKI_H__ */
