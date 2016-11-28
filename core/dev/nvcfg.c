@@ -43,7 +43,7 @@
  *   segment has been used, then erase it and start again at pos. 0
  */
 
-#include "main.h"
+#include "contiki.h"
 
 /*---------------------------------------------------------------------------*/
 uint8_t
