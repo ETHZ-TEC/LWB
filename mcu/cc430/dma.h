@@ -69,13 +69,22 @@
 
 
 /**
- * @brief DMA trigger sources for the dma_init_timer function (DMA_CH2)
+ * @brief DMA trigger sources for the dma_init_timer function, works for all
+ * 3 channels
  */
 typedef enum {
+  DMA_TRGSRC_INVALID = 0,
   DMA_TRGSRC_TA0CCR0 = 1,
-  DMA_TRCSRC_TA0CCR2,
-  DMA_TRCSRC_TA1CCR0,
-  DMA_TRGSRC_TA1CCR2,
+  DMA_TRCSRC_TA0CCR2 = 2,
+  DMA_TRCSRC_TA1CCR0 = 3,
+  DMA_TRGSRC_TA1CCR2 = 4,
+  DMA_TRGSRC_UCA0RX = 16,
+  DMA_TRGSRC_UCA0TX = 17,
+  DMA_TRGSRC_UCB0RX = 18,
+  DMA_TRGSRC_UCB0TX = 19,
+  DMA_TRGSRC_ADC10 = 24,
+  DMA_TRGSRC_DMAx = 30,
+  DMA_TRGSRC_DMAE0 = 31,
 } dma_triggersrc_t;
 
 /**
