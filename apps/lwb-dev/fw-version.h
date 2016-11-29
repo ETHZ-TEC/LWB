@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0108
+#define FW_VERSION      0x0109
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -47,6 +47,15 @@ Feature Suggestions:
 
 Revision History
 ----------------
+
+Changes in v1.09 (2016-11-29):
+- change:  severity level of some ERROR debug prints changed in several files
+           (+ comment added to debug-prints.h)
+- change:  nvcfg moved into core folder to make it available for all apps
+- change:  t_proc_max check added to lwb-custom.c for source node
+- change:  BOLT_CONF_TIMEREQ_HF_MODE and BOLT_CONF_TIMEREQ_CCR definitions
+           added to bolt.h, PIN_SEL replaced by PIN_MAP in bolt_init()
+- change:  LWB_CONF_MAX_CLOCK_DEV in lwb.h is now in ppm
 
 Changes in v1.08 (2016-11-24):
 - change:  condition for IES toggling removed for falling edge of IFG9 in rf

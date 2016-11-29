@@ -39,7 +39,6 @@
 
 #include "contiki.h"
 #include "platform.h"
-#include "nvcfg.h"
 #include "log-events.h"
 #include "packet.h"                    /* packet structure and message types */
 #include "log.h"

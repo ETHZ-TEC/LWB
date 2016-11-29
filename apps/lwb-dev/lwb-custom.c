@@ -353,7 +353,7 @@ lwb_send_pkt(uint16_t recipient,
   /* data has the max. length LWB_DATA_PKT_PAYLOAD_LEN, lwb header needs 
    * to be added before the data is inserted into the queue */
   if(len > LWB_DATA_PKT_PAYLOAD_LEN || !data) {
-    DEBUG_PRINT_ERROR("invalid payload length");
+    DEBUG_PRINT_WARNING("invalid payload length");
     return 0;
   }
   uint32_t pkt_addr = fifo_put(&out_buffer);
@@ -580,9 +580,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   sync_state = LWB_STATE_SYNCED;  /* the host is always 'synced' */
   
   rtimer_reset();
-#if LWB_CONF_USE_LF_FOR_WAKEUP 
-  rt->time = 0; //rtimer_now_lf();
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  rt->time = 0;
   
   while(1) {
 #if LWB_CONF_T_PREPROCESS
@@ -610,10 +608,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         
     /* --- COMMUNICATION ROUND STARTS --- */
     
-    global_time = schedule.time;
-    rx_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
-    LWB_SEND_SCHED();            /* send the previously computed schedule */
+    LWB_SEND_SCHED();               /* send the previously computed schedule */
+    global_time  = schedule.time;
+    rx_timestamp = glossy_get_t_ref();
 
     glossy_rssi = glossy_get_rssi(0);
     slot_idx    = 0;     /* reset the packet counter */
@@ -1121,9 +1119,9 @@ BOOTSTRAP:
               LWB_SEND_SRQ();  
               DEBUG_PRINT_INFO("request for stream %u sent",
                                glossy_payload.srq_pkt.stream_id);
-            } else {
+            } /*else {
               DEBUG_PRINT_ERROR("failed to prepare stream request packet");
-            }
+            }*/
           } else {
             DEBUG_PRINT_VERBOSE("must wait %u rounds", rounds_to_wait);
             /* keep waiting and just relay incoming packets */
@@ -1180,14 +1178,24 @@ BOOTSTRAP:
                        RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
     t_ref_last = t_ref_lf;
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
-                      RTIMER_SECOND_HF)) / (int32_t)period_last;
+    drift = ((int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
+                      RTIMER_SECOND_HF)) << 4) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
     if(sync_state <= LWB_STATE_MISSED) {
-      if((drift < LWB_CONF_MAX_CLOCK_DEV) &&
-         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      /* convert LWB_CONF_MAX_CLOCK_DEV into clock ticks per second */
+      if((drift < (int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_LF * 256 /
+                            1000000)) &&
+         (drift > -(int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_LF * 256 /
+                             1000000))) {
+  #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      if((drift < (int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_HF * 16 /
+                            1000000)) &&
+         (drift > -(int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_HF * 16 /
+                             1000000))) {
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
         stats.drift = (stats.drift + drift) / 2;  /* low-pass filter */
       }
     }
@@ -1210,17 +1218,12 @@ BOOTSTRAP:
                      relay_cnt_first_rx,
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-                     stats.drift / 8,               /* in ppm (approx.) */
-#else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-                     (stats.drift * 100 / 325),     /* in ppm */
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+                     stats.drift, /* in clock ticks per second (x16 or x256) */
                      glossy_get_per(),
                      glossy_snr);
 
-    /* DEBUG: check processing time (TODO remove) */
-    if(stats.t_proc_max > LWB_CONF_T_GAP) {
-      DEBUG_PRINT_WARNING("t_proc_max exceeds T_GAP!");
+    /* check processing time */
+    if(stats.t_proc_max >= LWB_CONF_T_GAP) {
       LOG_ERROR(LOG_EVENT_LWB_ERROR, 1);
     }
 
@@ -1247,8 +1250,8 @@ BOOTSTRAP:
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_ref + 
-                   (rtimer_clock_t)schedule.period *
-                   (RTIMER_SECOND_HF + stats.drift) /
+                   ((rtimer_clock_t)schedule.period * RTIMER_SECOND_HF +
+                    (((int32_t)schedule.period * stats.drift) / 16)) /
                    LWB_CONF_TIME_SCALE - t_guard - 
                    LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

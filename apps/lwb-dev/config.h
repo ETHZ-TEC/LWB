@@ -39,15 +39,15 @@
  */
 
 /* main parameters */
-#define NODE_ID                         13
+#define NODE_ID                         20050
 #define HOST_ID                         13
-#define RF_CONF_TX_CH                   2     /* note: use CH/870MHz on roof */
+#define RF_CONF_TX_CH                   10    /* note: use CH/870MHz on roof */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
 #define LWB_VERSION                     0          /* use the custom version */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
+#define LWB_CONF_SCHED_PERIOD_IDLE      30       /* define the period length */
 #define LWB_CONF_DATA_ACK               1                  /* use data ACKs? */
 #define LWB_CONF_T_SCHED2_START         (RTIMER_SECOND_HF * 800 / 1000)
 #define LWB_CONF_MAX_HOPS               3

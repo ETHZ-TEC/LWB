@@ -86,8 +86,8 @@ typedef struct {
   uint32_t uptime;        /* in seconds */
   int16_t  temp;          /* temperature value in 100x °C */
   uint16_t vcc;           /* supply voltage (raw ADC value) */
-  uint16_t cpu_dc;        /* cpu duty cycle in per thousands */
-  uint16_t rf_dc;         /* radio duty cycle in per thousands */
+  uint16_t cpu_dc;        /* cpu duty cycle (0..10000) */
+  uint16_t rf_dc;         /* radio duty cycle (0..10000) */
   uint16_t lwb_rx_cnt;    /* RX counter (total # successfully rcvd pkts) */
   uint16_t lwb_n_rx_hops; /* RX count + hop cnts of last Glossy flood */
   uint16_t rf_per;        /* total packet error rate in percentage * 100 */
