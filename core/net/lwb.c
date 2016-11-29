@@ -1106,7 +1106,7 @@ BOOTSTRAP_MODE:
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
     DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u tp=%u p=%u r=%u b=%u "
-                     "u=%u dr=%ld per=%d snr=%d",
+                     "u=%u dr=%d per=%d snr=%d",
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time, 
                      schedule.period, 
@@ -1117,7 +1117,7 @@ BOOTSTRAP_MODE:
                      relay_cnt_first_rx,
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
-                     drift, /* in clock ticks per second (x16 or x256) */
+                     stats.drift, /* in clock ticks per second (x16 or x256) */
                      glossy_get_per(),
                      glossy_snr);
 
