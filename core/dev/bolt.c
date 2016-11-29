@@ -48,16 +48,13 @@ typedef enum {
 } bolt_state_t;
 /*---------------------------------------------------------------------------*/
 /* helper macros */
-#define BOLT_IS_TIMEREQ_ENABLED         ((TA1CCTL0 & CCIE) > 0)
-#define BOLT_TIMEREQ_ENABLE             (TA1CCTL0 |= CCIE)
-#define BOLT_TIMEREQ_DISABLE            (TA1CCTL0 &= ~CCIE)
 #define BOLT_ACK_STATUS                 PIN_GET(BOLT_CONF_ACK_PIN)
 #define BOLT_WAIT_TILL_COMPLETED        while(BOLT_STATE_IDLE != bolt_state)
 /*---------------------------------------------------------------------------*/
 static volatile bolt_state_t bolt_state = BOLT_STATE_INVALID;
 static bolt_callback_t bolt_ind_callback = 0;
 #if BOLT_CONF_TIMEREQ_ENABLE
-static rtimer_clock_t ta1_timestamp = 0;
+static rtimer_clock_t  rtimer_ext = 0;
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 /*---------------------------------------------------------------------------*/
 void
@@ -92,17 +89,17 @@ bolt_init(bolt_callback_t IND_line_callback)
   spi_init(BOLT_CONF_SPI, BOLT_CONF_SCLK_SPEED);
 
 #if BOLT_CONF_TIMEREQ_ENABLE
-  PIN_SEL(BOLT_CONF_TIMEREQ_PIN);
+  PIN_MAP_AS_INPUT(BOLT_CONF_TIMEREQ_PIN, BOLT_CONF_TIMEREQ_PINMAP);
   PIN_CFG_IN(BOLT_CONF_TIMEREQ_PIN);
   PIN_PULLDOWN_EN(BOLT_CONF_TIMEREQ_PIN);
-  
-  /* configure TA1 CCR0 to capture the timestamp on rising edge of pin 2.1
+
+  /* configure timer to capture the timestamp on rising edge of pin 2.1
      (do NOT enable interrupts!) */
   rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */
   dma_config_timer(BOLT_CONF_TIMEREQ_DMATRG,
                    rtimer_swext_addr(BOLT_CONF_TIMEREQ_TIMERID),
-                   (uint16_t)&ta1_timestamp, 8);     
+                   (uint16_t)&rtimer_ext, 8);
 #endif
   
   bolt_state = BOLT_STATE_IDLE;
@@ -132,9 +129,9 @@ bolt_set_timereq_callback(void (*func)(void))
     /* remove the callback = switch to polling mode (utilize the DMA) */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
-    dma_config_timer(DMA_TRCSRC_TA1CCR0, 
+    dma_config_timer(BOLT_CONF_TIMEREQ_DMATRG,
                      rtimer_swext_addr(BOLT_CONF_TIMEREQ_TIMERID),
-                     (uint16_t)&ta1_timestamp, 8);
+                     (uint16_t)&rtimer_ext, 8);
   } else {
     /* set the rtimer callback function */
     dma_enable_timer(0);
@@ -149,7 +146,7 @@ uint8_t
 bolt_handle_timereq(rtimer_clock_t* timestamp)
 {
   if(DMA_TIMER_IFG && timestamp) {        /* interrupt flag set? */
-    *timestamp = (ta1_timestamp << 16) | TA1CCR0;
+    *timestamp = (rtimer_ext << 16) | BOLT_CONF_TIMEREQ_CCR;
     /* note: TAxCCR CCIFG is automatically cleared when the transfer starts */
     DMA_TIMER_CLRIFG;  /* no need to re-enable DMA in repeated transfer mode */
     return 1;

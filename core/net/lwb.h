@@ -252,13 +252,8 @@
 #endif /* LWB_CONF_T_PREPROCESS */
 
 #ifndef LWB_CONF_MAX_CLOCK_DEV
-/* the max. clock deviation (according to the specs of the oscillator), in 
- * clock ticks per second */
- #if LWB_CONF_USE_LF_FOR_WAKEUP
-  #define LWB_CONF_MAX_CLOCK_DEV        2560      /* LF clock ticks * 256 */     
- #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-  #define LWB_CONF_MAX_CLOCK_DEV        500     /* HF clock ticks */
- #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+/* the max. expected clock deviation in ppm */
+#define LWB_CONF_MAX_CLOCK_DEV          50
 #endif /* LWB_CONF_MAX_CLOCK_DEV */
 
 #ifndef LWB_CONF_RTIMER_ID

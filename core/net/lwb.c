@@ -560,9 +560,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   sync_state = SYNCED;  /* the host is always 'synced' */
   
   rtimer_reset();
-#if LWB_CONF_USE_LF_FOR_WAKEUP 
-  rt->time = 0; //rtimer_now_lf();
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  rt->time = 0;
   
   while(1) {
 #if LWB_CONF_T_PREPROCESS
@@ -590,10 +588,11 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         
     /* --- COMMUNICATION ROUND STARTS --- */
     
-    global_time = schedule.time;
-    rx_timestamp = t_start;
     LWB_SCHED_SET_AS_1ST(&schedule);          /* mark this schedule as first */
     LWB_SEND_SCHED();            /* send the previously computed schedule */
+
+    global_time  = schedule.time;
+    rx_timestamp = glossy_get_t_ref();
 
     glossy_rssi = glossy_get_rssi(0);
     stats.relay_cnt = glossy_get_relay_cnt_first_rx();
@@ -1075,29 +1074,39 @@ BOOTSTRAP_MODE:
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* t_ref can't be used in this case -> use t_ref_lf instead */
     drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)period_last *
-                       RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
+                       RTIMER_SECOND_LF)) * 256) / (int32_t)period_last;
     t_ref_last = t_ref_lf;     
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    drift = (int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
-                      RTIMER_SECOND_HF)) / (int32_t)period_last;
+    drift = ((int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
+                       RTIMER_SECOND_HF)) * 16) / period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     period_last = schedule.period;
 
     if(sync_state <= MISSED) {
-      if((drift < LWB_CONF_MAX_CLOCK_DEV) && 
-         (drift > -LWB_CONF_MAX_CLOCK_DEV)) {
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      /* convert LWB_CONF_MAX_CLOCK_DEV into clock ticks per second */
+      if((drift < (int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_LF * 256 /
+                            1000000)) &&
+         (drift > -(int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_LF * 256 /
+                             1000000))) {
+  #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      if((drift < (int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_HF * 16 /
+                            1000000)) &&
+         (drift > -(int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_HF * 16 /
+                             1000000))) {
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
         stats.drift = (stats.drift + drift) / 2;  /* low-pass filter */
       }
     }
 #endif /* LWB_CONF_TIME_SCALE */
-    
+
     if(sync_state > SYNCED_2) {
       stats.unsynced_cnt++;
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
     DEBUG_PRINT_INFO("%s %lu T=%u n=%u s=%u tp=%u p=%u r=%u b=%u "
-                     "u=%u dr=%d per=%d snr=%d", 
+                     "u=%u dr=%ld per=%d snr=%d",
                      lwb_sync_state_to_string[sync_state], 
                      schedule.time, 
                      schedule.period, 
@@ -1108,11 +1117,7 @@ BOOTSTRAP_MODE:
                      relay_cnt_first_rx,
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
-#if LWB_CONF_USE_LF_FOR_WAKEUP
-                     (int16_t)(stats.drift / 8),     /* in ppm (approx.) */
-#else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-                     (int16_t)(stats.drift * 100 / 325),       /* in ppm */
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+                     drift, /* in clock ticks per second (x16 or x256) */
                      glossy_get_per(),
                      glossy_snr);
 
@@ -1133,14 +1138,14 @@ BOOTSTRAP_MODE:
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 
-                       (((int32_t)schedule.period * stats.drift) >> 8)) /
+                       (((int32_t)schedule.period * stats.drift) / 256)) /
                       LWB_CONF_TIME_SCALE - 
                       t_guard / (uint32_t)RTIMER_HF_LF_RATIO - 
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
 #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     LWB_WAIT_UNTIL(t_ref + 
-                   (rtimer_clock_t)schedule.period *
-                   (RTIMER_SECOND_HF + stats.drift) /
+                   ((rtimer_clock_t)schedule.period * RTIMER_SECOND_HF +
+                    (((int32_t)schedule.period * stats.drift) / 16)) /
                    LWB_CONF_TIME_SCALE - t_guard - 
                    LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

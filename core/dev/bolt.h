@@ -71,13 +71,31 @@
 #define BOLT_CONF_IND_OUT_PIN           PORT2, PIN6
 #endif /* BOLT_CONF_REQ_PIN */
 
-#ifndef BOLT_CONF_TIMEREQ_TIMERID
-#define BOLT_CONF_TIMEREQ_TIMERID       RTIMER_LF_0
-#endif /* BOLT_CONF_TIMEREQ_TIMERID */
+#ifndef BOLT_CONF_TIMEREQ_ENABLE
+#define BOLT_CONF_TIMEREQ_ENABLE        0
+#endif /* BOLT_CONF_TIMEREQ_ENABLE */
 
-#ifndef BOLT_CONF_TIMEREQ_DMATRG
-#define BOLT_CONF_TIMEREQ_DMATRG        DMA_TRCSRC_TA1CCR0
-#endif /* BOLT_CONF_TIMEREQ_DMATRG */
+/* high frequency mode? uses HF timer module instead of LF if available */
+#ifndef BOLT_CONF_TIMEREQ_HF_MODE
+#define BOLT_CONF_TIMEREQ_HF_MODE       0
+#endif /* BOLT_CONF_TIMEREQ_HF_MODE */
+
+/* this is just an example (works on the cc430), hardware specific definitions
+ * should be set in platform.h! */
+#if !BOLT_CONF_TIMEREQ_HF_MODE
+ #ifndef BOLT_CONF_TIMEREQ_TIMERID
+  #define BOLT_CONF_TIMEREQ_TIMERID     RTIMER_LF_0
+ #endif /* BOLT_CONF_TIMEREQ_TIMERID */
+ #ifndef BOLT_CONF_TIMEREQ_DMATRG
+  #define BOLT_CONF_TIMEREQ_DMATRG      DMA_TRCSRC_TA1CCR0
+ #endif /* BOLT_CONF_TIMEREQ_DMATRG */
+ #ifndef BOLT_CONF_TIMEREQ_PINMAP
+  #define BOLT_CONF_TIMEREQ_PINMAP      PM_TA1CCR0A
+ #endif /* BOLT_CONF_TIMEREQ_PINMAP */
+ #ifndef BOLT_CONF_TIMEREQ_CCR
+  #define BOLT_CONF_TIMEREQ_CCR         TA1CCR0
+ #endif /* BOLT_CONF_TIMEREQ_CCR */
+#endif /* BOLT_CONF_TIMEREQ_HF_MODE */
 
 #ifndef BOLT_CONF_MAX_MSG_LEN
 #define BOLT_CONF_MAX_MSG_LEN           48  /* bytes */
@@ -86,10 +104,6 @@
 #ifndef BOLT_CONF_USE_DMA
 #define BOLT_CONF_USE_DMA               0
 #endif /* BOLT_CONF_USE_DMA */
-
-#ifndef BOLT_CONF_TIMEREQ_ENABLE
-#define BOLT_CONF_TIMEREQ_ENABLE        0
-#endif /* BOLT_CONF_TIMEREQ_ENABLE */
 
 #ifndef BOLT_CONF_SCLK_SPEED            /* serial clock speed */
 #define BOLT_CONF_SCLK_SPEED            (SMCLK_SPEED)
