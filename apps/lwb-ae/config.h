@@ -40,26 +40,23 @@
 
 #define FLOCKLAB      /* uncomment to compile for FlockLab */
 
-/* --- ID config --- */
+/* --- General config --- */
 
 #define HOST_ID                         1
 #ifndef FLOCKLAB
   #define NODE_ID                       6
 #endif
 
+//#define FRAM_CONF_ON                  1
+
 /* --- RF config --- */
 
-#ifndef FLOCKLAB
-  #define RF_CONF_TX_CH                 5
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
-#else
-  #define RF_CONF_TX_CH                 10
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
-#endif
+#define RF_CONF_TX_CH                   5
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 
 /* --- LWB config --- */
 
-#define LWB_VERSION                     2  /* 1 = original LWB, 2 = eLWB */
+#define LWB_VERSION                     0  /* override default LWB impl. */
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1  /* do NOT change */
 /* scheduler */
 #define LWB_CONF_SCHED_PERIOD_IDLE      5  /* define the base period length */
@@ -94,6 +91,7 @@
 #define LWB_CONF_MAX_HOPS               3
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
+#define LWB_CONF_T_PREPROCESS           20    /* in ms */
 
 /* --- DEBUG config --- */
 
@@ -150,11 +148,6 @@
                                   } }
 #endif /* DEBUG_TRACING_ON */
 
-#ifndef FLOCKLAB
-  #define LWB_CONF_T_PREPROCESS         20    /* ms */
-  #define BOLT_CONF_ON                  1
-  #define FRAM_CONF_ON                  1
-#endif /* FLOCKLAB */
 
 /* --- GLOBAL variables --- */
 

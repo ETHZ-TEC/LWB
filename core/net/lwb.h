@@ -357,7 +357,7 @@ typedef struct {
   uint8_t  bootstrap_cnt;
   uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
   uint8_t  reset_cnt;
-  uint8_t  reserved;
+  int8_t   glossy_snr;  /* SNR measured in last schedule slot */
   int16_t  drift;
   uint16_t pck_cnt;     /* total number of received packets */
   uint16_t t_sched_max; /* max. time needed to calc new schedule */
@@ -429,15 +429,10 @@ lwb_conn_state_t lwb_get_state(void);
  * LWB_CONF_MAX_PKT_LEN)
  * @return 1 if successful, 0 otherwise (queue full)
  */
-#if LWB_VERSION == 2
-uint8_t lwb_send_pkt(const uint8_t * const data,
-                      uint8_t len);
-#else
 uint8_t lwb_send_pkt(uint16_t recipient,
-                      uint8_t stream_id,
-                      const uint8_t * const data,
-                      uint8_t len);
-#endif
+                     uint8_t stream_id,
+                     const uint8_t * const data,
+                     uint8_t len);
 
 /** 
  * @brief get a data packet that have been received during the previous LWB
@@ -452,13 +447,9 @@ uint8_t lwb_send_pkt(uint16_t recipient,
  * @note once a data packet was requested, it will be removed from the internal
  * buffer
  */
-#if LWB_VERSION == 2
-uint8_t lwb_rcv_pkt(uint8_t* out_data);
-#else
 uint8_t lwb_rcv_pkt(uint8_t* out_data,
                     uint16_t * const out_node_id,
                     uint8_t * const out_stream_id);
-#endif
 
 /**
  * @brief check the status of the receive buffer (incoming messages)

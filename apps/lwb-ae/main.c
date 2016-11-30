@@ -28,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Felix Sutton
  *          Marco Zimmerling
  */
  
@@ -42,7 +43,6 @@
 
 #include "contiki.h"
 #include "platform.h"
-//#include "bolt_min.h"
 
 #define PAYLOAD_LEN             16
 
@@ -83,8 +83,8 @@ read_message(void)
     BOLT_READ(msg, msg_len);
     (void)msg_len;
     //DEBUG_PRINT_INFO("message received from BOLT (%db)", msg_len);
-    lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-    lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+    lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
+    lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
     pkt_cnt += 2;
     //DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
   }
@@ -97,15 +97,6 @@ AUTOSTART_PROCESSES(&app_process);
 PROCESS_THREAD(app_process, ev, data) 
 {  
   PROCESS_BEGIN();
-          
-  SVS_DISABLE;
-  /* all other necessary initialization is done in contiki-cc430-main.c */
-    
-  /* INIT code */
-/*#if !defined(FLOCKLAB) && HOST_ID != NODE_ID && defined(DEBUG_SWITCH)
-  PIN_CFG_INT(DEBUG_SWITCH);
-  PIN_PULLUP_EN(DEBUG_SWITCH); 
-#endif*/
   
   /* start the LWB thread */
 #if defined(FLOCKLAB) || !BOLT_CONF_ON
@@ -204,7 +195,7 @@ PROCESS_THREAD(app_process, ev, data)
   if(node_id == 6 || node_id == 28 || node_id == 22) {
     /* generate a dummy packet to 'register' this node at the host */
     uint16_t id = node_id;
-    lwb_send_pkt((uint8_t*)&id, 2);
+    lwb_send_pkt(0, 1, (uint8_t*)&id, 2);
     pkt_cnt++;
   }
   
@@ -224,7 +215,7 @@ PROCESS_THREAD(app_process, ev, data)
       /* print out the received data */
       static uint16_t pkt_cnt = 0;
       while(1) {
-        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)pkt_buffer);
+        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)pkt_buffer, 0, 0);
         if(pkt_len) {
           if(pkt_buffer[0] == 6) { pkt_cnt_node1++; }
           else if(pkt_buffer[0] == 22) { pkt_cnt_node2++; }
@@ -252,7 +243,7 @@ PROCESS_THREAD(app_process, ev, data)
     } else {
       static uint16_t acks_rcvd = 0;
       /* SOURCE node */
-      if(lwb_rcv_pkt((uint8_t*)pkt_buffer) && *pkt_buffer == node_id) {
+      if(lwb_rcv_pkt((uint8_t*)pkt_buffer, 0, 0) && *pkt_buffer == node_id) {
         acks_rcvd++;
         DEBUG_PRINT_INFO("ack=%u", acks_rcvd);
       } 
@@ -268,24 +259,11 @@ PROCESS_THREAD(app_process, ev, data)
       if((node_id == 6 || node_id == 28 || node_id == 22) && 
          lwb_get_time(0) > (LWB_CONF_SCHED_PERIOD_IDLE * 4)) {
         /* generate an event */
-        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
+        lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
         pkt_cnt += 2;
         DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
       }
-  #else /* FLOCKLAB */
-      //if(lwb_get_time(0) > 20 && lwb_get_time(0) % 15 == 0) {  
-      /*
-      static uint8_t msg[128];
-      uint8_t msg_len = 0;
-      if(BOLT_DATA_AVAILABLE) {
-        BOLT_READ(msg, msg_len);
-        DEBUG_PRINT_INFO("message received from BOLT (%db)", msg_len);
-        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        lwb_send_pkt((uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        pkt_cnt += 2;
-        DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
-      }*/
   #endif /* FLOCKLAB */
     }
     
@@ -298,22 +276,7 @@ PROCESS_THREAD(app_process, ev, data)
   #if FRAM_CONF_ON
     fram_sleep();
   #endif /* FRAM_CONF_ON */
-    /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-    //TA0CTL &= ~MC_3; /* stop TA0 */
-    //DISABLE_XT2();
-  #ifdef MUX_SEL_PIN
-    //PIN_CLR(MUX_SEL_PIN);
-  #endif /* MUX_SEL_PIN */
-    //P1SEL = 0; /* reconfigure GPIOs */
-    //P1DIR = 0xff;
-    /* dont clear BIT6 and 7 on olimex board */
-    //P1OUT &= ~(BIT2 | BIT3 | BIT4 | BIT5);
-    //P1OUT = 0;
-    /* note: DPP has a pullup on P1.5! */
-    //P1OUT |= BIT5;
-    /* set clock source to DCO */
-    //UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
-    
+
     TASK_SUSPENDED;
   }
 #endif /* LWB_VERSION */

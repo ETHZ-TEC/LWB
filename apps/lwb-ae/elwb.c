@@ -40,7 +40,8 @@
  
 #include "contiki.h"
 
-#if LWB_VERSION == 2
+
+#if LWB_VERSION != 1
 
 /* this version of the LWB only supports the 'burst' scheduler */
 #if !defined(LWB_SCHED_AE)
@@ -360,9 +361,12 @@ lwb_out_buffer_get(uint8_t* out_data)
 }
 /*---------------------------------------------------------------------------*/
 /* puts a message into the outgoing queue, returns 1 if successful, 
- * 0 otherwise */
+ * 0 otherwise;
+ * needs to have all 4 parameters to be compatible with lwb.h */
 uint8_t
-lwb_send_pkt(const uint8_t * const data,
+lwb_send_pkt(uint16_t recipient,
+             uint8_t stream_id,
+             const uint8_t* const data,
              uint8_t len)
 {
   /* data has the max. length LWB_CONF_MAX_DATA_PKT_LEN, lwb header needs 
@@ -390,9 +394,12 @@ lwb_send_pkt(const uint8_t * const data,
 }
 /*---------------------------------------------------------------------------*/
 /* copies the oldest received message in the queue into out_data and returns 
- * the message size (in bytes) */
+ * the message size (in bytes); needs to have all 3 parameters to be 
+ * compatible with lwb.h */
 uint8_t
-lwb_rcv_pkt(uint8_t* out_data)
+lwb_rcv_pkt(uint8_t* out_data,
+            uint16_t * const out_node_id,
+            uint8_t * const out_stream_id)
 { 
   if(!out_data) { return 0; }
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
@@ -490,7 +497,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   sync_state = SYNCED;  /* the host is always 'synced' */
   
   rtimer_reset();
-  rt->time = 0; //rtimer_now_lf();
+  rt->time = 0;
   
   while(1) {
       
@@ -505,6 +512,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       /* use the HF osc. here to schedule the next wakeup! */
       LWB_WAIT_UNTIL(rt->time + 
                      (LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000)); 
+      t_start_lf += t_preprocess;
       t_preprocess = 0; /* reset value */
     }    
   #endif /* LWB_CONF_T_PREPROCESS */
@@ -706,7 +714,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t payload_len;
 #endif /* LWB_CONF_RELAY_ONLY */
-  static int8_t  glossy_snr = 0;
   static uint8_t node_registered = 0;   /* host knows about this node? */
   static const void* callback_func = lwb_thread_src;
   
@@ -763,7 +770,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       }
       LWB_RCV_SCHED();  
     }
-    glossy_snr = glossy_get_snr();
+    stats.glossy_snr = glossy_get_snr();
                    
     /* update the sync state machine (compute new sync state and update 
      * t_guard) */
@@ -960,7 +967,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt,
                      glossy_get_per(),
-                     glossy_snr);
+                     stats.glossy_snr);
       
   #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
