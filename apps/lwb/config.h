@@ -42,8 +42,8 @@
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm 
-  #define RF_CONF_TX_CH                 2      /* approx. 870 MHz */   
+  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MINUS_6_dBm //0_dBm 
+  #define RF_CONF_TX_CH                 5      /* approx. 869 MHz */   
   #define GLOSSY_START_PIN              FLOCKLAB_LED1
   #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT2
   #define RF_GDO2_PIN                   FLOCKLAB_INT1
@@ -59,7 +59,7 @@
 
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */
+#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
 #define LWB_CONF_OUT_BUFFER_SIZE        2
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
 #define LWB_CONF_MAX_PKT_LEN            50
