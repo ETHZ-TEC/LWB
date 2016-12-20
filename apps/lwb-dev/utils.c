@@ -152,8 +152,16 @@ get_node_health(comm_health_t* out_data)
   out_data->lwb_n_rx_started = glossy_get_n_rx_started();
   out_data->lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
   out_data->lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
+#if LWB_CONF_DATA_ACK
   /* packet delivery rate */
   out_data->test_byte     = (lwb_stats->pkts_nack * 200) /lwb_stats->pkts_sent;
+#else /* LWB_CONF_DATA_ACK */
+  if(lwb_stats->drift < 0) {
+    out_data->test_byte   = -lwb_stats->drift / 16;
+  } else {
+    out_data->test_byte   = lwb_stats->drift / 16;
+  }
+#endif /* LWB_CONF_DATA_ACK */
 
   /* duty cycle */
 #if ENERGEST_CONF_ON

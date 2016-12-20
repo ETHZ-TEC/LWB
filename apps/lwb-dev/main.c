@@ -82,7 +82,7 @@ PROCESS_THREAD(app_process, ev, data)
   cfg.rst_cnt++;
   nvcfg_save((uint8_t*)&cfg);
 
-  if(node_id == HOST_ID) {
+  if(node_id == HOST_ID && !FLOCKLAB_SRC_NODE) {
     node_info_t tmp;
     get_node_info(&tmp);
     send_msg(DEVICE_ID_SINK, MSG_TYPE_NODE_INFO, (uint8_t*)&tmp, 0, 1);
@@ -97,7 +97,7 @@ PROCESS_THREAD(app_process, ev, data)
     PIN_SET(APP_TASK_ACT_PIN);
 #endif /* APP_TASK_ACT_PIN */
     
-    if(HOST_ID == node_id) {
+    if(HOST_ID == node_id && !FLOCKLAB_SRC_NODE) {
       host_run();
     } else {
       source_run();

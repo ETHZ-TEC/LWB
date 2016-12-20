@@ -49,13 +49,15 @@ host_run(void)
 {
   static uint32_t t_last_health_pkt = 0;
   static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
+  static uint16_t rcv_cnt           = 0;
   message_t msg;
 
   /* forward the received data */
   while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
     /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-    DEBUG_PRINT_MSG_NOW("data packet received from node %u",
-                        msg.header.device_id);
+    rcv_cnt++;
+    DEBUG_PRINT_MSG_NOW("data packet received from node %u (rcv_cnt: %u)",
+                        msg.header.device_id, rcv_cnt);
     /* forward the packet: write it to BOLT */
     BOLT_WRITE((uint8_t*)&msg, MSG_LEN(msg));
   }

@@ -75,11 +75,14 @@ CFLAGS  = -mmcu=$(MCU) -Os -Wall -ffunction-sections -fdata-sections -ggdb
 LDFLAGS = -mmcu=$(MCU) -Wl,--gc-sections -ggdb
 
 # add timestamp to the compile flags (to be used in the code), will work on UNIX systems only 
-CFLAGS += -DCOMPILE_TIME=`date '+%s'`
+#`date '+%s'`
+CFLAGS += -DCOMPILE_TIME=${shell date '+%s'}
 
 # add git revision SHA to compile flags
 #git log | head -1 | sed 's/.*\s//' equivalent to git rev-parse HEAD
-GITSHA = `git rev-parse HEAD`
+ifndef GITSHA
+  GITSHA = ${shell git rev-parse HEAD}
+endif
 CFLAGS += -DGIT_HEADREV_SHA="\"$(GITSHA)\""
 
 CORESRCS = ${shell find $(SYSDIR) -type f -name "*.[c]" -printf "%f "}

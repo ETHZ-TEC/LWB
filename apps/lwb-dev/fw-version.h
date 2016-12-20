@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0109
+#define FW_VERSION      0x010a
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -47,6 +47,21 @@ Feature Suggestions:
 
 Revision History
 ----------------
+
+Changes in v1.10 (2016-12-09):
+- change:  PIN_XOR replaced by PIN_SET/CLR for RTIMER_CONF_LF_UPDATE_LED_ON and
+           GLOSSY_START_PIN
+- change:  glossy_snr in lwb.c moved into the lwb_statistics_t struct
+- change:  guard time for LWB state QUASI_SYNCED changed
+- change:  in glossy.c, disabling of LWB timer during RX removed (causes
+           slot overruns)
+- change:  LWB_CONF_DATA_ACK disabled
+- change:  watchdog re-enabled
+- feature: FLOCKLAB_SRC_NODE added to compile code for flocklab
+- bugfix:  correction in the drift compensation for lwb
+- bugfix:  errata CPU46 fix added to main()
+- bugfix:  schedule.period replaced by period_last in lwb_thread_src() when
+           1st schedule missed
 
 Changes in v1.09 (2016-11-29):
 - change:  severity level of some ERROR debug prints changed in several files

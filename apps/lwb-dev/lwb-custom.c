@@ -115,7 +115,7 @@ static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] =
 { "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN", "USYN2" };
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 /* STATE:      LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED,   LWB_STATE_SYNCED_2, LWB_STATE_MISSED,   LWB_STATE_UNSYNCED, LWB_STATE_UNSYNCED2 */
-/* T_GUARD: */ LWB_CONF_T_GUARD,    LWB_CONF_T_GUARD_3,     LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_3
+/* T_GUARD: */ LWB_CONF_T_GUARD,    LWB_CONF_T_GUARD_2,     LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_3
 };
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -547,7 +547,7 @@ lwb_update_sync_state(const lwb_sync_state_t curr_state,
  * @note runs in an interrupt context; don't use switch-case statements here
  */
 PT_THREAD(lwb_thread_host(rtimer_t *rt)) 
-{  
+{
   /* all variables must be static */
   static lwb_schedule_t schedule;
   static rtimer_clock_t t_start; 
@@ -599,12 +599,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #if LWB_CONF_USE_LF_FOR_WAKEUP 
     t_start_lf = rt->time; 
     rt->time   = rtimer_now_hf();
-    t_start    = rt->time;
-#else /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    /* set the start time of the round to the expiration time of the last 
-     * scheduled timeout */
-    t_start    = rt->time;
 #endif  /* LWB_CONF_USE_LF_FOR_WAKEUP */
+    t_start    = rt->time;
         
     /* --- COMMUNICATION ROUND STARTS --- */
     
@@ -802,8 +798,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   static lwb_schedule_t schedule;
   static rtimer_clock_t t_ref, 
-                        t_ref_last,
-                        t_ref_lf;
+                        t_ref_last;
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+  static rtimer_clock_t t_ref_lf;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 #if !LWB_CONF_RELAY_ONLY
   static rtimer_clock_t t_now; 
 #endif /* LWB_CONF_RELAY_ONLY */
@@ -816,7 +814,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint8_t  payload_len;
   static uint8_t  rounds_to_wait;
 #endif /* LWB_CONF_RELAY_ONLY */
-  static int8_t   glossy_snr = 0;
   static const void* callback_func = lwb_thread_src;
 #if LWB_CONF_DATA_ACK
   static uint16_t first_slot = 0,
@@ -886,7 +883,7 @@ BOOTSTRAP:
       goto BOOTSTRAP;         /* wrong schedule received > back to bootstrap */
     }
 
-    glossy_snr = glossy_get_snr();
+    stats.glossy_snr = glossy_get_snr();
 
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
@@ -912,13 +909,13 @@ BOOTSTRAP:
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* since HF clock was off, we need a new timestamp; subtract a const.
        * processing offset to adjust (if needed) */
-      t_ref_lf += (schedule.period * RTIMER_SECOND_LF + 
-                  ((int32_t)schedule.period * stats.drift >> 8)) /
+      t_ref_lf += ((rtimer_clock_t)period_last * RTIMER_SECOND_LF +
+                  ((int32_t)period_last * stats.drift / 256)) /
                   LWB_CONF_TIME_SCALE;
       /* do NOT update t_ref here! */
-  #else
-      t_ref += schedule.period * (RTIMER_SECOND_HF + stats.drift) /
-               LWB_CONF_TIME_SCALE;
+  #else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      t_ref += (rtimer_clock_t)period_last *
+               (RTIMER_SECOND_HF + stats.drift / 16) / LWB_CONF_TIME_SCALE;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       /* don't update schedule.time here! */
     }
@@ -942,7 +939,6 @@ BOOTSTRAP:
         LWB_RCV_PACKET();                 /* receive s-ack */
   #if !LWB_CONF_RELAY_ONLY
         if(LWB_DATA_RCVD) {
-          static uint8_t i; /* must be static */
           i = 0;            /* must be a separate line of code */
           DEBUG_PRINT_VERBOSE("S-ACK packet received (%u stream acks)", 
                               glossy_payload.sack_pkt.n_extra + 1);
@@ -976,7 +972,7 @@ BOOTSTRAP:
       if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++, slot_idx++) {
   #if !LWB_CONF_RELAY_ONLY
-          if(schedule.slot[i] == node_id) {          
+          if(schedule.slot[i] == node_id) {
             stats.t_slot_last = schedule.time;
             /* this is our data slot, send a data packet */
             payload_len = 0;
@@ -1001,6 +997,7 @@ BOOTSTRAP:
                 first_slot = i;
               }
               num_slots++;
+              stats.pkts_sent++;
       #endif /* LWB_CONF_DATA_ACK */
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
@@ -1084,7 +1081,6 @@ BOOTSTRAP:
               stats.pkts_nack++;
             }
           }
-          stats.pkts_sent += num_slots;
         } else {
           DEBUG_PRINT_VERBOSE("no data received in d-ack slot");
         }
@@ -1220,7 +1216,7 @@ BOOTSTRAP:
                      stats.unsynced_cnt, 
                      stats.drift, /* in clock ticks per second (x16 or x256) */
                      glossy_get_per(),
-                     glossy_snr);
+                     stats.glossy_snr);
 
     /* check processing time */
     if(stats.t_proc_max >= LWB_CONF_T_GAP) {
@@ -1244,7 +1240,7 @@ BOOTSTRAP:
 #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + 
                       ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF + 
-                       (((int32_t)schedule.period * stats.drift) >> 8)) /
+                       (((int32_t)schedule.period * stats.drift) / 256)) /
                       LWB_CONF_TIME_SCALE - 
                       t_guard / (uint32_t)RTIMER_HF_LF_RATIO - 
                       LWB_CONF_T_PREPROCESS * RTIMER_SECOND_LF / 1000);
@@ -1278,7 +1274,7 @@ lwb_resume(void)
   rtimer_id_t timer_id = LWB_CONF_RTIMER_ID;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
-  if(node_id == HOST_ID) {
+  if(node_id == HOST_ID && !FLOCKLAB_SRC_NODE) {
     /* note: must add at least some clock ticks! */
     rtimer_schedule(timer_id, start_time, 0, lwb_thread_host);
   } else {
