@@ -1,7 +1,6 @@
 ###
 # Analyzes the serial output of FlockLab
-# the script searches the last print out of each node/observer and 
-# calculates the average of 'hop=' values for each node
+# the script searches the last print out of each node/observer
 ###
 
 import sys
@@ -67,12 +66,12 @@ try:
                 # just overwrite, assume entries are sorted by timestamp
                 results[node_id] = output  
                 # extract the number of hops
-                match = re.search(r"hop=\d+", output)
-                if match:
-                    try:
-                        hops[node_id] = [hops[node_id][0] + int(match.group()[4:]), hops[node_id][1] + 1]
-                    except KeyError:
-                        hops[node_id] = [int(match.group()[4:]), 1]
+                #match = re.search(r"hop=\d+", output)
+                #if match:
+                #    try:
+                #        hops[node_id] = [hops[node_id][0] + int(match.group()[4:]), hops[node_id][1] + 1]
+                #    except KeyError:
+                #        hops[node_id] = [int(match.group()[4:]), 1]
 except IOError:
     print "file '%s' not found" % filename
     sys.exit()
