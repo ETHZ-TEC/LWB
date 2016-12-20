@@ -321,10 +321,11 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
   uint32_t pkt_addr = fifo_put(&in_buffer);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
+    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
     /* copy the data into the queue */
-    memcpy((uint8_t*)((uint16_t)pkt_addr), data, len);
+    memcpy(next_msg, data, len);
     /* last byte holds the payload length */
-    *(uint8_t*)((uint16_t)pkt_addr + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
+    *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;
 #else /* LWB_CONF_USE_XMEM */
     /* write the data into the queue in the external memory */
     xmem_write(pkt_addr, len, data);
