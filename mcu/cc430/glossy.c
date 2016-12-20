@@ -79,8 +79,8 @@
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
-  #define GLOSSY_STARTED      PIN_XOR(GLOSSY_START_PIN)
-  #define GLOSSY_STOPPED      PIN_XOR(GLOSSY_START_PIN)
+  #define GLOSSY_STARTED      PIN_SET(GLOSSY_START_PIN)
+  #define GLOSSY_STOPPED      PIN_CLR(GLOSSY_START_PIN)
 #else
   #define GLOSSY_STARTED
   #define GLOSSY_STOPPED
@@ -107,9 +107,10 @@
 #define GLOSSY_FIRST_RX
 #endif /* GLOSSY_FIRST_RX */
 
+/* not necessary */
 #ifdef LWB_CONF_RTIMER_ID
-#define LWB_INT_ENABLE      (*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) |= CCIE)
-#define LWB_INT_DISABLE     (*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) &= ~CCIE)
+#define LWB_INT_ENABLE      //(*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) |= CCIE)
+#define LWB_INT_DISABLE     //(*(&TA0CCTL0 + LWB_CONF_RTIMER_ID) &= ~CCIE)
 #else /* LWB_CONF_RTIMER_ID */
 #define LWB_INT_ENABLE
 #define LWB_INT_DISABLE
@@ -381,7 +382,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     /* measure the channel noise (but only if waiting for the schedule */
     if(sync == GLOSSY_WITH_SYNC) {
       /* wait after entering RX mode before reading RSSI (see swra114d.pdf)  */
-      //__delay_cycles(MCLK_SPEED / 3000);                     /* wait 0.33 ms */
+      //__delay_cycles(MCLK_SPEED / 3000);                   /* wait 0.33 ms */
       while(!(RF1AIN & BIT1));              /* wait for RSSI to become valid */
       g.stats.last_flood_rssi_noise = rf1a_get_rssi();        /* noise floor */
     }
@@ -443,7 +444,7 @@ glossy_stop(void)
 
 #if GLOSSY_CONF_COLLECT_STATS
     /* stats */
-    g.stats.last_flood_duration = rtimer_now_hf() - g.stats.last_flood_duration;
+    g.stats.last_flood_duration =rtimer_now_hf() - g.stats.last_flood_duration;
     if(!IS_INITIATOR()) {
       /* only count if not initiator! */
       if(g.stats.last_flood_n_rx_started) {
@@ -460,6 +461,7 @@ glossy_stop(void)
 
     /* re-enable interrupts */
     GLOSSY_ENABLE_INTERRUPTS;
+    rtimer_update_enable(1);
   }
 
   return g.n_rx;
@@ -805,15 +807,16 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
     /* we have reached N_tx_max and either N_tx_max > 1 or we are a receiver:
      * stop Glossy */
     glossy_stop();
-  } else {
+  }
 #if GLOSSY_CONF_RETRANSMISSION_TIMEOUT
+  else {
     if((IS_INITIATOR()) && (g.n_rx == 0)) {
       /* we are the initiator and we still have not received any packet:
        * schedule the timeout */
       schedule_timeout();
     }
-#endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
   }
+#endif /* GLOSSY_CONF_RETRANSMISSION_TIMEOUT */
 }
 /*---------------------------------------------------------------------------*/
 void

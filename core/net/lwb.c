@@ -871,13 +871,13 @@ BOOTSTRAP_MODE:
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* since HF clock was off, we need a new timestamp; subtract a const.
        * processing offset to adjust (if needed) */
-      t_ref_lf += (schedule.period * RTIMER_SECOND_LF + 
-                  ((int32_t)schedule.period * stats.drift / 256)) /
+      t_ref_lf += ((rtimer_clock_t)period_last * RTIMER_SECOND_LF +
+                  ((int32_t)period_last * stats.drift / 256)) /
                   LWB_CONF_TIME_SCALE;
       /* do not update t_ref here */
   #else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-      t_ref += schedule.period * (RTIMER_SECOND_HF + stats.drift / 16) /
-               LWB_CONF_TIME_SCALE;
+      t_ref += (rtimer_clock_t)period_last *
+               (RTIMER_SECOND_HF + stats.drift / 16) / LWB_CONF_TIME_SCALE;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       /* don't update schedule.time here! */
     }

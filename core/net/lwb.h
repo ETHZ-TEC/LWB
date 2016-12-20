@@ -303,10 +303,12 @@
 #error "RF_CONF_TX_BITRATE already defined!"
 #endif /* RF_CONF_TX_BITRATE */
 
-// -> defined in rf1a-core.h
 #ifndef RF_CONF_MAX_PKT_LEN
 #define RF_CONF_MAX_PKT_LEN      (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
 #endif /* RF_CONF_MAX_PKT_LEN */
+
+/* Note: if RF_CONF_MAX_PKT_LEN is <= 61, then the whole packet will fit into
+ * the RXFIFO (since length + 2 status bytes will be added by the readio) */
 
 /* error check */
 #if RF_CONF_MAX_PKT_LEN < (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)

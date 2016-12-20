@@ -420,9 +420,6 @@ ISR(TIMER0_A0, timer0_a0_interrupt)
   ENERGEST_ON(ENERGEST_TYPE_CPU);
 
   RTIMER_HF_CALLBACK(RTIMER_HF_0);
-  if(process_nevents() > 0) {
-    __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */
-  }
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
   DCSTAT_CPU_OFF;
@@ -501,7 +498,7 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
     break;
   case TA1IV_TA1IFG:
   #if RTIMER_CONF_LF_UPDATE_LED_ON
-    PIN_XOR(LED_STATUS);    /* to indicate activity */
+    PIN_SET(LED_STATUS);    /* to indicate activity */
   #endif /* RTIMER_CONF_LF_UPDATE_LED_ON */
     /* overflow of timer A1: increment its software extension */
     ta1_sw_ext++;
@@ -509,7 +506,7 @@ ISR(TIMER1_A1, timer1_a1_interrupt)
     watchdog_reset();
   #endif /* WATCHDOG */
   #if RTIMER_CONF_LF_UPDATE_LED_ON
-    PIN_XOR(LED_STATUS);    /* to indicate activity */
+    PIN_CLR(LED_STATUS);    /* to indicate activity */
   #endif /* RTIMER_CONF_LF_UPDATE_LED_ON */
     break;
   default: break;

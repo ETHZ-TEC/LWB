@@ -187,7 +187,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       DEBUG_PRINT_ERROR("out of memory: stream request dropped");
       return;
     }
-    s->id       = req->id;
+    s->id            = req->id;
     s->ipi           = req->ipi;
     s->last_assigned = time;
     s->stream_id     = req->stream_id;

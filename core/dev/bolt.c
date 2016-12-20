@@ -138,7 +138,7 @@ bolt_set_timereq_callback(void (*func)(void))
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, (rtimer_callback_t)func);
     /* configure the time request pin for port interrupt
      * (default is 'pulldown resistor' and 'trigger on rising edge') */
-    PIN_CFG_INT(BOLT_CONF_IND_PIN);
+    //PIN_CFG_INT(BOLT_CONF_IND_PIN);
   }
 }
 /*---------------------------------------------------------------------------*/

@@ -69,11 +69,7 @@
 #error "max. # of streams mustn't be bigger than max. # of data slots"
 #endif
 
-#if LWB_CONF_SCHED_PERIOD_IDLE < 3
-#error "LWB_CONF_SCHED_PERIOD_IDLE must be at least 3"
-#endif
-
-/* duration of the 'request round' in 10th of s, depends on the max. # nodes
+/* duration of the 'request round', depends on the max. # nodes
  * (= LWB_CONF_MAX_N_STREAMS) */
 #ifndef LWB_CONF_T_REQ_ROUND
 #define LWB_CONF_T_REQ_ROUND    (uint16_t)( \
@@ -81,13 +77,8 @@
                                   LWB_CONF_MAX_N_STREAMS * \
                                    (LWB_CONF_T_CONT + LWB_CONF_T_GAP) + \
                                   (RTIMER_SECOND_HF / 50)) / \
-                                 (RTIMER_SECOND_HF / LWB_CONF_PERIOD_SCALE) + \
-                                 1)
+                                 (RTIMER_SECOND_HF / LWB_CONF_PERIOD_SCALE))
 #endif /* LWB_CONF_T_REQ_ROUND */
-
-#ifndef MIN
-#define MIN(x,y)        ((x) < (y) ? (x) : (y))
-#endif /* MIN */
 
 #ifndef MAX
 #define MAX(x,y)        ((x) > (y) ? (x) : (y))
@@ -142,8 +133,6 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
       if(!s->state) {
         n_streams++;
         s->state = 1;
-        DEBUG_PRINT_VERBOSE("stream of node %u reactivated (%u pkts %u)", 
-                            req->id, req->reserved, req->stream_id);
       }
       s->n_pkts = MAX(1, req->reserved); /* # packets the node wants to send */
       exists = 1;
@@ -174,7 +163,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         break;
       }
     }
-    list_insert(streams_list, prev, s);   
+    list_insert(streams_list, prev, s);
     n_streams++;
     DEBUG_PRINT_INFO("stream of node %u added", req->id);         
   }
@@ -334,6 +323,27 @@ lwb_sched_init(lwb_schedule_t* sched)
   LWB_SCHED_SET_CONT_SLOT(sched);       /* include a contention slot */
   sched->time = time;
   sched->period = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
+  
+#ifdef LWB_CONF_SCHED_AE_SRC_NODE_CNT
+  uint16_t nodes_ids[LWB_CONF_SCHED_AE_SRC_NODE_CNT] = 
+                                          { LWB_CONF_SCHED_AE_SRC_NODE_LIST };
+ #if LWB_CONF_SCHED_AE_SRC_NODE_CNT > LWB_CONF_MAX_N_STREAMS
+ #error "LWB_CONF_SCHED_AE_SRC_NODE_CNT is too high"
+ #endif /* LWB_CONF_SCHED_AE_SRC_NODE_CNT */
+  uint16_t i;
+  for(i = 0; i < LWB_CONF_SCHED_AE_SRC_NODE_CNT; i++) {
+    lwb_stream_list_t* s = memb_alloc(&streams_memb);
+    if(s == 0) {
+      DEBUG_PRINT_ERROR("out of memory: stream not added");
+      break;
+    }
+    s->id = nodes_ids[i];
+    s->n_pkts  = 0;         /* # packets the node wants to send */
+    s->state   = 1;
+    list_push(streams_list, s);
+    n_streams++;
+  }
+#endif /* LWB_CONF_SCHED_AE_INIT_NODES */
   
   return LWB_SCHED_PKT_HEADER_LEN; /* empty schedule, no slots allocated yet */
 }
