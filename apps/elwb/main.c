@@ -29,67 +29,153 @@
  *
  * Author:  Reto Da Forno
  *          Felix Sutton
- *          Marco Zimmerling
  */
  
-/**
- * @brief Low-Power Wireless Bus Test Application
- * 
- * The AE scheduler is used in this example. It is designed for scenarios
- * where most of the time no data is transmitted, but occasionally (upon an
- * event) a node needs to send several data packets to the host (such as in
- * event driven acoustic emission sensing).
+/*
+ * eLWB app, runs on the DPP
  */
 
-#include "contiki.h"
-#include "platform.h"
-
-#define PAYLOAD_LEN             16
-
-/* use 1 or 3 source nodes (event triggers) for the original LWB? */
-#define LWB_ORIG_USE_3_SRCNODES 1
-
-/* glossy header + length byte must be added to payload length to get max.
- * pkt length */
-#if (PAYLOAD_LEN + 5) > LWB_CONF_MAX_DATA_PKT_LEN
-#error "invalid payload length"
-#endif
+#include "main.h"
 
 /*---------------------------------------------------------------------------*/
 #ifdef APP_TASK_ACT_PIN
 #define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
 #define TASK_SUSPENDED          PIN_CLR(APP_TASK_ACT_PIN)
-#else
+#else  /* APP_TASK_ACT_PIN */
 #define TASK_ACTIVE
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
-#ifdef FLOCKLAB
-#warning "----------------- COMPILED FOR FLOCKLAB -----------------"
-#endif 
 /*---------------------------------------------------------------------------*/
-uint16_t slot_node_id = 0;       /* global variable, used for debugging only */
-uint16_t cont_det_cnt = 0;
+static message_t msg_buffer;
 /*---------------------------------------------------------------------------*/
-static uint16_t pkt_buffer[(LWB_CONF_MAX_DATA_PKT_LEN + 1) / 2];
-static uint16_t pkt_cnt = 0;
-/*---------------------------------------------------------------------------*/
-#if BOLT_CONF_ON
 void
-read_message(void)
+bolt_read_msg(void)
 {
-  static uint8_t msg[128];
-  uint8_t msg_len = 0;
-  if(BOLT_DATA_AVAILABLE) {
-    BOLT_READ(msg, msg_len);
-    (void)msg_len;
-    //DEBUG_PRINT_INFO("message received from BOLT (%db)", msg_len);
-    lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-    lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-    pkt_cnt += 2;
-    //DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
+  /* uint16_t to avoid aliasing issues */
+  static uint16_t bolt_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
+  uint16_t max_ops = 10;
+  while(BOLT_DATA_AVAILABLE && max_ops) {
+    uint8_t msg_len = 0;
+    BOLT_READ((uint8_t*)bolt_buffer, msg_len);
+    if(msg_len) {
+      DEBUG_PRINT_INFO("message read from Bolt (%db)", msg_len);
+      /* correct the message length (cut excess characters) */
+      msg_len = MSG_LEN_PTR((message_t*)bolt_buffer);
+      if(msg_len > 2 && msg_len <= BOLT_CONF_MAX_MSG_LEN) {
+        /* check the CRC */
+        if(MSG_GET_CRC16((message_t*)bolt_buffer) != 
+          crc16((uint8_t*)bolt_buffer, msg_len - 2, 0)) {
+          DEBUG_PRINT_WARNING("invalid CRC (dropped)");
+        } else {
+          lwb_send_pkt(0, 1, (uint8_t*)bolt_buffer, msg_len);
+        }
+      } else {
+        DEBUG_PRINT_WARNING("invalid msg length (dropped)");
+      }
+    }
+    max_ops--;
   }
 }
-#endif /* BOLT_CONF_ON */
+/*---------------------------------------------------------------------------*/
+void
+host_run(void)
+{
+  /* print out the received data */
+  uint8_t pkt_len;
+  do {
+    pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
+    if(pkt_len) {
+      DEBUG_PRINT_INFO("msg (%u bytes) rcvd from node %u", 
+                       pkt_len, 
+                       msg_buffer.header.device_id);
+      /* verify CRC */
+      if(MSG_GET_CRC16(&msg_buffer) != 
+         crc16((uint8_t*)&msg_buffer, pkt_len - 2, 0)) {
+        DEBUG_PRINT_WARNING("invalid CRC (dropped)");
+      } else {
+        if(msg_buffer.header.type == MSG_TYPE_AE_EVENT) {
+          DEBUG_PRINT_INFO("AE event received (ID: %u, timestamp: %llu)",
+                           msg_buffer.ae_evt.event_id, 
+                           msg_buffer.ae_evt.generation_time); 
+        }
+        /* forward the packet to the app processor */
+        BOLT_WRITE((uint8_t*)&msg_buffer, pkt_len);
+      }
+    }
+  } while(pkt_len);
+  
+#if !TIMESYNC_INTERRUPT_BASED
+  rtimer_clock_t bolt_timestamp = 0;
+  if(bolt_handle_timereq(&bolt_timestamp)) { 
+    msg_buffer.header.device_id   = node_id;
+    msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+    msg_buffer.header.payload_len = sizeof(timestamp_t);
+    msg_buffer.timestamp          = bolt_timestamp;
+    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+  }
+#endif /* TIMESYNC_INTERRUPT_BASED */
+}
+/*---------------------------------------------------------------------------*/
+void
+source_run(void)
+{
+  if(lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
+    DEBUG_PRINT_INFO("pkt received");
+  }
+    
+#if !TIMESYNC_INTERRUPT_BASED
+  rtimer_clock_t bolt_timestamp = 0;
+  if(bolt_handle_timereq(&bolt_timestamp)) {
+    rtimer_clock_t local_rx_time = 0;
+    uint32_t lwb_time_secs = lwb_get_time(&local_rx_time);
+    int64_t lwb_time   = (uint64_t)lwb_time_secs * RTIMER_SECOND_HF;
+    int64_t ofs        = lwb_time - local_rx_time;
+    bolt_timestamp     = bolt_timestamp + ofs + TIMESYNC_OFS;
+    msg_buffer.header.device_id   = node_id;
+    msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+    msg_buffer.header.payload_len = sizeof(timestamp_t);
+    msg_buffer.timestamp          = bolt_timestamp;
+    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+  }
+#endif /* TIMESYNC_INTERRUPT_BASED */
+}
+/*---------------------------------------------------------------------------*/
+#if TIMESYNC_INTERRUPT_BASED
+void
+bolt_timereq_cb(void)
+{
+  /* timestamp request: calculate the timestamp and send it over BOLT */
+  rtimer_clock_t now            = rtimer_now_hf();
+  if(node_id == HOST_ID) {
+    msg_buffer.timestamp        = now - ((uint16_t)(now & 0xffff) -
+                                  BOLT_CONF_TIMEREQ_CCR);
+  } else {
+    rtimer_clock_t captured     = now - ((uint16_t)(now & 0xffff) -
+                                  BOLT_CONF_TIMEREQ_CCR);
+    /* convert the local timestamp into global (LWB) time */
+    rtimer_clock_t local_t_rx   = 0;
+    uint32_t lwb_time_secs      = lwb_get_time(&local_t_rx);
+    int64_t  lwb_time           = (uint64_t)lwb_time_secs * RTIMER_SECOND_HF;
+    int64_t  ofs                = lwb_time - local_t_rx;
+    msg_buffer.timestamp        = captured + ofs + TIMESYNC_OFS;
+    /* drift compensation */
+    const lwb_statistics_t* lwb_stats = lwb_get_stats();
+    if(lwb_stats->drift) {
+      int32_t elapsed           = (int64_t)captured - local_t_rx;
+      int16_t drift_comp        = (int16_t)(elapsed *
+                                  (int32_t)lwb_stats->drift /
+                                  (int32_t)RTIMER_SECOND_HF); 
+      msg_buffer.timestamp     -= drift_comp;
+      /* debug only */
+      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+    }
+  }
+  msg_buffer.header.device_id   = node_id;
+  msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+  msg_buffer.header.payload_len = sizeof(timestamp_t);
+  BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+}
+#endif /* TIMESYNC_INTERRUPT_BASED */
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
@@ -98,188 +184,35 @@ PROCESS_THREAD(app_process, ev, data)
 {  
   PROCESS_BEGIN();
   
-  /* start the LWB thread */
-#if defined(FLOCKLAB) || !BOLT_CONF_ON
-  lwb_start(0, &app_process);
-#else  /* FLOCKLAB */
-  lwb_start(read_message, &app_process);
-#endif /* FLOCKLAB */
-  
-#if LWB_VERSION == 1
-  
-  static lwb_stream_req_t my_stream;
-  my_stream.id = node_id;
-  my_stream.stream_id = 1;
-  my_stream.ipi = 1;
-  *my_stream.extra_data = -1;
-  
-  /* MAIN LOOP of this application task */
-  while(1) {
-    /* the app task should not do anything until it is explicitly granted 
-     * permission (by receiving a poll event) by the LWB task */
-    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-    TASK_ACTIVE;      /* application task runs now */
-        
-    if(HOST_ID == node_id) {
-      /* HOST node */
-      /* print out the received data */
-      uint16_t cnt = 0;
-      while(1) {
-        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)pkt_buffer, 0, 0);
-        if(pkt_len) {
-          cnt++;
-        } else {
-          break;
-        }
-      }
-      if(cnt) {
-        pkt_cnt += cnt;
-        DEBUG_PRINT_INFO("rcvd=%u", pkt_cnt);
-      }      
-      static uint32_t prev_time = 0;
-      static uint8_t exp_pkt = 0;
-      if(exp_pkt && (lwb_get_time(0) - prev_time) > 1) {
-        /* it's the base period -> reset all tracing pins */
-        PIN_CLR(FLOCKLAB_LED1);
-        PIN_CLR(FLOCKLAB_INT1);
-        PIN_CLR(FLOCKLAB_INT2);
-        exp_pkt = 0;
-      } else if((lwb_get_time(0) - prev_time) == 1) {
-        exp_pkt = 1;
-      }
-      prev_time = lwb_get_time(0);
-      
-    } else {
-      /* generate an event every 5th round */
-      static uint16_t round_cnt = 0;
-  #if LWB_ORIG_USE_3_SRCNODES
-      /* note: this only works if the nodes never fall back to bootstrap
-       * state (then the round_cnt will be different on the 3 nodes!) */
-      if(((round_cnt % 7) == 0) && 
-         (node_id == 6 || node_id == 22 || node_id == 28)) {
-  #else /* LWB_ORIG_USE_3_SRCNODES */
-      if(((round_cnt % 4) == 0) && (node_id == 6)) {
-  #endif /* LWB_ORIG_USE_3_SRCNODES */
-        /* stream with ID 1 active? */
-        if(lwb_stream_get_state(1) == LWB_STREAM_STATE_INACTIVE) {
-          /* request a new stream with ID 1 and IPI 1 */
-          if(!lwb_request_stream(&my_stream, 0)) {
-            DEBUG_PRINT_ERROR("stream request failed");
-          }
-          /* generate random data */
-          uint8_t i;
-          for(i = 0; i < PAYLOAD_LEN; i++) {
-            pkt_buffer[i] = (uint8_t)random_rand();  
-          }
-          /* generate an event (2 packets) */
-          lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-          lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-          pkt_cnt += 2;
-          DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
-        } else {
-          DEBUG_PRINT_WARNING("stream still active");
-        }
-      }
-      if(lwb_stream_get_state(1) == LWB_STREAM_STATE_ACTIVE
-         && !lwb_get_send_buffer_state()) {
-        /* remove the stream (silently drop!) */
-        lwb_stream_drop(1);
-      } 
-      round_cnt++;
-    }
-    TASK_SUSPENDED;
+  /* error checks */
+  if(sizeof(message_t) != MSG_PKT_LEN) {
+    DEBUG_PRINT_MSG_NOW("ERROR: message_t is too long");
   }
-     
-#else /* LWB_VERSION */
-  
-  if(node_id == 6 || node_id == 28 || node_id == 22) {
-    /* generate a dummy packet to 'register' this node at the host */
-    uint16_t id = node_id;
-    lwb_send_pkt(0, 1, (uint8_t*)&id, 2);
-    pkt_cnt++;
-  }
-  
-  /* MAIN LOOP of this application task */
-  while(1) {
-    /* the app task should not do anything until it is explicitly granted 
-     * permission (by receiving a poll event) by the LWB task */
-    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-    TASK_ACTIVE;      /* application task runs now */
-        
-    if(HOST_ID == node_id) {
-      static uint16_t pkt_cnt_node1 = 0,
-                      pkt_cnt_node2 = 0,
-                      pkt_cnt_node3 = 0,
-                      round_cnt = 0;
-      /* HOST node */
-      /* print out the received data */
-      static uint16_t pkt_cnt = 0;
-      while(1) {
-        uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)pkt_buffer, 0, 0);
-        if(pkt_len) {
-          if(pkt_buffer[0] == 6) { pkt_cnt_node1++; }
-          else if(pkt_buffer[0] == 22) { pkt_cnt_node2++; }
-          else if(pkt_buffer[0] == 28) { pkt_cnt_node3++; }
-          pkt_cnt++;
-        } else {
-          break;
-        }
-      }
-      round_cnt++;
-      if(lwb_get_time(0) == (LWB_CONF_SCHED_PERIOD_IDLE * 4)) {
-        /* reset stats */
-        round_cnt = 0;
-        cont_det_cnt = 0;
-      }
-      DEBUG_PRINT_INFO("rcvd1=%u rcvd2=%u rcvd3=%u rnd_cnt=%u cont_cnt=%u "
-                       "pkt_cnt=%u",
-                       pkt_cnt_node1, pkt_cnt_node2, pkt_cnt_node3, 
-                       round_cnt - 1, cont_det_cnt, pkt_cnt);
-      /* make sure the debug pins are in 'idle' state */
-      PIN_CLR(FLOCKLAB_LED1);
-      PIN_CLR(FLOCKLAB_INT1);
-      PIN_CLR(FLOCKLAB_INT2);
-      
-    } else {
-      static uint16_t acks_rcvd = 0;
-      /* SOURCE node */
-      if(lwb_rcv_pkt((uint8_t*)pkt_buffer, 0, 0) && *pkt_buffer == node_id) {
-        acks_rcvd++;
-        DEBUG_PRINT_INFO("ack=%u", acks_rcvd);
-      } 
-      //memset(pkt_buffer, 0xf0, PAYLOAD_LEN);
-      /* random data */
-      uint8_t i;
-      for(i = 0; i < PAYLOAD_LEN; i++) {
-        pkt_buffer[i] = (uint8_t)random_rand();  
-      }
-      pkt_buffer[0] = node_id;  /* let the first byte be the node ID */
-  #ifdef FLOCKLAB
-      /* initiator nodes start to send data after a certain time */
-      if((node_id == 6 || node_id == 28 || node_id == 22) && 
-         lwb_get_time(0) > (LWB_CONF_SCHED_PERIOD_IDLE * 4)) {
-        /* generate an event */
-        lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        lwb_send_pkt(0, 1, (uint8_t*)pkt_buffer, PAYLOAD_LEN);
-        pkt_cnt += 2;
-        DEBUG_PRINT_INFO("sent=%u", pkt_cnt);
-      }
-  #endif /* FLOCKLAB */
-    }
-    
-    /* IMPORTANT: This process must not run for more than a few hundred
-     * milliseconds in order to enable proper operation of the LWB */
-    
-    /* since this process is only executed at the end of an LWB round, we 
-     * can now configure the MCU for minimal power dissipation for the idle
-     * period until the next round starts */
-  #if FRAM_CONF_ON
-    fram_sleep();
-  #endif /* FRAM_CONF_ON */
+  /* start the LWB thread with a pre and post processing task */
+  lwb_start(bolt_read_msg, &app_process);
 
+#if TIMESYNC_INTERRUPT_BASED
+  bolt_set_timereq_callback(bolt_timereq_cb);
+#endif /* TIMESYNC_INTERRUPT_BASED */
+  
+  /* main loop of the application task */
+  while(1) {
+    /* the app task should not do anything until it is explicitly granted 
+     * permission (by receiving a poll event) by the LWB task */
+    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+    TASK_ACTIVE;      /* application task runs now */
+        
+    if(HOST_ID == node_id) {
+      host_run();
+    } else {
+      source_run();
+    }
+
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+    LWB_BEFORE_DEEPSLEEP();     /* prepare to go to LPM3 */
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     TASK_SUSPENDED;
   }
-#endif /* LWB_VERSION */
 
   PROCESS_END();
 }

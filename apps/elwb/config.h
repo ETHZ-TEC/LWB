@@ -44,39 +44,28 @@
 
 #define HOST_ID                         1
 #ifndef FLOCKLAB
-  #define NODE_ID                       6
+  #define NODE_ID                       1
 #endif
 
 //#define FRAM_CONF_ON                  1
 
+
 /* --- RF config --- */
 
 #define RF_CONF_TX_CH                   5
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_MINUS_6_dBm
+
 
 /* --- LWB config --- */
 
 #define LWB_VERSION                     0  /* override default LWB impl. */
-#define LWB_CONF_USE_LF_FOR_WAKEUP      1  /* do NOT change */
-/* scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      5  /* define the base period length */
-#if LWB_VERSION == 1
-  #define LWB_SCHED_MIN_ENERGY
-  #define LWB_CONF_SCHED_PERIOD_MAX     LWB_CONF_SCHED_PERIOD_IDLE
-  #define LWB_CONF_SCHED_PERIOD_MIN     1
-  #define LWB_CONF_SCHED_STREAM_REMOVAL_THRES  0
-  #define LWB_CONF_T_SCHED2_START       (RTIMER_SECOND_HF / 2)
-  #define LWB_CONF_MAX_CONT_BACKOFF     0           /* contend in each round */
-  #define LWB_CONF_T_CONT               (RTIMER_SECOND_HF / 200) /* 5ms */
-#else /* LWB_VERSION */
-  #define LWB_SCHED_AE                             /* use the 'AE' scheduler */
-  #define LWB_CONF_T_CONT               (RTIMER_SECOND_HF / 250) /* 4ms */
-#endif /* LWB_VERSION */
-//#define LWB_CONF_SACK_SLOT            1           /* 1 = enable S-ACK slot */
-/* buffer sizes */
+#define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
+#define LWB_SCHED_AE                               /* use the 'AE' scheduler */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
 #define LWB_CONF_MAX_DATA_SLOTS         6
-#define LWB_CONF_MAX_PKT_LEN            63 /* incl. Glossy hdr + length byte */
-#define LWB_CONF_MAX_N_STREAMS          3    /* equals max.# number of nodes */ 
+#define LWB_CONF_MAX_PKT_LEN            56
+#define LWB_CONF_MAX_N_STREAMS          3     /* equals max. number of nodes */ 
 #define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
 #if defined(FLOCKLAB) || HOST_ID == NODE_ID
   /* on the desk */
@@ -93,6 +82,18 @@
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
 #define LWB_CONF_T_PREPROCESS           20    /* in ms */
 
+#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
+#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 13,25
+
+
+/* --- BOLT --- */
+#define BOLT_CONF_MAX_MSG_LEN           64
+#define BOLT_CONF_TIMEREQ_ENABLE        1
+#define BOLT_CONF_TIMEREQ_HF_MODE       1
+#define TIMESYNC_INTERRUPT_BASED        1
+#define TIMESYNC_OFS                    -193         /* const offset to host */
+
+
 /* --- DEBUG config --- */
 
 #define DEBUG_PRINT_CONF_ON             1
@@ -101,57 +102,9 @@
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_TRACING_ON                1
 /* pins */
-//#define GLOSSY_START_PIN                FLOCKLAB_LED3
+#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
+#define DEBUG_PRINT_TASK_ACT_PIN        COM_MCU_INT2
+#define APP_TASK_ACT_PIN                COM_MCU_INT2
 
-//#define RF_GDO2_PIN                   FLOCKLAB_LED3
-//#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT1
-//#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_INT1
-//#define APP_TASK_ACT_PIN              FLOCKLAB_INT1
-//#define RF_GDO2_PIN                   FLOCKLAB_INT2
-
-/* tracing */
-#if DEBUG_TRACING_ON
-  /* SOURCE node: generate a pulse before a request or data packet is sent */
-  #define LWB_REQ_IND_PIN               FLOCKLAB_LED1
-  #define LWB_DATA_IND_PIN              FLOCKLAB_LED1
-  
-  /* nasty hack, for debugging only; idea is to have 3 different pins (one for
-   * each source node) which all assert when a contention (request) is detected
-   * and deassert individually upon successful reception of the data packet 
-   * from that node */
-  /* code that will be executed...
-   * ... upon 1st successful packet reception during a glossy flood (all nodes)
-   * ... when a request was detected during a contention slot (host node only)
-   * ... before a data slot starts (host node only) */
-  #define GLOSSY_FIRST_RX       { if((slot_node_id) == 6) {\
-                                    PIN_CLR(FLOCKLAB_LED1);\
-                                  } else if ((slot_node_id) == 22) {\
-                                    PIN_CLR(FLOCKLAB_INT1);\
-                                  } else if ((slot_node_id) == 28) {\
-                                    PIN_CLR(FLOCKLAB_INT2);\
-                                  }\
-                                  slot_node_id = 0;\
-                                }  
-  #define LWB_REQ_DETECTED      { if(PIN_GET(FLOCKLAB_LED1) == 0 &&\
-                                     PIN_GET(FLOCKLAB_INT1) == 0 &&\
-                                     PIN_GET(FLOCKLAB_INT2) == 0) {\
-                                  PIN_SET(FLOCKLAB_LED1);\
-                                  PIN_SET(FLOCKLAB_INT1);\
-                                  PIN_SET(FLOCKLAB_INT2);\
-                                  cont_det_cnt++; }}
-  /* slot_node_id is only set when one pkt was already rcvd from that node */
-  #define LWB_DATA_SLOT_STARTS  { if((i > 0) && (schedule.slot[i - 1] \
-                                     == schedule.slot[i]) && LWB_DATA_RCVD) {\
-                                    slot_node_id = schedule.slot[i];\
-                                  } else {\
-                                    slot_node_id = 0;\
-                                  } }
-#endif /* DEBUG_TRACING_ON */
-
-
-/* --- GLOBAL variables --- */
-
-extern uint16_t slot_node_id;   /* for debugging/tracing only */
-extern uint16_t cont_det_cnt;
 
 #endif /* __CONFIG_H__ */
