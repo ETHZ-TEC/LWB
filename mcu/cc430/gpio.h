@@ -167,11 +167,11 @@
  */
 #define PIN_XOR(p)                      PIN_XOR_I(p)
 /**
- * @brief set a (port, pin) output, i.e. push it's output signal high
+ * @brief set a (port, pin) output, i.e. push its output signal high
  */
 #define PIN_SET(p)                      PIN_SET_I(p)
 /**
- * @brief clear a (port, pin) output, i.e. pull it's output signal low
+ * @brief clear a (port, pin) output, i.e. pull its output signal low
  */
 #define PIN_CLR(p)                      PIN_CLR_I(p)
 /**

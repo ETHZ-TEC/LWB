@@ -248,8 +248,8 @@
                                   ENABLE_XT2(); \
                                   WAIT_FOR_OSC(); \
                                   UCSCTL4  = SELA | SELS | SELM; \
-                                  __delay_cycles(100); /* errata PMM11/12? */\
-                                  UCSCTL5  = DIVA | DIVS | DIVM; \
+                                  /*__delay_cycles(100);*/ /* errata PMM11/12? */\
+                                  /*UCSCTL5  = DIVA | DIVS | DIVM;*/ \
                                   UCSCTL7  = 0; /* errata UCS11 */ \
                                   SFRIE1  |= OFIE; \
                                   TA0CTL  |= MC_2; \
@@ -269,7 +269,6 @@
                                   /* set clock source to DCO */\
                                   UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
                                             SELM__DCOCLKDIV; \
-                                  UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
                                   UCSCTL7  = 0; \
                                   DISABLE_XT2(); \
                                 }

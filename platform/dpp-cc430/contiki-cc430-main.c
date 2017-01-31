@@ -112,7 +112,6 @@ main(int argc, char **argv)
   /* don't set P1.5/P1.6 (UART) and BOLT IND pins (P1.1 and P2.2) as output! */
   P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT7);
   PORT_CLR_I(1);
-  /* don't set the BOLT IND pin as outputs! */
   P2DIR = (BIT0 | BIT1 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
   PORT_CLR_I(2);
   PORT_CFG_OUT_I(3);

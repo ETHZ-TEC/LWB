@@ -327,8 +327,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       if(to_assign > LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned) {
         to_assign = LWB_CONF_MAX_DATA_SLOTS - n_slots_assigned;
       }
-      curr_stream->last_assigned += (to_assign - curr_stream->n_cons_missed) *
-                                    curr_stream->ipi;
+      curr_stream->last_assigned += to_assign * curr_stream->ipi;
       for(; to_assign > 0; to_assign--, n_slots_assigned++) {
         slots_tmp[n_slots_assigned] = curr_stream->id;
         streams[n_slots_assigned] = curr_stream;
