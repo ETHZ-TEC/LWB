@@ -34,19 +34,25 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x010a
+#define FW_VERSION      0x010b
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
 
-Feature Suggestions:
-- include an accuracy indicator with the generation_time (depending on the
-  time that has elapsed since the last sync)
-
-
-
 Revision History
 ----------------
+
+Changes in v1.11 (2016-12-22):
+- change:  clock dividers in LWB_BEFORE_DEEPSLEEP now unchanged (yields a
+           faster MCLK speed of ~6.2MHz between rounds for the ISR execution
+           and still doesn't exceed the max. allowed speed due to errata PMM11)
+- change:  __delay_cycles(100) removed from LWB_AFTER_DEEPSLEEP since the DIVx
+           is not changed anymore
+- change:  increasing number of slots (if no packet received from a node)
+           removed from sched-static.c
+- change:  SEND_HEALTH_DATA #ifdef region in source-node.c changed + stream
+           allocation slightly adjusted
+- bugfix:  pointer aliasing problem in lwb_in_buffer_put() fixed
 
 Changes in v1.10 (2016-12-09):
 - change:  PIN_XOR replaced by PIN_SET/CLR for RTIMER_CONF_LF_UPDATE_LED_ON and

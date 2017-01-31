@@ -47,8 +47,10 @@ static uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
 void
 host_run(void)
 {
+#if SEND_HEALTH_DATA
   static uint32_t t_last_health_pkt = 0;
   static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
+#endif /* SEND_HEALTH_DATA */
   static uint16_t rcv_cnt           = 0;
   message_t msg;
 
@@ -106,9 +108,11 @@ host_run(void)
               DEBUG_PRINT_INFO("LWB period set to %us", msg.comm_cmd.value);
             }
             break;
+#if SEND_HEALTH_DATA
           case COMM_CMD_LWB_SET_HEALTH_PERIOD:
             health_period = msg.comm_cmd.value; /* adjust own health period */
             break;
+#endif /* SEND_HEALTH_DATA */
           case COMM_CMD_LWB_PAUSE:
             /* stop */
             while(BOLT_DATA_AVAILABLE) {        /* flush the queue */

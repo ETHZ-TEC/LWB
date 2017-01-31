@@ -53,11 +53,7 @@ PROCESS_THREAD(app_process, ev, data)
   /* --- check parameters ---
    * (for debugging only, compiler will exclude this code from the assembly) */
 
-  if(sizeof(comm_health_t) > MSG_PAYLOAD_LEN ||
-     sizeof(comm_cmd_t) > MSG_PAYLOAD_LEN    ||
-     sizeof(node_info_t) > MSG_PAYLOAD_LEN   ||
-     sizeof(log_event_t) > MSG_PAYLOAD_LEN   ||
-     sizeof(message_t) != MSG_PKT_LEN) {
+  if(sizeof(message_t) != MSG_PKT_LEN) {
     DEBUG_PRINT_MSG_NOW("ERROR: invalid struct message_t");
   }
 
@@ -93,9 +89,9 @@ PROCESS_THREAD(app_process, ev, data)
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-#ifdef APP_TASK_ACT_PIN
+  #ifdef APP_TASK_ACT_PIN
     PIN_SET(APP_TASK_ACT_PIN);
-#endif /* APP_TASK_ACT_PIN */
+  #endif /* APP_TASK_ACT_PIN */
     
     if(HOST_ID == node_id && !FLOCKLAB_SRC_NODE) {
       host_run();
@@ -106,13 +102,13 @@ PROCESS_THREAD(app_process, ev, data)
     /* since this process is only executed at the end of an LWB round, we 
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */
-#if LWB_CONF_USE_LF_FOR_WAKEUP
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_BEFORE_DEEPSLEEP();
-#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
-#ifdef APP_TASK_ACT_PIN
+  #ifdef APP_TASK_ACT_PIN
     PIN_CLR(APP_TASK_ACT_PIN);
-#endif /* APP_TASK_ACT_PIN */
+  #endif /* APP_TASK_ACT_PIN */
   } /* --- end of application main loop --- */
 
   PROCESS_END();

@@ -72,6 +72,9 @@ typedef enum {
   MSG_TYPE_COMM_HEALTH = 11,
 
   MSG_TYPE_APP_FW = 50, /* application processor FW update */
+
+  MSG_TYPE_AE_EVENT = 160,
+  MSG_TYPE_AE_DATA = 161,
 } message_type_t;
 
 
@@ -191,7 +194,7 @@ typedef struct {
   union {
     uint8_t        payload[MSG_EXT_PAYLOAD_LEN + 2];  /* raw bytes */
   };
-} message_ext_t;
+} message_min_t;
 
 #define MSG_EXT_SET_CRC16(msg, crc) \
   (msg)->payload[(msg)->header.payload_len] = crc & 0xff; \

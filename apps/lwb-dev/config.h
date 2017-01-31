@@ -89,6 +89,7 @@
   #define LOG_CONF_TARGET               LOG_TARGET_LWB
 #endif /* LOG_CONF_ON */
 //#define SVS_CONF_ON                   1
+//#define FRAM_CONF_ON                  0
 
 /* DEBUG config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO

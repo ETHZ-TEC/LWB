@@ -39,31 +39,29 @@
 void
 source_run(void)
 {
+  message_t msg;
+  static uint16_t last_error_cnt    = 0;
+  static uint8_t  bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
+  static uint8_t  ipi_changed       = 0;
+  static uint16_t curr_period       = LWB_CONF_SCHED_PERIOD_IDLE;
+
 #if SEND_HEALTH_DATA
-  static uint8_t bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
-  static lwb_stream_req_t health_stream = { 0, 0, STREAM_ID,
-                                            LWB_CONF_SCHED_PERIOD_IDLE };
   static uint32_t t_last_health_pkt = 0;
   static uint32_t curr_time         = 0;
-  static uint16_t health_period     = LWB_CONF_SCHED_PERIOD_IDLE;
-  static uint8_t  ipi_changed       = 1;
   static uint8_t  node_info_sent    = 0;
-  static uint16_t last_error_cnt    = 0;
-  message_t msg;
-  health_stream.id = node_id;
 
   curr_time = rtimer_now_lf() / RTIMER_SECOND_LF;
 
   /* adjust the IPI in case the fill level of the output queue reaches a
    * certain threshold */
-  if(health_stream.ipi == health_period) {
+  if(health_stream.ipi == curr_period) {
     if(lwb_get_send_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
-      health_stream.ipi = health_period / 2; /* reduce the IPI */
+      health_stream.ipi = curr_period / 2; /* reduce the IPI */
       ipi_changed = 1;
     }
   } else if(lwb_get_send_buffer_state() < 2) {
     /* only 0 or 1 element left in the queue -> set IPI back to default */
-    health_stream.ipi = health_period;
+    health_stream.ipi = curr_period;
     ipi_changed = 1;
   }
 
@@ -77,7 +75,7 @@ source_run(void)
                (uint8_t*)&msg.node_info, 0, 0);
       node_info_sent = 1;
     }
-    if((curr_time - t_last_health_pkt) >= health_period) {
+    if((curr_time - t_last_health_pkt) >= curr_period) {
       /* generate a node health packet and schedule it for transmission */
       get_node_health(&msg.comm_health);
       send_msg(DEVICE_ID_SINK, MSG_TYPE_COMM_HEALTH,
@@ -85,7 +83,10 @@ source_run(void)
       t_last_health_pkt = curr_time;
       DEBUG_PRINT_INFO("health packet generated");
     }
+  } else {
+    ipi_changed = 1;
   }
+#endif /* SEND_HEALTH_DATA */
 
   /* is there a packet to read? */
   uint8_t   count = 0;
@@ -95,12 +96,14 @@ source_run(void)
        msg.header.target_id == DEVICE_ID_BROADCAST) {
       if(msg.header.type == MSG_TYPE_COMM_CMD) {
         switch(msg.comm_cmd.type) {
+#if SEND_HEALTH_DATA
         case COMM_CMD_LWB_SET_HEALTH_PERIOD:
           /* change health/status report interval */
-          health_period = msg.comm_cmd.value;
+          curr_period = msg.comm_cmd.value;
           health_stream.ipi = msg.comm_cmd.value;
           ipi_changed = 1;
           break;
+#endif /* SEND_HEALTH_DATA */
         case COMM_CMD_LWB_SET_TX_PWR:
           if(msg.comm_cmd.value < N_TX_POWER_LEVELS) {
             rf1a_set_tx_power((rf1a_tx_powers_t)msg.comm_cmd.value);
@@ -138,6 +141,7 @@ source_run(void)
       } else {
         DEBUG_PRINT_INFO("message from BOLT forwarded to LWB");
       }
+      ipi_changed = 1;    /* force a stream request */
     }
   }
 
@@ -148,11 +152,12 @@ source_run(void)
   }
 
   if(ipi_changed) {
-    if(!lwb_request_stream(&health_stream, 0)) {
+    lwb_stream_req_t stream = { 0, 0, STREAM_ID, curr_period };
+    stream.id = node_id;
+    if(!lwb_request_stream(&stream, 0)) {
       DEBUG_PRINT_ERROR("stream request failed");
     }
     ipi_changed = 0;
   }
-#endif /* SEND_HEALTH_DATA */
 }
 /*---------------------------------------------------------------------------*/
