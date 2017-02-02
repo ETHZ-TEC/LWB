@@ -187,6 +187,7 @@ static lwb_sync_state_t sync_state;
 static rtimer_clock_t   rx_timestamp;
 static uint32_t         global_time;
 static lwb_statistics_t stats = { 0 };
+static uint8_t          running = 0;
 /* allocate memory in the SRAM (+1 to store the message length) */
 static uint8_t          in_buffer_mem[LWB_CONF_IN_BUFFER_SIZE * 
                                       (LWB_CONF_MAX_DATA_PKT_LEN + 1)];  
@@ -355,6 +356,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   /* initialization specific to the host node */
   schedule_len = lwb_sched_init(&schedule);
   sync_state = SYNCED;  /* the host is always 'synced' */
+  running = 1;
   
   rtimer_reset();
   rt->time = 0;
@@ -531,6 +533,14 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
      #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     #endif /* LWB_CONF_T_PREPROCESS */
     }
+
+    if(!running) {
+      // yield LWB task indefinitely
+      LWB_TASK_SUSPENDED;
+      PT_YIELD(&lwb_pt);
+      t_preprocess = 0;
+      continue;
+    }
     
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* suspend this task and wait for the next round */
@@ -565,7 +575,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint32_t t_preprocess = 0;
   static uint8_t slot_idx;
   static uint8_t payload_len;
-  //static uint8_t node_registered = 1;   /* host knows about this node? */
   static const void* callback_func = lwb_thread_src;
   
   PT_BEGIN(&lwb_pt);
@@ -573,6 +582,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   memset(&schedule, 0, sizeof(schedule)); 
   
   sync_state = BOOTSTRAP;
+  running = 1;
   
   while(1) {
     
@@ -604,9 +614,11 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         LWB_RCV_SCHED();
         if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT) {
           DEBUG_PRINT_MSG_NOW("communication timeout, going to sleep...");
+          running = 0;
           LWB_BEFORE_DEEPSLEEP();
           LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
           t_ref = rtimer_now_hf();
+          running = 1;
           DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
           /* alternative: implement a host failover policy */
         }
@@ -836,6 +848,15 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* erase the schedule (slot allocations only) */
     memset(&schedule.slot, 0, sizeof(schedule.slot));
     
+    if(!running) {
+      // yield LWB task indefinitely
+      LWB_TASK_SUSPENDED;
+      PT_YIELD(&lwb_pt);
+      t_preprocess = 0;
+      sync_state = BOOTSTRAP;   // reset state machine
+      continue;
+    }
+
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + (schedule.period * RTIMER_SECOND_LF) /
                       LWB_CONF_PERIOD_SCALE - 
@@ -847,6 +868,31 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   }
 
   PT_END(&lwb_pt);
+}
+/*---------------------------------------------------------------------------*/
+void
+lwb_pause(void)
+{
+  running = 0;
+}
+/*---------------------------------------------------------------------------*/
+void
+lwb_resume(void)
+{
+  if(!running) {
+    running = 1;
+    rtimer_clock_t start = (LWB_CONF_USE_LF_FOR_WAKEUP ?
+                            (rtimer_now_lf() + RTIMER_SECOND_LF / 10) :
+                            (rtimer_now_hf() + RTIMER_SECOND_HF / 10));
+    rtimer_id_t timer = (LWB_CONF_USE_LF_FOR_WAKEUP ? LWB_CONF_LF_RTIMER_ID :
+                         LWB_CONF_RTIMER_ID);
+    if((node_id == HOST_ID)) {
+      /* note: must add at least some clock ticks! */
+      rtimer_schedule(timer, start, 0, lwb_thread_host);
+    } else {
+      rtimer_schedule(timer, start, 0, lwb_thread_src);
+    }
+  }
 }
 /*---------------------------------------------------------------------------*/
 /* define the process control block */
@@ -861,23 +907,15 @@ PROCESS_THREAD(lwb_process, ev, data)
   fifo_init(&in_buffer, (uint16_t)in_buffer_mem);
   fifo_init(&out_buffer, (uint16_t)out_buffer_mem); 
 
+
 #ifdef LWB_CONF_TASK_ACT_PIN
   PIN_CFG_OUT(LWB_CONF_TASK_ACT_PIN);
   PIN_CLR(LWB_CONF_TASK_ACT_PIN);
 #endif /* LWB_CONF_TASK_ACT_PIN */
   
   PT_INIT(&lwb_pt); /* initialize the protothread */
- 
-  if((node_id == HOST_ID)) {
-    /* note: must add at least some clock ticks! */
-    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
-                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
-                    0, lwb_thread_host);
-  } else {
-    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
-                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
-                    0, lwb_thread_src);
-  }
+
+  lwb_resume();
 
   PROCESS_END();
 }

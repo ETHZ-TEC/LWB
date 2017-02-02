@@ -46,32 +46,72 @@
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
-static message_t msg_buffer;
+static message_min_t msg_buffer;
+/*---------------------------------------------------------------------------*/
+void
+process_message(message_min_t* msg)
+{
+  /* verify CRC */
+  if(MSG_GET_CRC16(msg) !=
+     crc16((uint8_t*)msg, MSG_LEN_PTR(msg) - 2, 0)) {
+    DEBUG_PRINT_WARNING("invalid CRC (dropped)");
+    return;
+  }
+  /* check message length */
+  uint16_t msg_len = MSG_LEN_PTR(msg);
+  if(msg_len > MSG_PKT_LEN) {
+    DEBUG_PRINT_WARNING("invalid message length (dropped)");
+    return;
+  }
+  /* check message type */
+  if((msg->header.type & MSG_TYPE_MIN) == 0) {
+    // not supported message type!
+    DEBUG_PRINT_WARNING("message type not supported!");
+    return;
+  }
+  msg->header.type &= ~MSG_TYPE_MIN;    // clear the last bit
+  /* handle message */
+  if(msg->header.type == MSG_TYPE_COMM_CMD) {
+    DEBUG_PRINT_INFO("command received");
+    switch(msg->comm_cmd.type) {
+    case COMM_CMD_LWB_PAUSE:
+      lwb_pause();
+      DEBUG_PRINT_INFO("LWB paused");
+      break;
+    default:
+      /* unknown command */
+      break;
+    }
+  } else if(msg->header.type == MSG_TYPE_AE_EVENT) {
+    if(node_id == HOST_ID) {
+      // host shall forward these packets to Bolt
+      DEBUG_PRINT_INFO("AE event received (ID: %u, timestamp: %llu)",
+                       msg->ae_evt.event_id,
+                       msg->ae_evt.generation_time);
+      /* forward the packet to the app processor */
+      BOLT_WRITE((uint8_t*)msg, MSG_LEN_PTR(msg));
+    } else
+    {
+      // source node shall forward these packets to LWB
+      lwb_send_pkt(0, 1, (uint8_t*)msg, MSG_LEN_PTR(msg));
+    }
+  } else {
+    DEBUG_PRINT_INFO("unknown message type received");
+  }
+}
 /*---------------------------------------------------------------------------*/
 void
 bolt_read_msg(void)
 {
   /* uint16_t to avoid aliasing issues */
-  static uint16_t bolt_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
+  static uint16_t read_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
   uint16_t max_ops = 10;
   while(BOLT_DATA_AVAILABLE && max_ops) {
     uint8_t msg_len = 0;
-    BOLT_READ((uint8_t*)bolt_buffer, msg_len);
+    BOLT_READ((uint8_t*)read_buffer, msg_len);
     if(msg_len) {
       DEBUG_PRINT_INFO("message read from Bolt (%db)", msg_len);
-      /* correct the message length (cut excess characters) */
-      msg_len = MSG_LEN_PTR((message_t*)bolt_buffer);
-      if(msg_len > 2 && msg_len <= BOLT_CONF_MAX_MSG_LEN) {
-        /* check the CRC */
-        if(MSG_GET_CRC16((message_t*)bolt_buffer) != 
-          crc16((uint8_t*)bolt_buffer, msg_len - 2, 0)) {
-          DEBUG_PRINT_WARNING("invalid CRC (dropped)");
-        } else {
-          lwb_send_pkt(0, 1, (uint8_t*)bolt_buffer, msg_len);
-        }
-      } else {
-        DEBUG_PRINT_WARNING("invalid msg length (dropped)");
-      }
+      process_message((message_min_t*)read_buffer);
     }
     max_ops--;
   }
@@ -88,19 +128,7 @@ host_run(void)
       DEBUG_PRINT_INFO("msg (%u bytes) rcvd from node %u", 
                        pkt_len, 
                        msg_buffer.header.device_id);
-      /* verify CRC */
-      if(MSG_GET_CRC16(&msg_buffer) != 
-         crc16((uint8_t*)&msg_buffer, pkt_len - 2, 0)) {
-        DEBUG_PRINT_WARNING("invalid CRC (dropped)");
-      } else {
-        if(msg_buffer.header.type == MSG_TYPE_AE_EVENT) {
-          DEBUG_PRINT_INFO("AE event received (ID: %u, timestamp: %llu)",
-                           msg_buffer.ae_evt.event_id, 
-                           msg_buffer.ae_evt.generation_time); 
-        }
-        /* forward the packet to the app processor */
-        BOLT_WRITE((uint8_t*)&msg_buffer, pkt_len);
-      }
+      process_message(&msg_buffer);
     }
   } while(pkt_len);
   
@@ -121,6 +149,7 @@ source_run(void)
 {
   if(lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
     DEBUG_PRINT_INFO("pkt received");
+    process_message(&msg_buffer);
   }
     
 #if !TIMESYNC_INTERRUPT_BASED
@@ -132,7 +161,7 @@ source_run(void)
     int64_t ofs        = lwb_time - local_rx_time;
     bolt_timestamp     = bolt_timestamp + ofs + TIMESYNC_OFS;
     msg_buffer.header.device_id   = node_id;
-    msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+    msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
     msg_buffer.timestamp          = bolt_timestamp;
     BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
@@ -144,36 +173,58 @@ source_run(void)
 void
 bolt_timereq_cb(void)
 {
-  /* timestamp request: calculate the timestamp and send it over BOLT */
-  rtimer_clock_t now            = rtimer_now_hf();
-  if(node_id == HOST_ID) {
-    msg_buffer.timestamp        = now - ((uint16_t)(now & 0xffff) -
-                                  BOLT_CONF_TIMEREQ_CCR);
+  /* TRQ ISR (CCR interrupt) */
+
+  /* start the HFXT Osc. if necessary */
+  if(UCSCTL6 & XT2OFF) {
+    ENABLE_XT2();
+    WAIT_FOR_OSC();
+    UCSCTL4  = SELA | SELS | SELM;
+    /*__delay_cycles(100);*/ /* errata PMM11/12? */
+    /*UCSCTL5  = DIVA | DIVS | DIVM;*/
+    UCSCTL7  = 0; /* errata UCS11 */
+    TA0CTL   = TASSEL_2 | MC_2 | ID__1 | TACLR | TAIE;
+    P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+
+    DEBUG_PRINT_MSG_NOW("wakeup from LPM via TRQ");
+
   } else {
-    rtimer_clock_t captured     = now - ((uint16_t)(now & 0xffff) -
-                                  BOLT_CONF_TIMEREQ_CCR);
-    /* convert the local timestamp into global (LWB) time */
-    rtimer_clock_t local_t_rx   = 0;
-    uint32_t lwb_time_secs      = lwb_get_time(&local_t_rx);
-    int64_t  lwb_time           = (uint64_t)lwb_time_secs * RTIMER_SECOND_HF;
-    int64_t  ofs                = lwb_time - local_t_rx;
-    msg_buffer.timestamp        = captured + ofs + TIMESYNC_OFS;
-    /* drift compensation */
-    const lwb_statistics_t* lwb_stats = lwb_get_stats();
-    if(lwb_stats->drift) {
-      int32_t elapsed           = (int64_t)captured - local_t_rx;
-      int16_t drift_comp        = (int16_t)(elapsed *
+
+    /* timestamp request: calculate the timestamp and send it over BOLT */
+    rtimer_clock_t now            = rtimer_now_hf();
+    if(node_id == HOST_ID) {
+      msg_buffer.timestamp        = now - ((uint16_t)(now & 0xffff) -
+                                    BOLT_CONF_TIMEREQ_CCR);
+    } else {
+      rtimer_clock_t captured     = now - ((uint16_t)(now & 0xffff) -
+                                    BOLT_CONF_TIMEREQ_CCR);
+      /* convert the local timestamp into global (LWB) time */
+      rtimer_clock_t local_t_rx   = 0;
+      uint32_t lwb_time_secs      = lwb_get_time(&local_t_rx);
+      int64_t  lwb_time         = (uint64_t)lwb_time_secs * RTIMER_SECOND_HF;
+      int64_t  ofs              = lwb_time - local_t_rx;
+      msg_buffer.timestamp      = captured + ofs + TIMESYNC_OFS;
+      /* drift compensation */
+      const lwb_statistics_t* lwb_stats = lwb_get_stats();
+      if(lwb_stats->drift) {
+        int32_t elapsed         = (int64_t)captured - local_t_rx;
+        int16_t drift_comp      = (int16_t)(elapsed *
                                   (int32_t)lwb_stats->drift /
-                                  (int32_t)RTIMER_SECOND_HF); 
-      msg_buffer.timestamp     -= drift_comp;
-      /* debug only */
-      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+                                  (int32_t)RTIMER_SECOND_HF);
+        msg_buffer.timestamp   -= drift_comp;
+        /* debug only */
+        //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+      }
     }
+    msg_buffer.header.device_id   = node_id;
+    msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
+    msg_buffer.header.payload_len = sizeof(timestamp_t);
+    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+
+    DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
   }
-  msg_buffer.header.device_id   = node_id;
-  msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
-  msg_buffer.header.payload_len = sizeof(timestamp_t);
-  BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+
+  lwb_resume();
 }
 #endif /* TIMESYNC_INTERRUPT_BASED */
 /*---------------------------------------------------------------------------*/
@@ -185,16 +236,17 @@ PROCESS_THREAD(app_process, ev, data)
   PROCESS_BEGIN();
   
   /* error checks */
-  if(sizeof(message_t) != MSG_PKT_LEN) {
-    DEBUG_PRINT_MSG_NOW("ERROR: message_t is too long");
+  if(sizeof(message_min_t) != MSG_PKT_LEN) {
+    DEBUG_PRINT_MSG_NOW("ERROR: message_min_t is too long");
   }
-  /* start the LWB thread with a pre and post processing task */
-  lwb_start(bolt_read_msg, &app_process);
 
 #if TIMESYNC_INTERRUPT_BASED
   bolt_set_timereq_callback(bolt_timereq_cb);
 #endif /* TIMESYNC_INTERRUPT_BASED */
   
+  /* start the LWB thread with a pre and post processing task */
+  lwb_start(bolt_read_msg, &app_process);
+
   /* main loop of the application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 

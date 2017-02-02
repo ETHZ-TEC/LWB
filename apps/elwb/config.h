@@ -59,7 +59,7 @@
 /* --- LWB config --- */
 
 #define LWB_VERSION                     0  /* override default LWB impl. */
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
 #define LWB_SCHED_AE                               /* use the 'AE' scheduler */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
@@ -68,7 +68,6 @@
 #define LWB_CONF_MAX_N_STREAMS          3     /* equals max. number of nodes */ 
 #define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
 #if defined(FLOCKLAB) || HOST_ID == NODE_ID
-  /* on the desk */
   #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
   #define LWB_CONF_OUT_BUFFER_SIZE      2
 #else
@@ -89,7 +88,7 @@
 /* --- BOLT --- */
 #define BOLT_CONF_MAX_MSG_LEN           64
 #define BOLT_CONF_TIMEREQ_ENABLE        1
-#define BOLT_CONF_TIMEREQ_HF_MODE       1
+#define BOLT_CONF_TIMEREQ_HF_MODE       0              /* low precision mode */
 #define TIMESYNC_INTERRUPT_BASED        1
 #define TIMESYNC_OFS                    -193         /* const offset to host */
 

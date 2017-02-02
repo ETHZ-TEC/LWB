@@ -167,11 +167,9 @@ main(int argc, char **argv)
   /* set the node ID */
 #ifndef NODE_ID
   node_id = TOS_NODE_ID;
-  printf(CONTIKI_VERSION_STRING " started. Node ID not set.\r\n");
-#else /* NODE_ID */
+#endif /* NODE_ID */
   printf(CONTIKI_VERSION_STRING " started. Node ID is set to %u.\r\n",
          node_id);
-#endif /* NODE_ID */
 
 #if FRAM_CONF_ON
   if (!fram_init()) {

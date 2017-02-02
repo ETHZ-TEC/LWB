@@ -45,21 +45,39 @@
 #define MSG_LEN(m)      ((m).header.payload_len + MSG_HDR_LEN + 2)
 #define MSG_LEN_PTR(m)  ((m)->header.payload_len + MSG_HDR_LEN + 2)
 
-/* special (reserved) device IDs */
-#define DEVICE_ID_SINK        0
-#define DEVICE_ID_BROADCAST   0xffff
-
 
 /* the message type (7 bits available, MSB is reserved) */
 typedef enum {
   MSG_TYPE_INVALID = 0,
   MSG_TYPE_TIMESYNC = 1,
+  MSG_TYPE_TIMECONV = 5,    /* request a pair of timestamps (global + local) */
+  MSG_TYPE_COMM_CMD = 10,
   MSG_TYPE_AE_EVENT = 160,
   MSG_TYPE_AE_DATA = 161,
 } message_type_t;
 
+#define MSG_TYPE_MIN    0x80      // last bit of 'type' defines header length
+
+typedef enum {
+  COMM_CMD_LWB_RESUME = 0,
+  COMM_CMD_LWB_PAUSE,
+  COMM_CMD_LWB_SET_ROUND_PERIOD,
+  COMM_CMD_LWB_SET_HEALTH_PERIOD,
+  COMM_CMD_LWB_SET_TX_PWR,
+  COMM_CMD_NODE_RESET = 50,
+} comm_cmd_type_t;
+
+typedef struct {
+  comm_cmd_type_t type : 8;
+  uint16_t        value;
+} comm_cmd_t;
 
 typedef uint64_t timestamp_t;
+
+typedef struct {
+  timestamp_t global_time;
+  timestamp_t local_time;
+} timeconv_t;
 
 
 /* application layer packet format (a packet is called 'message') */
@@ -104,8 +122,11 @@ typedef struct {
     ae_event_t     ae_evt;
     ae_data_t      ae_data;
     timestamp_t    timestamp;
+    timeconv_t     timeinfo;
+    comm_cmd_t     comm_cmd;
   };
-} message_t;
+} message_min_t;
+
 
 #pragma pack()
 
