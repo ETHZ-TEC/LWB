@@ -47,6 +47,7 @@
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
 static message_min_t msg_buffer;
+static uint8_t trq_pending = 0;
 /*---------------------------------------------------------------------------*/
 void
 process_message(message_min_t* msg)
@@ -101,6 +102,48 @@ process_message(message_min_t* msg)
 }
 /*---------------------------------------------------------------------------*/
 void
+send_timestamp(void)
+{
+  /* timestamp request: calculate the timestamp and send it over BOLT */
+  rtimer_clock_t now            = rtimer_now_hf();
+  if(node_id == HOST_ID) {
+    msg_buffer.timestamp        = now - ((uint16_t)(now & 0xffff) -
+                                  BOLT_CONF_TIMEREQ_CCR);
+  } else {
+    rtimer_clock_t captured     = now - ((uint16_t)(now & 0xffff) -
+                                  BOLT_CONF_TIMEREQ_CCR);
+    /* convert the local timestamp into global (LWB) time */
+    rtimer_clock_t local_t_rx   = 0;
+    uint32_t lwb_time_secs      = lwb_get_time(&local_t_rx);
+    /* local t_rx is in HF clock ticks */
+    int64_t  ofs              = lwb_time_secs * RTIMER_SECOND_HF -
+                                local_t_rx;
+    msg_buffer.timestamp      = captured + ofs + TIMESYNC_OFS;
+    /* drift compensation */
+    const lwb_statistics_t* lwb_stats = lwb_get_stats();
+    if(lwb_stats->drift) {
+      int32_t elapsed         = (int64_t)captured - local_t_rx;
+      /* drift is in HF ticks per second, only when LF not used for wakeup */
+      int16_t drift_comp      = (int16_t)(elapsed *
+                                (int32_t)lwb_stats->drift);
+      msg_buffer.timestamp   -= drift_comp;
+      /* debug only */
+      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+    }
+    /* convert timestamp to us */
+    msg_buffer.timestamp = msg_buffer.timestamp * 1000000 / RTIMER_SECOND_HF;
+  }
+  msg_buffer.header.device_id   = node_id;
+  msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
+  msg_buffer.header.payload_len = sizeof(timestamp_t);
+  BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+
+  trq_pending = 0;
+
+  DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
+}
+/*---------------------------------------------------------------------------*/
+void
 bolt_read_msg(void)
 {
   /* uint16_t to avoid aliasing issues */
@@ -151,6 +194,9 @@ source_run(void)
     DEBUG_PRINT_INFO("pkt received");
     process_message(&msg_buffer);
   }
+  if(trq_pending) {
+    send_timestamp();
+  }
     
 #if !TIMESYNC_INTERRUPT_BASED
   rtimer_clock_t bolt_timestamp = 0;
@@ -174,11 +220,17 @@ void
 bolt_timereq_cb(void)
 {
   /* TRQ ISR (CCR interrupt) */
+  /* from trigger to end of HFXT stabilization ~0.2ms
+   * ~40us from trigger to first instruction in this function */
+  PIN_XOR(COM_MCU_INT2);    // debug only (TODO remove)
 
   /* start the HFXT Osc. if necessary */
   if(UCSCTL6 & XT2OFF) {
     ENABLE_XT2();
+    /* wait for the HFXT to stabilize (takes ~160us) */
     WAIT_FOR_OSC();
+    //TODO replace while loop by constant delay!
+    PIN_XOR(COM_MCU_INT2);    // debug only (TODO remove)
     UCSCTL4  = SELA | SELS | SELM;
     /*__delay_cycles(100);*/ /* errata PMM11/12? */
     /*UCSCTL5  = DIVA | DIVS | DIVM;*/
@@ -188,40 +240,11 @@ bolt_timereq_cb(void)
 
     DEBUG_PRINT_MSG_NOW("wakeup from LPM via TRQ");
 
+    /* not synced, can't send a timestamp now */
+    trq_pending = 1;
+
   } else {
-
-    /* timestamp request: calculate the timestamp and send it over BOLT */
-    rtimer_clock_t now            = rtimer_now_hf();
-    if(node_id == HOST_ID) {
-      msg_buffer.timestamp        = now - ((uint16_t)(now & 0xffff) -
-                                    BOLT_CONF_TIMEREQ_CCR);
-    } else {
-      rtimer_clock_t captured     = now - ((uint16_t)(now & 0xffff) -
-                                    BOLT_CONF_TIMEREQ_CCR);
-      /* convert the local timestamp into global (LWB) time */
-      rtimer_clock_t local_t_rx   = 0;
-      uint32_t lwb_time_secs      = lwb_get_time(&local_t_rx);
-      int64_t  lwb_time         = (uint64_t)lwb_time_secs * RTIMER_SECOND_HF;
-      int64_t  ofs              = lwb_time - local_t_rx;
-      msg_buffer.timestamp      = captured + ofs + TIMESYNC_OFS;
-      /* drift compensation */
-      const lwb_statistics_t* lwb_stats = lwb_get_stats();
-      if(lwb_stats->drift) {
-        int32_t elapsed         = (int64_t)captured - local_t_rx;
-        int16_t drift_comp      = (int16_t)(elapsed *
-                                  (int32_t)lwb_stats->drift /
-                                  (int32_t)RTIMER_SECOND_HF);
-        msg_buffer.timestamp   -= drift_comp;
-        /* debug only */
-        //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
-      }
-    }
-    msg_buffer.header.device_id   = node_id;
-    msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
-    msg_buffer.header.payload_len = sizeof(timestamp_t);
-    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
-
-    DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
+    send_timestamp();
   }
 
   lwb_resume();

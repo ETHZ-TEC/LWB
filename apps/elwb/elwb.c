@@ -562,11 +562,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 {  
   /* all variables must be static */
   static lwb_schedule_t schedule;
-  static rtimer_clock_t t_ref, 
-                        t_ref_last;
+  static rtimer_clock_t t_ref;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   static rtimer_clock_t t_ref_lf;
   static rtimer_clock_t last_synced_lf;
+#else
+  static rtimer_clock_t t_ref_last;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   /* packet buffer: use uint16_t to force word boundary alignment */
   static uint16_t glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
@@ -881,16 +882,14 @@ lwb_resume(void)
 {
   if(!running) {
     running = 1;
-    rtimer_clock_t start = (LWB_CONF_USE_LF_FOR_WAKEUP ?
-                            (rtimer_now_lf() + RTIMER_SECOND_LF / 10) :
-                            (rtimer_now_hf() + RTIMER_SECOND_HF / 10));
-    rtimer_id_t timer = (LWB_CONF_USE_LF_FOR_WAKEUP ? LWB_CONF_LF_RTIMER_ID :
-                         LWB_CONF_RTIMER_ID);
+    /* start in 5ms */
     if((node_id == HOST_ID)) {
       /* note: must add at least some clock ticks! */
-      rtimer_schedule(timer, start, 0, lwb_thread_host);
+      rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() +
+                      RTIMER_SECOND_HF / 500, 0, lwb_thread_host);
     } else {
-      rtimer_schedule(timer, start, 0, lwb_thread_src);
+      rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() +
+                      RTIMER_SECOND_HF / 500, 0, lwb_thread_src);
     }
   }
 }
@@ -906,7 +905,6 @@ PROCESS_THREAD(lwb_process, ev, data)
   /* pass the start addresses of the memory blocks holding the queues */
   fifo_init(&in_buffer, (uint16_t)in_buffer_mem);
   fifo_init(&out_buffer, (uint16_t)out_buffer_mem); 
-
 
 #ifdef LWB_CONF_TASK_ACT_PIN
   PIN_CFG_OUT(LWB_CONF_TASK_ACT_PIN);
