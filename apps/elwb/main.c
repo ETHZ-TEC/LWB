@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,6 @@
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
 static message_min_t msg_buffer;
-static uint8_t trq_pending = 0;
 static uint16_t t_offset = 0;
 /*---------------------------------------------------------------------------*/
 void
@@ -131,9 +130,13 @@ bolt_timereq_cb(void)
   /* timestamp request: calculate the timestamp and send it over BOLT */
   rtimer_clock_t now = rtimer_now_hf();
 
+  int64_t captured;
+  if(t_offset) {
+    captured = -t_offset;
+  } else {
+    captured = now - ((uint16_t)(now & 0xffff) - BOLT_CONF_TIMEREQ_CCR);
+  }
   if(node_id == HOST_ID) {
-    msg_buffer.timestamp = now - ((uint16_t)(now & 0xffff) -
-                           BOLT_CONF_TIMEREQ_CCR) - t_offset;
     msg_buffer.header.device_id   = node_id;
     msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
@@ -141,12 +144,9 @@ bolt_timereq_cb(void)
 
   /* only send a timestamp if the node is connected to the LWB */
   } else if(lwb_get_state() == LWB_STATE_CONNECTED) {
-    rtimer_clock_t captured = now - ((uint16_t)(now & 0xffff) -
-                              BOLT_CONF_TIMEREQ_CCR);
-
-    /* convert the local timestamp into global (LWB) time */
+    
     rtimer_clock_t local_t_rx = 0;
-    uint32_t lwb_time_secs    = lwb_get_time(&local_t_rx);
+    int64_t lwb_time_secs     = lwb_get_time(&local_t_rx);
     /* local t_rx is in HF clock ticks */
     int64_t  ofs              = lwb_time_secs * RTIMER_SECOND_HF - local_t_rx;
     msg_buffer.timestamp      = captured + ofs + TIMESYNC_OFS;
@@ -170,7 +170,6 @@ bolt_timereq_cb(void)
     BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
 
     t_offset = 0;
-    trq_pending = 0;
     DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
 
   } // else: not yet synced, can't send timestamp
@@ -213,7 +212,7 @@ source_run(void)
     DEBUG_PRINT_INFO("pkt received");
     process_message(&msg_buffer);
   }
-  if(trq_pending) {
+  if(t_offset) {
     bolt_timereq_cb();
   }
 
@@ -346,7 +345,6 @@ ISR(PORT2, port2_interrupt)
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
     /* not synced, can't send a timestamp now */
-    trq_pending = 1;
 
     /* reenable timestamp request CCR */
     PIN_INT_DIS(BOLT_CONF_TIMEREQ_PIN);
