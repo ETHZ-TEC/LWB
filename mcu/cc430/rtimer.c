@@ -79,6 +79,25 @@ update_rtimer_state(uint16_t timer)
   }
 }
 /*---------------------------------------------------------------------------*/
+#if !RTIMER_CONF_LF_UPDATE_INT
+ #if WATCHDOG_CONF_ON && WATCHDOG_CONF_RESET_ON_TA1IFG
+  #define RTIMER_LF_HANDLE_OVF() \
+    if(TA1CTL & TAIFG) { \
+      ta1_sw_ext++; \
+      TA1CTL &= ~TAIFG; \
+      watchdog_reset(); \
+    }
+ #else /* WATCHDOG */
+  #define RTIMER_LF_HANDLE_OVF() \
+    if(TA1CTL & TAIFG) { \
+      ta1_sw_ext++; \
+      TA1CTL &= ~TAIFG; \
+    }
+ #endif /* WATCHDOG */
+#else  /* RTIMER_CONF_LF_UPDATE_INT */
+ #define RTIMER_LF_HANDLE_OVF()
+#endif /* RTIMER_CONF_LF_UPDATE_INT */
+
 #define RTIMER_HF_CALLBACK(timer) \
   if((rtimer_now_hf() >= rt[timer].time) && \
      (rt[timer].state == RTIMER_SCHEDULED)) { \
@@ -96,6 +115,7 @@ update_rtimer_state(uint16_t timer)
   }
 
 #define RTIMER_LF_CALLBACK(timer) \
+  RTIMER_LF_HANDLE_OVF(); \
   if((rtimer_now_lf() >= rt[timer].time) && \
      (rt[timer].state == RTIMER_SCHEDULED)) { \
     /* the timer has expired! */ \
@@ -126,7 +146,11 @@ rtimer_init(void)
   /* ACLK, continuous mode, clear TA1R */
   ta1_sw_ext = 0;
   TA1EX0 = 0;
+#if RTIMER_CONF_LF_UPDATE_INT
   TA1CTL = TASSEL_1 | MC_2 | ID__1 | TACLR | TAIE; /* ACLK */
+#else  /* RTIMER_CONF_LF_UPDATE_INT */
+  TA1CTL = TASSEL_1 | MC_2 | ID__1 | TACLR;
+#endif /* RTIMER_CONF_LF_UPDATE_INT */
 
   memset(rt, 0, sizeof(rt));
 }
@@ -166,17 +190,17 @@ rtimer_wait_for_event(rtimer_id_t timer, rtimer_callback_t func)
       /* set the timer to capture mode */
       /* rising edge, synchronize the capture with the next timer clock to
        * prevent race conditions, capture input select */
-      *(&TA1CCTL0 + timer - RTIMER_LF_0) = CAP | CM_1 | SCS; 
+      *(&TA1CCTL0 + timer - RTIMER_LF_0) = CM_1 | SCS;
       /* only enable interrupts when a callback function is provided */
       if (func) {       
-        *(&TA1CCTL0 + timer - RTIMER_LF_0) |= CCIE;
+        *(&TA1CCTL0 + timer - RTIMER_LF_0) |= (CAP | CCIE);
       }
     } else {
       /* set the timer to capture mode */
-      *(&TA0CCTL0 + timer) = CAP | CM_1 | SCS; 
+      *(&TA0CCTL0 + timer) = CM_1 | SCS;
       /* only enable interrupts when a callback function is provided */
       if (func) {       
-        *(&TA0CCTL0 + timer) |= CCIE;
+        *(&TA0CCTL0 + timer) |= (CAP | CCIE);
       }
     }
   } 
@@ -213,10 +237,10 @@ rtimer_update_enable(uint8_t enable)
 {
   if(enable) {
     TA0CTL |= TAIE; 
-    TA1CTL |= TAIE;
+    //TA1CTL |= TAIE;
   } else {
     TA0CTL &= ~TAIE; 
-    TA1CTL &= ~TAIE;
+    //TA1CTL &= ~TAIE;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -453,6 +477,10 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
     ta0_sw_ext++;
     /* increment also the etimer count */
     count++;
+    /* update the LF timer if necessary */
+  #if !RTIMER_CONF_LF_UPDATE_INT
+    RTIMER_LF_HANDLE_OVF();
+  #endif /* RTIMER_CONF_LF_UPDATE_INT */
     /* check whether there are etimers ready to be served */
     if(etimer_pending() &&
        (etimer_next_expiration_time() - count - 1) > MAX_TICKS) {

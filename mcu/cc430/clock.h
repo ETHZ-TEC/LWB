@@ -68,6 +68,9 @@
 /* speed of XT2 (high-frequency crystal) */
 #define XT2CLK_SPEED    26000000LU
 
+/* speed of the internal DCO */
+#define DCOCLK_SPEED    13000000
+
 /* source and speed of the Master Clock MCLK */
 #define SELM            SELM__XT2CLK
 #define DIVM            DIVM__2

@@ -78,13 +78,13 @@ clock_init(void)
   UCSCTL6 |= XT1DRIVE_1;
 #endif /* CLOCK_CONF_XT1_ON */
 
-  /* set the DCO frequency to 3.25 MHz */
   /* disable the FLL control loop */
   DISABLE_FLL();
 
 #if CLOCK_CONF_FLL_ON
  #if CLOCK_CONF_XT1_ON
-  UCSCTL3 = SELREF__XT1CLK | FLLREFDIV_0; /* use XT1 as FLL reference */
+  /* use XT1 as FLL reference, divider 1 */
+  UCSCTL3 = SELREF__XT1CLK | FLLREFDIV_0;
  #endif /* CLOCK_CONF_XT1_ON */
   /* set the lowest possible DCOx, MODx */
   UCSCTL0 = 0;
@@ -92,7 +92,7 @@ clock_init(void)
   UCSCTL1 = DCORSEL_6;
   /* set the FLL loop divider to 2 and
    * the multiplier N such that (N + 1) * f_FLLREF = f_DCO --> N = 396 */
-  UCSCTL2 = FLLD_0 + 396;
+  UCSCTL2 = FLLD_0 + 396;   /* 396 * 32768 = ~13MHz
   /* enable the FLL control loop */
   ENABLE_FLL();
   /* wait until the DCO stabilizes */

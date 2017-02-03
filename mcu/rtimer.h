@@ -75,6 +75,12 @@
 #define RTIMER_CONF_LF_UPDATE_LED_ON  0
 #endif /* RTIMER_CONF_TOGGLE_LED_ON_LF_UPDATE */
 
+/* overflow/update interrupt enable (when a LF CCR interrupt is used which
+ * occurs at least once every 2 seconds, the timer overflow can be handled
+ * within that ISR) */
+#ifndef RTIMER_CONF_LF_UPDATE_INT
+#define RTIMER_CONF_LF_UPDATE_INT     1
+#endif /* RTIMER_CONF_LF_UPDATE_INT */
 
 
 /**
