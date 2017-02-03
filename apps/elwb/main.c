@@ -48,6 +48,7 @@
 /*---------------------------------------------------------------------------*/
 static message_min_t msg_buffer;
 static uint8_t trq_pending = 0;
+static uint16_t t_offset = 0;
 /*---------------------------------------------------------------------------*/
 void
 process_message(message_min_t* msg)
@@ -77,7 +78,12 @@ process_message(message_min_t* msg)
     switch(msg->comm_cmd.type) {
     case COMM_CMD_LWB_PAUSE:
       lwb_pause();
-      DEBUG_PRINT_INFO("LWB paused");
+      /* disable the time request CCR interrupt and enable the port interrupt
+       * instead! */
+      rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
+      PIN_UNSEL(BOLT_CONF_TIMEREQ_PIN);
+      PIN_CFG_INT(BOLT_CONF_TIMEREQ_PIN);
+      DEBUG_PRINT_MSG_NOW("LWB paused");
       break;
     default:
       /* unknown command */
@@ -102,48 +108,6 @@ process_message(message_min_t* msg)
 }
 /*---------------------------------------------------------------------------*/
 void
-send_timestamp(void)
-{
-  /* timestamp request: calculate the timestamp and send it over BOLT */
-  rtimer_clock_t now            = rtimer_now_hf();
-  if(node_id == HOST_ID) {
-    msg_buffer.timestamp        = now - ((uint16_t)(now & 0xffff) -
-                                  BOLT_CONF_TIMEREQ_CCR);
-  } else {
-    rtimer_clock_t captured     = now - ((uint16_t)(now & 0xffff) -
-                                  BOLT_CONF_TIMEREQ_CCR);
-    /* convert the local timestamp into global (LWB) time */
-    rtimer_clock_t local_t_rx   = 0;
-    uint32_t lwb_time_secs      = lwb_get_time(&local_t_rx);
-    /* local t_rx is in HF clock ticks */
-    int64_t  ofs              = lwb_time_secs * RTIMER_SECOND_HF -
-                                local_t_rx;
-    msg_buffer.timestamp      = captured + ofs + TIMESYNC_OFS;
-    /* drift compensation */
-    const lwb_statistics_t* lwb_stats = lwb_get_stats();
-    if(lwb_stats->drift) {
-      int32_t elapsed         = (int64_t)captured - local_t_rx;
-      /* drift is in HF ticks per second, only when LF not used for wakeup */
-      int16_t drift_comp      = (int16_t)(elapsed *
-                                (int32_t)lwb_stats->drift);
-      msg_buffer.timestamp   -= drift_comp;
-      /* debug only */
-      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
-    }
-    /* convert timestamp to us */
-    msg_buffer.timestamp = msg_buffer.timestamp * 1000000 / RTIMER_SECOND_HF;
-  }
-  msg_buffer.header.device_id   = node_id;
-  msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
-  msg_buffer.header.payload_len = sizeof(timestamp_t);
-  BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
-
-  trq_pending = 0;
-
-  DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
-}
-/*---------------------------------------------------------------------------*/
-void
 bolt_read_msg(void)
 {
   /* uint16_t to avoid aliasing issues */
@@ -160,6 +124,59 @@ bolt_read_msg(void)
   }
 }
 /*---------------------------------------------------------------------------*/
+#if TIMESYNC_INTERRUPT_BASED
+void
+bolt_timereq_cb(void)
+{
+  /* timestamp request: calculate the timestamp and send it over BOLT */
+  rtimer_clock_t now = rtimer_now_hf();
+
+  if(node_id == HOST_ID) {
+    msg_buffer.timestamp = now - ((uint16_t)(now & 0xffff) -
+                           BOLT_CONF_TIMEREQ_CCR) - t_offset;
+    msg_buffer.header.device_id   = node_id;
+    msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
+    msg_buffer.header.payload_len = sizeof(timestamp_t);
+    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+
+  /* only send a timestamp if the node is connected to the LWB */
+  } else if(lwb_get_state() == LWB_STATE_CONNECTED) {
+    rtimer_clock_t captured = now - ((uint16_t)(now & 0xffff) -
+                              BOLT_CONF_TIMEREQ_CCR);
+
+    /* convert the local timestamp into global (LWB) time */
+    rtimer_clock_t local_t_rx = 0;
+    uint32_t lwb_time_secs    = lwb_get_time(&local_t_rx);
+    /* local t_rx is in HF clock ticks */
+    int64_t  ofs              = lwb_time_secs * RTIMER_SECOND_HF - local_t_rx;
+    msg_buffer.timestamp      = captured + ofs + TIMESYNC_OFS;
+    /* drift compensation */
+    const lwb_statistics_t* lwb_stats = lwb_get_stats();
+    if(lwb_stats->drift) {
+      int32_t elapsed         = (int64_t)captured - local_t_rx;
+      /* drift is in HF ticks per second, only when LF not used for wakeup */
+      int16_t drift_comp      = (int16_t)(elapsed *
+                                (int32_t)lwb_stats->drift);
+      msg_buffer.timestamp   -= drift_comp;
+      /* debug only */
+      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+    }
+    /* convert from clock ticks to us */
+    msg_buffer.timestamp          = msg_buffer.timestamp * 1000000 /
+                                    RTIMER_SECOND_HF - t_offset;
+    msg_buffer.header.device_id   = node_id;
+    msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
+    msg_buffer.header.payload_len = sizeof(timestamp_t);
+    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+
+    t_offset = 0;
+    trq_pending = 0;
+    DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
+
+  } // else: not yet synced, can't send timestamp
+}
+#endif /* TIMESYNC_INTERRUPT_BASED */
+/*---------------------------------------------------------------------------*/
 void
 host_run(void)
 {
@@ -175,6 +192,8 @@ host_run(void)
     }
   } while(pkt_len);
   
+  bolt_read_msg();
+
 #if !TIMESYNC_INTERRUPT_BASED
   rtimer_clock_t bolt_timestamp = 0;
   if(bolt_handle_timereq(&bolt_timestamp)) { 
@@ -195,8 +214,10 @@ source_run(void)
     process_message(&msg_buffer);
   }
   if(trq_pending) {
-    send_timestamp();
+    bolt_timereq_cb();
   }
+
+  bolt_read_msg();
     
 #if !TIMESYNC_INTERRUPT_BASED
   rtimer_clock_t bolt_timestamp = 0;
@@ -214,42 +235,6 @@ source_run(void)
   }
 #endif /* TIMESYNC_INTERRUPT_BASED */
 }
-/*---------------------------------------------------------------------------*/
-#if TIMESYNC_INTERRUPT_BASED
-void
-bolt_timereq_cb(void)
-{
-  /* TRQ ISR (CCR interrupt) */
-  /* from trigger to end of HFXT stabilization ~0.2ms
-   * ~40us from trigger to first instruction in this function */
-  PIN_XOR(COM_MCU_INT2);    // debug only (TODO remove)
-
-  /* start the HFXT Osc. if necessary */
-  if(UCSCTL6 & XT2OFF) {
-    ENABLE_XT2();
-    /* wait for the HFXT to stabilize (takes ~160us) */
-    WAIT_FOR_OSC();
-    //TODO replace while loop by constant delay!
-    PIN_XOR(COM_MCU_INT2);    // debug only (TODO remove)
-    UCSCTL4  = SELA | SELS | SELM;
-    /*__delay_cycles(100);*/ /* errata PMM11/12? */
-    /*UCSCTL5  = DIVA | DIVS | DIVM;*/
-    UCSCTL7  = 0; /* errata UCS11 */
-    TA0CTL   = TASSEL_2 | MC_2 | ID__1 | TACLR | TAIE;
-    P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
-
-    DEBUG_PRINT_MSG_NOW("wakeup from LPM via TRQ");
-
-    /* not synced, can't send a timestamp now */
-    trq_pending = 1;
-
-  } else {
-    send_timestamp();
-  }
-
-  lwb_resume();
-}
-#endif /* TIMESYNC_INTERRUPT_BASED */
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
@@ -283,12 +268,95 @@ PROCESS_THREAD(app_process, ev, data)
       source_run();
     }
 
+    if(lwb_get_state() == LWB_STATE_SUSPENDED) {
+      /* disable the time request CCR interrupt and enable the port
+       * interrupt instead */
+      rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
+      PIN_UNSEL(BOLT_CONF_TIMEREQ_PIN);
+      PIN_CFG_INT(BOLT_CONF_TIMEREQ_PIN);
+    }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    LWB_BEFORE_DEEPSLEEP();     /* prepare to go to LPM3 */
+    if(!glossy_is_active()) {
+      LWB_BEFORE_DEEPSLEEP();     /* prepare to go to LPM3 */
+    }
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     TASK_SUSPENDED;
   }
 
   PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+ISR(PORT2, port2_interrupt)
+{
+  /* TRQ ISR (CCR interrupt) */
+  /* from trigger to end of HFXT stabilization ~0.2ms
+   * ~40us from trigger to first instruction in this function, 20 ~ 32us from
+   * trigger edge to the first MCLK edge! -> too high
+   * according to the datasheet, the wake-up time (that is to the first rising
+   * edge of the MCLK) from LPM3 should not exceed 6us
+   * -> CCR seems to be the cause; port interrupt only takes 2.8us to first
+   * MCLK cycle
+   * A delay loop instead of wait for the XT2 to stabilize is possible, but
+   * the DCO frequency is very unstable as it seems (> 1 LFXT tick variation
+   * for 200us) -> really need to count the cycles until the LFCLK changes */
+
+  if(PIN_IFG(BOLT_CONF_TIMEREQ_PIN)) {
+
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+    /* MCLK runs from DCO, DCO is sourced by LFXT (=> in sync) */
+    uint16_t ta1hw = TA1R;
+    uint16_t cnt = 0;
+    /* wake-up time: ~6.5us, incl. all instructions until beg. of loop */
+    /* ~1.1us per loop pass (see disassembly for cycle count) */
+    while(ta1hw == TA1R) { cnt++; }
+    //rtimer_clock_t now = rtimer_now_lf();
+    uint16_t us = (cnt * 11 + 65) / 10;
+    t_offset = us;
+
+    /* start the HFXT Osc. if necessary */
+    if(UCSCTL6 & XT2OFF) {
+      ENABLE_XT2();
+      /* wait for the HFXT to stabilize (takes ~170us) */
+      WAIT_FOR_OSC();
+      UCSCTL4  = SELA | SELS | SELM;
+      /*__delay_cycles(100);*/ /* errata PMM11/12? */
+      /*UCSCTL5  = DIVA | DIVS | DIVM;*/
+      UCSCTL7  = 0; /* errata UCS11 */
+      P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+      PIN_XOR(COM_MCU_INT2);
+      TA0CTL   = TASSEL_2 | MC_2 | ID__1 | TACLR | TAIE;
+
+      // use TA0CCR2 to catch the rising edge of ACLK, set CCI2B
+      TA0CCTL2 = CAP | CM_1 | SCS | CCIS_1;
+      while (!(TA0CCTL2 & CCIFG));
+      uint16_t lf_ticks = TA1R;
+      uint16_t hf_ticks = TA0CCR2;
+      TA0CCTL2 = 0;
+      t_offset = (uint16_t)((uint32_t)(lf_ticks - ta1hw - 1) * 1000000 / 32768
+                            + us - (hf_ticks * 100 / 325));
+      DEBUG_PRINT_MSG_NOW("LF/HF pair: lf=%u hf=%u, elapsed: %u",
+                          lf_ticks,
+                          hf_ticks,
+                          t_offset);
+    }
+    //DEBUG_PRINT_MSG_NOW("timestamp: %u (%lu), count: %u, offset: %u", ta1hw,
+    //                    (uint32_t)(ta1hw) * 31, cnt, us);
+
+// else: nothing to convert or calculate
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+
+    /* not synced, can't send a timestamp now */
+    trq_pending = 1;
+
+    /* reenable timestamp request CCR */
+    PIN_INT_DIS(BOLT_CONF_TIMEREQ_PIN);
+    PIN_SEL(BOLT_CONF_TIMEREQ_PIN);
+    //PIN_MAP_AS_INPUT(BOLT_CONF_TIMEREQ_PIN, BOLT_CONF_TIMEREQ_PINMAP);
+    rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID,
+                          (rtimer_callback_t)bolt_timereq_cb);
+    lwb_resume();
+    DEBUG_PRINT_MSG_NOW("port interrupt");
+    PIN_CLR_IFG(BOLT_CONF_TIMEREQ_PIN);
+  }
 }
 /*---------------------------------------------------------------------------*/

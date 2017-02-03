@@ -303,10 +303,11 @@ lwb_get_stats(void)
 {
   return &stats;
 }
-/*-----------------------------------------------F----------------------------*/
+/*---------------------------------------------------------------------------*/
 lwb_conn_state_t
 lwb_get_state(void)
 {
+  if(!running) { return LWB_STATE_SUSPENDED; }
   if(sync_state < SYNCED) { return LWB_STATE_INIT; }
   else if(sync_state < UNSYNCED) { return LWB_STATE_CONNECTED; }
   return LWB_STATE_CONN_LOST;
@@ -606,27 +607,43 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* --- COMMUNICATION ROUND STARTS --- */
     
     if(sync_state == BOOTSTRAP) {
-      DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
+      DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
       stats.bootstrap_cnt++;
-      //node_registered = 0;
       /* synchronize first! wait for the first schedule... */
       payload_len = LWB_SCHED_PKT_HEADER_LEN;   /* empty schedule */
       do {
-        LWB_RCV_SCHED();
-        if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT) {
-          DEBUG_PRINT_MSG_NOW("communication timeout, going to sleep...");
+        /* poll the preprocess or application task */
+        if(post_proc) {
+          process_poll(post_proc);
+        }
+        /* turn radio on */
+        glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule,
+                     payload_len, LWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC,
+                     GLOSSY_WITH_RF_CAL);
+        LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_SCHED * 10);
+        glossy_stop();
+        /* timeout? */
+        if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT || !running) {
+          DEBUG_PRINT_MSG_NOW("communication timeout, suspending task...");
+          /* poll application task */
+          debug_print_poll();
+          if(post_proc) {
+            process_poll(post_proc);
+          }
           running = 0;
-          LWB_BEFORE_DEEPSLEEP();
-          LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
+          /* suspend LWB task indefinitely */
+          LWB_TASK_SUSPENDED;
+          PT_YIELD(&lwb_pt);
+          LWB_TASK_RESUMED;
+      #if LWB_CONF_USE_LF_FOR_WAKEUP
+          LWB_AFTER_DEEPSLEEP();
+      #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
           t_ref = rtimer_now_hf();
-          running = 1;
-          DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
+          DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
           /* alternative: implement a host failover policy */
         }
       } while(!glossy_is_t_ref_updated());
       /* schedule received! */
-      putchar('\r');
-      putchar('\n');
     } else {
       /* tell Glossy how many bytes we expect */
       payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
@@ -850,9 +867,13 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     memset(&schedule.slot, 0, sizeof(schedule.slot));
     
     if(!running) {
-      // yield LWB task indefinitely
+      // suspend LWB task indefinitely
       LWB_TASK_SUSPENDED;
       PT_YIELD(&lwb_pt);
+      LWB_TASK_RESUMED;
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      LWB_AFTER_DEEPSLEEP();
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       t_preprocess = 0;
       sync_state = BOOTSTRAP;   // reset state machine
       continue;
@@ -882,14 +903,14 @@ lwb_resume(void)
 {
   if(!running) {
     running = 1;
-    /* start in 5ms */
+    /* start in 10ms */
     if((node_id == HOST_ID)) {
       /* note: must add at least some clock ticks! */
       rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() +
-                      RTIMER_SECOND_HF / 500, 0, lwb_thread_host);
+                      RTIMER_SECOND_HF / 100, 0, lwb_thread_host);
     } else {
       rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() +
-                      RTIMER_SECOND_HF / 500, 0, lwb_thread_src);
+                      RTIMER_SECOND_HF / 100, 0, lwb_thread_src);
     }
   }
 }
@@ -925,12 +946,13 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s'\r\n", lwb_process.name);
     
-  printf("t_sched=%ums, t_data=%ums, t_cont=%ums, t_round=%ums, "
-         "data=%ub, slots=%u, tx=%u, hop=%u\r\n", 
+  printf("T=%ums T_r=%ums T_s=%ums T_d=%ums T_c=%ums l=%ub N_s=%u N_tx=%u "
+         "N_h=%u\r\n",
+         LWB_CONF_SCHED_PERIOD_IDLE * 1000,
+         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 

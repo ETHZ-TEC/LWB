@@ -59,7 +59,7 @@
 /* --- LWB config --- */
 
 #define LWB_VERSION                     0  /* override default LWB impl. */
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
 #define LWB_SCHED_AE                               /* use the 'AE' scheduler */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
@@ -80,7 +80,9 @@
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
 #define LWB_CONF_T_PREPROCESS           20    /* in ms */
-#define LWB_CONF_T_SILENT               (RTIMER_SECOND_HF * 10)
+#define LWB_CONF_T_SILENT               (RTIMER_SECOND_HF * 20)
+
+#define RTIMER_CONF_LF_UPDATE_INT       0
 
 #define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
 #define LWB_CONF_SCHED_AE_SRC_NODE_LIST 13,25
@@ -102,6 +104,7 @@
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_TRACING_ON                1
 /* pins */
+//#define MCLK_PIN                        COM_MCU_INT2
 //#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
 //#define DEBUG_PRINT_TASK_ACT_PIN        COM_MCU_INT2
 //#define APP_TASK_ACT_PIN                COM_MCU_INT2
