@@ -388,6 +388,7 @@ typedef enum {
   LWB_STATE_INIT = 0, /* bootstrap */
   LWB_STATE_CONNECTED,
   LWB_STATE_CONN_LOST,
+  LWB_STATE_SUSPENDED,
 } lwb_conn_state_t;
 
 
