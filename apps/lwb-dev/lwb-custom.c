@@ -1329,12 +1329,11 @@ lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc)
   
   uart_enable(1);
   printf("Starting '%s'\r\n", lwb_process.name);
-  printf("t_sched=%ums, t_data=%ums, t_cont=%ums, t_round=%ums, "
-         "data=%ub, slots=%u, tx=%u, hop=%u\r\n", 
+  printf("T=%ums T_s=%ums T_d=%ums T_c=%ums l=%ub N_s=%u N_tx=%u N_h=%u\r\n",
+         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
