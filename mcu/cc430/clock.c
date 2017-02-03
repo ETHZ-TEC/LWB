@@ -92,7 +92,7 @@ clock_init(void)
   UCSCTL1 = DCORSEL_6;
   /* set the FLL loop divider to 2 and
    * the multiplier N such that (N + 1) * f_FLLREF = f_DCO --> N = 396 */
-  UCSCTL2 = FLLD_0 + 396;   /* 396 * 32768 = ~13MHz
+  UCSCTL2 = FLLD_0 + 396;   /* 396 * 32768 = ~13MHz */
   /* enable the FLL control loop */
   ENABLE_FLL();
   /* wait until the DCO stabilizes */
