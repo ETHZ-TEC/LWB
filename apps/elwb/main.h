@@ -142,6 +142,6 @@ typedef struct {
 #if BOLT_CONF_MAX_MSG_LEN < MSG_PKT_LEN
 #error "BOLT max msg length is too small"
 #endif
-    
+
 
 #endif /* __MAIN_H__ */

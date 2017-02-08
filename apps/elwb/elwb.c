@@ -535,10 +535,25 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     #endif /* LWB_CONF_T_PREPROCESS */
     }
 
-    if(!running) {
-      // yield LWB task indefinitely
+    if(!running &&
+       (curr_period == LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE)) {
+      // suspend LWB task indefinitely
       LWB_TASK_SUSPENDED;
       PT_YIELD(&lwb_pt);
+      LWB_TASK_RESUMED;
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      LWB_AFTER_DEEPSLEEP();
+      /* update the global time and wait for the next full second */
+      uint32_t new_time = ((rtimer_now_lf() + RTIMER_SECOND_LF +
+                           RTIMER_SECOND_LF / 512) / RTIMER_SECOND_LF);
+      lwb_sched_set_time(new_time * LWB_CONF_PERIOD_SCALE);
+      schedule.time = new_time;
+      t_start_lf = new_time * RTIMER_SECOND_LF;
+      rtimer_schedule(LWB_CONF_LF_RTIMER_ID, t_start_lf, 0, callback_func);
+      LWB_TASK_SUSPENDED;
+      PT_YIELD(&lwb_pt);
+      LWB_TASK_RESUMED;
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       t_preprocess = 0;
       continue;
     }

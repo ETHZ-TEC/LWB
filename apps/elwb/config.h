@@ -82,7 +82,9 @@
 #define LWB_CONF_T_PREPROCESS           20    /* in ms */
 #define LWB_CONF_T_SILENT               (RTIMER_SECOND_HF * 20)
 
+#if defined(NODE_ID) && NODE_ID != HOST_ID /* can't disable LFXT OVF on host */
 #define RTIMER_CONF_LF_UPDATE_INT       0
+#endif
 
 #define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
 #define LWB_CONF_SCHED_AE_SRC_NODE_LIST 13,25
