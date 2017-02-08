@@ -543,6 +543,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       LWB_TASK_RESUMED;
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       LWB_AFTER_DEEPSLEEP();
+    #if RTIMER_CONF_LF_UPDATE_INT
       /* update the global time and wait for the next full second */
       uint32_t new_time = ((rtimer_now_lf() + RTIMER_SECOND_LF +
                            RTIMER_SECOND_LF / 512) / RTIMER_SECOND_LF);
@@ -553,6 +554,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       LWB_TASK_SUSPENDED;
       PT_YIELD(&lwb_pt);
       LWB_TASK_RESUMED;
+    #else
+      rt->time = rtimer_now_lf();
+    #endif /* RTIMER_CONF_LF_UPDATE_INT */      
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       t_preprocess = 0;
       continue;
