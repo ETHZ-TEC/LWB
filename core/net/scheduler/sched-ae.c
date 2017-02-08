@@ -348,6 +348,12 @@ lwb_sched_init(lwb_schedule_t* sched)
   return LWB_SCHED_PKT_HEADER_LEN; /* empty schedule, no slots allocated yet */
 }
 /*---------------------------------------------------------------------------*/
+void
+lwb_sched_set_time(uint32_t new_time)
+{
+  time = new_time;
+}
+/*---------------------------------------------------------------------------*/
 
 #endif /* LWB_SCHED_AE */
 

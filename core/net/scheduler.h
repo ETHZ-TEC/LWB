@@ -234,6 +234,10 @@ void lwb_sched_proc_srq(const lwb_stream_req_t* req);
  */
 uint16_t lwb_sched_init(lwb_schedule_t* sched);
 
+
+void lwb_sched_set_time(uint32_t new_time);
+
+
 /**
  * @brief compute (and compress) the new schedule
  * @param[in,out] sched the old schedule and the output buffer for the new 
