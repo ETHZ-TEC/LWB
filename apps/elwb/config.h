@@ -53,7 +53,7 @@
 /* --- RF config --- */
 
 #define RF_CONF_TX_CH                   5
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_MINUS_6_dBm
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 
 
 /* --- LWB config --- */
