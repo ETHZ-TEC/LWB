@@ -95,7 +95,7 @@ process_message(message_min_t* msg)
                        msg->ae_evt.event_id,
                        msg->ae_evt.generation_time);
       /* forward the packet to the app processor */
-      BOLT_WRITE((uint8_t*)msg, MSG_LEN_PTR(msg));
+      bolt_write((uint8_t*)msg, MSG_LEN_PTR(msg));
     } else
     {
       // source node shall forward these packets to LWB
@@ -113,8 +113,7 @@ bolt_read_msg(void)
   static uint16_t read_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
   uint16_t max_ops = 10;
   while(BOLT_DATA_AVAILABLE && max_ops) {
-    uint8_t msg_len = 0;
-    BOLT_READ((uint8_t*)read_buffer, msg_len);
+    uint8_t msg_len = bolt_read((uint8_t*)read_buffer);
     if(msg_len) {
       DEBUG_PRINT_INFO("message read from Bolt (%db)", msg_len);
       process_message((message_min_t*)read_buffer);
@@ -140,7 +139,7 @@ bolt_timereq_cb(void)
     msg_buffer.header.device_id   = node_id;
     msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
-    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+    bolt_write((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
 
   /* only send a timestamp if the node is connected to the LWB */
   } else if(lwb_get_state() == LWB_STATE_CONNECTED) {
@@ -167,7 +166,7 @@ bolt_timereq_cb(void)
     msg_buffer.header.device_id   = node_id;
     msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
-    BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
+    bolt_write((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
 
     t_offset = 0;
     DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
