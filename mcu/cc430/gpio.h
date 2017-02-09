@@ -235,10 +235,6 @@
  */
 #define PIN_INT_DIS(p)                   PIN_INT_DIS_I(p)
 /**
- * @brief disable the port interrupt for the specified (port, pin)
- */
-#define PIN_INT_OFF(p)                  PIN_INT_OFF_I(p)
-/**
  * @brief configure the port interrupt for the specified (port, pin), available
  * for pins on port 1 and 2 only (rising edge triggers)
  */
