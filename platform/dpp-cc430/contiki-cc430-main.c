@@ -177,7 +177,9 @@ main(int argc, char **argv)
   }
 #endif
 #if BOLT_CONF_ON
-  bolt_init(0);
+  if (!bolt_init()) {
+    DEBUG_PRINT_FATAL("ERROR: Bolt init failed");
+  }
 #endif /* BOLT_CONF_ON */
 
 #if SVS_CONF_ON
