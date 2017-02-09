@@ -9,16 +9,13 @@ CONTIKI_PROJECT = lwb
 
 SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
+ifndef $(node_id)
+    node_id = 0
+endif
+
 include $(CONTIKI)/Makefile.include
 
 flocklab:
-# embed image
-	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).$(TARGET).b64
-	@sed -i -n '1h;1!H;$${ g;s/<data>.*<\/data>/<data>\n<\/data>/;p}' flocklab-cc430.xml
-	@sed -i '/<data>/r $(CONTIKI_PROJECT).$(TARGET).b64' flocklab-cc430.xml
-	@rm $(CONTIKI_PROJECT).$(TARGET).b64
-
-flocklab_dpp:
 # embed image
 	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).b64
 	@sed -i -n '1h;1!H;$${ g;s/<data>[^<]*<\/data>/<datacc430>\n<\/data>/;p}' flocklab-dpp.xml
@@ -27,6 +24,7 @@ flocklab_dpp:
 	@rm $(CONTIKI_PROJECT).b64
 	
 upload: 
+	tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(CONTIKI_PROJECT).exe $(CONTIKI_PROJECT).hex TOS_NODE_ID=$(node_id)
 	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
 
