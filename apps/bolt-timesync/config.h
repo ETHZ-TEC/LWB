@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -38,39 +37,19 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB                           /* uncomment to run on FlockLAB */
-#define HOST_ID    2
- 
-#ifdef FLOCKLAB
-  /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MAX 
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */   
-  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_LED1
-  #define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED2
-  #define APP_TASK_ACT_PIN              FLOCKLAB_LED3
-#else
-  /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
-   * assigns node IDs); select an ID other than HOST_ID to compile the code 
-   * for a source node */
-  #define NODE_ID                       2
-  //#define LWB_CONF_TASK_ACT_PIN         COM_MCU_INT2
-  //#define DEBUG_PRINT_TASK_ACT_PIN      COM_MCU_INT2
-  //#define APP_TASK_ACT_PIN              COM_MCU_INT2
-#endif /* FLOCKLAB */
-
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define LWB_CONF_MAX_DATA_SLOTS         10
-#define CLOCK_CONF_FLL_ON               1
-#define FRAM_CONF_ON                    0
-#define BOLT_CONF_ON                    1
+#define NODE_ID                         20010
+#define HOST_ID                         2
 
 #define BOLT_CONF_TIMEREQ_ENABLE        1
-                                                       
+#define BOLT_CONF_TIMEREQ_HF_MODE       1
+
+#define TIMESYNC_OFS                    -188         /* const offset to host */
+
 /* LWB configuration */
 #define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
-
-/* debug config */
-#define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#define LWB_CONF_SCHED_PERIOD_IDLE      2        /* define the period length */
+#define LWB_CONF_MAX_DATA_SLOTS         10
+#define LWB_CONF_IN_BUFFER_SIZE         5
+#define LWB_CONF_MAX_PKT_LEN            32
 
 #endif /* __CONFIG_H__ */

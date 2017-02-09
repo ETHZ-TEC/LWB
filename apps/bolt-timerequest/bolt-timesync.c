@@ -33,11 +33,10 @@
  */
  
 /**
- * @brief BOLT timesync demo (high accuracy)
+ * @brief BOLT timesync demo
  * 
  * This demo application demonstrates how to use the time synchronization 
- * feature of BOLT on the Dual Processor Platform (DPP). The HF timer is used
- * to achieve higher accuracy.
+ * feature of BOLT on the Dual Processor Platform (DPP).
  */
 
 
@@ -53,7 +52,15 @@
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
-#define IS_HOST                 (HOST_ID == NODE_ID)
+void handle_timereq(void)
+{     
+  uint8_t* sw_ext_addr = (uint8_t*)rtimer_swext_addr(RTIMER_LF_0);
+  uint32_t sw_ext = 0;
+  uint64_t timestamp;
+  memcpy((uint8_t*)&sw_ext, sw_ext_addr, 8);
+  timestamp = (sw_ext << 16) | TA1CCR0;
+  BOLT_WRITE((uint8_t*)&timestamp, 8);
+}
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
@@ -61,39 +68,21 @@ AUTOSTART_PROCESSES(&app_process);
 PROCESS_THREAD(app_process, ev, data) 
 { 
   PROCESS_BEGIN();
-
+  
   /* start the LWB thread */
   lwb_start(0, &app_process);
-
+  
+  /* set the callback to switch to interrupt mode */
+  bolt_set_timereq_callback(handle_timereq);
+  
   /* main loop of this application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
-
-    rtimer_clock_t bolt_timestamp = 0;
-    if(bolt_handle_timereq(&bolt_timestamp)) {
-  #if IS_HOST
-      /* simply print out the timestamp */
-      DEBUG_PRINT_MSG_NOW("timestamp: %llu", bolt_timestamp);
-  #else /* !IS_HOST */
-      /* get the time from the LWB */
-      rtimer_clock_t local_rx_time = 0;
-      uint32_t lwb_time_secs = lwb_get_time(&local_rx_time);
-      /* convert the timestamp to global (LWB) time */
-      int64_t lwb_time  = (uint64_t)lwb_time_secs * RTIMER_SECOND_HF;
-      int64_t ofs        = lwb_time - local_rx_time;
-      int32_t elapsed    = (int64_t)bolt_timestamp - local_rx_time;
-      /* use the average drift */
-      int16_t drift = lwb_get_stats()->drift;
-      int32_t drift_comp = (elapsed / 16) * (int32_t)drift /
-                           (int32_t)RTIMER_SECOND_HF;
-      bolt_timestamp     = bolt_timestamp + ofs + drift_comp + TIMESYNC_OFS;
-      DEBUG_PRINT_MSG_NOW("timestamp: %llu", bolt_timestamp);
-      BOLT_WRITE((uint8_t*)&bolt_timestamp, 8);
-  #endif /* IS_HOST */
-    }
+    
+    /* get the time from the LWB */
     
     TASK_SUSPENDED;
   }
