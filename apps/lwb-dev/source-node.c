@@ -48,20 +48,21 @@ source_run(void)
 #if SEND_HEALTH_DATA
   static uint32_t t_last_health_pkt = 0;
   static uint32_t curr_time         = 0;
+  static uint16_t health_stream_ipi = LWB_CONF_SCHED_PERIOD_IDLE;
   static uint8_t  node_info_sent    = 0;
 
   curr_time = rtimer_now_lf() / RTIMER_SECOND_LF;
 
   /* adjust the IPI in case the fill level of the output queue reaches a
    * certain threshold */
-  if(health_stream.ipi == curr_period) {
+  if(health_stream_ipi == curr_period) {
     if(lwb_get_send_buffer_state() > (LWB_CONF_OUT_BUFFER_SIZE / 2)) {
-      health_stream.ipi = curr_period / 2; /* reduce the IPI */
+      health_stream_ipi = curr_period / 2; /* reduce the IPI */
       ipi_changed = 1;
     }
   } else if(lwb_get_send_buffer_state() < 2) {
     /* only 0 or 1 element left in the queue -> set IPI back to default */
-    health_stream.ipi = curr_period;
+    health_stream_ipi = curr_period;
     ipi_changed = 1;
   }
 
@@ -100,7 +101,7 @@ source_run(void)
         case COMM_CMD_LWB_SET_HEALTH_PERIOD:
           /* change health/status report interval */
           curr_period = msg.comm_cmd.value;
-          health_stream.ipi = msg.comm_cmd.value;
+          health_stream_ipi = msg.comm_cmd.value;
           ipi_changed = 1;
           break;
 #endif /* SEND_HEALTH_DATA */
