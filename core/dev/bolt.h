@@ -35,13 +35,14 @@
  * @addtogroup  Dev
  * @{
  *
- * @defgroup    bolt BOLT
+ * @defgroup    bolt Bolt
  * @{
  *
  * @file
  *
- * This library provides functionality to configure and use the asynchronous
- * data interface.
+ * This library provides functionality to configure and use Bolt, an
+ * asynchronous data interface with real-time guarantees.
+ *
  * Set BOLT_CONF_ON to 1 to use this library. By default, DMA usage is disabled
  * and the max. message length is 48 bytes. To adjust the max. message length, 
  * define BOLT_CONF_MAX_MSG_LEN in your configuration file.
@@ -109,93 +110,51 @@
 #define BOLT_CONF_SCLK_SPEED            (SMCLK_SPEED)
 #endif /* BOLT_CONF_SCLK_SPEED */
 
+#ifndef BOLT_CONF_DEBUG_ON
+#define BOLT_CONF_DEBUG_ON              0
+#endif /* BOLT_CONF_DEBUG_ON */
+
+/* to ensure compatibility to Bolt driver < v2.0 */
+#define BOLT_WRITE(d, l)                bolt_write(d, l)
+#define BOLT_READ(d, l)                 ((l) = bolt_read(d))
+
+
 /**
  * @brief checks whether there is data to read from BOLT
  * @remark IND line high means data is available
  */
 #define BOLT_DATA_AVAILABLE             PIN_GET(BOLT_CONF_IND_PIN)
 
+
+
 /**
- * @brief writes one message (num_bytes bytes of the buffer data) to the
- * asynchronous interface
+ * @brief initializes all required GPIO pins and peripherals for Bolt
+ * @return 1 if successful (= Bolt accessible), 0 otherwise
  */
-#define BOLT_WRITE(data, num_bytes) \
-  { \
-    if(bolt_acquire(BOLT_OP_WRITE)) { \
-      bolt_start(data, num_bytes); \
-      bolt_release(); \
-    } \
-  }
+uint8_t bolt_init(void);
 
 /**
- * @brief reads one message from the asynchronous interface
- * @param out_data buffer for the read bytes, must be sufficiently large
- * to hold BOLT_CONF_MAX_MSG_LEN bytes
- */
-#define BOLT_READ(out_data, num_rcvd_bytes) \
-  { \
-    num_rcvd_bytes = 0;\
-    if(bolt_acquire(BOLT_OP_READ)) { \
-      num_rcvd_bytes = bolt_start(out_data, 0); \
-      bolt_release(); \
-    } \
-  }
-
-
-/**
- * @brief the two possible data operations: read or write
- */
-typedef enum {
-  BOLT_OP_READ = 0,
-  BOLT_OP_WRITE,
-  NUM_OF_OPS
-} bolt_op_mode_t;
-
-
-typedef void (*bolt_callback_t)(void);
-
-
-/**
- * @brief initializes all required GPIO pins and peripherals to use the
- * asynchronous data interface
- * @param IND_line_callback address of a callback function for interrupts
- * on the IND line (pass 0 to disable the interrupt)
- *
- * Configures the GPIO pins AI_CTRL_IND, AI_CTRL_MODE, AI_CTRL_REQ and
- * AI_CTRL_ACK as well as the peripheral modules BOLT_CONF_SPI and the DMA (if
- * BOLT_USE_DMA is defined).
- */
-void bolt_init(void (*IND_line_callback)(void));
-
-/**
- * @brief checks the status of BOLT
- * @return 1 if BOLT is active/ready (= responds to a write request) and
+B * @return 1 if BOLT is active/ready (= responds to a write request) and
  * 0 otherwise
  */
 uint8_t bolt_status(void);
 
 /**
- * @brief requests an operation on the asynchronous data interface
- * @param[in] mode the operating mode, either OP_READ or OP_WRITE
- * @return    one if the request was successful (REQ pin was set), zero
- * otherwise
- *
- * Prepares a data transfer over the asynchronous interface by enabling the
- * SPI, setting up the DMA (if BOLT_USE_DMA is defined) and acquiring a lock
- * (set request pin high).
+ * @brief read a message from Bolt
+ * @param[out] out_data the output buffer to hold the received data, must be
+ *                      at least BOLT_CONF_MAX_MSG_LEN long
+ * @return the number of read bytes
  */
-uint8_t bolt_acquire(bolt_op_mode_t mode);
+uint16_t bolt_read(uint8_t* out_data);
 
 /**
- * @brief start an operation on the asynchronous data interface
- * @param[in,out] data A pointer to the data buffer (an input in write mode and
- * an output in read mode). Set this parameter to 0 if DMA mode is used.
- * @param[in,out] num_bytes The number of bytes to transmit (in write mode). 
- * Pass 0 in read mode.
- * @return 1 or the number of received bytes if successful, 0 otherwise
- * @note this is a blocking call
+ * @brief read a message from Bolt
+ * @param[in] data the data to send to Bolt
+ * @param[in] len the number of bytes to write
+ * @return 1 if successful, 0 otherwise
  */
-uint8_t bolt_start(uint8_t *data, uint16_t num_bytes);
+uint8_t bolt_write(const uint8_t* data, uint16_t len);
+
 
 #if BOLT_CONF_TIMEREQ_ENABLE
 /**
@@ -227,15 +186,6 @@ void bolt_set_ind_callback(void (*func)(void));
  * call this function from the appropriate port ISR (e.g. Port 2 ISR)
  */
 void bolt_handle_irq(void);
-
-/**
- * @brief release the asynchronous data interface and clean up
- *
- * Resets the REQ pin to put the asynchronous interface back into idle state
- * and disables the DMA and SPI.
- * @note Any ongoing operation on BOLT_CONF_SPI will be terminated immediately.
- */
-void bolt_release(void);
 
 #endif /* BOLT_CONF_ON */
 

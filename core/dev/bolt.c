@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -29,16 +28,14 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *
+ * MSP430/CC430 Bolt driver v2.0
  */
 
 #include "contiki.h"
 
 #if BOLT_CONF_ON
 /*---------------------------------------------------------------------------*/
-/**
- * @brief all the possible states of the finite state machine that controls the
- *interaction with the asynchronous interface
- */
 typedef enum {
   BOLT_STATE_IDLE = 0,
   BOLT_STATE_READ,
@@ -46,10 +43,22 @@ typedef enum {
   BOLT_STATE_INVALID,
   NUM_OF_STATES
 } bolt_state_t;
+typedef enum {
+  BOLT_OP_READ = 0,
+  BOLT_OP_WRITE,
+  NUM_OF_OPS
+} bolt_op_mode_t;
+typedef void (*bolt_callback_t)(void);
 /*---------------------------------------------------------------------------*/
 /* helper macros */
 #define BOLT_ACK_STATUS                 PIN_GET(BOLT_CONF_ACK_PIN)
 #define BOLT_WAIT_TILL_COMPLETED        while(BOLT_STATE_IDLE != bolt_state)
+
+#if BOLT_CONF_DEBUG_ON
+#define BOLT_DEBUG(...)   DEBUG_PRINT_MSG(0, DEBUG_PRINT_LVL_INFO, __VA_ARGS__)
+#else
+#define BOLT_DEBUG(...)
+#endif /* BOLT_CONF_DEBUG_ON */
 /*---------------------------------------------------------------------------*/
 static volatile bolt_state_t bolt_state = BOLT_STATE_INVALID;
 static bolt_callback_t bolt_ind_callback = 0;
@@ -57,15 +66,11 @@ static bolt_callback_t bolt_ind_callback = 0;
 static rtimer_clock_t  rtimer_ext = 0;
 #endif /* BOLT_CONF_TIMEREQ_ENABLE */
 /*---------------------------------------------------------------------------*/
-void
-bolt_init(bolt_callback_t IND_line_callback)
+uint8_t
+bolt_init(void)
 {
   /* control signals */
   PIN_CFG_IN(BOLT_CONF_IND_PIN);
-  if(IND_line_callback) {
-    PIN_CFG_INT(BOLT_CONF_IND_PIN);
-    bolt_ind_callback = IND_line_callback;
-  }
   /* enable resistor to prevent floating input */
   //PIN_PULLDOWN_EN(BOLT_CONF_IND_PIN);
   PIN_UNSEL(BOLT_CONF_MODE_PIN);
@@ -102,23 +107,15 @@ bolt_init(bolt_callback_t IND_line_callback)
                    (uint16_t)&rtimer_ext, 8);
 #endif
   
-  bolt_state = BOLT_STATE_IDLE;
-  
   if(bolt_status()) {
-    DEBUG_PRINT_ERROR("BOLT not accessible, init failed");
-  } else {
-    DEBUG_PRINT_INFO("BOLT initialized");
+    BOLT_DEBUG("[Bolt] not accessible, init failed");
+    return 0;
   }
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-bolt_status(void)
-{
-  if(bolt_acquire(BOLT_OP_WRITE)) {
-    bolt_release();
-    return 1;
-  }
-  return 0;
+  BOLT_DEBUG("[Bolt] initialized");
+
+  bolt_state = BOLT_STATE_IDLE;
+
+  return 1;
 }
 /*---------------------------------------------------------------------------*/
 #if BOLT_CONF_TIMEREQ_ENABLE
@@ -162,7 +159,7 @@ bolt_set_ind_callback(void (*func)(void))
   if(func) {
     PIN_CFG_INT(BOLT_CONF_IND_PIN);
   } else {
-    PIN_INT_OFF(BOLT_CONF_IND_PIN);      
+    PIN_INT_DIS(BOLT_CONF_IND_PIN);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -181,23 +178,23 @@ bolt_release(void)
   /* --- 5. wait for ACK to go down --- */
   while(PIN_GET(BOLT_CONF_ACK_PIN));
   bolt_state = BOLT_STATE_IDLE;
-  DEBUG_PRINT_VERBOSE("back in idle state");
+  BOLT_DEBUG("[Bolt] back in idle state");
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
 bolt_acquire(bolt_op_mode_t mode)
 {  
   if(BOLT_STATE_INVALID == bolt_state) {
-    DEBUG_PRINT_ERROR("BOLT not initialized!");
+    BOLT_DEBUG("[Bolt] not initialized!");
     return 0;
   }
   if(PIN_GET(BOLT_CONF_REQ_PIN) || 
      PIN_GET(BOLT_CONF_ACK_PIN)) {
-    DEBUG_PRINT_WARNING("BOLT request failed (REQ or ACK still high)");
+    BOLT_DEBUG("[Bolt] request failed (REQ or ACK still high)");
     return 0;
   }
   if(BOLT_STATE_IDLE != bolt_state) {
-    DEBUG_PRINT_WARNING("BOLT not in idle state, operation skipped");
+    BOLT_DEBUG("[Bolt] not in idle state, operation skipped");
     return 0;
   } 
 
@@ -205,98 +202,40 @@ bolt_acquire(bolt_op_mode_t mode)
   /* READ */
   if(BOLT_OP_READ == mode) {
     if(!BOLT_DATA_AVAILABLE) {
-      DEBUG_PRINT_WARNING("BOLT no data available, op skipped");
+      BOLT_DEBUG("[Bolt] no data available");
       return 0;
     }
     PIN_CLR(BOLT_CONF_MODE_PIN); /* 0 = READ */
-    DEBUG_PRINT_VERBOSE("requesting read operation...");
+    BOLT_DEBUG("[Bolt] requesting read access");
   /* WRITE */
   } else {
     PIN_SET(BOLT_CONF_MODE_PIN); /* 1 = WRITE */
-    DEBUG_PRINT_VERBOSE("requesting write operation...");
+    BOLT_DEBUG("[Bolt] requesting write access");
   }
   /* --- set REQ = 1 --- */
   PIN_SET(BOLT_CONF_REQ_PIN);
   /* now wait for a rising edge on the ACK line */
   uint8_t cnt = 0;
   do {
-      __delay_cycles(MCLK_SPEED / 100000);       /* wait 10 us */
-      cnt++;
-  } while(!BOLT_ACK_STATUS && cnt < 10);
+    __delay_cycles(MCLK_SPEED / 100000);        /* wait 10 us */
+    cnt++;
+  } while(!BOLT_ACK_STATUS && cnt < 5);         /* 50us is a safe bound */
   
   if(!BOLT_ACK_STATUS) {
     /* ack is still low -> failed */
     bolt_state = BOLT_STATE_IDLE;
     PIN_CLR(BOLT_CONF_REQ_PIN);
-    DEBUG_PRINT_WARNING("BOLT access denied (queue full?)");
+    BOLT_DEBUG("[Bolt] access denied");         /* maybe queue is full... */
     return 0;
   }
   
   /* make sure SPI is enabled */
   spi_enable(BOLT_CONF_SPI, 1);
   
+  /* update state */
   bolt_state = (mode == BOLT_OP_READ) ? BOLT_STATE_READ : BOLT_STATE_WRITE;
 
   return 1;
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-bolt_start(uint8_t *data, uint16_t num_bytes)
-{
-#if !(BOLT_CONF_USE_DMA)
-  uint16_t count = 0;
-#endif /* BOLT_CONF_USE_DMA */
-  DEBUG_PRINT_VERBOSE("starting data transfer... ");
-  
-  if(!data) {
-    return 0;
-  }
-
-  /* WRITE OPERATION */
-  if(BOLT_STATE_WRITE == bolt_state) {
-    if(0 == num_bytes) {
-      return 0;
-    }
-#if BOLT_CONF_USE_DMA
-    dma_config_spi(BOLT_CONF_SPI, bolt_release);
-    dma_start(0, (uint16_t)data, num_bytes);
-#else
-    while(count < num_bytes) {
-      spi_write_byte(BOLT_CONF_SPI, *data);
-      data++;
-      count++;
-      if(!BOLT_ACK_STATUS) {  /* aborted */
-        DEBUG_PRINT_WARNING("transfer aborted by BOLT");
-        return 0;
-      }
-    }
-    DEBUG_PRINT_VERBOSE("%d bytes transmitted", count);
-#endif /* BOLT_CONF_USE_DMA */
-    return 1;
-  /* READ OPERATION */
-  } else if(BOLT_STATE_READ == bolt_state) {
-#if BOLT_CONF_USE_DMA
-    dma_config_spi(BOLT_CONF_SPI, bolt_release);
-    dma_start((uint16_t)data, 0, BOLT_MAX_MSG_LEN);
-#else /* BOLT_CONF_USE_DMA */
-    /* first, clear the RX buffer */
-    spi_read_byte(BOLT_CONF_SPI, 0);
-  #if SPI_CONF_FAST_READ
-    /* transmit 1 byte ahead for faster read speed (fills RXBUF faster) */
-    spi_write_byte(BOLT_CONF_SPI, 0x00);
-  #endif
-    while((count < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
-      spi_write_byte(BOLT_CONF_SPI, 0x00);          /* generate the clock */
-      *data = spi_read_byte(BOLT_CONF_SPI, 1);
-      data++;
-      count++;
-    }
-    /* how many bytes received? */
-    DEBUG_PRINT_VERBOSE("%d bytes received", count);
-#endif /* BOLT_CONF_USE_DMA */
-    return count;
-  }
-  return 0;
 }
 /*---------------------------------------------------------------------------*/
 void 
@@ -304,7 +243,7 @@ bolt_handle_irq(void)
 {
   if(PIN_IFG(BOLT_CONF_IND_PIN)) {
     PIN_CLR_IFG(BOLT_CONF_IND_PIN);
-    DEBUG_PRINT_VERBOSE("BOLT IND pin interrupt");
+    BOLT_DEBUG("[Bolt] IND line interrupt");
     if(bolt_ind_callback) {
       bolt_ind_callback(); 
     }
@@ -319,11 +258,105 @@ bolt_handle_irq(void)
         rcvd_bytes = (BOLT_CONF_MAX_MSG_LEN - rcvd_bytes);
       }
       bolt_release();
-      DEBUG_PRINT_VERBOSE("%d bytes received", rcvd_bytes);
+      BOLT_DEBUG("[Bolt] %d bytes received", rcvd_bytes);
     }
 #endif /* BOLT_CONF_USE_DMA */
-    DEBUG_PRINT_VERBOSE("port 2 interrupt: ACK pin");
+    BOLT_DEBUG("[Bolt] ACK line interrupt");
   }    
+}
+/*---------------------------------------------------------------------------*/
+uint16_t
+bolt_read(uint8_t* out_data)
+{
+  uint16_t rcvd_bytes = 0;
+
+  /* parameter check */
+  if(!out_data) {
+    BOLT_DEBUG("[Bolt] invalid parameter");
+    return 0;
+  }
+  if(!bolt_acquire(BOLT_OP_READ)) {
+    return 0;
+  }
+  BOLT_DEBUG("[Bolt] starting data transfer");
+
+#if BOLT_CONF_USE_DMA
+  dma_config_spi(BOLT_CONF_SPI, bolt_release);
+  dma_start((uint16_t)data, 0, BOLT_MAX_MSG_LEN);
+#else /* BOLT_CONF_USE_DMA */
+
+  /* first, clear the RX buffer */
+  spi_read_byte(BOLT_CONF_SPI, 0);
+#if SPI_CONF_FAST_READ
+  /* transmit 1 byte ahead for faster read speed (fills RXBUF faster) */
+  spi_write_byte(BOLT_CONF_SPI, 0x00);
+#endif /* SPI_CONF_FAST_READ */
+
+  while((rcvd_bytes < BOLT_CONF_MAX_MSG_LEN) && BOLT_ACK_STATUS) {
+    spi_write_byte(BOLT_CONF_SPI, 0x00);          /* generate the clock */
+    *out_data = spi_read_byte(BOLT_CONF_SPI, 1);
+    out_data++;
+    rcvd_bytes++;
+  }
+
+  BOLT_DEBUG("[Bolt] %d bytes received", rcvd_bytes);
+#endif /* BOLT_CONF_USE_DMA */
+
+  bolt_release();
+
+  return rcvd_bytes;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+bolt_write(const uint8_t* data, uint16_t len)
+{
+  /* parameter check */
+  if(!data || !len) {
+    BOLT_DEBUG("[Bolt] invalid parameter");
+    return 0;
+  }
+  if(!bolt_acquire(BOLT_OP_WRITE)) {
+    return 0;
+  }
+  BOLT_DEBUG("[Bolt] starting data transfer");
+
+#if BOLT_CONF_USE_DMA
+  dma_config_spi(BOLT_CONF_SPI, bolt_release);
+  dma_start(0, (uint16_t)data, num_bytes);
+#else
+
+  while(len) {
+    spi_write_byte(BOLT_CONF_SPI, *data);
+    data++;
+    len--;
+    if(!BOLT_ACK_STATUS) {  /* aborted */
+      BOLT_DEBUG("[Bolt] transfer aborted");
+      return 0;
+    }
+  }
+  BOLT_DEBUG("[Bolt] data written");
+#endif /* BOLT_CONF_USE_DMA */
+
+  bolt_release();
+
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+bolt_status(void)
+{
+  if(bolt_acquire(BOLT_OP_WRITE)) {
+    bolt_release();
+    return 1;
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+void
+bolt_flush(void)
+{
+  uint8_t buffer[BOLT_CONF_MAX_MSG_LEN];
+  while(BOLT_DATA_AVAILABLE && bolt_read(buffer));
 }
 /*---------------------------------------------------------------------------*/
 
