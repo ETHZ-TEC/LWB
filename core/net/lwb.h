@@ -239,10 +239,8 @@
 #endif /* LWB_CONF_T_DEEPSLEEP */
 
 #ifndef LWB_CONF_T_SCHED2_START
-/* start point (offset) of the second schedule at the end of a round
- * must be after LWB_T_ROUND_MAX; this ensures that the host node has at least
- * LWB_CONF_T_SCHED timer clock ticks to compute the new schedule before
- * transmitting it at the end of the round */
+/* start point (offset in HF ticks) of the second schedule at the end of a 
+ * round must be after LWB_T_ROUND_MAX */
 #define LWB_CONF_T_SCHED2_START         (LWB_T_ROUND_MAX + RTIMER_SECOND_HF/50)
 #endif /* LWB_CONF_T_SCHED2_START */
 

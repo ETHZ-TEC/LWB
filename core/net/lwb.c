@@ -1227,7 +1227,7 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
   uart_enable(1);
   printf("Starting '%s'\r\n", lwb_process.name);    
   printf("t_sched=%ums, t_data=%ums, t_cont=%ums, t_round=%ums, "
-         "data=%ub, slots=%u, tx=%u, hop=%u\r\n", 
+         "data=%ub, slots=%u, tx=%u, hop=%u, scale=%u, sched2=%ums\r\n", 
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT),
@@ -1235,11 +1235,14 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
-         LWB_CONF_MAX_HOPS);  
-  if((LWB_CONF_T_SCHED2_START > RTIMER_SECOND_HF / LWB_CONF_TIME_SCALE)) {
-    printf("WARNING: LWB_CONF_T_SCHED2_START > 1s\r\n");
+         LWB_CONF_MAX_HOPS,
+         LWB_CONF_TIME_SCALE, 
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED2_START));  
+  if((LWB_CONF_T_SCHED2_START + LWB_CONF_T_SCHED) > 
+     (RTIMER_SECOND_HF / LWB_CONF_TIME_SCALE)) {
+    printf("WARNING: LWB_CONF_T_SCHED2_START > min round period\r\n");
   }
-  if(LWB_CONF_T_SCHED2_START < LWB_T_ROUND_MAX) {
+  if(LWB_CONF_T_SCHED2_START < (LWB_T_ROUND_MAX / LWB_CONF_TIME_SCALE)) {
     printf("WARNING: LWB_CONF_T_SCHED2_START < LWB_T_ROUND_MAX!");
   }
   process_start(&lwb_process, NULL);
