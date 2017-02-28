@@ -63,6 +63,7 @@
 #define LWB_CONF_MAX_DATA_PKT_LEN       20
 #define LWB_CONF_MAX_DATA_SLOTS         2
 #define LWB_CONF_SCHED_STREAM_REMOVAL_THRES 256
+#define LWB_CONF_T_SCHED2_START         (LWB_T_ROUND_MAX + (RTIMER_SECOND_HF / 125))
                                                        
 /* LWB configuration */
 #define LWB_CONF_TIME_SCALE				15
