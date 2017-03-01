@@ -1,0 +1,24 @@
+How to import this source code into TI Code Composer Studio 7:
+
+Go to "File > Import > General > Existing Projects into Workspace". Select the Contiki root folder (LWB). You may also tick the box "Copy files into Workspace", but this is optional. 
+
+
+Alternatively - if the import does not work for you - you can follow this procedure to create a new CCS project:
+
+1. Create a new project: "File > New > Project... > C/C++ > Makefile Project with Existing Code"
+   Click 'next' and enter the project name as well as the path to the source folder. Choose the toolchain for the indexer (e.g. Linux GCC) and click 'finish'.
+   
+2. Modify the project settings: Project > Properties
+   Go to "C/C++ Build > Behaviour" and clear the content of the textbox next to 'incremental build'.
+   
+3. If necessary, modify the 'Makefile' in the Contiki root folder (e.g. select the project you want to compile by setting CONTIKI_PROJECT to the right folder in 'apps/..' 
+   (i.e. the application you want to build).
+   
+4. The project should now compile. However, there will still be many warnings and errors in the 'Problems' tab in CCS. This is due to the Indexer, which does not find all required files.
+   In the project settings, go to "C/C++ General > Paths and Symbols > Include > GNU C" and add the include path to the msp430 files (typically /usr/msp430/include) as well as the
+   path to your config.h (which is in the [Contiki root]/apps/[your_app]).
+   You may need to rebuild the index ("Project > C/C++ Index > Rebuild") and close and reopen CCS in order to get rid of all the warnings and errors. 
+
+5. In order to flash/debug the program onto the target device, you need to create a new debug configuration: "Run > Debug Configurations > New Launch Configuration" (icon on top-left corner).
+   On the right side, select the "Target Configuration" from the Workspace: "[project_name]/tools/ccs/targetcfg/CC430F5147.ccxml". Go to the tab 'Program' and select the compiled .exe file from the Workspace.
+   Click 'Apply' and then 'Debug'.

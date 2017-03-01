@@ -1,7 +1,5 @@
 .cache
 .settings
-.project
-.cproject
 .directory
 *.dis
 *.exe

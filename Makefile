@@ -10,7 +10,7 @@
 # the TI Code Composer Studio or the MSPFlasher tool 
 
 CONTIKI = .
-CONTIKI_PROJECT = lwb-dev
+CONTIKI_PROJECT = lwb
 APPDIR = ./apps/$(CONTIKI_PROJECT)
 
 SRCS = ${shell find $(APPDIR) -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
