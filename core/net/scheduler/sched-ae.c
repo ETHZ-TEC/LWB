@@ -324,13 +324,14 @@ lwb_sched_init(lwb_schedule_t* sched)
   sched->time = time;
   sched->period = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
   
-#ifdef LWB_CONF_SCHED_AE_SRC_NODE_CNT
+#if defined(LWB_CONF_SCHED_AE_SRC_NODE_CNT) && LWB_CONF_SCHED_AE_SRC_NODE_CNT
   uint16_t nodes_ids[LWB_CONF_SCHED_AE_SRC_NODE_CNT] = 
                                           { LWB_CONF_SCHED_AE_SRC_NODE_LIST };
  #if LWB_CONF_SCHED_AE_SRC_NODE_CNT > LWB_CONF_MAX_N_STREAMS
  #error "LWB_CONF_SCHED_AE_SRC_NODE_CNT is too high"
  #endif /* LWB_CONF_SCHED_AE_SRC_NODE_CNT */
   uint16_t i;
+  printf("eLWB registered source nodes: ");
   for(i = 0; i < LWB_CONF_SCHED_AE_SRC_NODE_CNT; i++) {
     lwb_stream_list_t* s = memb_alloc(&streams_memb);
     if(s == 0) {
@@ -342,7 +343,9 @@ lwb_sched_init(lwb_schedule_t* sched)
     s->state   = 1;
     list_push(streams_list, s);
     n_streams++;
+    printf("%u ", nodes_ids[i]);
   }
+  printf("\r\n");
 #endif /* LWB_CONF_SCHED_AE_INIT_NODES */
   
   return LWB_SCHED_PKT_HEADER_LEN; /* empty schedule, no slots allocated yet */
