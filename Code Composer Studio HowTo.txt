@@ -20,5 +20,5 @@ Alternatively - if the import does not work for you - you can follow this proced
    You may need to rebuild the index ("Project > C/C++ Index > Rebuild") and close and reopen CCS in order to get rid of all the warnings and errors. 
 
 5. In order to flash/debug the program onto the target device, you need to create a new debug configuration: "Run > Debug Configurations > New Launch Configuration" (icon on top-left corner).
-   On the right side, select the "Target Configuration" from the Workspace: "[project_name]/tools/ccs/targetcfg/CC430F5147.ccxml". Go to the tab 'Program' and select the compiled .exe file from the Workspace.
+   On the right side, select the "Target Configuration" from the Workspace: "[project_name]/tools/ccs/targetcfg/CC430F5147.ccxml". Go to the tab 'Program' and select the compiled .exe file from the Workspace. In the tab 'Target', make sure 'Connect to the target on debugger startup' in the 'Auto run and launch options' is enabled.
    Click 'Apply' and then 'Debug'.
