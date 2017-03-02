@@ -272,6 +272,15 @@
                                   UCSCTL7  = 0; \
                                   DISABLE_XT2(); \
                                 }
+                                
+/* min. duration of 1 packet transmission with Glossy in HF ticks
+ * note: TX to RX switch takes ~313us, RX to TX switch ~287us -> constant
+ *       overhead is ~300us per hop, which already includes the transmission
+ *       of 4 preamble bytes and the sync word (4 bytes) -> the actual 
+ *       switching time is therefore approx. 44us */
+#define LWB_T_HOP(len)          ((RTIMER_SECOND_HF * (300 + (len) * 32)) / \
+                                 1000000)
+
 
 /* specify what needs to be done every time before SPI is enabled */
 #define SPI_BEFORE_ENABLE(spi) {\

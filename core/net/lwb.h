@@ -323,13 +323,15 @@
                                      (LWB_CONF_T_SCHED + LWB_CONF_T_GAP) + \
                                      (LWB_CONF_T_CONT + LWB_CONF_T_GAP))
 
-/* min. duration of 1 packet transmission with glossy (approx. values, taken 
- * from TelosB platform measurements) -> for 127b packets ~4.5ms, for 50b 
- * packets just over 2ms */
+/* min. duration of 1 packet transmission with Glossy in HF ticks
+ * (default values are for TelosB platform) */
+#ifndef LWB_T_HOP
 #define LWB_T_HOP(len)              ((RTIMER_SECOND_HF * \
                                      (3 + 24 + 192 + 192 + ((1000000 * \
                                      (len) * 8) / RF_CONF_TX_BITRATE))) \
                                      / 1000000)  
+#endif /* LWB_T_HOP */
+
 /* minimum duration of a data slot according to "Energy-efficient Real-time 
  * Communication in Multi-hop Low-power Wireless Networks" (Zimmerling et al.),
  * Appendix I. For 127b packets ~22.5ms, for 50b packets just over 10ms */
