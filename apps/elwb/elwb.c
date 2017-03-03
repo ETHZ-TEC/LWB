@@ -52,8 +52,12 @@
 #endif
 
 /*---------------------------------------------------------------------------*/
+#ifndef LWB_CONF_PERIOD_SCALE
 #define LWB_CONF_PERIOD_SCALE       100         /* also change in sched-ae.c */
+#endif /* LWB_CONF_PERIOD_SCALE*/
+#ifndef LWB_CONF_PERIOD_MIN
 #define LWB_CONF_PERIOD_MIN         4
+#endif /* LWB_CONF_PERIOD_MIN */
 
 /* expected packet length of a slot request */         
 #ifndef LWB_CONF_SRQ_PKT_LEN
@@ -186,6 +190,8 @@ static void             (*pre_proc)(void);
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   rx_timestamp;
 static uint32_t         global_time;
+static lwb_schedule_t   schedule;
+static uint8_t          schedule_len;
 static lwb_statistics_t stats = { 0 };
 static uint8_t          running = 0;
 /* allocate memory in the SRAM (+1 to store the message length) */
@@ -215,7 +221,7 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
     *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
     return 1;
   }
-  DEBUG_PRINT_VERBOSE("in queue full");
+  DEBUG_PRINT_WARNING("lwb rx queue full");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -233,7 +239,7 @@ lwb_out_buffer_get(uint8_t* out_data)
     memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
   }
-  DEBUG_PRINT_VERBOSE("out queue empty");
+  DEBUG_PRINT_VERBOSE("lwb tx queue empty");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -259,7 +265,7 @@ lwb_send_pkt(uint16_t recipient,
     memcpy(next_msg, data, len);
     return 1;
   }
-  DEBUG_PRINT_VERBOSE("out queue full");
+  DEBUG_PRINT_VERBOSE("lwb tx queue full");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -282,7 +288,7 @@ lwb_rcv_pkt(uint8_t* out_data,
     memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
   }
-  DEBUG_PRINT_VERBOSE("in queue empty");
+  DEBUG_PRINT_VERBOSE("lwb rx queue empty");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -328,7 +334,6 @@ lwb_get_time(rtimer_clock_t* reception_time)
 PT_THREAD(lwb_thread_host(rtimer_t *rt)) 
 {  
   /* all variables must be static */
-  static lwb_schedule_t schedule;
   static rtimer_clock_t t_start; 
   static rtimer_clock_t t_now;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
@@ -345,17 +350,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static uint16_t i = 0;
   static uint8_t slot_idx;
   static uint8_t streams_to_update[LWB_CONF_MAX_DATA_SLOTS];
-  static uint8_t schedule_len, 
-                 payload_len;
+  static uint8_t payload_len;
   static int8_t  glossy_rssi = 0;
   static const void* callback_func = lwb_thread_host;
   
   PT_BEGIN(&lwb_pt);
     
-  memset(&schedule, 0, sizeof(schedule));
-  
-  /* initialization specific to the host node */
-  schedule_len = lwb_sched_init(&schedule);
   sync_state = SYNCED;  /* the host is always 'synced' */
   running = 1;
   
@@ -581,7 +581,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 PT_THREAD(lwb_thread_src(rtimer_t *rt)) 
 {  
   /* all variables must be static */
-  static lwb_schedule_t schedule;
   static rtimer_clock_t t_ref;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   static rtimer_clock_t t_ref_lf;
@@ -935,7 +934,7 @@ lwb_resume(void)
 }
 /*---------------------------------------------------------------------------*/
 /* define the process control block */
-PROCESS(lwb_process, "Communication Task (LWB)");
+PROCESS(lwb_process, "Communication Task (eLWB)");
 /*---------------------------------------------------------------------------*/
 /* define the body (protothread) of a process */
 PROCESS_THREAD(lwb_process, ev, data) 
@@ -953,6 +952,9 @@ PROCESS_THREAD(lwb_process, ev, data)
   
   PT_INIT(&lwb_pt); /* initialize the protothread */
 
+  if((node_id == HOST_ID)) {
+    schedule_len = lwb_sched_init(&schedule);
+  }
   lwb_resume();
 
   PROCESS_END();
@@ -963,19 +965,17 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
 {
   pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
-  printf("Starting '%s'\r\n", lwb_process.name);
-    
-  printf("T=%ums T_r=%ums T_s=%ums T_d=%ums T_c=%ums l=%ub N_s=%u N_tx=%u "
-         "N_h=%u\r\n",
-         LWB_CONF_SCHED_PERIOD_IDLE * 1000,
-         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT),
+  printf("Starting '%s'\r\n", lwb_process.name);    
+  printf(" data=%ub n_slots=%u n_tx_data=%u n_tx_sched=%u n_hops=%u\r\n", 
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
+         LWB_CONF_TX_CNT_SCHED,
          LWB_CONF_MAX_HOPS);
+  printf(" slot times [ms]: sched=%u data=%u cont=%u\r\n",
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT));
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

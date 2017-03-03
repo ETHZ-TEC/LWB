@@ -1,19 +1,18 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *  notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- *  notice, this list of conditions and the following disclaimer in the
- *  documentation and/or other materials provided with the distribution.
- *
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  * 3. Neither the name of the copyright holder nor the names of its
- *  contributors may be used to endorse or promote products derived
- *  from this software without specific prior written permission.
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -55,8 +54,12 @@
 
 #ifdef LWB_SCHED_AE
 
-#define LWB_CONF_PERIOD_SCALE           100      /* also change in lwb-mod.c */
+#ifndef LWB_CONF_PERIOD_SCALE
+#define LWB_CONF_PERIOD_SCALE           100         /* also change in elwb.c */
+#endif /* LWB_CONF_PERIOD_SCALE */
+#ifndef LWB_CONF_PERIOD_MIN
 #define LWB_CONF_PERIOD_MIN             4
+#endif /* LWB_CONF_PERIOD_MIN */
 
 /* parameter sanity check */
 
@@ -70,7 +73,7 @@
 #endif
 
 /* duration of the 'request round', depends on the max. # nodes
- * (= LWB_CONF_MAX_N_STREAMS) */
+ * (= LWB_CONF_MAX_N_STREAMS); add 20ms slack time to compute the schedule */
 #ifndef LWB_CONF_T_REQ_ROUND
 #define LWB_CONF_T_REQ_ROUND    (uint16_t)( \
                                  (LWB_CONF_T_SCHED + LWB_CONF_T_GAP + \
@@ -79,6 +82,19 @@
                                   (RTIMER_SECOND_HF / 50)) / \
                                  (RTIMER_SECOND_HF / LWB_CONF_PERIOD_SCALE))
 #endif /* LWB_CONF_T_REQ_ROUND */
+
+
+#define LWB_T_IDLE_ROUND_MS     ((2 * LWB_CONF_T_SCHED + 3 * LWB_CONF_T_GAP + \
+                                  LWB_CONF_T_CONT) * 1000 / RTIMER_SECOND_HF)
+#define LWB_T_REQ_ROUND_MS      (LWB_CONF_T_REQ_ROUND * 1000 / \
+                                 LWB_CONF_PERIOD_SCALE)
+#define LWB_T_DATA_ROUND_MS     ((LWB_CONF_T_SCHED + LWB_CONF_T_GAP + \
+                                  LWB_CONF_MAX_DATA_SLOTS * \
+                                  (LWB_CONF_T_DATA + LWB_CONF_T_GAP)) * 1000 /\
+                                 RTIMER_SECOND_HF)
+#define LWB_T_ROUND_MAX_MS       (LWB_CONF_PERIOD_MIN * 1000 / \
+                                  LWB_CONF_PERIOD_SCALE + LWB_T_REQ_ROUND_MS +\
+                                  LWB_T_DATA_ROUND_MS)
 
 #ifndef MAX
 #define MAX(x,y)        ((x) > (y) ? (x) : (y))
@@ -312,6 +328,20 @@ lwb_sched_compute(lwb_schedule_t * const sched,
 uint16_t 
 lwb_sched_init(lwb_schedule_t* sched) 
 {
+  printf(" using eLWB scheduler with T=%u\r\n"
+         " round times [ms]: idle=%u cont=%u data=%u total=%u\r\n", 
+         LWB_CONF_SCHED_PERIOD_IDLE,
+         (uint16_t)LWB_T_IDLE_ROUND_MS, (uint16_t)LWB_T_REQ_ROUND_MS,
+         (uint16_t)LWB_T_DATA_ROUND_MS, (uint16_t)LWB_T_ROUND_MAX_MS);
+  
+  /* check parameters */
+  if(((LWB_CONF_PERIOD_MIN * 1000 / LWB_CONF_PERIOD_SCALE) <= 
+      LWB_T_IDLE_ROUND_MS) ||
+     (LWB_T_ROUND_MAX_MS >= LWB_CONF_SCHED_PERIOD_IDLE * 1000)) {
+    printf("ERROR: invalid parameters for eLWB scheduler\r\n");
+    while(1);
+  }
+      
   /* initialize streams member and list */
   memb_init(&streams_memb);
   list_init(streams_list);
@@ -331,11 +361,11 @@ lwb_sched_init(lwb_schedule_t* sched)
  #error "LWB_CONF_SCHED_AE_SRC_NODE_CNT is too high"
  #endif /* LWB_CONF_SCHED_AE_SRC_NODE_CNT */
   uint16_t i;
-  printf("eLWB registered source nodes: ");
+  printf(" %u source nodes registered: ", LWB_CONF_SCHED_AE_SRC_NODE_CNT);
   for(i = 0; i < LWB_CONF_SCHED_AE_SRC_NODE_CNT; i++) {
     lwb_stream_list_t* s = memb_alloc(&streams_memb);
     if(s == 0) {
-      DEBUG_PRINT_ERROR("out of memory: stream not added");
+      printf("ERROR out of memory: stream not added");
       break;
     }
     s->id = nodes_ids[i];
