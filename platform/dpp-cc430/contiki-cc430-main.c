@@ -175,7 +175,9 @@ main(int argc, char **argv)
   if (!fram_init()) {
     DEBUG_PRINT_FATAL("ERROR: FRAM failure");
   }
-#endif
+  uart_enable(1);   /* re-configure module in UART mode */
+#endif /* FRAM_CONF_ON */
+  
 #if BOLT_CONF_ON
   if (!bolt_init()) {
     DEBUG_PRINT_FATAL("ERROR: Bolt init failed");
