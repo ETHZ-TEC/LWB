@@ -112,8 +112,8 @@ fram_init(void)
     PIN_SET(FRAM_CONF_CTRL_PIN);
     PIN_CFG_OUT(FRAM_CONF_CTRL_PIN);
     if(!spi_init(FRAM_CONF_SPI, FRAM_CONF_SCLK_SPEED)) {
-        DEBUG_PRINT_MSG_NOW("ERROR: spi init failed");
-        return 0;
+      DEBUG_PRINT_MSG_NOW("ERROR: spi init failed");
+      return 0;
     }
     fram_num_alloc_blocks = 0;
     fram_curr_offset = FRAM_CONF_ALLOC_START;
@@ -285,8 +285,8 @@ fram_alloc(uint16_t size)
                       "(requested block size: %db)", size);
     return FRAM_ALLOC_ERROR;
   }
-  DEBUG_PRINT_MSG_NOW("Memory allocated (block: %d, len: %db, ofs: %lu)",
-                      fram_num_alloc_blocks, size, fram_curr_offset);
+  printf(" memory allocated (block: %d, len: %db, ofs: %lu)\r\n",
+         fram_num_alloc_blocks, size, fram_curr_offset);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
   return addr;

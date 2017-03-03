@@ -112,6 +112,7 @@ bolt_init(void)
     return 0;
   }
   BOLT_DEBUG("[Bolt] initialized");
+  printf("Bolt initialized (message size %ub)\r\n", BOLT_CONF_MAX_MSG_LEN);
 
   bolt_state = BOLT_STATE_IDLE;
 
