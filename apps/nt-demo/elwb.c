@@ -1,18 +1,18 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *  notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- *  notice, this list of conditions and the following disclaimer in the
- *  documentation and/or other materials provided with the distribution.
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  * 3. Neither the name of the copyright holder nor the names of its
- *  contributors may be used to endorse or promote products derived
- *  from this software without specific prior written permission.
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -36,6 +36,8 @@
  *
  * a modified implementation of the Low-Power Wireless Bus called e-LWB
  * (event-based/triggered LWB)
+ * it is a many-to-one protocol for fast data dissemination under rapidly
+ * chanding loads
  * 
  * header length is 0, neither recipient node ID nor stream ID are required 
  * since all the data flows to the sinks
@@ -47,17 +49,25 @@
 #if LWB_VERSION == 0
 
 /* parameter checks */
-#if !defined(LWB_SCHED_AE)
-#error "LWB_MOD only support the 'AE' scheduler"
+#if !defined(LWB_SCHED_ELWB)
+#error "eLWB only supports the eLWB scheduler!"
 #endif
 
 /*---------------------------------------------------------------------------*/
+#ifndef LWB_CONF_PERIOD_SCALE
 #define LWB_CONF_PERIOD_SCALE       100         /* also change in sched-ae.c */
+#endif /* LWB_CONF_PERIOD_SCALE*/
+#ifndef LWB_CONF_PERIOD_MIN
 #define LWB_CONF_PERIOD_MIN         4
+#endif /* LWB_CONF_PERIOD_MIN */
 
 /* expected packet length of a slot request */         
 #ifndef LWB_CONF_SRQ_PKT_LEN
 #define LWB_CONF_SRQ_PKT_LEN        1 
+#endif /* LWB_CONF_SRQ_PKT_LEN */
+
+#if LWB_CONF_SRQ_PKT_LEN != 1
+#warning "LWB_CONF_SRQ_PKT_LEN should be set to 1!"
 #endif /* LWB_CONF_SRQ_PKT_LEN */
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB */
@@ -186,12 +196,19 @@ static void             (*pre_proc)(void);
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   rx_timestamp;
 static uint32_t         global_time;
+static lwb_schedule_t   schedule;
+static uint8_t          schedule_len;
 static lwb_statistics_t stats = { 0 };
+static uint8_t          running = 0;
+#if !LWB_CONF_USE_XMEM
 /* allocate memory in the SRAM (+1 to store the message length) */
 static uint8_t          in_buffer_mem[LWB_CONF_IN_BUFFER_SIZE * 
                                       (LWB_CONF_MAX_DATA_PKT_LEN + 1)];  
 static uint8_t          out_buffer_mem[LWB_CONF_OUT_BUFFER_SIZE * 
-                                       (LWB_CONF_MAX_DATA_PKT_LEN + 1)]; 
+                                       (LWB_CONF_MAX_DATA_PKT_LEN + 1)];
+#else /* LWB_CONF_USE_XMEM */
+static uint8_t          data_buffer[LWB_CONF_MAX_DATA_PKT_LEN + 1];
+#endif /* LWB_CONF_USE_XMEM */
 FIFO(in_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_IN_BUFFER_SIZE);
 FIFO(out_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_OUT_BUFFER_SIZE);
 /*---------------------------------------------------------------------------*/
@@ -199,7 +216,10 @@ FIFO(out_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_OUT_BUFFER_SIZE);
  * 0 otherwise */
 uint8_t 
 lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
-{  
+{
+  if(!len) {
+    return 0;
+  }
   if(len > LWB_CONF_MAX_DATA_PKT_LEN) {
     len = LWB_CONF_MAX_DATA_PKT_LEN;
     DEBUG_PRINT_WARNING("received data packet is too big"); 
@@ -207,11 +227,18 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
   /* received messages will have the max. length LWB_CONF_MAX_DATA_PKT_LEN */
   uint32_t pkt_addr = fifo_put(&in_buffer);
   if(FIFO_ERROR != pkt_addr) {
+#if !LWB_CONF_USE_XMEM
     /* copy the data into the queue */
     uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
     memcpy(next_msg, data, len);
     /* last byte holds the payload length */
     *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
+#else /* LWB_CONF_USE_XMEM */
+    /* write the data into the queue in the external memory */
+    memcpy(data_buffer, data, len);
+    *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len;
+    xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
+#endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
   DEBUG_PRINT_WARNING("lwb rx queue full");
@@ -227,10 +254,19 @@ lwb_out_buffer_get(uint8_t* out_data)
    * formatted */
   uint32_t pkt_addr = fifo_get(&out_buffer);
   if(FIFO_ERROR != pkt_addr) {
+#if !LWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
     uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);  
     memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
+#else /* LWB_CONF_USE_XMEM */
+    if(!xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer)) {
+      return 0;
+    }
+    /* trust the data in the memory, no need to check the length field */
+    memcpy(out_data, data_buffer, *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN));
+    return *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
+#endif /* LWB_CONF_USE_XMEM */
   }
   DEBUG_PRINT_VERBOSE("lwb tx queue empty");
   return 0;
@@ -252,10 +288,16 @@ lwb_send_pkt(uint16_t recipient,
   }
   uint32_t pkt_addr = fifo_put(&out_buffer);
   if(FIFO_ERROR != pkt_addr) {
+#if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
     uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
     *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;
     memcpy(next_msg, data, len);
+#else /* LWB_CONF_USE_XMEM */
+    memcpy(data_buffer, data, len);
+    *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len;
+    xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
+#endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
   DEBUG_PRINT_VERBOSE("lwb tx queue full");
@@ -276,10 +318,19 @@ lwb_rcv_pkt(uint8_t* out_data,
    * LWB_CONF_MAX_DATA_PKT_LEN */
   uint32_t pkt_addr = fifo_get(&in_buffer);
   if(FIFO_ERROR != pkt_addr) {
+#if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
     uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr); 
     memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
     return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
+#else /* LWB_CONF_USE_XMEM */
+    if(!xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer)) {
+      return 0;
+    }
+    uint8_t msg_len = *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
+    memcpy(out_data, data_buffer, msg_len);
+    return msg_len;
+#endif /* LWB_CONF_USE_XMEM */
   }
   DEBUG_PRINT_VERBOSE("lwb rx queue empty");
   return 0;
@@ -302,10 +353,11 @@ lwb_get_stats(void)
 {
   return &stats;
 }
-/*-----------------------------------------------F----------------------------*/
+/*---------------------------------------------------------------------------*/
 lwb_conn_state_t
 lwb_get_state(void)
 {
+  if(!running) { return LWB_STATE_SUSPENDED; }
   if(sync_state < SYNCED) { return LWB_STATE_INIT; }
   else if(sync_state < UNSYNCED) { return LWB_STATE_CONNECTED; }
   return LWB_STATE_CONN_LOST;
@@ -326,7 +378,6 @@ lwb_get_time(rtimer_clock_t* reception_time)
 PT_THREAD(lwb_thread_host(rtimer_t *rt)) 
 {  
   /* all variables must be static */
-  static lwb_schedule_t schedule;
   static rtimer_clock_t t_start; 
   static rtimer_clock_t t_now;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
@@ -343,18 +394,14 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static uint16_t i = 0;
   static uint8_t slot_idx;
   static uint8_t streams_to_update[LWB_CONF_MAX_DATA_SLOTS];
-  static uint8_t schedule_len, 
-                 payload_len;
+  static uint8_t payload_len;
   static int8_t  glossy_rssi = 0;
   static const void* callback_func = lwb_thread_host;
   
   PT_BEGIN(&lwb_pt);
-    
-  memset(&schedule, 0, sizeof(schedule));
-  
-  /* initialization specific to the host node */
-  schedule_len = lwb_sched_init(&schedule);
+      
   sync_state = SYNCED;  /* the host is always 'synced' */
+  running = 1;
   
   rtimer_reset();
   rt->time = 0;
@@ -393,7 +440,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     glossy_rssi = glossy_get_rssi(0);
     stats.relay_cnt = glossy_get_relay_cnt_first_rx();
     slot_idx = 0;     /* reset the packet counter */    
-        
+
+#if LWB_CONF_USE_XMEM
+    /* put the external memory back into active mode (takes ~500us) */
+    xmem_wakeup();    
+#endif /* LWB_CONF_USE_XMEM */        
+
     /* --- DATA SLOTS --- */
     
     if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {      
@@ -507,11 +559,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
      * order they were started/created) */
     if(curr_period > LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE / 2) {
       /* print out some stats */
-      DEBUG_PRINT_INFO("%lu T=%u n=%u|%u ts=%u srq=%u p=%u per=%d rssi=%ddBm", 
+      DEBUG_PRINT_INFO("%lu T=%u n=%u ts=%u srq=%u p=%u per=%d rssi=%ddBm", 
                       global_time,
                       schedule.period / LWB_CONF_PERIOD_SCALE,
-                      schedule.n_slots & 0x3fff,
-                      schedule.n_slots >> 14,
+                      i & 0x3fff,
                       stats.t_sched_max, 
                       srq_cnt, 
                       stats.pck_cnt,
@@ -530,6 +581,33 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       t_preprocess = (LWB_CONF_T_PREPROCESS * RTIMER_SECOND_HF / 1000);      
      #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     #endif /* LWB_CONF_T_PREPROCESS */
+    }
+    
+    if(!running &&
+       (curr_period == LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE)) {
+      // suspend LWB task indefinitely
+      LWB_TASK_SUSPENDED;
+      PT_YIELD(&lwb_pt);
+      LWB_TASK_RESUMED;
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      LWB_AFTER_DEEPSLEEP();
+    #if RTIMER_CONF_LF_UPDATE_INT
+      /* update the global time and wait for the next full second */
+      uint32_t new_time = ((rtimer_now_lf() + RTIMER_SECOND_LF +
+                           RTIMER_SECOND_LF / 512) / RTIMER_SECOND_LF);
+      lwb_sched_set_time(new_time * LWB_CONF_PERIOD_SCALE);
+      schedule.time = new_time;
+      t_start_lf = new_time * RTIMER_SECOND_LF;
+      rtimer_schedule(LWB_CONF_LF_RTIMER_ID, t_start_lf, 0, callback_func);
+      LWB_TASK_SUSPENDED;
+      PT_YIELD(&lwb_pt);
+      LWB_TASK_RESUMED;
+    #else
+      rt->time = rtimer_now_lf();
+    #endif /* RTIMER_CONF_LF_UPDATE_INT */      
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      t_preprocess = 0;
+      continue;
     }
     
   #if LWB_CONF_USE_LF_FOR_WAKEUP
@@ -551,12 +629,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 PT_THREAD(lwb_thread_src(rtimer_t *rt)) 
 {  
   /* all variables must be static */
-  static lwb_schedule_t schedule;
-  static rtimer_clock_t t_ref, 
-                        t_ref_last;
+  static rtimer_clock_t t_ref;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   static rtimer_clock_t t_ref_lf;
   static rtimer_clock_t last_synced_lf;
+#else
+  static rtimer_clock_t t_ref_last;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   /* packet buffer: use uint16_t to force word boundary alignment */
   static uint16_t glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
@@ -565,7 +643,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static uint32_t t_preprocess = 0;
   static uint8_t slot_idx;
   static uint8_t payload_len;
-  //static uint8_t node_registered = 1;   /* host knows about this node? */
   static const void* callback_func = lwb_thread_src;
   
   PT_BEGIN(&lwb_pt);
@@ -573,6 +650,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   memset(&schedule, 0, sizeof(schedule)); 
   
   sync_state = BOOTSTRAP;
+  running = 1;
   
   while(1) {
     
@@ -597,23 +675,41 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     if(sync_state == BOOTSTRAP) {
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
       stats.bootstrap_cnt++;
-      //node_registered = 0;
       /* synchronize first! wait for the first schedule... */
       payload_len = LWB_SCHED_PKT_HEADER_LEN;   /* empty schedule */
       do {
-        LWB_RCV_SCHED();
-        if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT) {
-          DEBUG_PRINT_MSG_NOW("communication timeout, going to sleep...");
-          LWB_BEFORE_DEEPSLEEP();
-          LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
+        /* poll the preprocess or application task */
+        if(post_proc) {
+          process_poll(post_proc);
+        }
+        /* turn radio on */
+        glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule,
+                     payload_len, LWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC,
+                     GLOSSY_WITH_RF_CAL);
+        LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_SCHED * 10);
+        glossy_stop();
+        /* timeout? */
+        if((rtimer_now_hf() - t_ref) > LWB_CONF_T_SILENT || !running) {
+          DEBUG_PRINT_MSG_NOW("communication timeout, suspending task...");
+          /* poll application task */
+          debug_print_poll();
+          if(post_proc) {
+            process_poll(post_proc);
+          }
+          running = 0;
+          /* suspend LWB task indefinitely */
+          LWB_TASK_SUSPENDED;
+          PT_YIELD(&lwb_pt);
+          LWB_TASK_RESUMED;
+      #if LWB_CONF_USE_LF_FOR_WAKEUP
+          LWB_AFTER_DEEPSLEEP();
+      #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
           t_ref = rtimer_now_hf();
-          DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
+          DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
           /* alternative: implement a host failover policy */
         }
       } while(!glossy_is_t_ref_updated());
       /* schedule received! */
-      putchar('\r');
-      putchar('\n');
     } else {
       /* tell Glossy how many bytes we expect */
       payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
@@ -624,7 +720,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       LWB_RCV_SCHED();  
     }
     stats.glossy_snr = glossy_get_snr();
-                   
+
+#if LWB_CONF_USE_XMEM
+    /* put the external memory back into active mode (takes ~500us) */
+    xmem_wakeup();    
+#endif /* LWB_CONF_USE_XMEM */
+
     /* update the sync state machine (compute new sync state and update 
      * t_guard) */
     LWB_UPDATE_SYNC_STATE;  
@@ -836,6 +937,19 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* erase the schedule (slot allocations only) */
     memset(&schedule.slot, 0, sizeof(schedule.slot));
     
+    if(!running) {
+      // suspend LWB task indefinitely
+      LWB_TASK_SUSPENDED;
+      PT_YIELD(&lwb_pt);
+      LWB_TASK_RESUMED;
+  #if LWB_CONF_USE_LF_FOR_WAKEUP
+      LWB_AFTER_DEEPSLEEP();
+  #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+      t_preprocess = 0;
+      sync_state = BOOTSTRAP;   // reset state machine
+      continue;
+    }
+    
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(t_ref_lf + (schedule.period * RTIMER_SECOND_LF) /
                       LWB_CONF_PERIOD_SCALE - 
@@ -849,17 +963,48 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   PT_END(&lwb_pt);
 }
 /*---------------------------------------------------------------------------*/
+void
+lwb_pause(void)
+{
+  running = 0;
+}
+/*---------------------------------------------------------------------------*/
+void
+lwb_resume(void)
+{
+  if(!running) {
+    running = 1;
+    /* start in 10ms */
+    if(node_id == HOST_ID) {
+      /* note: must add at least some clock ticks! */
+      rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() +
+                      RTIMER_SECOND_HF / 100, 0, lwb_thread_host);
+    } else {
+      rtimer_schedule(LWB_CONF_RTIMER_ID, rtimer_now_hf() +
+                      RTIMER_SECOND_HF / 100, 0, lwb_thread_src);
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
 /* define the process control block */
-PROCESS(lwb_process, "Communication Task (LWB)");
+PROCESS(lwb_process, "Communication Task (eLWB)");
 /*---------------------------------------------------------------------------*/
 /* define the body (protothread) of a process */
 PROCESS_THREAD(lwb_process, ev, data) 
 {
   PROCESS_BEGIN();
   
+#if !LWB_CONF_USE_XMEM
   /* pass the start addresses of the memory blocks holding the queues */
   fifo_init(&in_buffer, (uint16_t)in_buffer_mem);
-  fifo_init(&out_buffer, (uint16_t)out_buffer_mem); 
+  fifo_init(&out_buffer, (uint16_t)out_buffer_mem);
+#else  /* LWB_CONF_USE_XMEM */
+  /* allocate memory for the message buffering (in ext. memory) */
+  fifo_init(&in_buffer, xmem_alloc(LWB_CONF_IN_BUFFER_SIZE * 
+                                   (LWB_CONF_MAX_DATA_PKT_LEN + 1)));
+  fifo_init(&out_buffer, xmem_alloc(LWB_CONF_OUT_BUFFER_SIZE * 
+                                    (LWB_CONF_MAX_DATA_PKT_LEN + 1)));   
+#endif /* LWB_CONF_USE_XMEM */
 
 #ifdef LWB_CONF_TASK_ACT_PIN
   PIN_CFG_OUT(LWB_CONF_TASK_ACT_PIN);
@@ -868,16 +1013,10 @@ PROCESS_THREAD(lwb_process, ev, data)
   
   PT_INIT(&lwb_pt); /* initialize the protothread */
  
-  if((node_id == HOST_ID)) {
-    /* note: must add at least some clock ticks! */
-    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
-                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
-                    0, lwb_thread_host);
-  } else {
-    rtimer_schedule(LWB_CONF_LF_RTIMER_ID, 
-                    rtimer_now_lf() + RTIMER_SECOND_LF / 10,
-                    0, lwb_thread_src);
+  if(node_id == HOST_ID) {
+    schedule_len = lwb_sched_init(&schedule);
   }
+  lwb_resume();
 
   PROCESS_END();
 }
@@ -887,18 +1026,17 @@ lwb_start(void (*pre_lwb_func)(void), void *post_lwb_proc)
 {
   pre_proc = pre_lwb_func;
   post_proc = (struct process*)post_lwb_proc;
-  printf("Starting '%s'\r\n", lwb_process.name);
-    
-  printf("t_sched=%ums, t_data=%ums, t_cont=%ums, t_round=%ums, "
-         "data=%ub, slots=%u, tx=%u, hop=%u\r\n", 
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
+  printf("Starting '%s'\r\n", lwb_process.name);    
+  printf(" data=%ub n_slots=%u n_tx_data=%u n_tx_sched=%u n_hops=%u\r\n", 
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
+         LWB_CONF_TX_CNT_SCHED,
          LWB_CONF_MAX_HOPS);
+  printf(" slot times [ms]: sched=%u data=%u cont=%u\r\n",
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
+         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT));
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

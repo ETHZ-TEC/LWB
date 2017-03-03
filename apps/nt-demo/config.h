@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -38,11 +37,10 @@
  * application specific config file to override default settings
  */
 
-//#define FLOCKLAB      /* uncomment to compile for FlockLab */
-
 /* --- General config --- */
 
-#define HOST_ID                         1
+#define HOST_ID                         50
+//#define FLOCKLAB                      /* uncomment to compile for FlockLab */
 
 
 /* --- RF config --- */
@@ -53,24 +51,6 @@
 
 /* --- LWB config --- */
 
-#define LWB_VERSION                     0  /* override default LWB impl. */
-#define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
-#define LWB_SCHED_AE                               /* use the 'AE' scheduler */
-#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
-#define LWB_CONF_MAX_DATA_SLOTS         6
-#define LWB_CONF_MAX_PKT_LEN            56
-#define LWB_CONF_MAX_N_STREAMS          3     /* equals max. number of nodes */ 
-#define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
-#define LWB_CONF_IN_BUFFER_SIZE         LWB_CONF_MAX_DATA_SLOTS
-#define LWB_CONF_OUT_BUFFER_SIZE        2
-/* slot durations and network parameters */
-#define LWB_CONF_TX_CNT_DATA            2
-#define LWB_CONF_MAX_HOPS               3
-#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
-#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
-#define LWB_CONF_T_PREPROCESS           20    /* in ms */
-
 #define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
 
 #ifdef FLOCKLAB
@@ -79,20 +59,54 @@
 #define LWB_CONF_SCHED_AE_SRC_NODE_LIST 20,32
 #endif /* FLOCKLAB */
 
+#define LWB_CONF_MAX_PKT_LEN            120
+
+#define LWB_VERSION                     0      /* override default LWB impl. */
+#define LWB_SCHED_ELWB                             /* use the 'AE' scheduler */
+#define LWB_CONF_USE_XMEM               1
+#define LWB_CONF_USE_LF_FOR_WAKEUP      0
+#define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
+#if LWB_CONF_USE_XMEM
+ #define LWB_CONF_MAX_DATA_SLOTS        40
+#else /* LWB_CONF_USE_XMEM */
+ #define LWB_CONF_MAX_DATA_SLOTS        3
+#endif /* LWB_CONF_USE_XMEM */
+#define LWB_CONF_MAX_N_STREAMS          LWB_CONF_SCHED_AE_SRC_NODE_CNT
+#define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
+#define LWB_CONF_IN_BUFFER_SIZE         (LWB_CONF_MAX_DATA_SLOTS * 2)
+#define LWB_CONF_OUT_BUFFER_SIZE        LWB_CONF_MAX_DATA_SLOTS
+/* slot durations and network parameters */
+#define LWB_CONF_TX_CNT_DATA            2
+#define LWB_CONF_MAX_HOPS               1
+#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
+#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
+#define LWB_CONF_T_PREPROCESS           10    /* in ms */
+
 
 /* --- BOLT --- */
-#define BOLT_CONF_MAX_MSG_LEN           64
+
+#define BOLT_CONF_MAX_MSG_LEN           LWB_CONF_MAX_PKT_LEN  //64
 #define BOLT_CONF_TIMEREQ_ENABLE        1
 #define BOLT_CONF_TIMEREQ_HF_MODE       1
 #define TIMESYNC_INTERRUPT_BASED        1
 #define TIMESYNC_OFS                    -193         /* const offset to host */
 
 
+/* --- FRAM --- */
+
+#if LWB_CONF_USE_XMEM
+ #define FRAM_CONF_ON                   1
+ //#define FRAM_CONF_USE_DMA            1
+ #define SPI_CONF_FAST_READ             1
+#endif /* LWB_CONF_USE_XMEM */
+
+
 /* --- DEBUG config --- */
 
 #define DEBUG_PRINT_CONF_ON             1
-#define DEBUG_PRINT_CONF_NUM_MSG        10
-#define DEBUG_CONF_STACK_GUARD          (SRAM_END - 399)
+#define DEBUG_PRINT_CONF_NUM_MSG        6
+#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3560) /* add .bss size */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_TRACING_ON                1
 /* pins */

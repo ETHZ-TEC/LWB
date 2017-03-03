@@ -45,10 +45,7 @@
 #define MSG_LEN(m)      ((m).header.payload_len + MSG_HDR_LEN + 2)
 #define MSG_LEN_PTR(m)  ((m)->header.payload_len + MSG_HDR_LEN + 2)
 
-/* special (reserved) device IDs */
-#define DEVICE_ID_SINK        0
-#define DEVICE_ID_BROADCAST   0xffff
-
+#define MIN_MSG_TYPE    0x80
 
 /* the message type (7 bits available, MSB is reserved) */
 typedef enum {

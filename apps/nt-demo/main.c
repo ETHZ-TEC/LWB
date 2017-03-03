@@ -55,12 +55,12 @@ bolt_read_msg(void)
 {
   /* uint16_t to avoid aliasing issues */
   static uint16_t bolt_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
-  uint16_t max_ops = 10;
+  uint16_t max_ops = 50,
+           cnt = 0, bytes = 0;
   while(BOLT_DATA_AVAILABLE && max_ops) {
     uint8_t msg_len = 0;
     BOLT_READ((uint8_t*)bolt_buffer, msg_len);
     if(msg_len) {
-      DEBUG_PRINT_INFO("message read from Bolt (%db)", msg_len);
       /* correct the message length (cut excess characters) */
       msg_len = MSG_LEN_PTR((message_min_t*)bolt_buffer);
       if(msg_len > 2 && msg_len <= BOLT_CONF_MAX_MSG_LEN) {
@@ -71,11 +71,16 @@ bolt_read_msg(void)
         } else {
           lwb_send_pkt(0, 1, (uint8_t*)bolt_buffer, msg_len);
         }
+        cnt++;
+        bytes += msg_len;
       } else {
         DEBUG_PRINT_WARNING("invalid msg length (dropped)");
       }
     }
     max_ops--;
+  }
+  if(cnt) {
+    DEBUG_PRINT_INFO("%u message(s) read from Bolt (%db)", cnt, bytes);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -87,16 +92,13 @@ host_run(void)
   while (1) {
     uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
     if(pkt_len) {
-      /*DEBUG_PRINT_MSG_NOW("msg (%u bytes) rcvd from node %u", 
-                       pkt_len, 
-                       msg_buffer.header.device_id);*/
       /* verify length and CRC */
       if(msg_buffer.header.payload_len > (pkt_len - 2 - MSG_HDR_LEN)) {
         DEBUG_PRINT_INFO("invalid msg length (dropped)");
       } else if(MSG_GET_CRC16(&msg_buffer) != 
          crc16((uint8_t*)&msg_buffer, pkt_len - 2, 0)) {
         DEBUG_PRINT_INFO("invalid CRC (dropped)");
-      } else if(msg_buffer.header.type == MSG_TYPE_AE_EVENT) {
+      } else if(msg_buffer.header.type == (MIN_MSG_TYPE | MSG_TYPE_AE_EVENT)) {
         DEBUG_PRINT_INFO("AE event received (node: %u, event_id: %u, "
                          "timestamp: %llu)",
                          msg_buffer.header.device_id,
@@ -117,7 +119,9 @@ host_run(void)
   
   if(ae_timestamps[0] != 0 && ae_timestamps[1] != 0) {
     /* estimate the distance to the AE source 
-     * (assume ~3000m/s as speed of sound) */
+     * speed of sound in stones:
+     * - thick granite: assume ~3000m/s
+     * - thin stone: assume ~1600m/s */
     uint16_t diff;
     uint16_t closer_to_node = 0;
     if(ae_timestamps[0] > ae_timestamps[1]) {
@@ -127,13 +131,12 @@ host_run(void)
       diff = (uint16_t)(ae_timestamps[1] - ae_timestamps[0]);
       closer_to_node = 32;
     }
-    diff = diff * 100 / 325;  /* convert to us */
     if(diff == 0) {
       closer_to_node = 0;
     }
     DEBUG_PRINT_INFO("diff: %dus (~ %umm), event was closer to node %u",
                      diff, 
-                     30 * diff / 10,
+                     16 * diff / 10,
                      closer_to_node);
   }
   
@@ -141,7 +144,7 @@ host_run(void)
   rtimer_clock_t bolt_timestamp = 0;
   if(bolt_handle_timereq(&bolt_timestamp)) { 
     msg_buffer.header.device_id   = node_id;
-    msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+    msg_buffer.header.type        = MIN_MSG_TYPE | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
     msg_buffer.timestamp          = bolt_timestamp;
     BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
@@ -165,7 +168,7 @@ source_run(void)
     int64_t ofs        = lwb_time - local_rx_time;
     bolt_timestamp     = bolt_timestamp + ofs + TIMESYNC_OFS;
     msg_buffer.header.device_id   = node_id;
-    msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+    msg_buffer.header.type        = MIN_MSG_TYPE | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
     msg_buffer.timestamp          = bolt_timestamp;
     BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
@@ -204,8 +207,11 @@ bolt_timereq_cb(void)
       //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
     }
   }
+  /* scale to microseconds */
+  msg_buffer.timestamp          = msg_buffer.timestamp * 100 / 325;
+  /* compose message and send over Bolt */
   msg_buffer.header.device_id   = node_id;
-  msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
+  msg_buffer.header.type        = MIN_MSG_TYPE | MSG_TYPE_TIMESYNC;
   msg_buffer.header.payload_len = sizeof(timestamp_t);
   uint16_t crc = crc16((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer) - 2, 0);
   MSG_SET_CRC16(&msg_buffer, crc);
@@ -224,6 +230,7 @@ PROCESS_THREAD(app_process, ev, data)
   /* error checks */
   if(sizeof(message_min_t) != MSG_PKT_LEN) {
     DEBUG_PRINT_MSG_NOW("ERROR: message_min_t is too long");
+    while(1);
   }
   /* start the LWB thread with a pre and post processing task */
   lwb_start(bolt_read_msg, &app_process);
