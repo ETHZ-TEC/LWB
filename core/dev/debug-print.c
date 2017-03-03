@@ -86,12 +86,12 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) = 0xaaaa;
-  printf("Debug print task initialized (buffer: %ub, stack guard: %ub)\r\n",
-         DEBUG_PRINT_CONF_NUM_MSG,
-         (SRAM_END - DEBUG_CONF_STACK_GUARD));
+  printf(" buffer_size=%ux%ub stack_size=%ub\r\n",
+         DEBUG_PRINT_CONF_NUM_MSG, DEBUG_PRINT_CONF_MSG_LEN,
+         (SRAM_END - DEBUG_CONF_STACK_GUARD - 7));
 #else
-  printf("Debug print task initialized (buffer size: %u)\r\n",
-         DEBUG_PRINT_CONF_NUM_MSG);
+  printf(" buffer_size=%ux%ub\r\n",
+         DEBUG_PRINT_CONF_NUM_MSG, DEBUG_PRINT_CONF_MSG_LEN,);
 #endif /* DEBUG_CONF_STACK_GUARD */
   
   while(1) {
