@@ -52,7 +52,7 @@
  
 #include "lwb.h"
 
-#ifdef LWB_SCHED_AE
+#ifdef LWB_SCHED_ELWB
 
 #ifndef LWB_CONF_PERIOD_SCALE
 #define LWB_CONF_PERIOD_SCALE           100         /* also change in elwb.c */
@@ -388,7 +388,7 @@ lwb_sched_set_time(uint32_t new_time)
 }
 /*---------------------------------------------------------------------------*/
 
-#endif /* LWB_SCHED_AE */
+#endif /* LWB_SCHED_ELWB */
 
 /**
  * @}
