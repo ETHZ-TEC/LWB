@@ -318,6 +318,9 @@ lwb_stats_reset(void)
 uint8_t 
 lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
 {  
+  if(!len) {
+    return 0;
+  }
   if(len > LWB_CONF_MAX_DATA_PKT_LEN) {
     len = LWB_CONF_MAX_DATA_PKT_LEN;
     DEBUG_PRINT_WARNING("received data packet is too big"); 
@@ -326,20 +329,21 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
   uint32_t pkt_addr = fifo_put(&in_buffer);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
-    uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr;
     /* copy the data into the queue */
+    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
     memcpy(next_msg, data, len);
     /* last byte holds the payload length */
     *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;
 #else /* LWB_CONF_USE_XMEM */
     /* write the data into the queue in the external memory */
-    xmem_write(pkt_addr, len, data);
-    xmem_write(pkt_addr + LWB_CONF_MAX_DATA_PKT_LEN, 1, &len);
+    memcpy(data_buffer, data, len);
+    *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len;
+    xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
   stats.rxbuf_drop++;
-  DEBUG_PRINT_VERBOSE("in queue full");
+  DEBUG_PRINT_WARNING("lwb rx queue full");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -354,7 +358,7 @@ lwb_out_buffer_get(uint8_t* out_data)
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
-    uint8_t* next_msg = (uint8_t*)(uint16_t)pkt_addr;
+    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
     /* check the length */
     uint8_t len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
     if(len > LWB_CONF_MAX_DATA_PKT_LEN) {
@@ -363,18 +367,16 @@ lwb_out_buffer_get(uint8_t* out_data)
     }
     memcpy(out_data, next_msg, len);
 #else /* LWB_CONF_USE_XMEM */
-    xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
-    /* check the length */
-    uint8_t len = *(out_data + LWB_CONF_MAX_DATA_PKT_LEN);
-    if(len > LWB_CONF_MAX_DATA_PKT_LEN) {
-      DEBUG_PRINT_WARNING("invalid message length detected");
-      len = LWB_CONF_MAX_DATA_PKT_LEN;  /* truncate */
+    if(!xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer)) {
+      return 0;
     }
+    /* check the length */
+    uint8_t len = *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
     memcpy(out_data, data_buffer, len);
 #endif /* LWB_CONF_USE_XMEM */
     return len;
   }
-  DEBUG_PRINT_VERBOSE("out queue empty");
+  DEBUG_PRINT_VERBOSE("lwb tx queue empty");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -408,13 +410,12 @@ lwb_send_pkt(uint16_t recipient,
     *(data_buffer + 2) = stream_id;
     *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_CONF_HEADER_LEN;
     memcpy(data_buffer + LWB_CONF_HEADER_LEN, data, len);
-    /* always read the max length since we don't know how long the packet is */
     xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
   stats.txbuf_drop++;
-  DEBUG_PRINT_VERBOSE("out queue full");
+  DEBUG_PRINT_VERBOSE("lwb tx queue full");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -448,7 +449,9 @@ lwb_rcv_pkt(uint8_t* out_data,
       *out_stream_id = next_msg[2];
     }
 #else /* LWB_CONF_USE_XMEM */
-    xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
+    if(!xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer)) {
+      return 0;
+    }
     uint8_t msg_len = *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) -
                       LWB_CONF_HEADER_LEN;
     memcpy(out_data, data_buffer + LWB_CONF_HEADER_LEN, msg_len);
@@ -461,7 +464,7 @@ lwb_rcv_pkt(uint8_t* out_data,
 #endif /* LWB_CONF_USE_XMEM */
     return msg_len;
   }
-  DEBUG_PRINT_VERBOSE("in queue empty");
+  DEBUG_PRINT_VERBOSE("lwb rx queue empty");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
