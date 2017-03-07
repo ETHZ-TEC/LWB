@@ -61,7 +61,7 @@
 #define LWB_VERSION                     0  /* override default LWB impl. */
 #define LWB_CONF_USE_LF_FOR_WAKEUP      1
 #define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
-#define LWB_SCHED_AE                               /* use the 'AE' scheduler */
+#define LWB_SCHED_ELWB                             /* use the eLWB scheduler */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
 #define LWB_CONF_MAX_DATA_SLOTS         6
 #define LWB_CONF_MAX_PKT_LEN            56
@@ -108,7 +108,7 @@
 /* pins */
 //#define MCLK_PIN                        COM_MCU_INT2
 //#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
-//#define DEBUG_PRINT_TASK_ACT_PIN        COM_MCU_INT2
+//#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 //#define APP_TASK_ACT_PIN                COM_MCU_INT2
 
 

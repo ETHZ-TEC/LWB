@@ -234,6 +234,23 @@ source_run(void)
 #endif /* TIMESYNC_INTERRUPT_BASED */
 }
 /*---------------------------------------------------------------------------*/
+PROCESS(bolt_process, "Bolt Task");
+PROCESS_THREAD(bolt_process, ev, data) 
+{  
+  PROCESS_BEGIN();
+  
+  while(1) {  
+    TASK_SUSPENDED;
+    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+    TASK_ACTIVE;
+    
+    /* read messages from Bolt */
+    bolt_read_msg();
+  }
+  
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
@@ -251,7 +268,8 @@ PROCESS_THREAD(app_process, ev, data)
 #endif /* TIMESYNC_INTERRUPT_BASED */
   
   /* start the LWB thread with a pre and post processing task */
-  lwb_start(bolt_read_msg, &app_process);
+  lwb_start(&bolt_process, &app_process);
+  process_start(&bolt_process, NULL);
 
   /* main loop of the application task */
   while(1) {
