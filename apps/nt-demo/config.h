@@ -68,20 +68,21 @@
 #define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
 #if LWB_CONF_USE_XMEM
- #define LWB_CONF_MAX_DATA_SLOTS        40
+ #define LWB_CONF_MAX_DATA_SLOTS        50
 #else /* LWB_CONF_USE_XMEM */
  #define LWB_CONF_MAX_DATA_SLOTS        3
 #endif /* LWB_CONF_USE_XMEM */
 #define LWB_CONF_MAX_N_STREAMS          LWB_CONF_SCHED_AE_SRC_NODE_CNT
 #define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
-#define LWB_CONF_IN_BUFFER_SIZE         (LWB_CONF_MAX_DATA_SLOTS * 2)
+#define LWB_CONF_IN_BUFFER_SIZE         LWB_CONF_MAX_DATA_SLOTS
 #define LWB_CONF_OUT_BUFFER_SIZE        LWB_CONF_MAX_DATA_SLOTS
 /* slot durations and network parameters */
 #define LWB_CONF_TX_CNT_DATA            2
 #define LWB_CONF_MAX_HOPS               1
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
-#define LWB_CONF_T_PREPROCESS           10    /* in ms */
+#define LWB_CONF_T_PREPROCESS           50    /* in ms */
+#define LWB_CONF_T_REF_OFS              (RTIMER_SECOND_HF / 700)
 
 
 /* --- BOLT --- */
@@ -97,8 +98,7 @@
 
 #if LWB_CONF_USE_XMEM
  #define FRAM_CONF_ON                   1
- //#define FRAM_CONF_USE_DMA            1
- #define SPI_CONF_FAST_READ             1
+ #define FRAM_CONF_USE_DMA              1
 #endif /* LWB_CONF_USE_XMEM */
 
 
@@ -108,10 +108,10 @@
 #define DEBUG_PRINT_CONF_NUM_MSG        6
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3560) /* add .bss size */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-#define DEBUG_TRACING_ON                1
+#define DEBUG_CONF_ISR_INDICATOR        0
 /* pins */
 #define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
-#define DEBUG_PRINT_TASK_ACT_PIN        COM_MCU_INT2
+#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 #define APP_TASK_ACT_PIN                COM_MCU_INT2
 
 

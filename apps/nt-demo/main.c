@@ -41,7 +41,8 @@
 
 /*---------------------------------------------------------------------------*/
 #ifdef APP_TASK_ACT_PIN
-#define TASK_ACTIVE             PIN_SET(APP_TASK_ACT_PIN)
+#define TASK_ACTIVE             PIN_CLR(APP_TASK_ACT_PIN); \
+                                PIN_SET(APP_TASK_ACT_PIN)
 #define TASK_SUSPENDED          PIN_CLR(APP_TASK_ACT_PIN)
 #else  /* APP_TASK_ACT_PIN */
 #define TASK_ACTIVE
@@ -51,53 +52,23 @@
 static message_min_t msg_buffer;
 /*---------------------------------------------------------------------------*/
 void
-bolt_read_msg(void)
-{
-  /* uint16_t to avoid aliasing issues */
-  static uint16_t bolt_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
-  uint16_t max_ops = 50,
-           cnt = 0, bytes = 0;
-  while(BOLT_DATA_AVAILABLE && max_ops) {
-    uint8_t msg_len = 0;
-    BOLT_READ((uint8_t*)bolt_buffer, msg_len);
-    if(msg_len) {
-      /* correct the message length (cut excess characters) */
-      msg_len = MSG_LEN_PTR((message_min_t*)bolt_buffer);
-      if(msg_len > 2 && msg_len <= BOLT_CONF_MAX_MSG_LEN) {
-        /* check the CRC */
-        if(MSG_GET_CRC16((message_min_t*)bolt_buffer) != 
-          crc16((uint8_t*)bolt_buffer, msg_len - 2, 0)) {
-          DEBUG_PRINT_WARNING("invalid CRC (dropped)");
-        } else {
-          lwb_send_pkt(0, 1, (uint8_t*)bolt_buffer, msg_len);
-        }
-        cnt++;
-        bytes += msg_len;
-      } else {
-        DEBUG_PRINT_WARNING("invalid msg length (dropped)");
-      }
-    }
-    max_ops--;
-  }
-  if(cnt) {
-    DEBUG_PRINT_INFO("%u message(s) read from Bolt (%db)", cnt, bytes);
-  }
-}
-/*---------------------------------------------------------------------------*/
-void
 host_run(void)
 {
   /* print out the received data */
   uint64_t ae_timestamps[2] = { 0 };
+  uint8_t msg_cnt = 0, msg_inv = 0;
+  
   while (1) {
     uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
     if(pkt_len) {
       /* verify length and CRC */
       if(msg_buffer.header.payload_len > (pkt_len - 2 - MSG_HDR_LEN)) {
-        DEBUG_PRINT_INFO("invalid msg length (dropped)");
+        DEBUG_PRINT_VERBOSE("invalid msg length (dropped)");
+        msg_inv++;
       } else if(MSG_GET_CRC16(&msg_buffer) != 
-         crc16((uint8_t*)&msg_buffer, pkt_len - 2, 0)) {
-        DEBUG_PRINT_INFO("invalid CRC (dropped)");
+                crc16((uint8_t*)&msg_buffer, pkt_len - 2, 0)) {
+        DEBUG_PRINT_VERBOSE("invalid CRC (dropped)");
+        msg_inv++;
       } else if(msg_buffer.header.type == (MIN_MSG_TYPE | MSG_TYPE_AE_EVENT)) {
         DEBUG_PRINT_INFO("AE event received (node: %u, event_id: %u, "
                          "timestamp: %llu)",
@@ -111,10 +82,19 @@ host_run(void)
         }
         /* forward the packet to the app processor */
         BOLT_WRITE((uint8_t*)&msg_buffer, pkt_len);
+        msg_cnt++;
+      } else if(msg_buffer.header.type == (MIN_MSG_TYPE | MSG_TYPE_AE_DATA)) {
+        /* forward the packet to the app processor */
+        BOLT_WRITE((uint8_t*)&msg_buffer, pkt_len);
+        msg_cnt++;
       }
     } else {
       break;
     }
+  }
+  if(msg_cnt) {
+    DEBUG_PRINT_INFO("%u msg rcvd and forwarded to Bolt, %u msg dropped", 
+                     msg_cnt, msg_inv);
   }
   
   if(ae_timestamps[0] != 0 && ae_timestamps[1] != 0) {
@@ -220,20 +200,66 @@ bolt_timereq_cb(void)
 }
 #endif /* TIMESYNC_INTERRUPT_BASED */
 /*---------------------------------------------------------------------------*/
+PROCESS(bolt_process, "Bolt Task");
+PROCESS_THREAD(bolt_process, ev, data) 
+{  
+  /* uint16_t to avoid aliasing issues */
+  static uint16_t bolt_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
+
+  PROCESS_BEGIN();
+  
+  while(1) {  
+    TASK_SUSPENDED;
+    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+    TASK_ACTIVE;
+        
+    uint16_t max_ops = 20, cnt = 0, bytes = 0;
+    while(BOLT_DATA_AVAILABLE && max_ops) {
+      uint8_t msg_len = 0;
+      BOLT_READ((uint8_t*)bolt_buffer, msg_len);
+      if(msg_len) {
+        /* correct the message length (cut excess characters) */
+        msg_len = MSG_LEN_PTR((message_min_t*)bolt_buffer);
+        if(msg_len > 2 && msg_len <= BOLT_CONF_MAX_MSG_LEN) {
+          /* check the CRC -> skip, takes too long */
+          /*if(MSG_GET_CRC16((message_min_t*)bolt_buffer) != 
+            crc16((uint8_t*)bolt_buffer, msg_len - 2, 0)) {
+            DEBUG_PRINT_WARNING("invalid CRC (dropped)");
+          } else {*/
+            lwb_send_pkt(0, 1, (uint8_t*)bolt_buffer, msg_len);
+            /* wait for the DMA transfer to complete */
+            xmem_wait_until_ready();
+          //}
+          cnt++;
+          bytes += msg_len;
+        } else {
+          DEBUG_PRINT_WARNING("invalid msg length (dropped)");
+        }
+      }
+      max_ops--;
+    }
+    if(cnt) {
+      DEBUG_PRINT_INFO("%u message(s) read from Bolt (%db)", cnt, bytes);
+    }
+  }
+  
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
-/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
 {  
   PROCESS_BEGIN();
-  
+
   /* error checks */
   if(sizeof(message_min_t) != MSG_PKT_LEN) {
     DEBUG_PRINT_MSG_NOW("ERROR: message_min_t is too long");
     while(1);
   }
   /* start the LWB thread with a pre and post processing task */
-  lwb_start(bolt_read_msg, &app_process);
+  lwb_start(&bolt_process, &app_process);
+  process_start(&bolt_process, NULL);
 
 #if TIMESYNC_INTERRUPT_BASED
   bolt_set_timereq_callback(bolt_timereq_cb);
@@ -243,6 +269,7 @@ PROCESS_THREAD(app_process, ev, data)
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
+    TASK_SUSPENDED;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
         
@@ -255,7 +282,6 @@ PROCESS_THREAD(app_process, ev, data)
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_BEFORE_DEEPSLEEP();     /* prepare to go to LPM3 */
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    TASK_SUSPENDED;
   }
 
   PROCESS_END();
