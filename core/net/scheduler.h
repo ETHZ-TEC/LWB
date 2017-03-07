@@ -153,13 +153,6 @@ typedef struct {
     uint8_t  extra[LWB_CONF_MAX_PKT_LEN - LWB_SACK_MIN_PKT_LEN];  
 } lwb_stream_ack_t;     /* stream acknowledgement */
 
-/* error checking */
-#if LWB_CONF_MAX_DATA_SLOTS > \
-    ((LWB_CONF_MAX_PKT_LEN - LWB_SCHED_PKT_HEADER_LEN) / 2) || \
-    LWB_CONF_MAX_DATA_SLOTS > 63
-#error "LWB_CONF_MAX_DATA_SLOTS is invalid"
-#endif
-
 
 /**
  * @brief marks the schedule as the 1st schedule
