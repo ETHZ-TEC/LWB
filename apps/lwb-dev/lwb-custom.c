@@ -1322,9 +1322,9 @@ PROCESS_THREAD(lwb_process, ev, data)
 }
 /*---------------------------------------------------------------------------*/
 void
-lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc)
+lwb_start(struct process* pre_lwb_proc, struct process* post_lwb_proc)
 {
-  pre_proc = pre_lwb_func;
+  pre_proc = pre_lwb_proc;
   post_proc = (struct process*)post_lwb_proc;
   
   uart_enable(1);
