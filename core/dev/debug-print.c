@@ -36,12 +36,22 @@
 #if DEBUG_PRINT_CONF_ON
 /*---------------------------------------------------------------------------*/
 #ifdef DEBUG_PRINT_CONF_TASK_ACT_PIN
-#define DEBUG_PRINT_TASK_ACTIVE       PIN_SET(DEBUG_PRINT_CONF_TASK_ACT_PIN)
+#define DEBUG_PRINT_TASK_ACTIVE       PIN_CLR(DEBUG_PRINT_CONF_TASK_ACT_PIN);\
+                                      PIN_SET(DEBUG_PRINT_CONF_TASK_ACT_PIN)
 #define DEBUG_PRINT_TASK_SUSPENDED    PIN_CLR(DEBUG_PRINT_CONF_TASK_ACT_PIN)
 #else
 #define DEBUG_PRINT_TASK_ACTIVE
 #define DEBUG_PRINT_TASK_SUSPENDED
 #endif
+/*---------------------------------------------------------------------------*/
+/* helper macros */
+#if DEBUG_PRINT_CONF_DISABLE_UART
+  #define DEBUG_PRINT_UART_ENABLE     uart_enable(1)
+  #define DEBUG_PRINT_UART_DISABLE    uart_enable(0)
+#else /* DEBUG_PRINT_CONF_DISABLE_UART */
+  #define DEBUG_PRINT_UART_ENABLE
+  #define DEBUG_PRINT_UART_DISABLE
+#endif /* DEBUG_PRINT_CONF_DISABLE_UART */
 /*---------------------------------------------------------------------------*/
 const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS + 1] = { \
   "CRITICAL", "ERROR", "WARNING", "INFO", "VERBOSE", "" };
@@ -96,7 +106,6 @@ PROCESS_THREAD(debug_print_process, ev, data) {
   
   while(1) {
     /* suspend this task */
-    DEBUG_PRINT_TASK_SUSPENDED;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     /* wait until we get polled by another thread */
     DEBUG_PRINT_TASK_ACTIVE;
@@ -106,15 +115,11 @@ PROCESS_THREAD(debug_print_process, ev, data) {
     while(n_buffered_msg > 0) {
       /* load the message from the external memory */
       xmem_read(next_msg, sizeof(debug_print_t), (uint8_t *)&msg);
-  #if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(1);
-  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      DEBUG_PRINT_UART_ENABLE;
       msg.content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
       printf("%u %7lu %s: %s\r\n", node_id, msg.time,
              debug_print_lvl_to_string[msg.level], msg.content);
-  #if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(0);
-  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      DEBUG_PRINT_UART_DISABLE;
       next_msg += sizeof(debug_print_t);
       n_buffered_msg--;
       /* do not pause process between the print-outs (otherwise a circular
@@ -125,33 +130,25 @@ PROCESS_THREAD(debug_print_process, ev, data) {
 
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
     
+    DEBUG_PRINT_UART_ENABLE;
     while(list_length(debug_print_list) > 0) {
       debug_print_t *msg = list_head(debug_print_list);
-  #if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(1);
-  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       msg->content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
       printf("%u %5lu %s: %s\r\n", node_id, msg->time,
              debug_print_lvl_to_string[msg->level], msg->content);
-  #if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(0);
-  #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
       /* remove it from the queue */
       list_remove(debug_print_list, msg);
       memb_free(&debug_print_memb, msg);
       /*DEBUG_PRINT_TASK_SUSPENDED;
         PROCESS_PAUSE();*/
     }
+    DEBUG_PRINT_UART_DISABLE;
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 
     if (buffer_full) { 
-#if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(1);
-#endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      DEBUG_PRINT_UART_ENABLE;
       printf("WARNING: Debug messages dropped (buffer full)!\r\n");
-#if DEBUG_PRINT_CONF_DISABLE_UART
-      uart_enable(0);
-#endif /* DEBUG_PRINT_CONF_DISABLE_UART */
+      DEBUG_PRINT_UART_DISABLE;
       buffer_full = 0;
     }
 
@@ -164,6 +161,8 @@ PROCESS_THREAD(debug_print_process, ev, data) {
       DEBUG_PRINT_FATAL("FATAL ERROR: Stack overflow detected");
     }    
 #endif /* DEBUG_CONF_STACK_GUARD */
+
+    DEBUG_PRINT_TASK_SUSPENDED;
   }
   PROCESS_END();
 }
@@ -171,7 +170,7 @@ PROCESS_THREAD(debug_print_process, ev, data) {
 void
 debug_print_init(void)
 {
-  DEBUG_PRINT_MSG_NOW("Starting '%s'", debug_print_process.name);
+  printf("Starting '%s'\r\n", debug_print_process.name);
   process_start(&debug_print_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -222,14 +221,10 @@ void
 debug_print_msg_now(char *data)
 {
   if(data) {
-#if DEBUG_PRINT_CONF_DISABLE_UART
-    uart_enable(1);
-#endif 
+    DEBUG_PRINT_UART_ENABLE;
     printf(data);
     printf("\r\n");
-#if DEBUG_PRINT_CONF_DISABLE_UART
-    uart_enable(0);
-#endif
+    DEBUG_PRINT_UART_DISABLE;
   }
 }
 /*---------------------------------------------------------------------------*/
