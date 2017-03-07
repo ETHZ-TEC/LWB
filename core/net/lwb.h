@@ -131,19 +131,19 @@
 #endif
 
 #ifndef LWB_CONF_T_REF_OFS
-/* constant time offset that is subtracted from t_ref in each round to align  
- * the glossy start pulses on host and source nodes */
+/* constant time offset that is subtracted from t_ref in each round to align
+ * the glossy_start() pulses on host and source nodes */
 #define LWB_CONF_T_REF_OFS              (RTIMER_SECOND_HF / 800)
 #endif /* LWB_CONF_T_REF_OFS */
 
 #ifndef LWB_CONF_T_SCHED
-/* length of a schedule slot: should be approx. 25 ms */
-#define LWB_CONF_T_SCHED                LWB_T_SLOT_MIN(LWB_CONF_MAX_PKT_LEN)    
+/* length of a schedule slot (+7 due to glossy hdr & length byte & crc) */
+#define LWB_CONF_T_SCHED               LWB_T_SLOT_MIN(LWB_CONF_MAX_PKT_LEN + 7)
 #endif /* LWB_CONF_T_SCHED */
   
 #ifndef LWB_CONF_T_DATA
-/* length of a data slot */
-#define LWB_CONF_T_DATA               LWB_T_SLOT_MIN(LWB_CONF_MAX_DATA_PKT_LEN)
+/* length of a data slot (+7 due to glossy hdr & length byte & crc) */
+#define LWB_CONF_T_DATA           LWB_T_SLOT_MIN(LWB_CONF_MAX_DATA_PKT_LEN + 7)
 #endif /* LWB_CONF_T_DATA */
 
 #ifndef LWB_CONF_T_CONT
@@ -245,7 +245,9 @@
 #endif /* LWB_CONF_T_SCHED2_START */
 
 #ifndef LWB_CONF_T_PREPROCESS
-/* in milliseconds, set this to 0 to disable preprocessing before a LWB round*/
+/* in milliseconds, set this to 0 to disable preprocessing before a LWB round
+ * NOTE: if the preprocessing task runs for more than 20ms, timer overflows
+ * might be missed (runs in interrupt context!) */
 #define LWB_CONF_T_PREPROCESS           0
 #endif /* LWB_CONF_T_PREPROCESS */
 
@@ -302,7 +304,8 @@
 #endif /* RF_CONF_TX_BITRATE */
 
 #ifndef RF_CONF_MAX_PKT_LEN
-#define RF_CONF_MAX_PKT_LEN      (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
+/* +1 seems to be necessary... maybe the length byte counts, too? */
+#define RF_CONF_MAX_PKT_LEN  (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN + 1)
 #endif /* RF_CONF_MAX_PKT_LEN */
 
 /* Note: if RF_CONF_MAX_PKT_LEN is <= 61, then the whole packet will fit into
@@ -334,10 +337,10 @@
 
 /* minimum duration of a data slot according to "Energy-efficient Real-time 
  * Communication in Multi-hop Low-power Wireless Networks" (Zimmerling et al.),
- * Appendix I. For 127b packets ~22.5ms, for 50b packets just over 10ms */
+ * - some slack time added */
 #define LWB_T_SLOT_MIN(len)         ((LWB_CONF_MAX_HOPS + \
                                      (2 * LWB_CONF_TX_CNT_DATA) - 2) * \
-                                     LWB_T_HOP(len))
+                                     LWB_T_HOP(len) + (RTIMER_SECOND_HF/4000))
                                                                          
 #define LWB_RECIPIENT_SINK          0x0000  /* to all sinks and the host */
 #define LWB_RECIPIENT_BROADCAST     0xffff  /* to all nodes / sinks */
@@ -405,7 +408,7 @@ typedef enum {
  * block (struct process), this process will be called (polled) at the end
  * of an LWB round
  */
-void lwb_start(void (*pre_lwb_func)(void), void* post_lwb_proc);
+void lwb_start(struct process* pre_lwb_proc, struct process* post_lwb_proc);
 
 
 /**
