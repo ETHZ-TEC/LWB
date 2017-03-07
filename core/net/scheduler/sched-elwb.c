@@ -101,6 +101,8 @@
 #endif /* MAX */
 
 /*---------------------------------------------------------------------------*/
+uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots);
+/*---------------------------------------------------------------------------*/
 /**
  * @brief struct to store information about active streams on the host
  */
@@ -120,29 +122,14 @@ typedef enum {
 static uint32_t          time;                                /* global time */
 static uint16_t          n_streams;                      /* # active streams */
 static lwb_sched_state_t sched_state;                     /* scheduler state */
-static uint8_t           n_pending_sack;
-static uint16_t          pending_sack[LWB_CONF_MAX_N_STREAMS];
 LIST(streams_list);                    /* -> lists only work for data in RAM */
 /* data structures to hold the stream info */
 MEMB(streams_memb, lwb_stream_list_t, LWB_CONF_MAX_N_STREAMS);
 /*---------------------------------------------------------------------------*/
-uint8_t 
-lwb_sched_prepare_sack(void *payload) 
-{
-  if(n_pending_sack) {
-    DEBUG_PRINT_VERBOSE("%u S-ACKs pending", n_pending_sack);
-    memcpy(payload, pending_sack, n_pending_sack * 2);
-    return n_pending_sack * 2;
-  }
-  return 0;         /* return the length of the packet */
-}
-/*---------------------------------------------------------------------------*/
 void 
 lwb_sched_proc_srq(const lwb_stream_req_t* req) 
 {
-  lwb_stream_list_t *s = 0;
-  uint8_t exists = 0;
-    
+  lwb_stream_list_t *s = 0;    
   /* check if stream already exists */
   for(s = list_head(streams_list); s != 0; s = s->next) {
     if(req->id == s->id) {
@@ -150,39 +137,35 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
         n_streams++;
         s->state = 1;
       }
-      s->n_pkts = MAX(1, req->reserved); /* # packets the node wants to send */
-      exists = 1;
+      s->n_pkts = req->reserved; /* # packets the node wants to send */
+      return;
+    }
+  }
+  if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
+    DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
+                        "reached", req->id);
+    return;
+  } 
+  /* does not exist: add the new stream */
+  s = memb_alloc(&streams_memb);
+  if(s == 0) {
+    DEBUG_PRINT_ERROR("out of memory: stream request dropped");
+    return;
+  }
+  s->id = req->id;
+  s->n_pkts  = req->reserved;         /* # packets the node wants to send */
+  s->state   = 1;
+  /* insert the stream into the list, ordered by node id */
+  lwb_stream_list_t *prev;
+  for(prev = list_head(streams_list); prev != NULL; prev = prev->next) {
+    if((req->id >= prev->id) && ((prev->next == NULL) || 
+        (req->id < prev->next->id))) {
       break;
     }
-  }   
-  if (!exists)
-  {      
-    if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
-      DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
-                          "reached", req->id);
-      return;
-    } 
-    /* does not exist: add the new stream */
-    s = memb_alloc(&streams_memb);
-    if(s == 0) {
-      DEBUG_PRINT_ERROR("out of memory: stream request dropped");
-      return;
-    }
-    s->id = req->id;
-    s->n_pkts  = req->reserved;         /* # packets the node wants to send */
-    s->state   = 1;
-    /* insert the stream into the list, ordered by node id */
-    lwb_stream_list_t *prev;
-    for(prev = list_head(streams_list); prev != NULL; prev = prev->next) {
-      if((req->id >= prev->id) && ((prev->next == NULL) || 
-         (req->id < prev->next->id))) {
-        break;
-      }
-    }
-    list_insert(streams_list, prev, s);
-    n_streams++;
-    DEBUG_PRINT_INFO("stream of node %u added", req->id);         
   }
+  list_insert(streams_list, prev, s);
+  n_streams++;
+  DEBUG_PRINT_INFO("stream of node %u added", req->id);
   /* no need to send a stream acknowledgement */
 }
 /*---------------------------------------------------------------------------*/
@@ -262,57 +245,30 @@ lwb_sched_compute(lwb_schedule_t * const sched,
 
     /* important: don't skip the data round! otherwise the state machine falls
      * apart */
-  } else if(sched_state == LWB_SCHED_STATE_DATA) {      
-    n_pending_sack = 0;
-    /* deactivate a stream if we received data */
-    uint16_t i = 0;
+  } else if(sched_state == LWB_SCHED_STATE_DATA) {    
+    /* deactivate all streams (regardless of whether data was received) */
     lwb_stream_list_t* curr_stream = NULL;
-    while(i < LWB_SCHED_N_SLOTS(sched)) {
-      /* the node IDs will be in order */
-      if(!curr_stream || (sched->slot[i] != curr_stream->id)) {
-        /* find the stream with this node ID in the list */
-        curr_stream = list_head(streams_list);
-        while(curr_stream != NULL) {
-          if(sched->slot[i] == curr_stream->id) {
-            break;
-          }
-          curr_stream = curr_stream->next;
-        }
-      }
-      /* ignore inactive streams */
-      if(curr_stream != NULL && curr_stream->state) {
-        /* did we receive data from this node? */
-        if(streams_to_update[i] != 0) {
-          curr_stream->n_pkts--;
-          if(curr_stream->n_pkts == 0) {
-            /* schedule an S-ACK and deactivate the stream */
-            pending_sack[n_pending_sack] = curr_stream->id;
-            n_pending_sack++;
-            curr_stream->state = 0;
-            if(n_streams == 0) {
-              DEBUG_PRINT_WARNING("invalid stream cound");
-            } else {
-              n_streams--;
-            }
-            DEBUG_PRINT_VERBOSE("data received, stream removed");
-          }
-          /* error check */
-          if(curr_stream->n_pkts == 0xff) {
-            DEBUG_PRINT_ERROR("invalid packet count in lwb_sched_compute");
-            curr_stream->n_pkts = 0;
-          }
-        }
-      } else {
-        /* this is not supposed to happen */
-        DEBUG_PRINT_WARNING("data received from unknown stream");
-      }
-      i++;
+    while(curr_stream != NULL) {
+      curr_stream->state = 0;
+      curr_stream = curr_stream->next;
     }
+    /* reset values, back to idle state */
     sched->n_slots = 0;    
     sched->period  = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
     LWB_SCHED_SET_CONT_SLOT(sched);
-    sched_state = LWB_SCHED_STATE_IDLE;    /* back to idle state */
+    sched_state = LWB_SCHED_STATE_IDLE;
   }
+  
+  uint8_t compressed_size;
+#if LWB_CONF_SCHED_COMPRESS
+  compressed_size = lwb_sched_compress((uint8_t*)sched->slot, 
+                                       n_slots_assigned);
+  if((compressed_size + LWB_SCHED_PKT_HEADER_LEN) > LWB_CONF_MAX_PKT_LEN) {
+    DEBUG_PRINT_ERROR("compressed schedule is too big!");
+  }
+#else
+  compressed_size = n_slots_assigned * 2;
+#endif /* LWB_CONF_SCHED_COMPRESS */
   
   sched->time = time / LWB_CONF_PERIOD_SCALE;  
      
@@ -320,9 +276,9 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u n=%u|%u len=%u)", 
                       n_streams, sched->period / LWB_CONF_PERIOD_SCALE, 
                       n_slots_assigned, sched->n_slots >> 14, 
-                      n_slots_assigned * 2);
+                      compressed_size);
   
-  return (n_slots_assigned * 2) + LWB_SCHED_PKT_HEADER_LEN;
+  return compressed_size + LWB_SCHED_PKT_HEADER_LEN;
 }
 /*---------------------------------------------------------------------------*/
 uint16_t 
@@ -347,33 +303,39 @@ lwb_sched_init(lwb_schedule_t* sched)
   list_init(streams_list);
   n_streams = 0;
   sched_state = LWB_SCHED_STATE_IDLE;
-  n_pending_sack = 0;
   time = 0;                             /* global time starts now */
   sched->n_slots = 0;
   LWB_SCHED_SET_CONT_SLOT(sched);       /* include a contention slot */
   sched->time = time;
   sched->period = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
   
+  /* NOTE: node IDs must be sorted in increasing order */
 #if defined(LWB_CONF_SCHED_AE_SRC_NODE_CNT) && LWB_CONF_SCHED_AE_SRC_NODE_CNT
-  uint16_t nodes_ids[LWB_CONF_SCHED_AE_SRC_NODE_CNT] = 
+  uint16_t node_ids[LWB_CONF_SCHED_AE_SRC_NODE_CNT] = 
                                           { LWB_CONF_SCHED_AE_SRC_NODE_LIST };
  #if LWB_CONF_SCHED_AE_SRC_NODE_CNT > LWB_CONF_MAX_N_STREAMS
  #error "LWB_CONF_SCHED_AE_SRC_NODE_CNT is too high"
  #endif /* LWB_CONF_SCHED_AE_SRC_NODE_CNT */
   uint16_t i;
+  lwb_stream_list_t *prev = 0;
   printf(" %u source nodes registered: ", LWB_CONF_SCHED_AE_SRC_NODE_CNT);
   for(i = 0; i < LWB_CONF_SCHED_AE_SRC_NODE_CNT; i++) {
+    if(i && node_ids[i] < node_ids[i - 1]) {
+      printf("ERROR node IDs are not sorted!");
+      break;
+    }
     lwb_stream_list_t* s = memb_alloc(&streams_memb);
     if(s == 0) {
       printf("ERROR out of memory: stream not added");
       break;
     }
-    s->id = nodes_ids[i];
+    s->id = node_ids[i];
     s->n_pkts  = 0;         /* # packets the node wants to send */
-    s->state   = 1;
-    list_push(streams_list, s);
+    s->state   = 1;    
+    list_insert(streams_list, prev, s); /* or use list_push(streams_list, s) */
+    prev = s;
     n_streams++;
-    printf("%u ", nodes_ids[i]);
+    printf("%u ", node_ids[i]);
   }
   printf("\r\n");
 #endif /* LWB_CONF_SCHED_AE_INIT_NODES */
