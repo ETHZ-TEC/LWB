@@ -48,6 +48,8 @@
 #ifndef __DMA_H__
 #define __DMA_H__
 
+#include "spi.h"
+
 #define DMA_NUM_CHANNELS                3
 
 /**
@@ -94,11 +96,11 @@ typedef void (*dma_callback_t)(void);
 
 /**
  * @brief configure the DMA CH0 and CH1 for SPI A0 or SPI B0 (RX and TX)
- * @param[in] spi_addr base address of the USCI module (USCI_A0 or USCI_B0)
+ * @param[in] spi SPI module ID (SPI_x)
  * @param[in] callback_func the callback function for the DMA TC interrupt
  * @remark The DMA is configured in single transfer, byte-to-byte mode.
  */
-void dma_config_spi(uint16_t spi_addr,
+void dma_config_spi(spi_module_t spi,
                     dma_callback_t callback_func);
 
 /**

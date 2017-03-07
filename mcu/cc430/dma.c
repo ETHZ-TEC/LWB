@@ -68,11 +68,11 @@
 #define DMA_TRIGGERSRC_B0TX     0x13
 /*---------------------------------------------------------------------------*/
 static dma_callback_t dma_tc_callback = 0;
-static uint16_t dma_spi_addr = 0;
+static spi_module_t dma_spi = NUM_OF_SPI_MODULES;
 static uint8_t dma_dummy_byte = 0x00;
 /*---------------------------------------------------------------------------*/
 void
-dma_config_spi(uint16_t spi_addr,
+dma_config_spi(spi_module_t spi,
                dma_callback_t callback_func)
 {
   /* use channel 0 for RX (reception) and channel 1 for TX (transmission) */
@@ -86,7 +86,7 @@ dma_config_spi(uint16_t spi_addr,
   DMA1CTL = DMADT_0 + DMASRCBYTE + DMADSTBYTE + DMASRCINCR_3 + DMADSTINCR_0;
   DMA1SZ  = 0;
   /* set source address */
-  if (spi_addr == USCI_A0) {
+  if (spi == SPI_0) {
     DMA0SA = UCA0RXBUF_;        /* address of the RX buffer */ 
     DMA1DA = UCA0TXBUF_;        /* address of the TX buffer */ 
     DMACTL0 = (DMA_TRIGGERSRC_A0TX << 8) | DMA_TRIGGERSRC_A0RX;
@@ -102,7 +102,7 @@ dma_config_spi(uint16_t spi_addr,
   /*DMA1CTL &= ~DMAIFG; */
 
   dma_tc_callback = callback_func;
-  dma_spi_addr = spi_addr;
+  dma_spi = spi;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -145,7 +145,7 @@ dma_enable_timer(uint8_t enable)
 uint8_t
 dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
 {
-  if(!dma_spi_addr) {
+  if(dma_spi == NUM_OF_SPI_MODULES) {
     DEBUG_PRINT_ERROR("DMA not configured");
     return 0;
   }
@@ -163,13 +163,13 @@ dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
       DMA_SET_TX_BUFADDR(tx_buf_addr); 
       DMA_ENABLE_TX_SRCADDRINC;
       /* write the frist byte to trigger the DMA (TXE) */
-      spi_write_byte(dma_spi_addr, *((uint8_t*)tx_buf_addr)); 
+      spi_write_byte(dma_spi, *((uint8_t*)tx_buf_addr)); 
     } else {
       /* transmit dummy data (all zero's) */  
       DMA_SET_TX_BUFADDR((uint16_t)&dma_dummy_byte); 
       DMA_DISABLE_TX_SRCADDRINC;
       /* write the frist byte to trigger the DMA (TXE) */
-      spi_write_byte(dma_spi_addr, dma_dummy_byte); 
+      spi_write_byte(dma_spi, dma_dummy_byte); 
     }  
   } else {
     if(!tx_buf_addr) {
@@ -185,7 +185,7 @@ dma_start(uint16_t rx_buf_addr, uint16_t tx_buf_addr, uint16_t num_bytes)
     DMA_DISABLE_RX;
     DMA_ENABLE_TX;      /* TX only */
     /* write the frist byte to trigger the DMA (TXE) */
-    spi_write_byte(dma_spi_addr, *(uint8_t*)tx_buf_addr);
+    spi_write_byte(dma_spi, *(uint8_t*)tx_buf_addr);
   }
   return 1;
 }
