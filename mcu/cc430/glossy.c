@@ -410,6 +410,7 @@ glossy_stop(void)
     /* flush both RX FIFO and TX FIFO and go to sleep */
     rf1a_flush_rx_fifo();
     rf1a_flush_tx_fifo();
+    rf1a_clear_pending_interrupts();
     /* important: if the radio is put into sleep mode, the patable must be 
      * re-configured! see CC1101 datasheet p.33 */
     rf1a_go_to_sleep();
@@ -710,7 +711,6 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
        (g.n_tx < GET_N_TX_MAX(g.header.pkt_type))) {
       /* if n_tx_max is either unknown or not yet reached, transmit the
        * packet */
-      /* takes ~32us */
       rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                             GLOSSY_HEADER_LEN(g.header.pkt_type),
                             payload, g.payload_len);
