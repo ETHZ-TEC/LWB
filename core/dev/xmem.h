@@ -82,6 +82,7 @@ inline uint8_t xmem_erase(uint32_t start_address, uint16_t num_bytes);
  */
 inline uint32_t xmem_alloc(uint32_t size);
 
+inline void xmem_wait_until_ready(void);
 
 inline uint8_t xmem_sleep(void);
 

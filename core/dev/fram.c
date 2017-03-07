@@ -194,7 +194,7 @@ fram_read(uint32_t start_addr, uint16_t num_bytes, uint8_t *out_data)
 #if FRAM_CONF_USE_DMA
   /* set up a DMA transfer */
   dma_config_spi(FRAM_CONF_SPI, fram_release);
-  dma_start(out_data, 0, num_bytes);
+  dma_start((uint16_t)out_data, 0, num_bytes);
 #else /* FRAM_CONF_USE_DMA */
   spi_read(FRAM_CONF_SPI, out_data, num_bytes);
   fram_release();
@@ -226,7 +226,7 @@ fram_write(uint32_t start_address, uint16_t num_bytes, const uint8_t *data)
   spi_write_byte(FRAM_CONF_SPI, start_address & 0xff);
 #if FRAM_CONF_USE_DMA
   dma_config_spi(FRAM_CONF_SPI, fram_release);
-  dma_start(0, data, num_bytes);
+  dma_start(0, (uint16_t)data, num_bytes);
 #else  
   spi_write(FRAM_CONF_SPI, data, num_bytes);
   fram_release();
@@ -258,11 +258,6 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   spi_write_byte(FRAM_CONF_SPI, (start_address >> 16) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, (start_address >> 8) & 0xff);
   spi_write_byte(FRAM_CONF_SPI, start_address & 0xff);
-#if FRAM_CONF_USE_DMA
-  dma_set_dummy_byte_value(fill_value);
-  dma_config_spi(FRAM_CONF_SPI, fram_release);
-  dma_start(0, data, num_bytes);
-#else
   /* transmit data */
   while(num_bytes) {
     spi_write_byte(FRAM_CONF_SPI, fill_value);
@@ -270,7 +265,6 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
   }
   fram_release();
   /* Note: the write protection feature is now enabled again! */
-#endif /* FRAM_CONF_USE_DMA */
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -327,6 +321,16 @@ inline uint8_t xmem_write(uint32_t start_address, uint16_t num_bytes,
 inline uint8_t xmem_erase(uint32_t start_address, uint16_t num_bytes) 
 {
   return fram_fill(start_address, num_bytes, 0);
+}
+/*---------------------------------------------------------------------------*/
+inline void xmem_wait_until_ready(void)
+{
+  /* IMPORTANT: this function does NOT work within an interrupt context! */
+#if FRAM_CONF_USE_DMA
+  if(__get_interrupt_state() & GIE) {
+    while(!PIN_GET(FRAM_CONF_CTRL_PIN));
+  } // else: warning, can't wait for interrupt if GIE bit is not set!    
+#endif /* FRAM_CONF_USE_DMA */
 }
 /*---------------------------------------------------------------------------*/
 
