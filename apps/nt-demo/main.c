@@ -114,10 +114,11 @@ host_run(void)
     if(diff == 0) {
       closer_to_node = 0;
     }
-    DEBUG_PRINT_INFO("diff: %dus (~ %umm), event was closer to node %u",
+    DEBUG_PRINT_INFO("diff: %dus (~ %umm), event was closer to node %u, pos: %dmm",
                      diff, 
-                     16 * diff / 10,
-                     closer_to_node);
+                     18 * diff / 10,
+                     closer_to_node,
+                     18 * diff / 20 * (closer_to_node == 32 ? -1 : 1));
   }
   
 #if !TIMESYNC_INTERRUPT_BASED
@@ -183,12 +184,13 @@ bolt_timereq_cb(void)
                                   (int32_t)lwb_stats->drift /
                                   (int32_t)RTIMER_SECOND_HF); 
       msg_buffer.timestamp     -= drift_comp;
-      /* debug only */
-      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+      DEBUG_PRINT_INFO("drift: %d, elapsed: %ld, comp: %d)", 
+                       lwb_stats->drift, elapsed, drift_comp);
     }
   }
   /* scale to microseconds */
-  msg_buffer.timestamp          = msg_buffer.timestamp * 100 / 325;
+  msg_buffer.timestamp          = msg_buffer.timestamp * 1000000 /
+                                  RTIMER_SECOND_HF;
   /* compose message and send over Bolt */
   msg_buffer.header.device_id   = node_id;
   msg_buffer.header.type        = MIN_MSG_TYPE | MSG_TYPE_TIMESYNC;
@@ -196,7 +198,8 @@ bolt_timereq_cb(void)
   uint16_t crc = crc16((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer) - 2, 0);
   MSG_SET_CRC16(&msg_buffer, crc);
   BOLT_WRITE((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
-  DEBUG_PRINT_INFO("timestamp sent (%llu)", msg_buffer.timestamp);
+  DEBUG_PRINT_INFO("timestamp sent (%llu)", 
+                   msg_buffer.timestamp);
 }
 #endif /* TIMESYNC_INTERRUPT_BASED */
 /*---------------------------------------------------------------------------*/
