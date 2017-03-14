@@ -70,11 +70,12 @@ typedef enum {
   /* message types concerning the communication processor */
   MSG_TYPE_COMM_CMD = 10,
   MSG_TYPE_COMM_HEALTH = 11,
+  
+  MSG_TYPE_AE_EVENT = 32,
+  MSG_TYPE_AE_DATA = 33,
 
   MSG_TYPE_APP_FW = 50, /* application processor FW update */
 
-  MSG_TYPE_AE_EVENT = 160,
-  MSG_TYPE_AE_DATA = 161,
 } message_type_t;
 
 

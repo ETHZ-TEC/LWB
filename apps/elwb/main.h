@@ -51,8 +51,8 @@ typedef enum {
   MSG_TYPE_INVALID = 0,
   MSG_TYPE_TIMESYNC = 1,
   MSG_TYPE_COMM_CMD = 10,
-  MSG_TYPE_AE_EVENT = 160,
-  MSG_TYPE_AE_DATA = 161,
+  MSG_TYPE_AE_EVENT = 32,
+  MSG_TYPE_AE_DATA = 33,
 } message_type_t;
 
 #define MSG_TYPE_MIN    0x80      // last bit of 'type' defines header length
