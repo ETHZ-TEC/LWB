@@ -70,9 +70,9 @@ process_message(message_min_t* msg)
     DEBUG_PRINT_WARNING("message type not supported!");
     return;
   }
-  msg->header.type &= ~MSG_TYPE_MIN;    // clear the last bit
+  uint8_t msg_type = msg->header.type & ~MSG_TYPE_MIN;
   /* handle message */
-  if(msg->header.type == MSG_TYPE_COMM_CMD) {
+  if(msg_type == MSG_TYPE_COMM_CMD) {
     DEBUG_PRINT_INFO("command received");
     switch(msg->comm_cmd.type) {
     case COMM_CMD_LWB_PAUSE:
@@ -88,7 +88,7 @@ process_message(message_min_t* msg)
       /* unknown command */
       break;
     }
-  } else if(msg->header.type == MSG_TYPE_AE_EVENT) {
+  } else if(msg_type == MSG_TYPE_AE_EVENT) {
     if(node_id == HOST_ID) {
       // host shall forward these packets to Bolt
       DEBUG_PRINT_INFO("AE event received (ID: %u, timestamp: %llu)",
