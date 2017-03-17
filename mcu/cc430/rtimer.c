@@ -374,24 +374,29 @@ rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
     /* take a snapshot of the SW extension */
     rtimer_clock_t sw_hf = ta0_sw_ext;
     rtimer_clock_t sw_lf = ta1_sw_ext;
-capture_values:  ;
-    uint16_t hw_hf = TA0R;
-    uint16_t hw_lf = TA1R;
-    uint16_t hw_lf2 = TA1R;
-    if(hw_lf != hw_lf2) { 
-      goto capture_values;
-    }
-    if((TA0CTL & TAIFG) && (sw_hf == ta0_sw_ext)) {
-        /* in the meantime there has been an overflow of the HW timer: */
-        /* manually increment the SW extension and recapture all values */
-        sw_hf++;
-        goto capture_values;        
-    }
-    if((TA1CTL & TAIFG) && (sw_lf == ta1_sw_ext)) {
-        /* in the meantime there has been an overflow of the HW timer: */
-        /* manually increment the SW extension and recapture all values */
-        sw_lf++;
-        goto capture_values;
+    uint16_t hw_hf;
+    uint16_t hw_lf;
+    uint16_t hw_lf2;
+    while(1) {
+      hw_hf = TA0R;
+      hw_lf = TA1R;
+      hw_lf2 = TA1R;
+      if(hw_lf != hw_lf2) { 
+        continue;
+      }
+      if((TA0CTL & TAIFG) && (sw_hf == ta0_sw_ext)) {
+          /* in the meantime there has been an overflow of the HW timer: */
+          /* manually increment the SW extension and recapture all values */
+          sw_hf++;
+          continue;        
+      }
+      if((TA1CTL & TAIFG) && (sw_lf == ta1_sw_ext)) {
+          /* in the meantime there has been an overflow of the HW timer: */
+          /* manually increment the SW extension and recapture all values */
+          sw_lf++;
+          continue;
+      }
+      break;
     }
     /* compose the final timestamps (shift the SW extension to the left and 
     * append the HW timer */
