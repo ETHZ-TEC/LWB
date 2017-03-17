@@ -28,6 +28,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Felix Sutton
+ * 
+ * Version: 2.0
  */
 
 /**
@@ -54,14 +57,21 @@
 
 #ifdef LWB_SCHED_ELWB
 
-#ifndef LWB_CONF_PERIOD_SCALE
-#define LWB_CONF_PERIOD_SCALE           100         /* also change in elwb.c */
-#endif /* LWB_CONF_PERIOD_SCALE */
-#ifndef LWB_CONF_PERIOD_MIN
-#define LWB_CONF_PERIOD_MIN             4
-#endif /* LWB_CONF_PERIOD_MIN */
+#define LWB_PERIOD_SCALE                100         /* also change in elwb.c */
+
+#ifndef LWB_CONF_SCHED_PERIOD_IDLE_MS
+#define LWB_CONF_SCHED_PERIOD_IDLE_MS   (LWB_CONF_SCHED_PERIOD_IDLE * 1000)
+#endif /* LWB_CONF_SCHED_PERIOD_IDLE_MS */
+
+#ifndef LWB_CONF_MAX_SLOTS_HOST
+#define LWB_CONF_MAX_SLOTS_HOST         (LWB_CONF_MAX_DATA_SLOTS / 2)
+#endif /* LWB_CONF_MAX_SLOTS_HOST */
 
 /* parameter sanity check */
+
+#if LWB_CONF_MAX_SLOTS_HOST > LWB_CONF_MAX_DATA_SLOTS
+#error "LWB_CONF_MAX_SLOTS_HOST > LWB_CONF_MAX_DATA_SLOTS!"
+#endif /* LWB_CONF_MAX_SLOTS_HOST */
 
 #if !defined(LWB_CONF_STREAM_EXTRA_DATA_LEN) || \
     (LWB_CONF_STREAM_EXTRA_DATA_LEN != 0)
@@ -72,33 +82,37 @@
 #error "max. # of streams mustn't be bigger than max. # of data slots"
 #endif
 
-/* duration of the 'request round', depends on the max. # nodes
- * (= LWB_CONF_MAX_N_STREAMS); add 20ms slack time to compute the schedule */
-#ifndef LWB_CONF_T_REQ_ROUND
-#define LWB_CONF_T_REQ_ROUND    (uint16_t)( \
-                                 (LWB_CONF_T_SCHED + LWB_CONF_T_GAP + \
+#define LWB_PERIOD_IDLE         (uint16_t)( \
+                                 (uint32_t)LWB_CONF_SCHED_PERIOD_IDLE_MS * \
+                                 LWB_PERIOD_SCALE / 1000)
+
+/* earliest start (offset) of the request round, + 10ms slack (necessary due
+ * to rounding issue) */
+#define LWB_PERIOD_T_REQ_MIN    ((LWB_CONF_T_SCHED + \
+                                 2 * LWB_CONF_T_CONT + 2 * LWB_CONF_T_GAP + \
+                                 (RTIMER_SECOND_HF / 100)) * LWB_PERIOD_SCALE \
+                                 / RTIMER_SECOND_HF)
+    
+/* duration of the 'request round' = start of the data round,
+ * depends on the max. # nodes (= LWB_CONF_MAX_N_STREAMS), + add 10ms slack */
+#define LWB_PERIOD_T_DATA       ((LWB_CONF_T_SCHED + LWB_CONF_T_GAP + \
                                   LWB_CONF_MAX_N_STREAMS * \
                                    (LWB_CONF_T_CONT + LWB_CONF_T_GAP) + \
-                                  (RTIMER_SECOND_HF / 50)) / \
-                                 (RTIMER_SECOND_HF / LWB_CONF_PERIOD_SCALE))
-#endif /* LWB_CONF_T_REQ_ROUND */
+                                  (RTIMER_SECOND_HF / 100)) / \
+                                 (RTIMER_SECOND_HF / LWB_PERIOD_SCALE))
 
-
-#define LWB_T_IDLE_ROUND_MS     ((2 * LWB_CONF_T_SCHED + 3 * LWB_CONF_T_GAP + \
-                                  LWB_CONF_T_CONT) * 1000 / RTIMER_SECOND_HF)
-#define LWB_T_REQ_ROUND_MS      (LWB_CONF_T_REQ_ROUND * 1000 / \
-                                 LWB_CONF_PERIOD_SCALE)
+/* note: round up for the following values */
+#define LWB_T_IDLE_ROUND_MS     (LWB_PERIOD_T_REQ_MIN * \
+                                 (1000 / LWB_PERIOD_SCALE))
+#define LWB_T_REQ_ROUND_MS      (LWB_PERIOD_T_DATA * (1000 / LWB_PERIOD_SCALE))
 #define LWB_T_DATA_ROUND_MS     ((LWB_CONF_T_SCHED + LWB_CONF_T_GAP + \
                                   LWB_CONF_MAX_DATA_SLOTS * \
                                   (LWB_CONF_T_DATA + LWB_CONF_T_GAP)) * 1000 /\
                                  RTIMER_SECOND_HF)
-#define LWB_T_ROUND_MAX_MS       (LWB_CONF_PERIOD_MIN * 1000 / \
-                                  LWB_CONF_PERIOD_SCALE + LWB_T_REQ_ROUND_MS +\
-                                  LWB_T_DATA_ROUND_MS)
-
-#ifndef MAX
-#define MAX(x,y)        ((x) > (y) ? (x) : (y))
-#endif /* MAX */
+#define LWB_T_ROUND_MAX_MS      (LWB_T_IDLE_ROUND_MS + LWB_T_REQ_ROUND_MS + \
+                                 LWB_T_DATA_ROUND_MS + 10)     /* slack 10ms */
+      
+#define SET_DATA_ROUND(s)       LWB_SCHED_SET_SACK_SLOT(s)
 
 /*---------------------------------------------------------------------------*/
 uint16_t lwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots);
@@ -115,13 +129,13 @@ typedef struct stream_info {
 /*---------------------------------------------------------------------------*/
 typedef enum {
   LWB_SCHED_STATE_IDLE = 0,
+  LWB_SCHED_STATE_CONT_DET,
   LWB_SCHED_STATE_REQ,
   LWB_SCHED_STATE_DATA,
 } lwb_sched_state_t;
 /*---------------------------------------------------------------------------*/
 static uint32_t          time;                                /* global time */
 static uint16_t          n_streams;                      /* # active streams */
-static lwb_sched_state_t sched_state;                     /* scheduler state */
 LIST(streams_list);                    /* -> lists only work for data in RAM */
 /* data structures to hold the stream info */
 MEMB(streams_memb, lwb_stream_list_t, LWB_CONF_MAX_N_STREAMS);
@@ -171,48 +185,55 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
 /*---------------------------------------------------------------------------*/
 uint16_t 
 lwb_sched_compute(lwb_schedule_t * const sched, 
-                  const uint8_t * const streams_to_update, 
+                  const uint8_t * const state, 
                   uint8_t reserve_slot_host) 
 { 
-  uint8_t n_slots_assigned = 0;  
+  static uint8_t slots_host;
+  uint8_t n_slots_assigned = 0;
+  
+  if(!state) { return 0; }
   
   /* increment the timestamp */
   time += sched->period;
   
-  /* scheduler states:
-   * LWB_SCHED_STATE_IDLE: idle
-   * LWB_SCHED_STATE_REQ: contention detected, request round is next
-   * LWB_SCHED_STATE_DATA: data round is next
-   * 
+  /*
    * note: the schedule is sent at the beginning of the next round,
    * i.e. it must include the next period
    */
-  if(sched_state == LWB_SCHED_STATE_IDLE) {
-    if(sched->period == LWB_CONF_PERIOD_MIN) {
-      /* LWB sets the period to LWB_CONF_PERIOD_MIN if at least a preamble and
-       * sync word has been detected during the last contention slot! */
-      DEBUG_PRINT_VERBOSE("initiating a request round");
-      /* clear the content of the schedule */
-      memset(sched->slot, 0, sizeof(sched->slot)); 
-      /* every node gets one slot (a chance to request a stream) */
-      lwb_stream_list_t *curr_stream = list_head(streams_list);
-      while(curr_stream != NULL) {
-        sched->slot[n_slots_assigned] = curr_stream->id;
-        n_slots_assigned++;
-        /* go to the next stream in the list */
-        curr_stream = curr_stream->next;
-      }
-      sched->period  = LWB_CONF_T_REQ_ROUND;
-      sched->n_slots = n_slots_assigned;
-      sched_state = LWB_SCHED_STATE_REQ;
-    } else {
-      /* regular idle round */
-      sched->n_slots = 0;
-      sched->period  = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
-      /* no data slots, just a contention slot */
-      LWB_SCHED_SET_CONT_SLOT(sched);
+  if(*state == LWB_SCHED_STATE_IDLE) {
+    /* regular idle round */
+    slots_host = 0;
+  #if LWB_CONF_MAX_SLOTS_HOST
+    /* add slots for the host if requested */
+    while(reserve_slot_host && n_slots_assigned < LWB_CONF_MAX_SLOTS_HOST) {
+      sched->slot[n_slots_assigned++] = node_id;
+      reserve_slot_host--;
     }
-  } else if(sched_state == LWB_SCHED_STATE_REQ) {
+    slots_host = n_slots_assigned;
+  #endif /* LWB_CONF_MAX_SLOTS_HOST */
+    sched->n_slots = n_slots_assigned;
+    sched->period  = LWB_PERIOD_IDLE;
+    if(n_slots_assigned) {
+      SET_DATA_ROUND(sched);
+    }
+    LWB_SCHED_SET_CONT_SLOT(sched);
+    
+  } else if(*state == LWB_SCHED_STATE_CONT_DET) {
+    DEBUG_PRINT_VERBOSE("initiating a request round");
+    /* clear the content of the schedule */
+    memset(sched->slot, 0, sizeof(sched->slot)); 
+    /* every node gets one slot (a chance to request a stream) */
+    lwb_stream_list_t *curr_stream = list_head(streams_list);
+    while(curr_stream != NULL) {
+      sched->slot[n_slots_assigned] = curr_stream->id;
+      n_slots_assigned++;
+      /* go to the next stream in the list */
+      curr_stream = curr_stream->next;
+    }
+    sched->period  = LWB_PERIOD_T_DATA;
+    sched->n_slots = n_slots_assigned;
+    
+  } else if(*state == LWB_SCHED_STATE_REQ) {
     /* calculate the schedule based on the received stream requests */
     /* clear the content of the schedule */
     memset(sched->slot, 0, sizeof(sched->slot)); 
@@ -235,17 +256,13 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       }
     }
     sched->n_slots = n_slots_assigned;
-    sched->period = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE - 
-                    LWB_CONF_T_REQ_ROUND - LWB_CONF_PERIOD_MIN;
-    sched_state = LWB_SCHED_STATE_DATA;
-    /* the next round will include an acknowledgement slot */
-    LWB_SCHED_SET_SACK_SLOT(sched);
-    /* note: even if the sack slot is not used, still keep this marking to
-    * distinguish between a request and a data round! */
-
-    /* important: don't skip the data round! otherwise the state machine falls
-     * apart */
-  } else if(sched_state == LWB_SCHED_STATE_DATA) {    
+    sched->period = (uint16_t)((uint32_t)LWB_PERIOD_IDLE - 
+                               LWB_PERIOD_T_DATA - LWB_PERIOD_T_REQ_MIN -
+                              slots_host * (LWB_CONF_T_DATA + LWB_CONF_T_GAP) /
+                               (RTIMER_SECOND_HF / LWB_PERIOD_SCALE));
+    SET_DATA_ROUND(sched);            /* mark the next round as 'data round' */
+    
+  } else if(*state == LWB_SCHED_STATE_DATA) {    
     /* deactivate all streams (regardless of whether data was received) */
     lwb_stream_list_t* curr_stream = NULL;
     while(curr_stream != NULL) {
@@ -253,10 +270,10 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       curr_stream = curr_stream->next;
     }
     /* reset values, back to idle state */
-    sched->n_slots = 0;    
-    sched->period  = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
+    slots_host     = 0;
+    sched->n_slots = 0;
+    sched->period  = LWB_PERIOD_IDLE;
     LWB_SCHED_SET_CONT_SLOT(sched);
-    sched_state = LWB_SCHED_STATE_IDLE;
   }
   
   uint8_t compressed_size;
@@ -270,11 +287,11 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   compressed_size = n_slots_assigned * 2;
 #endif /* LWB_CONF_SCHED_COMPRESS */
   
-  sched->time = time / LWB_CONF_PERIOD_SCALE;  
+  sched->time = time / LWB_PERIOD_SCALE;  
      
   /* log the parameters of the new schedule */
   DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u n=%u|%u len=%u)", 
-                      n_streams, sched->period / LWB_CONF_PERIOD_SCALE, 
+                      n_streams, sched->period / LWB_PERIOD_SCALE, 
                       n_slots_assigned, sched->n_slots >> 14, 
                       compressed_size);
   
@@ -284,16 +301,14 @@ lwb_sched_compute(lwb_schedule_t * const sched,
 uint16_t 
 lwb_sched_init(lwb_schedule_t* sched) 
 {
-  printf(" using eLWB scheduler with T=%u\r\n"
+  printf(" using eLWB scheduler with T=%ums\r\n"
          " round times [ms]: idle=%u cont=%u data=%u total=%u\r\n", 
-         LWB_CONF_SCHED_PERIOD_IDLE,
+         LWB_CONF_SCHED_PERIOD_IDLE_MS, 
          (uint16_t)LWB_T_IDLE_ROUND_MS, (uint16_t)LWB_T_REQ_ROUND_MS,
          (uint16_t)LWB_T_DATA_ROUND_MS, (uint16_t)LWB_T_ROUND_MAX_MS);
   
   /* check parameters */
-  if(((LWB_CONF_PERIOD_MIN * 1000 / LWB_CONF_PERIOD_SCALE) <= 
-      LWB_T_IDLE_ROUND_MS) ||
-     (LWB_T_ROUND_MAX_MS >= LWB_CONF_SCHED_PERIOD_IDLE * 1000)) {
+  if(LWB_T_ROUND_MAX_MS >= LWB_CONF_SCHED_PERIOD_IDLE_MS) {
     printf("ERROR: invalid parameters for eLWB scheduler\r\n");
     while(1);
   }
@@ -302,12 +317,11 @@ lwb_sched_init(lwb_schedule_t* sched)
   memb_init(&streams_memb);
   list_init(streams_list);
   n_streams = 0;
-  sched_state = LWB_SCHED_STATE_IDLE;
-  time = 0;                             /* global time starts now */
+  time      = 0;                                   /* global time starts now */
   sched->n_slots = 0;
-  LWB_SCHED_SET_CONT_SLOT(sched);       /* include a contention slot */
-  sched->time = time;
-  sched->period = LWB_CONF_SCHED_PERIOD_IDLE * LWB_CONF_PERIOD_SCALE;
+  sched->time    = time;
+  sched->period  = LWB_PERIOD_IDLE;
+  LWB_SCHED_SET_CONT_SLOT(sched);               /* include a contention slot */
   
   /* NOTE: node IDs must be sorted in increasing order */
 #if defined(LWB_CONF_SCHED_AE_SRC_NODE_CNT) && LWB_CONF_SCHED_AE_SRC_NODE_CNT
