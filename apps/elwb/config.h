@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
+ *          Felix Sutton
  */
 
 #ifndef __CONFIG_H__
@@ -38,16 +39,13 @@
  * application specific config file to override default settings
  */
 
-#define FLOCKLAB      /* uncomment to compile for FlockLab */
+/* --- Node ID --- */
 
-/* --- General config --- */
-
+#define FLOCKLAB
 #define HOST_ID                         1
 #ifndef FLOCKLAB
   #define NODE_ID                       1
 #endif
-
-//#define FRAM_CONF_ON                  1
 
 
 /* --- RF config --- */
@@ -56,46 +54,48 @@
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 
 
+/* --- Network parameters --- */
+
+#define LWB_CONF_MAX_HOPS               3
+#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
+#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3    // on Flocklab: 13,25
+
+
 /* --- LWB config --- */
 
-#define LWB_VERSION                     0  /* override default LWB impl. */
-#define LWB_CONF_USE_LF_FOR_WAKEUP      1
-#define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
-#define LWB_SCHED_ELWB                             /* use the eLWB scheduler */
-#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
+/* basics */
+#define LWB_CONF_SCHED_PERIOD_IDLE_MS   1000
 #define LWB_CONF_MAX_DATA_SLOTS         6
-#define LWB_CONF_MAX_PKT_LEN            56
-#define LWB_CONF_MAX_N_STREAMS          3     /* equals max. number of nodes */ 
-#define LWB_CONF_MAX_N_STREAMS_PER_NODE 1
-#if defined(FLOCKLAB) || HOST_ID == NODE_ID
-  #define LWB_CONF_IN_BUFFER_SIZE       LWB_CONF_MAX_DATA_SLOTS
-  #define LWB_CONF_OUT_BUFFER_SIZE      2
-#else
-  #define LWB_CONF_IN_BUFFER_SIZE       1
-  #define LWB_CONF_OUT_BUFFER_SIZE      2 
-#endif
-/* slot durations and network parameters */
-#define LWB_CONF_TX_CNT_DATA            2
-#define LWB_CONF_MAX_HOPS               3
-#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100) /* 10ms */
-#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500) /* 2ms */
-#define LWB_CONF_T_PREPROCESS           20    /* in ms */
-#define LWB_CONF_T_SILENT               (RTIMER_SECOND_HF * 20)
-
-#if defined(NODE_ID) && NODE_ID != HOST_ID /* can't disable LFXT OVF on host */
-#define RTIMER_CONF_LF_UPDATE_INT       0
-#endif
-
-#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
-#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 13,25
+#define LWB_CONF_MAX_PKT_LEN            (32 - 7) /* subtract RF + Glossy hdr */
+#define LWB_CONF_IN_BUFFER_SIZE         LWB_CONF_MAX_DATA_SLOTS
+#define LWB_CONF_OUT_BUFFER_SIZE        LWB_CONF_MAX_DATA_SLOTS
+/* timing */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
+#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 100)     /* 10ms */
+#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500)      /* 2ms */
+#define LWB_CONF_T_PREPROCESS           20                          /* in ms */
+/* power */
+#define LWB_CONF_USE_LF_FOR_WAKEUP      1
+/* don't change (required for eLWB to work) */
+#define LWB_VERSION                     0      /* override default LWB impl. */
+#define LWB_SCHED_ELWB                             /* use the eLWB scheduler */
+#define LWB_CONF_HEADER_LEN             0
+#define LWB_CONF_MAX_N_STREAMS          LWB_CONF_SCHED_AE_SRC_NODE_CNT
 
 
 /* --- BOLT --- */
+
 #define BOLT_CONF_MAX_MSG_LEN           64
 #define BOLT_CONF_TIMEREQ_ENABLE        1
 #define BOLT_CONF_TIMEREQ_HF_MODE       0              /* low precision mode */
 #define TIMESYNC_INTERRUPT_BASED        1
 #define TIMESYNC_OFS                    -193         /* const offset to host */
+
+
+/* --- MISC --- */
+
+#define RTIMER_CONF_LF_UPDATE_INT       0      /* disable LFXT OVF interrupt */
+//#define FRAM_CONF_ON                  1
 
 
 /* --- DEBUG config --- */
@@ -107,7 +107,7 @@
 #define DEBUG_TRACING_ON                1
 /* pins */
 //#define MCLK_PIN                        COM_MCU_INT2
-//#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
+#define LWB_CONF_TASK_ACT_PIN           COM_MCU_INT2
 //#define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_MCU_INT2
 //#define APP_TASK_ACT_PIN                COM_MCU_INT2
 

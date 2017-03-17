@@ -116,7 +116,8 @@ bolt_read_msg(void)
     uint8_t msg_len = bolt_read((uint8_t*)read_buffer);
     if(msg_len) {
       DEBUG_PRINT_INFO("message read from Bolt (%db)", msg_len);
-      process_message((message_min_t*)read_buffer);
+      lwb_send_pkt(0, 1, (uint8_t*)read_buffer, msg_len);  /* simply forward */
+      //process_message((message_min_t*)read_buffer);
     }
     max_ops--;
   }
@@ -131,7 +132,7 @@ bolt_timereq_cb(void)
 
   int64_t captured;
   if(t_offset) {
-    captured = -t_offset;
+    captured = -(int16_t)t_offset;
   } else {
     captured = now - ((uint16_t)(now & 0xffff) - BOLT_CONF_TIMEREQ_CCR);
   }
@@ -158,20 +159,20 @@ bolt_timereq_cb(void)
                                 (int32_t)lwb_stats->drift);
       msg_buffer.timestamp   -= drift_comp;
       /* debug only */
-      //DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
+      DEBUG_PRINT_INFO("drift compensation: %d", drift_comp);
     }
     /* convert from clock ticks to us */
     msg_buffer.timestamp          = msg_buffer.timestamp * 1000000 /
-                                    RTIMER_SECOND_HF - t_offset;
+                                    RTIMER_SECOND_HF;
     msg_buffer.header.device_id   = node_id;
     msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
     msg_buffer.header.payload_len = sizeof(timestamp_t);
     bolt_write((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
 
     t_offset = 0;
-    DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
+    DEBUG_PRINT_INFO("timestamp sent: %llu", msg_buffer.timestamp);
 
-  } // else: not yet synced, can't send timestamp
+  } // else: can't send timestamp now
 }
 #endif /* TIMESYNC_INTERRUPT_BASED */
 /*---------------------------------------------------------------------------*/
@@ -207,14 +208,14 @@ host_run(void)
 void
 source_run(void)
 {
-  if(lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
-    DEBUG_PRINT_INFO("pkt received");
+  uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
+  if(pkt_len) {
+    DEBUG_PRINT_INFO("msg (%u bytes) received from host", pkt_len);
     process_message(&msg_buffer);
   }
   if(t_offset) {
     bolt_timereq_cb();
   }
-
   bolt_read_msg();
     
 #if !TIMESYNC_INTERRUPT_BASED
@@ -260,7 +261,8 @@ PROCESS_THREAD(app_process, ev, data)
   
   /* error checks */
   if(sizeof(message_min_t) != MSG_PKT_LEN) {
-    DEBUG_PRINT_MSG_NOW("ERROR: message_min_t is too long");
+    DEBUG_PRINT_MSG_NOW("ERROR: message_min_t is too long (%u vs %u bytes)",
+                        sizeof(message_min_t), MSG_PKT_LEN);
   }
 
 #if TIMESYNC_INTERRUPT_BASED
@@ -275,6 +277,7 @@ PROCESS_THREAD(app_process, ev, data)
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
+    TASK_SUSPENDED;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
         
@@ -284,19 +287,11 @@ PROCESS_THREAD(app_process, ev, data)
       source_run();
     }
 
-    if(lwb_get_state() == LWB_STATE_SUSPENDED) {
-      /* disable the time request CCR interrupt and enable the port
-       * interrupt instead */
-      rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
-      PIN_UNSEL(BOLT_CONF_TIMEREQ_PIN);
-      PIN_CFG_INT(BOLT_CONF_TIMEREQ_PIN);
-    }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     if(!glossy_is_active()) {
       LWB_BEFORE_DEEPSLEEP();     /* prepare to go to LPM3 */
     }
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-    TASK_SUSPENDED;
   }
 
   PROCESS_END();
@@ -339,6 +334,8 @@ ISR(PORT2, port2_interrupt)
       /*UCSCTL5  = DIVA | DIVS | DIVM;*/
       UCSCTL7  = 0; /* errata UCS11 */
       P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+      rtimer_clock_t* addr = (rtimer_clock_t*)rtimer_swext_addr(RTIMER_HF_0);
+      *addr = 0;
       PIN_XOR(COM_MCU_INT2);
       TA0CTL   = TASSEL_2 | MC_2 | ID__1 | TACLR | TAIE;
 
@@ -359,6 +356,8 @@ ISR(PORT2, port2_interrupt)
     //                    (uint32_t)(ta1hw) * 31, cnt, us);
 
 // else: nothing to convert or calculate
+#else
+    t_offset = 1;   /* to trigger timestamp request handling */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
     /* not synced, can't send a timestamp now */
@@ -370,7 +369,6 @@ ISR(PORT2, port2_interrupt)
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID,
                           (rtimer_callback_t)bolt_timereq_cb);
     lwb_resume();
-    DEBUG_PRINT_MSG_NOW("port interrupt");
     PIN_CLR_IFG(BOLT_CONF_TIMEREQ_PIN);
   }
 }

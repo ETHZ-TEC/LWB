@@ -36,8 +36,7 @@
 #include "platform.h"
 
 
-#define MSG_PKT_LEN     (LWB_CONF_MAX_DATA_PKT_LEN - LWB_CONF_HEADER_LEN - \
-                         GLOSSY_MAX_HEADER_LEN)     /* 62 - 3 - 4 = 55 bytes */
+#define MSG_PKT_LEN     LWB_CONF_MAX_DATA_PKT_LEN
 #define MSG_HDR_LEN     4
 #define MSG_PAYLOAD_LEN (MSG_PKT_LEN - MSG_HDR_LEN - 2)
 
