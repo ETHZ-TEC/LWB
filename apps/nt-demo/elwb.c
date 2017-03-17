@@ -49,7 +49,7 @@
 #if LWB_VERSION == 0
 
 /* parameter checks */
-#if !defined(LWB_SCHED_ELWB)
+#if !defined(LWB_SCHED_ELWB_OLD)
 #error "eLWB only supports the eLWB scheduler!"
 #endif
 
@@ -69,6 +69,9 @@
 #if LWB_CONF_SRQ_PKT_LEN != 1
 #warning "LWB_CONF_SRQ_PKT_LEN should be set to 1!"
 #endif /* LWB_CONF_SRQ_PKT_LEN */
+
+/* use a bit to indicate whether it is a contention or a data round */
+#define IS_DATA_ROUND(s)            LWB_SCHED_HAS_SACK_SLOT(s)
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB */
 typedef enum {
@@ -108,9 +111,9 @@ lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] =
   { SYNCED,    SYNCED,   SYNCED,    SYNCED    }, /* schedule rcvd   */
   { BOOTSTRAP, UNSYNCED, UNSYNCED2, BOOTSTRAP }  /* schedule missed */
 };
-/* note: syn2 = already synced */
-static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = 
-{ "BOOTSTRAP", "SYN", "USYN", "USYN2" };
+static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = {
+  "BOOTSTRAP", "SYN", "USYN", "USYN2"
+};
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 /*BOOTSTRAP,        SYNCED,           UNSYNCED,           UNSYNCED2 */
   LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2
@@ -458,6 +461,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     global_time = schedule.time;
     rx_timestamp = t_start;
     
+    /* --- SEND SCHEDULE --- */    
     LWB_SEND_SCHED();
    
     glossy_rssi = glossy_get_rssi(0);
@@ -479,7 +483,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     #endif /* LWB_CONF_SCHED_COMPRESS */
     
       /* adjust T_DATA (modification to original LWB) */
-      if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
+      if(IS_DATA_ROUND(&schedule)) {
         /* this is a data round */
         t_slot = LWB_CONF_T_DATA;
       } else {
@@ -540,12 +544,12 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       /* wait until the slot starts, then receive the packet */
       LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
       LWB_RCV_PACKET();
-      if(LWB_DATA_RCVD && glossy_payload[0] != 0) {
-        /* process the request only if there is a valid node ID */
-        DEBUG_PRINT_INFO("request received from node %u", glossy_payload[0]);
-        lwb_sched_proc_srq((lwb_stream_req_t*)glossy_payload);
-      }
-      slot_idx++;   /* increment the packet counter */
+      //if(LWB_DATA_RCVD && glossy_payload[0] != 0) {
+      //  /* process the request only if there is a valid node ID */
+      //  DEBUG_PRINT_INFO("request received from node %u", glossy_payload[0]);
+      //  lwb_sched_proc_srq((lwb_stream_req_t*)glossy_payload);
+      //}
+      slot_idx++;
       if(glossy_get_n_rx_started()) {
         /* set the period to the min. value to notify the scheduler that at 
          * least one nodes wants to request a stream (has data to send) */
@@ -562,9 +566,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     curr_period = schedule.period;
     schedule_len = lwb_sched_compute(&schedule, 0, 0);
     slot_idx++; /* increment to have more time for the schedule computation */
-  
-    /* --- 2ND SCHEDULE --- */
     
+    /* --- SEND 2ND SCHEDULE --- */
+    /* (just a 1-byte packet to indicate a change in the round period) */
     if(prev_n_slots & 0x4000) { 
       /* send the 2nd schedule only if there was a contention slot */
       payload_len = 2;
@@ -677,8 +681,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   PT_BEGIN(&lwb_pt);
   
-  memset(&schedule, 0, sizeof(schedule)); 
-  
+  memset(&schedule, 0, sizeof(schedule));  
   sync_state = BOOTSTRAP;
   running = 1;
   
@@ -701,6 +704,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #endif /* LWB_CONF_T_PREPROCESS */
     
     /* --- COMMUNICATION ROUND STARTS --- */
+    
+    /* --- RECEIVE SCHEDULE --- */
     
     if(sync_state == BOOTSTRAP) {
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
@@ -756,6 +761,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     xmem_wakeup();    
   #endif /* LWB_CONF_USE_XMEM */
 
+    /* --- SYNC --- */
+    
     /* update the sync state machine (compute new sync state and update 
      * t_guard) */
     LWB_UPDATE_SYNC_STATE;  
@@ -824,7 +831,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
       if(LWB_SCHED_HAS_DATA_SLOT(&schedule)) {
         /* set the slot duration */
-        if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
+        if(IS_DATA_ROUND(&schedule)) {
           /* this is a data round */
           t_slot = LWB_CONF_T_DATA;
         } else {
@@ -838,8 +845,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             stats.t_slot_last = schedule.time;
             /* this is our data slot, send a data packet */
             if(!FIFO_EMPTY(&out_buffer)) {
-              if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
-                /* it's a data round */
+              if(IS_DATA_ROUND(&schedule)) {
                 lwb_out_buffer_get((uint8_t*)glossy_payload, &payload_len);
               } else {
                 payload_len = 1;
@@ -855,7 +861,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
           } else
           {
             payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
-            if(!LWB_SCHED_HAS_SACK_SLOT(&schedule)) {
+            if(!IS_DATA_ROUND(&schedule)) {
               /* the payload length is known in the request round */
               payload_len = LWB_CONF_SRQ_PKT_LEN;
             }
@@ -899,7 +905,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       /* increment to give the host time for the schedule computation */
       slot_idx++; 
             
-      /* --- 2ND SCHEDULE --- */
+      /* --- RECEIVE 2ND SCHEDULE --- */
       
       if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
         /* only rcv the 2nd schedule if there was a contention slot */
@@ -942,8 +948,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       /* print out some stats (note: takes approx. 2ms to compose this string) */
       DEBUG_PRINT_INFO("%s %lu T=%u n=%u tp=%u p=%u r=%u b=%u "
                       "u=%u per=%d snr=%ddbm", 
-                      lwb_sync_state_to_string[sync_state], 
-                      //node_registered,
+                      lwb_sync_state_to_string[sync_state],
                       schedule.time, 
                       schedule.period / LWB_CONF_PERIOD_SCALE, 
                       LWB_SCHED_N_SLOTS(&schedule), 
@@ -971,7 +976,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     memset(&schedule.slot, 0, sizeof(schedule.slot));
     
     if(!running) {
-      // suspend LWB task indefinitely
+      /* suspend LWB task indefinitely */
       LWB_TASK_SUSPENDED;
       PT_YIELD(&lwb_pt);
       LWB_TASK_RESUMED;
@@ -979,7 +984,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       LWB_AFTER_DEEPSLEEP();
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       t_preprocess = 0;
-      sync_state = BOOTSTRAP;   // reset state machine
+      sync_state = BOOTSTRAP;   /* reset state machine */
       continue;
     }
     

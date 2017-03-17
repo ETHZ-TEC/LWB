@@ -62,7 +62,7 @@
 #define LWB_CONF_MAX_PKT_LEN            120
 
 #define LWB_VERSION                     0      /* override default LWB impl. */
-#define LWB_SCHED_ELWB                             /* use the 'AE' scheduler */
+#define LWB_SCHED_ELWB_OLD                         /* use the 'AE' scheduler */
 #define LWB_CONF_USE_XMEM               1
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
 #define LWB_CONF_SCHED_PERIOD_IDLE      1   /* define the base period length */
