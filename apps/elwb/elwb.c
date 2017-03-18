@@ -764,7 +764,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
     #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-      if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
+      if(schedule.period == LWB_PERIOD_IDLE) {
         /* only update the timestamp during the idle period */
         global_time = schedule.time;
     #if LWB_CONF_USE_LF_FOR_WAKEUP
@@ -777,16 +777,23 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } else {
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
-      if(sync_state == UNSYNCED) {
+      if(schedule.period < LWB_PERIOD_IDLE) {
+        /* missed schedule was during a contention/data round -> reset t_ref */
     #if LWB_CONF_USE_LF_FOR_WAKEUP
         t_ref_lf = last_synced_lf;      /* restore the last known sync point */
     #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
         t_ref = rx_timestamp;
     #endif  /* LWB_CONF_USE_LF_FOR_WAKEUP */
+        if(IS_DATA_ROUND(&schedule)) {
+          /* last round was a data round? -> add one period */
+      #if LWB_CONF_USE_LF_FOR_WAKEUP
+          t_ref_lf += LWB_CONF_SCHED_PERIOD_IDLE_MS * RTIMER_SECOND_LF / 1000;
+      #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
+          t_ref += LWB_CONF_SCHED_PERIOD_IDLE_MS * RTIMER_SECOND_HF / 1000;
+      #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+        }
         schedule.period = LWB_PERIOD_IDLE;
       } else {
-        /* since HF clock was off, we need a new timestamp; subtract a const.
-         * processing offset to adjust (if needed) */
     #if LWB_CONF_USE_LF_FOR_WAKEUP
         t_ref_lf += LWB_CONF_SCHED_PERIOD_IDLE_MS * RTIMER_SECOND_LF / 1000;
     #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
