@@ -50,7 +50,7 @@ static message_min_t msg_buffer;
 static uint16_t t_offset = 0;
 /*---------------------------------------------------------------------------*/
 void
-process_message(message_min_t* msg)
+process_message(message_min_t* msg, uint8_t rcvd_from_bolt)
 {
   /* verify CRC */
   if(MSG_GET_CRC16(msg) !=
@@ -70,9 +70,14 @@ process_message(message_min_t* msg)
     DEBUG_PRINT_WARNING("message type not supported!");
     return;
   }
+  DEBUG_PRINT_INFO("msg rcvd from node %u (%u bytes)", 
+                   msg_buffer.header.device_id,  
+                   msg_len);
+  
+  /* extract the message type and handle the message */
   uint8_t msg_type = msg->header.type & ~MSG_TYPE_MIN;
-  /* handle message */
   if(msg_type == MSG_TYPE_COMM_CMD) {
+    /* don't check target ID, assume commands are for this node */
     DEBUG_PRINT_INFO("command received");
     switch(msg->comm_cmd.type) {
     case COMM_CMD_LWB_PAUSE:
@@ -88,21 +93,15 @@ process_message(message_min_t* msg)
       /* unknown command */
       break;
     }
-  } else if(msg_type == MSG_TYPE_AE_EVENT) {
-    if(node_id == HOST_ID) {
-      // host shall forward these packets to Bolt
-      DEBUG_PRINT_INFO("AE event received (ID: %u, timestamp: %llu)",
-                       msg->ae_evt.event_id,
-                       msg->ae_evt.generation_time);
+  } else {
+    /* all other message types, can't be handled on this node -> forward */
+    if(rcvd_from_bolt) {
+      /* received over Bolt -> forward to LWB */
+      lwb_send_pkt(0, 1, (uint8_t*)msg, MSG_LEN_PTR(msg));      
+    } else {
       /* forward the packet to the app processor */
       bolt_write((uint8_t*)msg, MSG_LEN_PTR(msg));
-    } else
-    {
-      // source node shall forward these packets to LWB
-      lwb_send_pkt(0, 1, (uint8_t*)msg, MSG_LEN_PTR(msg));
     }
-  } else {
-    DEBUG_PRINT_INFO("unknown message type received");
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -113,11 +112,8 @@ bolt_read_msg(void)
   static uint16_t read_buffer[(BOLT_CONF_MAX_MSG_LEN + 1) / 2];
   uint16_t max_ops = 10;
   while(BOLT_DATA_AVAILABLE && max_ops) {
-    uint8_t msg_len = bolt_read((uint8_t*)read_buffer);
-    if(msg_len) {
-      DEBUG_PRINT_INFO("message read from Bolt (%db)", msg_len);
-      lwb_send_pkt(0, 1, (uint8_t*)read_buffer, msg_len);  /* simply forward */
-      //process_message((message_min_t*)read_buffer);
+    if(bolt_read((uint8_t*)read_buffer)) {
+      process_message((message_min_t*)read_buffer, 1);
     }
     max_ops--;
   }
@@ -179,18 +175,14 @@ bolt_timereq_cb(void)
 void
 host_run(void)
 {
-  /* print out the received data */
-  uint8_t pkt_len;
-  do {
-    pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
-    if(pkt_len) {
-      DEBUG_PRINT_INFO("msg (%u bytes) rcvd from node %u", 
-                       pkt_len, 
-                       msg_buffer.header.device_id);
-      process_message(&msg_buffer);
+  /* read all messages received via the LWB */
+  while(1) {
+    if(!lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
+      break;
     }
-  } while(pkt_len);
-  
+    process_message(&msg_buffer, 0);
+  }  
+  /* read all messages from Bolt */
   bolt_read_msg();
 
 #if !TIMESYNC_INTERRUPT_BASED
@@ -208,14 +200,18 @@ host_run(void)
 void
 source_run(void)
 {
-  uint8_t pkt_len = lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0);
-  if(pkt_len) {
-    DEBUG_PRINT_INFO("msg (%u bytes) received from host", pkt_len);
-    process_message(&msg_buffer);
+  /* read all messages received via the LWB */
+  while(1) {
+    if(!lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
+      break;
+    }
+    process_message(&msg_buffer, 0);
   }
+  /* handle timestamp request (if pending) */
   if(t_offset) {
     bolt_timereq_cb();
   }
+  /* read all messages from Bolt */
   bolt_read_msg();
     
 #if !TIMESYNC_INTERRUPT_BASED
@@ -365,7 +361,6 @@ ISR(PORT2, port2_interrupt)
     /* reenable timestamp request CCR */
     PIN_INT_DIS(BOLT_CONF_TIMEREQ_PIN);
     PIN_SEL(BOLT_CONF_TIMEREQ_PIN);
-    //PIN_MAP_AS_INPUT(BOLT_CONF_TIMEREQ_PIN, BOLT_CONF_TIMEREQ_PINMAP);
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID,
                           (rtimer_callback_t)bolt_timereq_cb);
     lwb_resume();
