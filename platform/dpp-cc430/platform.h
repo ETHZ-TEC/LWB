@@ -248,7 +248,7 @@
                                   ENABLE_XT2(); \
                                   WAIT_FOR_OSC(); \
                                   UCSCTL4  = SELA | SELS | SELM; \
-                               /*__delay_cycles(100);*/ /* errata PMM11/12? */\
+                                  __delay_cycles(100); /* errata PMM11/12? */\
                                   /*UCSCTL5  = DIVA | DIVS | DIVM;*/ \
                                   UCSCTL7  = 0; /* errata UCS11 */ \
                                   SFRIE1  |= OFIE; \
@@ -256,6 +256,8 @@
                                   P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
                                               BIT6 | BIT7); \
                                 }
+/* note: errata PMM11 should not affect this clock config; MCLK is sourced from
+ * DCO, but DCO is not running at >4MHz and clock divider is 2 */
 
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
 #define LWB_BEFORE_DEEPSLEEP()  {\
@@ -266,7 +268,7 @@
                                   /* DPP has a pullup on P1.5! */\
                                   P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7); \
                                   P1OUT = 0; \
-                                  /* set clock source to DCO */\
+                                  /* set clock source to DCO (3.25MHz) */\
                                   UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
                                             SELM__DCOCLKDIV; \
                                   UCSCTL7  = 0; \
