@@ -38,14 +38,11 @@
  * application specific config file to override default settings
  */
 
-/* flocklab */
-/* note: image won't fit into flash memory, therefore images for source and 
- * host node must be compiled separately */
-#define FLOCKLAB_SRC_NODE               0  /* compile for flocklab src node? */
-
-/* main parameters */
-#if !FLOCKLAB_SRC_NODE  /* only set the node ID if not intended to run on FL */
-  #define NODE_ID                       20050
+//#define NODE_ID                       13
+#ifndef NODE_ID
+#define FLOCKLAB_SRC_NODE               1
+#else /* FLOCKLAB_SRC_NODE */
+#define FLOCKLAB_SRC_NODE               0
 #endif /* FLOCKLAB_SRC_NODE */
 #define HOST_ID                         13
 #define RF_CONF_TX_CH                   10    /* note: use CH/870MHz on roof */
@@ -59,7 +56,7 @@
 #define LWB_CONF_T_SCHED2_START         (RTIMER_SECOND_HF * 800 / 1000)
 #define LWB_CONF_MAX_HOPS               3
 #define LWB_CONF_OUT_BUFFER_SIZE        5
-#if NODE_ID == HOST_ID
+#if defined(NODE_ID) && NODE_ID == HOST_ID
   #define LWB_CONF_IN_BUFFER_SIZE       10
 #else
   #define LWB_CONF_IN_BUFFER_SIZE       5  /* smaller queue for source nodes */

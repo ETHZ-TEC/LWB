@@ -34,13 +34,16 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x010b
+#define FW_VERSION      0x010c
 #define FW_NAME         "lwb-dev"     /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Changes in v1.12 (2017-04-12):
+- changes: see git changelog of core, mcu and platform files
 
 Changes in v1.11 (2016-12-22):
 - change:  clock dividers in LWB_BEFORE_DEEPSLEEP now unchanged (yields a
