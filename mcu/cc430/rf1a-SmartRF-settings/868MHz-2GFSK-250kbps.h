@@ -36,7 +36,8 @@
 
 #define SMARTRF_IOCFG0     0x06 /* gdo0 output configuration */
 #define SMARTRF_FSCTRL1    0x0C /* frequency synthesizer control */
-//default: #define SMARTRF_PKTCTRL0   0x05 /* variable pkt len, CRC en, no whitening */
+// note: better RF performance when whitening is enabled! leave default value
+//#define SMARTRF_PKTCTRL0   0x05 /* variable pkt len, CRC en, no whitening */
 #define SMARTRF_FREQ2      0x21 /* frequency control word, high byte */
 #define SMARTRF_FREQ1      0x62 /* frequency control word, middle byte */
 #define SMARTRF_FREQ0      0x76 /* frequency control word, low byte */
