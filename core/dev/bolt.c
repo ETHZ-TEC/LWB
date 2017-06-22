@@ -331,6 +331,7 @@ bolt_write(const uint8_t* data, uint16_t len)
     data++;
     len--;
     if(!BOLT_ACK_STATUS) {  /* aborted */
+      bolt_release();
       BOLT_DEBUG("[Bolt] transfer aborted");
       return 0;
     }
