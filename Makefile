@@ -9,9 +9,11 @@
 # (e.g. export it in ~/.bashrc) and point to the tilib file libmsp430.so, which is included in 
 # the TI Code Composer Studio or the MSPFlasher tool 
 
-CONTIKI = .
+TARGET = dpp2
 CONTIKI_PROJECT = lwb
+
 APPDIR = ./apps/$(CONTIKI_PROJECT)
+CONTIKI = .
 
 SRCS = ${shell find $(APPDIR) -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 

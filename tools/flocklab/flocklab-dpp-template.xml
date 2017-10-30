@@ -13,7 +13,7 @@
     <!-- Observers with a DPP installed: 001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204 -->
 
     <targetConf>
-        <obsIds> </obsIds>
+        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
         <!--<targetIds> </targetIds>-->
         <voltage>3.3</voltage>
         <embeddedImageId>BOLT</embeddedImageId>
@@ -24,7 +24,7 @@
     
     <!-- Note: select the core with the SIG1,SIG2 pins! -->
     <serialConf>
-        <obsIds> </obsIds>
+        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
         <port>serial</port>
         <baudrate>115200</baudrate>
         <mode>ascii</mode>
@@ -32,7 +32,7 @@
     </serialConf>
     
     <gpioTracingConf>
-        <obsIds> </obsIds>
+        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
         <pinConf>
             <pin>INT1</pin>
             <edge>both</edge>
@@ -62,7 +62,7 @@
     
     <!-- (SIG1,SIG2): (0,0) = COM, (0,1) = APP, (1,0) = BOLT -->
     <gpioActuationConf>
-        <obsIds> </obsIds>
+        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
         <pinConf>
             <pin>SIG1</pin>
             <level>low</level>
