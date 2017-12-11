@@ -96,9 +96,6 @@ print_device_info(void)
 int
 main(int argc, char **argv)
 {
-  /* errata CPU46 fix: set stack pointer */
-  __asm__ __volatile__("mov %0, r1"::"i" (0x2bfa));
-
 #if WATCHDOG_CONF_ON
   watchdog_init();
   watchdog_start();
@@ -108,11 +105,11 @@ main(int argc, char **argv)
 
   /* initialize hardware */
 
-  /* set default configuration for all GPIOs */
-  /* don't set P1.5/P1.6 (UART) and BOLT IND pins (P1.1 and P2.2) as output! */
+  /* set default configuration for all GPIOs (output low) */
+  /* keep P1.5/P1.6 (UART) and BOLT IND/TRQ pins configured as inputs */
   P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT7);
   PORT_CLR_I(1);
-  P2DIR = (BIT0 | BIT1 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+  P2DIR = (BIT0 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
   PORT_CLR_I(2);
   PORT_CFG_OUT_I(3);
   PORT_CLR_I(3);

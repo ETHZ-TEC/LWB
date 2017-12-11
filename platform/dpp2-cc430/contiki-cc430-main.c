@@ -96,9 +96,6 @@ print_device_info(void)
 int
 main(int argc, char **argv)
 {
-  /* errata CPU46 fix: set stack pointer */
-  __asm__ __volatile__("mov %0, r1"::"i" (0x2bfa));
-
 #if WATCHDOG_CONF_ON
   watchdog_init();
   watchdog_start();
@@ -108,7 +105,7 @@ main(int argc, char **argv)
 
   /* initialize hardware */
 
-  /* set default configuration for all GPIOs */
+  /* set default configuration for all GPIOs (output low) */
   PORT_CLR_I(1);
   P1DIR = 0xff & ~(BIT1 | BIT2 | BIT3 | BIT4 | BIT5 | BIT6);
   P1SEL = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6);
