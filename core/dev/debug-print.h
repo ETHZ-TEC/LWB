@@ -54,13 +54,31 @@
 #define DEBUG_PRINT_CONF_ON             1
 #endif /* DEBUG_PRINT_CONF_ON */
 
-#ifndef DEBUG_PRINT_CONF_NUM_MSG        /* number of messages to store */
-#define DEBUG_PRINT_CONF_NUM_MSG        4     
-#endif /* DEBUG_PRINT_CONF_NUM_MSG */
-
 #ifndef DEBUG_PRINT_CONF_MSG_LEN        /* max. num of chars per msg */
 #define DEBUG_PRINT_CONF_MSG_LEN        79    
 #endif /* DEBUG_PRINT_CONF_MSG_LEN */
+
+#ifndef DEBUG_PRINT_CONF_USE_RINGBUFFER
+#define DEBUG_PRINT_CONF_USE_RINGBUFFER 0
+#endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+
+#if DEBUG_PRINT_CONF_USE_RINGBUFFER
+  #if DEBUG_PRINT_CONF_USE_XMEM
+  #error "DEBUG_PRINT_CONF_USE_RINGBUFFER is not available when \
+          DEBUG_PRINT_CONF_USE_XMEM is enabled"
+  #endif /* DEBUG_PRINT_CONF_USE_XMEM */
+  #ifndef DEBUG_PRINT_CONF_BUFFER_SIZE    /* total buffer size in bytes */
+  #define DEBUG_PRINT_CONF_BUFFER_SIZE  300
+  #endif /* DEBUG_PRINT_CONF_BUFFER_SIZE */
+  #define DEBUG_PRINT_CONF_NUM_MSG      0
+#else /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+  #define DEBUG_PRINT_CONF_BUFFER_SIZE  0
+#endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+
+/* number of messages to store (only valid if ringbuffer is not used) */
+#ifndef DEBUG_PRINT_CONF_NUM_MSG        
+#define DEBUG_PRINT_CONF_NUM_MSG        4     
+#endif /* DEBUG_PRINT_CONF_NUM_MSG */
 
 #ifndef DEBUG_PRINT_CONF_LEVEL
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
@@ -78,6 +96,38 @@
 #ifndef DEBUG_PRINT_CONF_POLL
 #define DEBUG_PRINT_CONF_POLL           0    
 #endif /* DEBUG_PRINT_CONF_POLL */
+
+/* note: option only available with ringbuffer */
+#ifndef DEBUG_PRINT_CONF_PRINT_TIMESTAMP
+#define DEBUG_PRINT_CONF_PRINT_TIMESTAMP  1
+#endif /* DEBUG_PRINT_CONF_PRINT_TIMESTAMP */
+
+/* note: option only available with ringbuffer */
+#ifndef DEBUG_PRINT_CONF_PRINT_NODEID
+#define DEBUG_PRINT_CONF_PRINT_NODEID   0
+#endif /* DEBUG_PRINT_CONF_PRINT_NODEID */
+
+/* note: option only available with ringbuffer */
+#ifndef DEBUG_PRINT_CONF_PRINT_DBGLEVEL
+#define DEBUG_PRINT_CONF_PRINT_DBGLEVEL 0
+#endif /* DEBUG_PRINT_CONF_PRINT_DBGLEVEL */
+
+/* note: option only available with ringbuffer */
+#ifndef DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
+#define DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE  0
+#endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
+
+#if !DEBUG_PRINT_CONF_USE_RINGBUFFER && DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
+#error "DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE only available with \
+        DEBUG_PRINT_CONF_USE_RINGBUFFER enabled!"
+#endif /* !DEBUG_PRINT_CONF_USE_RINGBUFFER ... */
+
+#if DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE && !defined(__FILENAME__)
+#define __FILENAME__                    (strrchr(__FILE__, '/') ? \
+                                         strrchr(__FILE__, '/') + 1 : __FILE__)
+/* note: strrchr will be evaluated at compile time and the file name inlined */
+#endif /* DEBUG_PRINT_CONF_PRINT_FILE && ... */
+
 
 /* stack guard to detect stack overflows, recommended value is:
  * SRAM_START + bss section size */
@@ -157,20 +207,27 @@
   DEBUG_PRINT_MSG_NOW(__VA_ARGS__); \
   PMM_TRIGGER_POR; \
 }
-    
+
+
+/* defines how the debug print function looks like */
+#if DEBUG_PRINT_CONF_PRINT_DIRECT
+  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg_now(msg)
+#else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
+ #if DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
+  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg(rtimer_now_lf(), \
+                                           l, msg, __FILENAME__, __LINE__) 
+ #else /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
+  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg(rtimer_now_lf(), \
+                                           l, msg)
+ #endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
+#endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
+
 
 #if DEBUG_PRINT_CONF_ON
-  #if DEBUG_PRINT_CONF_PRINT_DIRECT
-    #define DEBUG_PRINT_MSG(t, l, ...) \
-      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
-      debug_print_msg_now(debug_print_buffer)
-    #define DEBUG_PRINT_SIMPLE(s)   debug_print_msg_now(s)
-  #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
-    #define DEBUG_PRINT_MSG(t, l, ...) \
-      snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
-      debug_print_msg(rtimer_now_lf(), l, debug_print_buffer)
-    #define DEBUG_PRINT_SIMPLE(s, l) debug_print_msg(rtimer_now_lf(), l, s)
-  #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
+  #define DEBUG_PRINT_MSG(t, l, ...) \
+    snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__);\
+    DEBUG_PRINT_FUNCTION(l, debug_print_buffer)
+  #define DEBUG_PRINT_SIMPLE(s, l) DEBUG_PRINT_FUNCTION(l, s)
   #define DEBUG_PRINT_MSG_NOW(...) \
     snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, __VA_ARGS__); \
     debug_print_msg_now(debug_print_buffer)
@@ -244,9 +301,17 @@ void debug_print_poll(void);
 /**
  * @brief schedule a message for print out over UART
  */
+#if DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
+void debug_print_msg(rtimer_clock_t timestamp, 
+                     debug_level_t level,  
+                     char *data,
+                     char *filename,
+                     uint16_t line);
+#else /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
 void debug_print_msg(rtimer_clock_t timestamp, 
                      debug_level_t level,  
                      char *data);
+#endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
 
 /**
  * @brief print out a message immediately over UART (blocking call)
