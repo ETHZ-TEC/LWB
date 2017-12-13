@@ -62,9 +62,12 @@ struct printbuf
 };
 void printbuf_put(struct printbuf* p, const char* str);
 void printbuf_flush(struct printbuf* p);
+uint16_t sprint_hex16(uint16_t val, char* out_buffer);
+uint16_t sprint_uint16(uint16_t val, char* out_buffer);
+uint16_t sprint_uint32(uint32_t val, char* out_buffer, uint16_t min_chars);
 /*---------------------------------------------------------------------------*/
 const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS + 1] = { \
-  "CRITICAL", "ERROR", "WARNING", "INFO", "VERBOSE", "" };
+  "CRIT", "ERR", "WARN", "INFO", "VERB", "" };
 /* global buffer, required to compose the messages */
 char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1]; 
 static uint8_t buffer_full = 0;  
@@ -117,7 +120,7 @@ PROCESS_THREAD(debug_print_process, ev, data)
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) = 0xaaaa;
   *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) = 0xaaaa;
-  printf("Debug buffer size %ub, stack size=%ub\r\n",
+  printf("Debug buffer size %ub, max stack size %ub\r\n",
          DEBUG_PRINT_CONF_NUM_MSG * DEBUG_PRINT_CONF_MSG_LEN + 
          DEBUG_PRINT_CONF_BUFFER_SIZE,
          (SRAM_END - DEBUG_CONF_STACK_GUARD - 7));
@@ -232,23 +235,29 @@ debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data
   }
 #else
  #if DEBUG_PRINT_CONF_USE_RINGBUFFER
-  char tmp[32];
+  /* max. memory size: node_id (6) + timestamp (11) + dbg lvl (5) + 
+   * line_no (6) + filename (16) = 44 */
+  char tmp[45];
+  uint16_t idx = 0;
   #if DEBUG_PRINT_CONF_PRINT_NODEID
-  snprintf(tmp, 32, "%u ", node_id);
-  printbuf_put(&dbg_printbuf, tmp);
+  idx += sprint_uint16(node_id, &tmp[idx]);
+  tmp[idx++] = ' ';
   #endif /* DEBUG_PRINT_CONF_PRINT_NODEID */
   #if DEBUG_PRINT_CONF_PRINT_TIMESTAMP
-  snprintf(tmp, 32, "%5lu ", (uint32_t)(timestamp / RTIMER_SECOND_LF));
-  printbuf_put(&dbg_printbuf, tmp);
+  idx += sprint_uint32((uint32_t)(timestamp / RTIMER_SECOND_LF), &tmp[idx], 5);
+  tmp[idx++] = ' ';
   #endif /* DEBUG_PRINT_CONF_PRINT_TIMESTAMP */
   #if DEBUG_PRINT_CONF_PRINT_DBGLEVEL
-  printbuf_put(&dbg_printbuf, debug_print_lvl_to_string[level]);
-  printbuf_put(&dbg_printbuf, " ");
+  strcat(&tmp[idx], debug_print_lvl_to_string[level]);
+  tmp[idx++] = ' ';
   #endif /* DEBUG_PRINT_CONF_PRINT_DBGLEVEL */
   #if DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
-  snprintf(tmp, 32, "%s %d ", filename, line);
-  printbuf_put(&dbg_printbuf, tmp);
+  strncat(&tmp[idx], filename, 15);   /* copy up to 15 characters */
+  tmp[idx++] = ' ';
+  idx += sprintf_uint16(line, &tmp[idx]);
   #endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
+  tmp[idx] = 0;   /* make sure string has a terminating null character */
+  printbuf_put(&dbg_printbuf, tmp);
   printbuf_put(&dbg_printbuf, data);
   printbuf_put(&dbg_printbuf, "\r\n");
  #else /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
@@ -312,8 +321,7 @@ printbuf_put(struct printbuf* p, const char* str)
 void
 printbuf_flush(struct printbuf* p)
 {
-  while(p->cnt)
-  {
+  while(p->cnt) {
     uint8_t c = p->data[p->get_idx++];
     if(p->get_idx == p->size) {
       p->get_idx = 0;
@@ -321,6 +329,82 @@ printbuf_flush(struct printbuf* p)
     putchar(c);
     p->cnt--;
   }
+}
+/*---------------------------------------------------------------------------*/
+uint16_t
+sprint_hex16(uint16_t val, char* out_buffer)
+{
+  uint16_t mask = 0xf000;
+  while(mask) {
+    uint16_t b = val & mask;
+    if(b < 10) {
+      *out_buffer = b + '0';
+    } else {
+      *out_buffer = b + ('a' - 10);
+    }
+    out_buffer++;
+    mask >>= 4;
+  }
+  return 4;
+}
+/*---------------------------------------------------------------------------*/
+uint16_t
+sprint_uint16(uint16_t val, char* out_buffer)
+{
+  uint16_t char_cnt = 1;
+  uint16_t div = 1;
+  if(val >= 10000) {
+    div = 10000;
+    char_cnt = 5;
+  } else if(val >= 1000) {
+    div = 1000;
+    char_cnt = 4;
+  } else if(val >= 100) {
+    div = 100;
+    char_cnt = 3;
+  } else if (val >= 10) {
+    div = 10;
+    char_cnt = 2;
+  }
+  while(div > 1) {
+    uint16_t d = val / div;
+    *out_buffer++ = d + '0';
+    val -= d * div;
+    div /= 10;
+  }
+  *out_buffer++ = (uint8_t)(val + '0');
+  return char_cnt;
+}
+/*---------------------------------------------------------------------------*/
+uint16_t
+sprint_uint32(uint32_t val, char* out_buffer, uint16_t min_chars)
+{
+  uint32_t div      = 1000000000;
+  uint16_t char_cnt = 0;
+  uint16_t digits   = 10;   /* start with the highest digit */
+  while(digits > 1) {
+    if(char_cnt == 0) {
+      if(val < div) {
+        if(digits <= min_chars) {
+          *out_buffer++ = ' ';
+        }
+        div /= 10;
+        digits--;
+        continue;
+      }
+      char_cnt = digits;
+    }
+    uint16_t d = (val / div);
+    *out_buffer++ = d + '0';
+    digits--;
+    val -= d * div;
+    div /= 10;
+  }
+  *out_buffer++ = (uint8_t)(val + '0');
+  if(min_chars > char_cnt) {
+    char_cnt = min_chars;
+  }
+  return char_cnt;
 }
 /*---------------------------------------------------------------------------*/
 #else /* DEBUG_PRINT_CONF_ON */
