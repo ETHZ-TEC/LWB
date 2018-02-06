@@ -244,7 +244,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 #endif /* LWB_AFTER_DEEPSLEEP */
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
-static void*            pre_proc;
+static struct process*  pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   rx_timestamp;
@@ -569,7 +569,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   while(1) {
 #if LWB_CONF_T_PREPROCESS
     if(pre_proc) {
-      pre_proc();
+      process_poll(pre_proc);
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(rt->time + LWB_CONF_T_PREPROCESS *
@@ -804,7 +804,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
 #if LWB_CONF_T_PREPROCESS
     if(pre_proc) {
-      pre_proc();
+      process_poll(pre_proc);
     }
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     LWB_LF_WAIT_UNTIL(rt->time + 
@@ -1224,7 +1224,7 @@ PROCESS_THREAD(lwb_process, ev, data)
 void
 lwb_start(struct process* pre_lwb_proc, struct process *post_lwb_proc)
 {
-  pre_proc = pre_lwb_proc;
+  pre_proc  = (struct process*)pre_lwb_proc;
   post_proc = (struct process*)post_lwb_proc;
   
   uart_enable(1);
