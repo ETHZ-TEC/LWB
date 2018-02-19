@@ -462,7 +462,7 @@ glossy_stop(void)
 
     /* re-enable interrupts */
     GLOSSY_ENABLE_INTERRUPTS;
-    rtimer_update_enable(1);
+    rtimer_update_enable();
   }
 
   return g.n_rx;
@@ -627,7 +627,7 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
   /* disable timer overflow / update interrupt (required before every RX to
    * make sure that reading from the RX FIFO as well as the RX/TX switching in
    * rf1a_cb_rx_ended is not delayed) */
-  rtimer_update_enable(0);
+  rtimer_update_disable();
   LWB_INT_DISABLE;
 
   g.t_rx_start = *timestamp;
@@ -687,7 +687,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
    * Note that the RX/TX switching is constant regardless of the runtime of
    * this ISR; it is only necessary to write to the TX queue before the
    * preamble has been sent by the radio module */
-  rtimer_update_enable(1);
+  rtimer_update_enable();
   LWB_INT_ENABLE;
   g.t_rx_stop = *timestamp;
 #if GLOSSY_CONF_COLLECT_STATS
@@ -835,7 +835,7 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
   DEBUG_PRINT_VERBOSE("Glossy RX failed, corrupted packet received");
 
   LWB_INT_ENABLE;
-  rtimer_update_enable(1);
+  rtimer_update_enable();
   rf1a_flush_rx_fifo();
   rf1a_start_rx();
 }
@@ -854,7 +854,7 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
   DEBUG_PRINT_VERBOSE("Glossy RX/TX error (interference?)");
 
   LWB_INT_ENABLE;
-  rtimer_update_enable(1);
+  rtimer_update_enable();
   if(g.active) {
     /* if Glossy is still active, flush both RX FIFO and TX FIFO and start a
      * new reception attempt */

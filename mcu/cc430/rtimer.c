@@ -232,7 +232,9 @@ rtimer_reset(void)
   DCSTAT_RESET;
 }
 /*---------------------------------------------------------------------------*/
-inline void
+/* don't use this function, compiler generates code that potentially clears an
+ * active interrupt flag! */
+/*inline void
 rtimer_update_enable(uint8_t enable)
 {
   if(enable) {
@@ -242,6 +244,18 @@ rtimer_update_enable(uint8_t enable)
     TA0CTL &= ~TAIE; 
     //TA1CTL &= ~TAIE;
   }
+}*/
+/*---------------------------------------------------------------------------*/
+inline void
+rtimer_update_enable(void)
+{
+  TA0CTL |= TAIE;
+}
+/*---------------------------------------------------------------------------*/
+inline void
+rtimer_update_disable(void)
+{
+  TA0CTL &= ~TAIE;
 }
 /*---------------------------------------------------------------------------*/
 inline uint8_t 

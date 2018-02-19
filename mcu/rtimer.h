@@ -223,7 +223,9 @@ void rtimer_interrupts_enable(uint8_t enable);
  * @brief enable or disable the overflow/update interrupts for both,
  * the LF and HF timer
  */
-inline void rtimer_update_enable(uint8_t enable);
+//inline void rtimer_update_enable(uint8_t enable);
+inline void rtimer_update_enable(void);
+inline void rtimer_update_disable(void);
 
 /**
  * @brief check whether the overflow/update interrupt (of the HF timer) is 
