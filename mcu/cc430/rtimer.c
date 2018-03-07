@@ -190,17 +190,17 @@ rtimer_wait_for_event(rtimer_id_t timer, rtimer_callback_t func)
       /* set the timer to capture mode */
       /* rising edge, synchronize the capture with the next timer clock to
        * prevent race conditions, capture input select */
-      *(&TA1CCTL0 + timer - RTIMER_LF_0) = CM_1 | SCS;
+      *(&TA1CCTL0 + timer - RTIMER_LF_0) = CM_1 | SCS | CAP;
       /* only enable interrupts when a callback function is provided */
       if (func) {       
-        *(&TA1CCTL0 + timer - RTIMER_LF_0) |= (CAP | CCIE);
+        *(&TA1CCTL0 + timer - RTIMER_LF_0) |= CCIE;
       }
     } else {
       /* set the timer to capture mode */
-      *(&TA0CCTL0 + timer) = CM_1 | SCS;
+      *(&TA0CCTL0 + timer) = CM_1 | SCS | CAP;
       /* only enable interrupts when a callback function is provided */
       if (func) {       
-        *(&TA0CCTL0 + timer) |= (CAP | CCIE);
+        *(&TA0CCTL0 + timer) |= CCIE;
       }
     }
   } 
@@ -365,7 +365,7 @@ rtimer_now_lf(void)
   }
   /* shift the SW extension to the left and append the HW timer */
   rtimer_clock_t time = (sw << 16) | hw;
-
+  
   /* only enable interrupts if the GIE bit was set before! otherwise interrupt
    * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
   if(interrupt_enabled) {

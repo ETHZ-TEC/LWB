@@ -1009,7 +1009,7 @@ lwb_resume(void)
     #if LWB_CONF_USE_LF_FOR_WAKEUP && RTIMER_CONF_LF_UPDATE_INT
       /* update the global time and wait for the next full second */
       schedule.time = ((t_wakeup + RTIMER_SECOND_LF) / RTIMER_SECOND_LF);
-      lwb_sched_set_time(schedule.time * LWB_PERIOD_SCALE);
+      lwb_sched_set_time(schedule.time);
       t_wakeup = (rtimer_clock_t)schedule.time * RTIMER_SECOND_LF;
     #endif /* LWB_CONF_USE_LF_FOR_WAKEUP && RTIMER_CONF_LF_UPDATE_INT */
       rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_host);

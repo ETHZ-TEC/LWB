@@ -227,7 +227,10 @@ void lwb_sched_proc_srq(const lwb_stream_req_t* req);
  */
 uint16_t lwb_sched_init(lwb_schedule_t* sched);
 
-
+/**
+ * @brief set the time for the scheduler
+ * @param[in] new_time time in seconds
+ */
 void lwb_sched_set_time(uint32_t new_time);
 
 

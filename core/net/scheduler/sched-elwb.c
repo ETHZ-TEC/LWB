@@ -360,7 +360,7 @@ lwb_sched_init(lwb_schedule_t* sched)
 void
 lwb_sched_set_time(uint32_t new_time)
 {
-  time = new_time;
+  time = new_time * LWB_PERIOD_SCALE;
 }
 /*---------------------------------------------------------------------------*/
 

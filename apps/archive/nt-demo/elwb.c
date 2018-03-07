@@ -629,7 +629,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       /* update the global time and wait for the next full second */
       uint32_t new_time = ((rtimer_now_lf() + RTIMER_SECOND_LF +
                            RTIMER_SECOND_LF / 512) / RTIMER_SECOND_LF);
-      lwb_sched_set_time(new_time * LWB_CONF_PERIOD_SCALE);
+      lwb_sched_set_time(new_time);
       schedule.time = new_time;
       t_start_lf = new_time * RTIMER_SECOND_LF;
       rtimer_schedule(LWB_CONF_LF_RTIMER_ID, t_start_lf, 0, callback_func);
