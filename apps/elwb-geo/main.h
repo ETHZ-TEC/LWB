@@ -37,7 +37,7 @@
 
 
 #define MSG_PKT_LEN     LWB_CONF_MAX_DATA_PKT_LEN
-#define MSG_HDR_LEN     4
+#define MSG_HDR_LEN     16
 #define MSG_PAYLOAD_LEN (MSG_PKT_LEN - MSG_HDR_LEN - 2)
 
 /* actual message length including CRC */
@@ -82,23 +82,6 @@ typedef struct {
 
 #pragma pack(1)
 
-typedef struct {
-  uint16_t    event_id;    /* sequence number */
-  uint16_t    len;         /* length in number of samples */
-  timestamp_t generation_time;
-  /* more characteristics of the AE event */
-  uint16_t    amplitude;   /* max. amplitude */
-  uint16_t    rise_time;   /* rise time */
-  uint16_t    avg_freq;    /* average frequency */
-} ae_event_t;
-
-#define AE_DATA_SAMPLES_PER_PKT   ((MSG_PAYLOAD_LEN - 4) / 2)
-typedef struct {
-  uint16_t event_id;    /* sequence number */
-  uint16_t offset;      /* offset in samples since the start */
-  uint16_t samples[AE_DATA_SAMPLES_PER_PKT];
-} ae_data_t;
-
 /* 
  * message structure for acoustic emission messages
  * - no target ID required (packets always go to the sink)
@@ -112,18 +95,19 @@ typedef struct {
     /* MSB of type must be set! */
     message_type_t type : 8;    /* force 1 byte */
     uint8_t        payload_len;
+    uint16_t       target_id;        /* recipient device ID */
+    uint16_t       seqnr;            /* sequence number */
+    uint64_t       generation_time;  /* packet generation time (us) */
   } header;
   /* payload: MSG_PAYLOAD_LEN bytes */ 
-  union {
+  union {  
     uint8_t        payload[MSG_PAYLOAD_LEN + 2];        /* raw bytes */
     uint16_t       payload16[MSG_PAYLOAD_LEN / 2];  /* rounded down! */
-    ae_event_t     ae_evt;
-    ae_data_t      ae_data;
     timestamp_t    timestamp;
     timeconv_t     timeinfo;
     comm_cmd_t     comm_cmd;
   };
-} message_min_t;
+} message_t;
 
 
 #pragma pack()

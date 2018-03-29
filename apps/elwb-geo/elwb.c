@@ -612,11 +612,11 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     if(sched_state == LWB_SCHED_STATE_DATA ||
        sched_state == LWB_SCHED_STATE_IDLE) {
       /* print out some stats */
-      DEBUG_PRINT_INFO("T=%u n=%u l=%u srq=%u p=%u per=%d "
+      DEBUG_PRINT_INFO("t=%lu T=%u n=%u srq=%u p=%u per=%d "
                        "rssi=%ddBm", 
+                       schedule.time,
                        schedule.period * (1000 / LWB_PERIOD_SCALE),
                        schedule.n_slots & 0x3fff,
-                       schedule_len,
                        srq_cnt, 
                        stats.pck_cnt,
                        glossy_get_per(),

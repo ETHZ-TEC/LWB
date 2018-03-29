@@ -134,7 +134,7 @@ typedef enum {
   LWB_SCHED_STATE_DATA,
 } lwb_sched_state_t;
 /*---------------------------------------------------------------------------*/
-static uint32_t          time;                                /* global time */
+static uint64_t          time;                                /* global time */
 static uint16_t          n_streams;                      /* # active streams */
 LIST(streams_list);                    /* -> lists only work for data in RAM */
 /* data structures to hold the stream info */
@@ -319,7 +319,7 @@ lwb_sched_init(lwb_schedule_t* sched)
   n_streams = 0;
   time      = 0;                                   /* global time starts now */
   sched->n_slots = 0;
-  sched->time    = time;
+  sched->time    = 0;
   sched->period  = LWB_PERIOD_IDLE;
   LWB_SCHED_SET_CONT_SLOT(sched);               /* include a contention slot */
   
@@ -360,7 +360,7 @@ lwb_sched_init(lwb_schedule_t* sched)
 void
 lwb_sched_set_time(uint32_t new_time)
 {
-  time = new_time * LWB_PERIOD_SCALE;
+  time = (uint64_t)new_time * LWB_PERIOD_SCALE;
 }
 /*---------------------------------------------------------------------------*/
 

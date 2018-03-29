@@ -46,12 +46,17 @@
 #define TASK_SUSPENDED
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
-static message_min_t msg_buffer;
+static message_t msg_buffer;
 static int64_t captured = 0;    // last captured timestamp
 /*---------------------------------------------------------------------------*/
 void
-process_message(message_min_t* msg, uint8_t rcvd_from_bolt)
+process_message(message_t* msg, uint8_t rcvd_from_bolt)
 {
+  /* check message type */
+  if(msg->header.type & MSG_TYPE_MIN) {
+    DEBUG_PRINT_WARNING("unsupported message type (dropped)");
+    return;
+  }  
   /* verify CRC */
   if(MSG_GET_CRC16(msg) !=
      crc16((uint8_t*)msg, MSG_LEN_PTR(msg) - 2, 0)) {
@@ -64,18 +69,12 @@ process_message(message_min_t* msg, uint8_t rcvd_from_bolt)
     DEBUG_PRINT_WARNING("invalid message length (dropped)");
     return;
   }
-  /* check message type */
-  if((msg->header.type & MSG_TYPE_MIN) == 0) {
-    // not supported message type!
-    DEBUG_PRINT_WARNING("message type not supported!");
-    return;
-  }
   DEBUG_PRINT_INFO("msg rcvd from node %u (%u bytes)", 
                    msg_buffer.header.device_id,  
                    msg_len);
   
   /* extract the message type and handle the message */
-  uint8_t msg_type = msg->header.type & ~MSG_TYPE_MIN;
+  uint8_t msg_type = msg->header.type;
   if(msg_type == MSG_TYPE_COMM_CMD) {
     /* don't check target ID, assume commands are for this node */
     DEBUG_PRINT_INFO("command received");
@@ -88,14 +87,22 @@ process_message(message_min_t* msg, uint8_t rcvd_from_bolt)
       /* unknown command */
       break;
     }
+  } else if (node_id == HOST_ID && msg_type == MSG_TYPE_TIMESYNC) {
+    /* update own time */
+    msg->timestamp /= 1000000;
+    lwb_sched_set_time(msg->timestamp);
+    DEBUG_PRINT_INFO("time updated");
+    
   } else {
     /* all other message types, can't be handled on this node -> forward */
     if(rcvd_from_bolt) {
       /* received over Bolt -> forward to LWB */
-      lwb_send_pkt(0, 1, (uint8_t*)msg, MSG_LEN_PTR(msg));      
+      lwb_send_pkt(0, 1, (uint8_t*)msg, msg_len);
+      DEBUG_PRINT_INFO("message forwarded to eLWB (%u bytes)", msg_len);
     } else {
       /* forward the packet to the app processor */
-      bolt_write((uint8_t*)msg, MSG_LEN_PTR(msg));
+      bolt_write((uint8_t*)msg, msg_len);
+      DEBUG_PRINT_INFO("message forwarded to BOLT (%u bytes)", msg_len);
     }
   }
 }
@@ -108,7 +115,7 @@ bolt_read_msg(void)
   uint16_t max_ops = 10;
   while(BOLT_DATA_AVAILABLE && max_ops) {
     if(bolt_read((uint8_t*)read_buffer)) {
-      process_message((message_min_t*)read_buffer, 1);
+      process_message((message_t*)read_buffer, 1);
     }
     max_ops--;
   }
@@ -132,7 +139,7 @@ bolt_send_timestamp(void)
   if (captured == 0) return;
   
   msg_buffer.header.device_id   = node_id;
-  msg_buffer.header.type        = MSG_TYPE_MIN | MSG_TYPE_TIMESYNC;
+  msg_buffer.header.type        = MSG_TYPE_TIMESYNC;
   msg_buffer.header.payload_len = sizeof(timestamp_t);
   
   /* timestamp request: calculate the timestamp and send it over BOLT */
@@ -146,32 +153,20 @@ bolt_send_timestamp(void)
     msg_buffer.timestamp = 0;
     if (lwb_get_state() == LWB_STATE_CONNECTED) {
       rtimer_clock_t local_t_rx = 0;
-      int64_t lwb_time_secs = lwb_get_time(&local_t_rx);
+      uint64_t lwb_time_secs = lwb_get_time(&local_t_rx);
     #if !BOLT_CONF_TIMEREQ_HF_MODE
       /* convert to LF ticks */
       rtimer_clock_t lf, hf;
       rtimer_now(&hf, &lf);
       local_t_rx = lf - (hf - local_t_rx) * RTIMER_SECOND_LF /RTIMER_SECOND_HF;
     #endif /* BOLT_CONF_TIMEREQ_HF_MODE */
+      /* if captured before last ref time update, then diff is > 0 and thus LWB time
+       * needs to be decreased by the difference */
+      int64_t diff = (local_t_rx - captured);   /* in clock ticks */
       /* local t_rx is in clock ticks */
-      int64_t  ofs = lwb_time_secs * 
-        (BOLT_CONF_TIMEREQ_HF_MODE ? RTIMER_SECOND_HF : RTIMER_SECOND_LF)
-        - local_t_rx;
-      msg_buffer.timestamp = captured + ofs;
-      /* drift compensation */
-      const lwb_statistics_t* lwb_stats = lwb_get_stats();
-      if(lwb_stats->drift) {
-        int32_t elapsed = (int64_t)captured - local_t_rx;
-        /* drift is in HF ticks per second, only when LF not used for wakeup */
-        int16_t drift_comp = (int16_t)(elapsed * (int32_t)lwb_stats->drift);
-        msg_buffer.timestamp -= drift_comp;
-        /* debug only */
-        DEBUG_PRINT_MSG_NOW("drift compensation: %d", drift_comp);
-      }
+      msg_buffer.timestamp = lwb_time_secs * 1000000 - diff * 1000000 / 
+        (BOLT_CONF_TIMEREQ_HF_MODE ? RTIMER_SECOND_HF : RTIMER_SECOND_LF);
     }
-    /* convert from clock ticks to us */
-    msg_buffer.timestamp = msg_buffer.timestamp * 1000000 / 
-      (BOLT_CONF_TIMEREQ_HF_MODE ? RTIMER_SECOND_HF : RTIMER_SECOND_LF);
   }
   bolt_write((uint8_t*)&msg_buffer, MSG_LEN(msg_buffer));
   DEBUG_PRINT_MSG_NOW("timestamp sent: %llu", msg_buffer.timestamp);
@@ -203,9 +198,9 @@ PROCESS_THREAD(app_process, ev, data)
   PROCESS_BEGIN();
   
   /* error checks */
-  if(sizeof(message_min_t) != MSG_PKT_LEN) {
-    DEBUG_PRINT_MSG_NOW("ERROR: message_min_t is too long (%u vs %u bytes)",
-                        sizeof(message_min_t), MSG_PKT_LEN);
+  if(sizeof(message_t) != MSG_PKT_LEN) {
+    DEBUG_PRINT_MSG_NOW("ERROR: message_t is too long (%u vs %u bytes)",
+                        sizeof(message_t), MSG_PKT_LEN);
   }
 
 #if TIMESYNC_INTERRUPT_BASED
@@ -223,12 +218,13 @@ PROCESS_THREAD(app_process, ev, data)
     TASK_SUSPENDED;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
-            
+    
     /* read all messages received via the LWB */
     while(1) {
       if(!lwb_rcv_pkt((uint8_t*)&msg_buffer, 0, 0)) {
         break;
       }
+      //DEBUG_PRINT_MSG_NOW("msg received");
       process_message(&msg_buffer, 0);
     }
     /* read all messages from Bolt */
@@ -243,7 +239,7 @@ PROCESS_THREAD(app_process, ev, data)
   #endif /* TIMESYNC_INTERRUPT_BASED */
 
   #if LWB_CONF_USE_LF_FOR_WAKEUP
-    if(!glossy_is_active()) {
+    if(lwb_get_state() != LWB_STATE_INIT) {
       LWB_BEFORE_DEEPSLEEP();     /* prepare to go to LPM3 */
     }
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */

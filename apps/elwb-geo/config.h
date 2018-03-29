@@ -54,8 +54,8 @@
 /* --- Network parameters --- */
 
 #define LWB_CONF_MAX_HOPS               3
-#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  2
-#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3    // on Flocklab: 13,25
+#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  3
+#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4
 
 
 /* --- LWB config --- */
@@ -63,7 +63,7 @@
 /* basics */
 #define LWB_CONF_SCHED_PERIOD_IDLE_MS   5000
 #define LWB_CONF_MAX_DATA_SLOTS         6
-#define LWB_CONF_MAX_PKT_LEN            (32 - 7) /* subtract RF + Glossy hdr */
+#define LWB_CONF_MAX_PKT_LEN            (128 - 7) /* subtract RF + Glossy hdr */
 #define LWB_CONF_IN_BUFFER_SIZE         LWB_CONF_MAX_DATA_SLOTS
 #define LWB_CONF_OUT_BUFFER_SIZE        LWB_CONF_MAX_DATA_SLOTS
 /* timing */
@@ -87,7 +87,7 @@
 
 /* --- BOLT --- */
 
-#define BOLT_CONF_MAX_MSG_LEN           64
+#define BOLT_CONF_MAX_MSG_LEN           128
 #define BOLT_CONF_TIMEREQ_ENABLE        1
 #define TIMESYNC_INTERRUPT_BASED        1
 #define TIMESYNC_OFS                    193          /* const offset to host */
@@ -106,7 +106,7 @@
 /* --- DEBUG config --- */
 
 #define DEBUG_PRINT_CONF_ON             1
-#define DEBUG_PRINT_CONF_NUM_MSG        10
+#define DEBUG_PRINT_CONF_NUM_MSG        5
 #define DEBUG_CONF_STACK_GUARD          (SRAM_END - 399)
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_TRACING_ON                1
