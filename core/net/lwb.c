@@ -47,7 +47,6 @@
 #endif
 #define LWB_DATA_PKT_PAYLOAD_LEN    (LWB_CONF_MAX_DATA_PKT_LEN - \
                                      LWB_CONF_HEADER_LEN)
-#define STREAM_REQ_PKT_SIZE         5
 
 /* indicates when this node is about to send a request */
 #ifdef LWB_REQ_IND_PIN
@@ -77,22 +76,22 @@
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB on the source node */
 typedef enum {
-  BOOTSTRAP = 0,
-  QUASI_SYNCED,
-  SYNCED,
-  SYNCED_2,
-  MISSED,
-  UNSYNCED,
-  UNSYNCED2,
+  LWB_STATE_BOOTSTRAP = 0,
+  LWB_STATE_QUASI_SYNCED,
+  LWB_STATE_SYNCED,
+  LWB_STATE_SYNCED_2,
+  LWB_STATE_MISSED,
+  LWB_STATE_UNSYNCED,
+  LWB_STATE_UNSYNCED2,
   NUM_OF_SYNC_STATES
 } lwb_sync_state_t;
 /*---------------------------------------------------------------------------*/
 typedef enum {
   EVT_1ST_SCHED_RCVD = 0,
-  EVT_2ND_SCHED_RCVD,
-  EVT_SCHED_MISSED,
+  EVT_2ND_SCHED_RCVD = 1,
+  EVT_SCHED_LWB_STATE_MISSED = 2,
   NUM_OF_SYNC_EVENTS
-} sync_event_t; 
+} lwb_sync_event_t;
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint16_t recipient;     /* target node ID */
@@ -125,24 +124,24 @@ typedef struct {
  * @note  undefined transitions force the SM to go back into bootstrap
  */
 #if LWB_CONF_SKIP_QUASI_SYNCED
-#define AFTER_BOOT      SYNCED
+#define AFTER_BOOTSTRAP	    LWB_STATE_SYNCED
 #else
-#define AFTER_BOOT      QUASI_SYNCED
+#define AFTER_BOOTSTRAP     LWB_STATE_QUASI_SYNCED
 #endif
 static const 
 lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] = 
-{/* STATES:                                                                               EVENTS:           */
- /* BOOTSTRAP,  QUASISYNCED,  SYNCED,    SYNCED2,   MISSED,    UNSYNCED,  UNSYNCED2                         */
-  { AFTER_BOOT, SYNCED,       BOOTSTRAP, SYNCED,    SYNCED,    BOOTSTRAP, SYNCED    }, /* 1st schedule rcvd */
-  { BOOTSTRAP,  QUASI_SYNCED, SYNCED_2,  BOOTSTRAP, BOOTSTRAP, SYNCED_2,  BOOTSTRAP }, /* 2nd schedule rcvd */
-  { BOOTSTRAP,  BOOTSTRAP,    MISSED,    UNSYNCED,  UNSYNCED,  UNSYNCED2, BOOTSTRAP }  /* schedule missed   */
+{
+/* EVENTS:   \ STATES ->  LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED,    LWB_STATE_SYNCED2,   LWB_STATE_MISSED,    LWB_STATE_UNSYNCED,  LWB_STATE_UNSYNCED2                         */
+/* 1st schedule rcvd */ { AFTER_BOOTSTRAP,     LWB_STATE_SYNCED,       LWB_STATE_BOOTSTRAP, LWB_STATE_SYNCED,    LWB_STATE_SYNCED,    LWB_STATE_BOOTSTRAP, LWB_STATE_SYNCED    },
+/* 2nd schedule rcvd */ { LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED_2,  LWB_STATE_BOOTSTRAP, LWB_STATE_BOOTSTRAP, LWB_STATE_SYNCED_2,  LWB_STATE_BOOTSTRAP },
+/* schedule missed   */ { LWB_STATE_BOOTSTRAP, LWB_STATE_BOOTSTRAP,    LWB_STATE_MISSED,    LWB_STATE_UNSYNCED,  LWB_STATE_UNSYNCED,  LWB_STATE_UNSYNCED2, LWB_STATE_BOOTSTRAP }
 };
 /* note: syn2 = already synced */
 static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = 
 { "BOOTSTRAP", "QSYN", "SYN", "SYN2", "MISS", "USYN", "USYN2" };
 static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
-/* STATE:      BOOTSTRAP,        QUASI_SYNCED,      SYNCED,           SYNCED_2,         MISSED,             UNSYNCED,           UNSYNCED2 */
-/* T_GUARD: */ LWB_CONF_T_GUARD, LWB_CONF_T_GUARD,  LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3
+/* STATE:      LWB_STATE_BOOTSTRAP, LWB_STATE_QUASI_SYNCED, LWB_STATE_SYNCED,   LWB_STATE_SYNCED_2, LWB_STATE_MISSED,   LWB_STATE_UNSYNCED, LWB_STATE_UNSYNCED2 */
+/* T_GUARD: */ LWB_CONF_T_GUARD,    LWB_CONF_T_GUARD_2,     LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2, LWB_CONF_T_GUARD_3, LWB_CONF_T_GUARD_3
 };
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -157,11 +156,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
                                    (LWB_CONF_T_DATA + LWB_CONF_T_GAP) * i)
 #define LWB_DATA_RCVD             (glossy_get_n_rx() > 0)
 #define RTIMER_CAPTURE            (t_now = rtimer_now_hf())
-#define RTIMER_ELAPSED            ((rtimer_now_hf() - t_now) * 1000 / 3250)    
-#define GET_EVENT                 (glossy_is_t_ref_updated() ? \
-                                   (LWB_SCHED_IS_1ST(&schedule) ? \
-                                    EVT_1ST_SCHED_RCVD : EVT_2ND_SCHED_RCVD)\
-                                   : EVT_SCHED_MISSED)
+#define RTIMER_ELAPSED            ((rtimer_now_hf() - t_now) * 1000 / 3250)
 /*---------------------------------------------------------------------------*/
 #define LWB_SEND_SCHED() \
 {\
@@ -192,7 +187,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
                GLOSSY_UNKNOWN_PAYLOAD_LEN, \
                LWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
-  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_DATA + t_guard);\
+  /* always use smallest guard time for data slots! */\
+  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_DATA + LWB_CONF_T_GUARD);\
   glossy_stop();\
 }
 #define LWB_SEND_SRQ() \
@@ -209,7 +205,8 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
                GLOSSY_UNKNOWN_PAYLOAD_LEN, \
                LWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
-  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_CONT + t_guard);\
+  /* always use smallest guard time for contention slot! */\
+  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_CONT + LWB_CONF_T_GUARD);\
   glossy_stop();\
 }
 /*---------------------------------------------------------------------------*/
@@ -230,12 +227,6 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
   LWB_TASK_RESUMED;\
   LWB_AFTER_DEEPSLEEP();\
 }
-#define LWB_UPDATE_SYNC_STATE \
-{\
-  /* get the new state based on the event */\
-  sync_state = next_state[GET_EVENT][sync_state];\
-  t_guard = guard_time[sync_state];         /* adjust the guard time */\
-}
 #ifndef LWB_BEFORE_DEEPSLEEP
 #define LWB_BEFORE_DEEPSLEEP() 
 #endif /* LWB_PREPARE_DEEPSLEEP */
@@ -248,7 +239,9 @@ static struct process*  pre_proc;
 static struct process*  post_proc;
 static lwb_sync_state_t sync_state;
 static rtimer_clock_t   rx_timestamp;
+#if LWB_CONF_USE_LF_FOR_WAKEUP
 static rtimer_clock_t   rx_timestamp_lf;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 static uint32_t         global_time;
 static lwb_statistics_t stats = { 0 };
 static uint8_t          urgent_stream_req = 0;
@@ -329,8 +322,8 @@ lwb_in_buffer_put(const uint8_t * const data, uint8_t len)
   uint32_t pkt_addr = fifo_put(&in_buffer);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
-    /* copy the data into the queue */
     uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
+    /* copy the data into the queue */
     memcpy(next_msg, data, len);
     /* last byte holds the payload length */
     *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;
@@ -370,7 +363,6 @@ lwb_out_buffer_get(uint8_t* out_data)
     if(!xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer)) {
       return 0;
     }
-    /* check the length */
     uint8_t len = *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
     memcpy(out_data, data_buffer, len);
 #endif /* LWB_CONF_USE_XMEM */
@@ -410,6 +402,7 @@ lwb_send_pkt(uint16_t recipient,
     *(data_buffer + 2) = stream_id;
     *(data_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len + LWB_CONF_HEADER_LEN;
     memcpy(data_buffer + LWB_CONF_HEADER_LEN, data, len);
+    /* always read the max length since we don't know how long the packet is */
     xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
@@ -468,6 +461,39 @@ lwb_rcv_pkt(uint8_t* out_data,
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+#if LWB_CONF_DATA_ACK
+/* re-insert the packet into the output buffer (FIFO) */
+void
+lwb_resend_packet(uint32_t pkt_addr)
+{
+  if(FIFO_ERROR != pkt_addr) {
+#if !LWB_CONF_USE_XMEM
+    uint8_t buffer[LWB_CONF_MAX_DATA_PKT_LEN + 1];
+    /* assume pointers are 16-bit */
+    memcpy(buffer, (uint8_t*)(uint16_t)pkt_addr, 
+           LWB_CONF_MAX_DATA_PKT_LEN + 1);
+    if(buffer[2] < 0x80) {
+      uint32_t new_pkt_addr = fifo_put(&out_buffer);
+      if(new_pkt_addr != FIFO_ERROR) {
+        memcpy((uint8_t*)(uint16_t)new_pkt_addr, buffer, 
+               LWB_CONF_MAX_DATA_PKT_LEN + 1);
+      } else {
+        stats.txbuf_drop++;
+        DEBUG_PRINT_VERBOSE("resend failed, out queue full");
+      }
+    }
+#else /* LWB_CONF_USE_XMEM */
+    xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);
+    if(data_buffer[2] < 0x80) {
+      /* only resend this packet if it is a stream that requires ACKs */
+      uint32_t new_pkt_addr = fifo_put(&out_buffer);
+      xmem_write(new_pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, data_buffer);      
+    }
+#endif /* LWB_CONF_USE_XMEM */
+  }
+}
+#endif /* LWB_CONF_DATA_ACK */
+/*---------------------------------------------------------------------------*/
 uint8_t
 lwb_get_rcv_buffer_state(void)
 {
@@ -500,8 +526,8 @@ lwb_request_stream(lwb_stream_req_t* stream_request, uint8_t urgent)
 lwb_conn_state_t
 lwb_get_state(void)
 {
-  if(sync_state < SYNCED) { return LWB_STATE_INIT; }
-  else if(sync_state < MISSED) { return LWB_STATE_CONNECTED; }
+  if(sync_state < LWB_STATE_SYNCED) { return LWB_STATE_INIT; }
+  else if(sync_state < LWB_STATE_MISSED) { return LWB_STATE_CONNECTED; }
   return LWB_STATE_CONN_LOST;
 }
 /*---------------------------------------------------------------------------*/
@@ -519,18 +545,41 @@ lwb_get_timestamp(void)
 {
   /* convert to microseconds */
   uint64_t timestamp = (uint64_t)global_time * 1000000;
-  if(sync_state <= SYNCED_2) {
+#if LWB_CONF_USE_LF_FOR_WAKEUP
+  if(sync_state <= LWB_STATE_SYNCED_2) {
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     return timestamp + /* convert to microseconds */
            (rtimer_now_hf() - rx_timestamp) * 1000000 / RTIMER_SECOND_HF;
+#if LWB_CONF_USE_LF_FOR_WAKEUP
   }
   /* not synced! */
   return timestamp +
          (rtimer_now_lf() - rx_timestamp_lf) * 1000000 / RTIMER_SECOND_LF;
+#endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
+}
+/*---------------------------------------------------------------------------*/
+/* update the sync state machine based on the schedule slot event */
+lwb_sync_state_t
+lwb_update_sync_state(const lwb_sync_state_t curr_state,
+                      const lwb_schedule_t const * sched)
+{
+  lwb_sync_event_t evt;
+  if(glossy_is_t_ref_updated()) {
+    if(LWB_SCHED_IS_1ST(sched)) {
+      evt = EVT_1ST_SCHED_RCVD;
+    } else {
+      evt = EVT_2ND_SCHED_RCVD;
+    }
+  } else {
+    evt = EVT_SCHED_LWB_STATE_MISSED;
+  }
+  return next_state[evt][sync_state];
 }
 /*---------------------------------------------------------------------------*/
 #if !LWB_CONF_RELAY_ONLY
 /**
  * @brief thread of the host node
+ * @note runs in an interrupt context; don't use switch-case statements here
  */
 PT_THREAD(lwb_thread_host(rtimer_t *rt)) 
 {  
@@ -543,7 +592,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   /* constant guard time for the host */
-  static const uint32_t t_guard = LWB_CONF_T_GUARD; 
   static uint8_t slot_idx;
   static uint8_t streams_to_update[LWB_CONF_MAX_DATA_SLOTS];
   static uint8_t schedule_len, 
@@ -551,6 +599,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static uint8_t rcvd_data_pkts;
   static int8_t  glossy_rssi;
   static const void* callback_func = lwb_thread_host;
+#if LWB_CONF_DATA_ACK
+  static uint8_t d_ack[(LWB_CONF_MAX_DATA_SLOTS + 7) / 8] = { 0 };
+#endif /* LWB_CONF_DATA_ACK */
 
   /* note: all statements above PT_BEGIN() will be executed each time the 
    * protothread is scheduled */
@@ -561,7 +612,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   
   /* initialization specific to the host node */
   schedule_len = lwb_sched_init(&schedule);
-  sync_state = SYNCED;  /* the host is always 'synced' */
+  sync_state = LWB_STATE_SYNCED;  /* the host is always 'synced' */
   
   rtimer_reset();
   rt->time = 0;
@@ -583,12 +634,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 #if LWB_CONF_USE_LF_FOR_WAKEUP 
     t_start_lf = rt->time; 
     rt->time = rtimer_now_hf();
-    t_start = rt->time;
-#else /* LWB_CONF_USE_LF_FOR_WAKEUP */
+#endif  /* LWB_CONF_USE_LF_FOR_WAKEUP */
     /* set the start time of the round to the expiration time of the last 
      * scheduled timeout */
     t_start = rt->time;
-#endif  /* LWB_CONF_USE_LF_FOR_WAKEUP */
         
     /* --- COMMUNICATION ROUND STARTS --- */
     
@@ -599,7 +648,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     rx_timestamp = glossy_get_t_ref();
 
     glossy_rssi = glossy_get_rssi(0);
-    stats.relay_cnt = glossy_get_relay_cnt_first_rx();
     slot_idx = 0;     /* reset the packet counter */
     
 #if LWB_CONF_USE_XMEM
@@ -644,11 +692,14 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));  
             LWB_SEND_PACKET();
             DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
+          } else {
+            DEBUG_PRINT_VERBOSE("no data to send!");
           }
         } else {        
           /* wait until the data slot starts */
           LWB_DATA_SLOT_STARTS;
-          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard); 
+          LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) -
+                         LWB_CONF_T_GUARD);
           LWB_RCV_PACKET();  /* receive a data packet */
           payload_len = glossy_get_payload_len();
           if(LWB_DATA_RCVD && payload_len) {
@@ -674,6 +725,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
                 glossy_payload.data_pkt.recipient = schedule.slot[i];
                 lwb_in_buffer_put(glossy_payload.raw_data, 
                                   payload_len);
+    #if LWB_CONF_DATA_ACK
+                /* set the corresponding bit in the data ack packet */
+                d_ack[i >> 3] |= (1 << (i & 0x07));
+    #endif /* LWB_CONF_DATA_ACK */
               }
             } else {
               DEBUG_PRINT_VERBOSE("packet dropped, target_id != node_id");
@@ -692,19 +747,31 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       }
     }
     
+#if LWB_CONF_DATA_ACK
+    /* --- DATA ACK SLOT --- */
+    
+    /* acknowledge each received packet of the last round */
+    if(LWB_SCHED_HAS_DACK_SLOT(&schedule)) {
+      payload_len = (LWB_SCHED_N_SLOTS(&schedule) + 7) >> 3;
+      memcpy(glossy_payload.raw_data, d_ack, payload_len);
+      LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx));            
+      LWB_SEND_PACKET(); 
+      DEBUG_PRINT_VERBOSE("D-ACK sent (%u bytes)", payload_len);
+      slot_idx++;   /* increment the packet counter */       
+    } else {
+      DEBUG_PRINT_VERBOSE("no D-ACK slot");
+    }
+    memset(d_ack, 0, (LWB_CONF_MAX_DATA_SLOTS + 7) / 8);
+#endif /* LWB_CONF_DATA_ACK */
+
     /* --- CONTENTION SLOT --- */
     
     if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
       /* wait until the slot starts, then receive the packet */
-      LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - t_guard);
+      LWB_WAIT_UNTIL(t_start + LWB_T_SLOT_START(slot_idx) - LWB_CONF_T_GUARD);
       LWB_RCV_SRQ();
       if(LWB_DATA_RCVD) {
         LWB_REQ_DETECTED;
-        /* check the request */
-        /*DEBUG_PRINT_INFO("stream request from node %u (stream %u, IPI %u)", 
-                         glossy_payload.srq_pkt.id, 
-                         glossy_payload.srq_pkt.stream_id, 
-                         glossy_payload.srq_pkt.ipi);*/
         lwb_sched_proc_srq(&glossy_payload.srq_pkt);
       }
     }
@@ -764,33 +831,35 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
 /*---------------------------------------------------------------------------*/
 /**
  * @brief declaration of the protothread (source node)
+ * @note runs in an interrupt context; don't use switch-case statements here
  */
 PT_THREAD(lwb_thread_src(rtimer_t *rt)) 
 {  
   /* all variables must be static */
   static glossy_payload_t glossy_payload;                   /* packet buffer */
   static lwb_schedule_t schedule;
-#if !LWB_CONF_RELAY_ONLY
-  static rtimer_clock_t t_now; 
-#endif /* LWB_CONF_RELAY_ONLY */
-  static rtimer_clock_t t_ref;
+  static rtimer_clock_t t_ref,
+                        t_ref_last;
 #if LWB_CONF_USE_LF_FOR_WAKEUP
   static rtimer_clock_t t_ref_lf;
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
-#if LWB_CONF_TIME_SCALE == 1
-  static rtimer_clock_t t_ref_last;
-  static int32_t  drift = 0;
-  static uint16_t period_last = LWB_CONF_SCHED_PERIOD_MIN;
-#endif /* LWB_CONF_TIME_SCALE == 1 */
+#if !LWB_CONF_RELAY_ONLY
+  static rtimer_clock_t t_now; 
+#endif /* LWB_CONF_RELAY_ONLY */
   static uint32_t t_guard;                  /* 32-bit is enough for t_guard! */
+  static int32_t  drift;
+  static uint16_t period_last;
   static uint8_t  slot_idx;
   static uint8_t  relay_cnt_first_rx;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
   static uint8_t  rounds_to_wait;
 #endif /* LWB_CONF_RELAY_ONLY */
-  static int8_t   glossy_snr = 0;
   static const void* callback_func = lwb_thread_src;
+#if LWB_CONF_DATA_ACK
+  static uint16_t first_slot = 0,
+                  num_slots = 0;
+#endif /* LWB_CONF_DATA_ACK */
   
   PT_BEGIN(&lwb_pt);   /* declare variables before this statement! */
   
@@ -798,7 +867,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   /* initialization specific to the source node */
   lwb_stream_init();
-  sync_state = BOOTSTRAP;
+  sync_state  = LWB_STATE_BOOTSTRAP;
+  period_last = LWB_CONF_SCHED_PERIOD_MIN;
   
   while(1) {
       
@@ -822,10 +892,14 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     t_ref = rt->time + t_guard;        /* in case the schedule is missed */
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
-    if(sync_state == BOOTSTRAP) {
-BOOTSTRAP_MODE:
+    if(sync_state == LWB_STATE_BOOTSTRAP) {
+BOOTSTRAP:
       DEBUG_PRINT_MSG_NOW("BOOTSTRAP ");
       stats.bootstrap_cnt++;
+  #if LWB_CONF_DATA_ACK
+      first_slot = 0xffff;
+      num_slots  = 0;
+  #endif /* LWB_CONF_DATA_ACK */
       lwb_stream_rejoin();  /* rejoin all (active) streams */
       /* synchronize first! wait for the first schedule... */
       do {
@@ -843,20 +917,20 @@ BOOTSTRAP_MODE:
     } else {
       LWB_RCV_SCHED();  
     }
-    glossy_snr = glossy_get_snr();
+    /* compute new sync state and update t_guard */
+    sync_state = lwb_update_sync_state(sync_state, &schedule);
+    t_guard    = guard_time[sync_state];            /* adjust the guard time */
+    if(LWB_STATE_BOOTSTRAP == sync_state) {
+      goto BOOTSTRAP;         /* wrong schedule received > back to bootstrap */
+    }
+
+    stats.glossy_snr = glossy_get_snr();
 
 #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
     xmem_wakeup();    
 #endif /* LWB_CONF_USE_XMEM */
            
-    /* update the sync state machine (compute new sync state and update 
-     * t_guard) */
-    LWB_UPDATE_SYNC_STATE;  
-    if(BOOTSTRAP == sync_state) {
-      /* something went wrong */
-      goto BOOTSTRAP_MODE;
-    } 
     LWB_SCHED_SET_AS_2ND(&schedule);    /* clear the last bit of 'period' */
     if(glossy_is_t_ref_updated()) {
       /* HF timestamp of first RX; subtract a constant offset */
@@ -866,6 +940,7 @@ BOOTSTRAP_MODE:
       rtimer_clock_t hf_now;
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
+      rx_timestamp_lf = t_ref_lf;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       global_time = schedule.time;
       rx_timestamp = t_ref;
@@ -875,19 +950,19 @@ BOOTSTRAP_MODE:
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* since HF clock was off, we need a new timestamp; subtract a const.
        * processing offset to adjust (if needed) */
-      t_ref_lf += ((rtimer_clock_t)schedule.period * RTIMER_SECOND_LF +
-                  ((int32_t)schedule.period * stats.drift / 256)) /
+      t_ref_lf += ((rtimer_clock_t)period_last * RTIMER_SECOND_LF +
+                  ((int32_t)period_last * stats.drift / 256)) /
                   LWB_CONF_TIME_SCALE;
-      /* do not update t_ref here */
+      /* do NOT update t_ref here! */
   #else  /* LWB_CONF_USE_LF_FOR_WAKEUP */
-      t_ref += (rtimer_clock_t)schedule.period *
+      t_ref += (rtimer_clock_t)period_last *
                (RTIMER_SECOND_HF + stats.drift / 16) / LWB_CONF_TIME_SCALE;
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
       /* don't update schedule.time here! */
     }
 
     /* permission to participate in this round? */
-    if(sync_state == SYNCED || sync_state == UNSYNCED) {
+    if(sync_state == LWB_STATE_SYNCED || sync_state == LWB_STATE_UNSYNCED) {
         
       static uint8_t i;  /* must be static */      
       slot_idx = 0;   /* reset the packet counter */
@@ -901,12 +976,11 @@ BOOTSTRAP_MODE:
 
       if(LWB_SCHED_HAS_SACK_SLOT(&schedule)) {   
         /* wait for the slot to start */
-        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(0) - t_guard);     
+        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(0) - LWB_CONF_T_GUARD);
         LWB_RCV_PACKET();                 /* receive s-ack */
   #if !LWB_CONF_RELAY_ONLY
         if(LWB_DATA_RCVD) {
-          static uint8_t i; /* must be static */
-          i = 0;            /* must be a separate line of code */
+          i = 0;
           DEBUG_PRINT_VERBOSE("S-ACK packet received (%u stream acks)", 
                               glossy_payload.sack_pkt.n_extra + 1);
           do {
@@ -960,6 +1034,13 @@ BOOTSTRAP_MODE:
             }
             if(payload_len) {
               LWB_DATA_IND;
+      #if LWB_CONF_DATA_ACK
+              if(first_slot == 0xffff) {
+                first_slot = i;
+              }
+              num_slots++;
+              stats.pkts_sent++;
+      #endif /* LWB_CONF_DATA_ACK */
               LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx));
               LWB_SEND_PACKET();
               DEBUG_PRINT_INFO("data packet sent (%ub)", payload_len);
@@ -971,7 +1052,7 @@ BOOTSTRAP_MODE:
           {
             /* receive a data packet */
             LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - 
-                           t_guard);
+                           LWB_CONF_T_GUARD);
             LWB_RCV_PACKET();
             payload_len = glossy_get_payload_len();
   #if !LWB_CONF_RELAY_ONLY
@@ -1000,6 +1081,59 @@ BOOTSTRAP_MODE:
           }
         }
       }
+            
+  #if LWB_CONF_DATA_ACK  
+      /* --- D-ACK SLOT --- */
+      
+      if(LWB_SCHED_HAS_DACK_SLOT(&schedule)) {
+        static uint16_t s;
+        /* wait for the slot to start */
+        LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - LWB_CONF_T_GUARD);
+        LWB_RCV_PACKET();                 /* receive d-ack */
+    #if !LWB_CONF_RELAY_ONLY
+        RTIMER_CAPTURE;
+        /* only look into the D-ACK packet if we actually sent some data in the
+         * previous round */
+        if(LWB_DATA_RCVD && first_slot != 0xffff) {
+          DEBUG_PRINT_VERBOSE("d-ack packet received (%u bytes)", 
+                              glossy_get_payload_len());
+          for(s = 0; s < num_slots; s++) {
+            /* bit not set? => not acknowledged */
+            if(!(glossy_payload.raw_data[(first_slot + s) >> 3] &
+                 (1 << ((first_slot + s) & 0x07))) ) {
+              /* resend the packet (re-insert it into the output FIFO) */
+              /* check whether the data is still valid (not yet overwritten) */            
+              if(FIFO_FREE_SPACE(&out_buffer) >= (num_slots - s)) {
+                uint32_t elem;
+                /* determine the packet address in the memory/FIFO */
+                if((num_slots - s) > out_buffer.read) {
+                  elem = out_buffer.start + 
+                         ((uint32_t)out_buffer.last + 1 + out_buffer.read -
+                         num_slots + s) * (uint32_t)out_buffer.size;
+                } else {
+                  elem = out_buffer.start +
+                         ((uint32_t)out_buffer.read - num_slots + s) *
+                         (uint32_t)out_buffer.size;
+                }
+                lwb_resend_packet(elem);
+              } else {
+                DEBUG_PRINT_VERBOSE("can't resend, data overwritten");
+                stats.txbuf_drop++;
+              }
+              stats.pkts_nack++;
+            }
+          }
+        } else {
+          DEBUG_PRINT_VERBOSE("no data received in d-ack slot");
+        }
+        /* must always be smaller than LWB_CONF_T_GAP */
+        stats.t_proc_max = MAX((uint16_t)RTIMER_ELAPSED, stats.t_proc_max);
+    #endif /* LWB_CONF_RELAY_ONLY */
+        slot_idx++;   /* increment the packet counter */
+      }
+      first_slot = 0xffff;
+      num_slots  = 0;
+  #endif /* LWB_CONF_DATA_ACK */
       
       /* --- CONTENTION SLOT --- */
 
@@ -1032,7 +1166,8 @@ BOOTSTRAP_MODE:
             /* keep waiting and just relay incoming packets */
             rounds_to_wait--;       /* decrease the number of rounds to wait */
             /* wait until the contention slot starts */
-            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);  
+            LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) -
+                           LWB_CONF_T_GUARD);
             LWB_RCV_SRQ();
           }
           DEBUG_PRINT_VERBOSE("pending stream requests: 0x%x", 
@@ -1040,7 +1175,8 @@ BOOTSTRAP_MODE:
         } else {
   #endif /* LWB_CONF_RELAY_ONLY */
           /* no request pending -> just receive / relay packets */
-          LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) - t_guard);
+          LWB_WAIT_UNTIL(t_ref + LWB_T_SLOT_START(slot_idx) -
+                         LWB_CONF_T_GUARD);
           LWB_RCV_SRQ();
                   
   #if !LWB_CONF_RELAY_ONLY
@@ -1054,10 +1190,11 @@ BOOTSTRAP_MODE:
     LWB_WAIT_UNTIL(t_ref + LWB_CONF_T_SCHED2_START - t_guard);
     LWB_RCV_SCHED();
   
-    /* update the state machine and the guard time */
-    LWB_UPDATE_SYNC_STATE;
-    if(BOOTSTRAP == sync_state) {
-      goto BOOTSTRAP_MODE;
+    /* compute new sync state and update t_guard */
+    sync_state = lwb_update_sync_state(sync_state, &schedule);
+    t_guard    = guard_time[sync_state];            /* adjust the guard time */
+    if(LWB_STATE_BOOTSTRAP == sync_state) {
+      goto BOOTSTRAP;         /* wrong schedule received > back to bootstrap */
     }
     
     /* --- COMMUNICATION ROUND ENDS --- */    
@@ -1078,15 +1215,15 @@ BOOTSTRAP_MODE:
   #if LWB_CONF_USE_LF_FOR_WAKEUP
     /* t_ref can't be used in this case -> use t_ref_lf instead */
     drift = ((int32_t)((t_ref_lf - t_ref_last) - ((int32_t)period_last *
-                       RTIMER_SECOND_LF)) * 256) / (int32_t)period_last;
+                       RTIMER_SECOND_LF)) << 8) / (int32_t)period_last;
     t_ref_last = t_ref_lf;     
   #else /* LWB_CONF_USE_LF_FOR_WAKEUP */
     drift = ((int32_t)((t_ref - t_ref_last) - ((int32_t)period_last *
-                       RTIMER_SECOND_HF)) * 16) / period_last;
+                       RTIMER_SECOND_HF)) << 4) / (int32_t)period_last;
     t_ref_last = t_ref; 
   #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
 
-    if(sync_state <= MISSED) {
+    if(sync_state <= LWB_STATE_MISSED) {
   #if LWB_CONF_USE_LF_FOR_WAKEUP
       /* convert LWB_CONF_MAX_CLOCK_DEV into clock ticks per second */
       if((drift < (int16_t)(LWB_CONF_MAX_CLOCK_DEV * RTIMER_SECOND_LF * 256 /
@@ -1104,7 +1241,8 @@ BOOTSTRAP_MODE:
     }
 #endif /* LWB_CONF_TIME_SCALE */
 
-    if(sync_state > SYNCED_2) {
+    period_last = schedule.period;
+    if(sync_state > LWB_STATE_SYNCED_2) {
       stats.unsynced_cnt++;
     }
     /* print out some stats (note: takes approx. 2ms to compose this string) */
@@ -1122,7 +1260,12 @@ BOOTSTRAP_MODE:
                      stats.unsynced_cnt, 
                      stats.drift, /* in clock ticks per second (x16 or x256) */
                      glossy_get_per(),
-                     glossy_snr);
+                     stats.glossy_snr);
+
+    /* check processing time */
+    if(stats.t_proc_max >= LWB_CONF_T_GAP) {
+      DEBUG_PRINT_ERROR("LWB gap time overrun detected");
+    }
 
 #if LWB_CONF_STATS_NVMEM
     lwb_stats_save();
@@ -1229,18 +1372,16 @@ lwb_start(struct process* pre_lwb_proc, struct process *post_lwb_proc)
   
   uart_enable(1);
   printf("Starting '%s'\r\n", lwb_process.name);    
-  printf("t_sched=%ums, t_data=%ums, t_cont=%ums, t_round=%ums, "
-         "data=%ub, slots=%u, tx=%u, hop=%u, scale=%u, sched2=%ums\r\n", 
+  printf("T=%ums T_s=%ums T_d=%ums T_c=%ums l=%ub N_s=%u N_tx=%u N_h=%u\r\n",
+         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA),
          (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_T_ROUND_MAX),
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
-         LWB_CONF_MAX_HOPS,
-         LWB_CONF_TIME_SCALE, 
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED2_START));  
+         LWB_CONF_MAX_HOPS);
+  /* check validity of round length */
   if((LWB_CONF_T_SCHED2_START + LWB_CONF_T_SCHED) > 
      (RTIMER_SECOND_HF / LWB_CONF_TIME_SCALE)) {
     printf("WARNING: LWB_CONF_T_SCHED2_START > min round period\r\n");
