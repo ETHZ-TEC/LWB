@@ -70,7 +70,7 @@ process_message(message_t* msg, uint8_t rcvd_from_bolt)
     return;
   }
   DEBUG_PRINT_INFO("msg rcvd from node %u (%u bytes)", 
-                   msg_buffer.header.device_id,  
+                   msg->header.device_id,  
                    msg_len);
   
   /* extract the message type and handle the message */
