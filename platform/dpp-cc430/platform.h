@@ -78,7 +78,6 @@
 #endif
 
 #define MCU_DESC                    "CC430F5147"
-#define COMPONENT_ID                0   /* cc430 has ID 0 on the DPP device */
 #define SRAM_START                  0x1c00
 #define SRAM_END                    0x2bff        /* last valid byte in SRAM */
 #define SRAM_SIZE                   4096          /* starting at 0x1C00 */
@@ -88,10 +87,10 @@
  */
 #include "config.h"                 /* application specific configuration */
 
-
 #ifndef FW_VERSION
 #define FW_VERSION                  0x0000
 #endif /* FW_VERSION */
+
 
 /*
  * configuration and definitions (default values, may be overwritten
@@ -165,6 +164,12 @@
 #define COM_MCU_INT2                PORT3, PIN4
 #define COM_MCU_SPARE1              PORT3, PIN6         /* spare GPIO pin */
 #define COM_MCU_SPARE2              PORT3, PIN7         /* spare GPIO pin */
+
+/* define GPIO0 - GPIO3 (for compatibility with DPP2 code) */
+#define COM_GPIO0                   LED_0
+#define COM_GPIO1                   COM_MCU_INT1
+#define COM_GPIO2                   COM_MCU_INT2
+#define COM_GPIO3                   COM_MCU_SPARE1
 
 /* select multiplexer channel (high = UART, low = SPI) */
 #define MUX_SEL_PIN                 PORT2, PIN7
@@ -241,41 +246,45 @@
 #define GLOSSY_DISABLE_INTERRUPTS
 #define GLOSSY_ENABLE_INTERRUPTS
 
-#define UART_ACTIVE             (UCA0STAT & UCBUSY)
+#define UART_ACTIVE         (UCA0STAT & UCBUSY)
 
-#define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) { \
-                                  SFRIE1  &= ~OFIE; \
-                                  ENABLE_XT2(); \
-                                  WAIT_FOR_OSC(); \
-                                  UCSCTL4  = SELA | SELS | SELM; \
-                                  __delay_cycles(100); /* errata PMM11/12? */\
-                                  UCSCTL5  = DIVA | DIVS | DIVM; \
-                                  UCSCTL7  = 0; /* errata UCS11 */ \
-                                  SFRIE1  |= OFIE; \
-                                  TA0CTL  |= MC_2; \
-                                  P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                              BIT6 | BIT7); \
-                                }
+#define AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) { \
+                              SFRIE1  &= ~OFIE; \
+                              ENABLE_XT2(); \
+                              WAIT_FOR_OSC(); \
+                              UCSCTL4  = SELA | SELS | SELM; \
+                              __delay_cycles(100); /* errata PMM11/12? */\
+                              UCSCTL5  = DIVA | DIVS | DIVM; \
+                              UCSCTL7  = 0; /* errata UCS11 */ \
+                              SFRIE1  |= OFIE; \
+                              TA0CTL  |= MC_2; \
+                              P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                          BIT6 | BIT7); \
+                            }
 /* note: errata PMM11 should not affect this clock config; MCLK is sourced from
  * DCO, but DCO is not running at >4MHz and clock divider is 2 */
 
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-#define LWB_BEFORE_DEEPSLEEP()  {\
-                                  FRAM_SLEEP; \
-                                  TA0CTL &= ~MC_3; /* stop TA0 */\
-                                  PIN_CLR(MUX_SEL_PIN); \
-                                  P1SEL = 0; /* reconfigure GPIOs */\
-                                  /* DPP has a pullup on P1.5! */\
-                                  P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7); \
-                                  P1OUT = 0; \
-                                  /* set clock source to DCO (3.25MHz) */\
-                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
-                                            SELM__DCOCLKDIV; \
-                                  UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
-                                  UCSCTL7  = 0; \
-                                  DISABLE_XT2(); \
-                                }
-                                
+#define BEFORE_DEEPSLEEP()  {\
+                              FRAM_SLEEP; \
+                              TA0CTL &= ~MC_3; /* stop TA0 */\
+                              PIN_CLR(MUX_SEL_PIN); \
+                              P1SEL = 0; /* reconfigure GPIOs */\
+                              /* DPP has a pullup on P1.5! */\
+                              P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7); \
+                              P1OUT = 0; \
+                              /* set clock source to DCO (3.25MHz) */\
+                              UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
+                                        SELM__DCOCLKDIV; \
+                              UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
+                              UCSCTL7  = 0; \
+                              DISABLE_XT2(); \
+                            }
+
+#define LWB_BEFORE_DEEPSLEEP    BEFORE_DEEPSLEEP
+#define LWB_AFTER_DEEPSLEEP     AFTER_DEEPSLEEP
+
+
 /* min. duration of 1 packet transmission with Glossy in HF ticks
  * note: TX to RX switch takes ~313us, RX to TX switch ~287us -> constant
  *       overhead is ~300us per hop, which already includes the transmission

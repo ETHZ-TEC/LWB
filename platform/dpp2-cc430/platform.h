@@ -73,7 +73,6 @@
 #endif
 
 #define MCU_DESC                    "CC430F5147"
-#define COMPONENT_ID                0   /* cc430 has ID 0 on the DPP device */
 #define SRAM_START                  0x1c00
 #define SRAM_END                    0x2bff        /* last valid byte in SRAM */
 #define SRAM_SIZE                   4096          /* starting at 0x1C00 */
@@ -156,10 +155,11 @@
 #define LED_0                       PORT3, PIN0
 #define LED_STATUS                  LED_0
 #define LED_ERROR                   LED_0
-#define COM_GPIO1                   PORT3, PIN1
-#define COM_GPIO2                   PORT3, PIN2
-#define COM_PROG2                   PORT3, PIN3
-#define COM_GPIO3                   COM_PROG2
+#define COM_GPIO0                   LED_0
+#define COM_GPIO1                   PORT3, PIN1   /* pin 7 on DBG header */
+#define COM_GPIO2                   PORT3, PIN2   /* pin 8 on DBG header */
+#define COM_PROG2                   PORT3, PIN3   /* pin 9 on DBG header */
+#define COM_GPIO3                   COM_PROG2     /* pin 9 on DBG header */
 
 //#define DEBUG_PRINT_CONF_TASK_ACT_PIN    PORT2, PIN0
 #ifndef GLOSSY_START_PIN
@@ -227,7 +227,7 @@
 
 #define UART_ACTIVE             (UCA0STAT & UCBUSY)
 
-#define LWB_AFTER_DEEPSLEEP()   if(UCSCTL6 & XT2OFF) { \
+#define AFTER_DEEPSLEEP()       if(UCSCTL6 & XT2OFF) { \
                                   SFRIE1  &= ~OFIE; \
                                   ENABLE_XT2(); \
                                   WAIT_FOR_OSC(); \
@@ -244,7 +244,7 @@
  * DCO, but DCO is not running at >4MHz and clock divider is 2 */
 
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
-#define LWB_BEFORE_DEEPSLEEP()  {\
+#define BEFORE_DEEPSLEEP()      {\
                                   FRAM_SLEEP; \
                                   TA0CTL &= ~MC_3; /* stop TA0 */\
                                   P1SEL = 0; /* reconfigure GPIOs */\
@@ -257,6 +257,9 @@
                                   UCSCTL7  = 0; \
                                   DISABLE_XT2(); \
                                 }
+
+#define LWB_BEFORE_DEEPSLEEP    BEFORE_DEEPSLEEP
+#define LWB_AFTER_DEEPSLEEP     AFTER_DEEPSLEEP
                                 
 /* min. duration of 1 packet transmission with Glossy in HF ticks
  * note: TX to RX switch takes ~313us, RX to TX switch ~287us -> constant
