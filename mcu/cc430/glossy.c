@@ -56,7 +56,9 @@
  * theoretical value (value in clock ticks) */
 #define T_SLOT_TOLERANCE      10
 
+#ifndef GLOSSY_COMMON_HEADER
 #define GLOSSY_COMMON_HEADER  0x80
+#endif /* GLOSSY_COMMON_HEADER */
 
 #define SET_PKT_TYPE(pkt_type, sync, n_tx_max) \
   (pkt_type = GLOSSY_COMMON_HEADER | ((sync) & 0x30) | ((n_tx_max) & 0x0f))
@@ -72,7 +74,7 @@
 #define IS_INITIATOR()    (g.header.initiator_id == node_id)
 #define WITH_SYNC()       (GET_SYNC(g.header.pkt_type) == GLOSSY_WITH_SYNC)
 #define WITH_RELAY_CNT()  ((WITH_SYNC()) || \
-                           (GET_SYNC(g.header.pkt_type) == GLOSSY_ONLY_RELAY_CNT))
+                        (GET_SYNC(g.header.pkt_type) == GLOSSY_ONLY_RELAY_CNT))
 
 #define GLOSSY_HEADER_LEN(pkt_type) \
                           ((GET_SYNC(pkt_type) == GLOSSY_WITHOUT_SYNC) ? 3 : 4)
