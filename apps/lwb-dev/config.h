@@ -45,6 +45,7 @@
 #define FLOCKLAB_SRC_NODE               0
 #endif /* FLOCKLAB_SRC_NODE */
 #define HOST_ID                         13
+#define COMPONENT_ID                    0
 #define RF_CONF_TX_CH                   10    /* note: use CH/870MHz on roof */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 
