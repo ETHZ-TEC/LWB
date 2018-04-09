@@ -177,7 +177,7 @@ typedef struct {
 /**
  * @brief checks whether schedule has data slots
  */
-#define LWB_SCHED_HAS_DATA_SLOT(s)    (((s)->n_slots & 0x3fff) > 0)
+#define LWB_SCHED_HAS_DATA_SLOT(s)    (((s)->n_slots & 0x1fff) > 0)
 /**
  * @brief checks whether schedule has a contention slot
  */
