@@ -128,7 +128,6 @@
 /* note: strrchr will be evaluated at compile time and the file name inlined */
 #endif /* DEBUG_PRINT_CONF_PRINT_FILE && ... */
 
-
 /* stack guard to detect stack overflows, recommended value is:
  * SRAM_START + bss section size */
 #ifndef DEBUG_CONF_STACK_GUARD
@@ -267,10 +266,16 @@
   UART_DISABLE; \
 }
 
+/* immediately print out a debug marker (file name and line) */
+#define DEBUG_PRINT_MARKER        \
+  snprintf(debug_print_buffer, DEBUG_PRINT_CONF_MSG_LEN + 1, "%s %u", \
+           __FILENAME__, __LINE__); \
+  debug_print_msg_now(debug_print_buffer)
+
 
 /* debug levels (severity level) */
 typedef enum {  
-  DEBUG_PRINT_LVL_EMERGENCY = 0, /* critical, requires immediate action */
+  DEBUG_PRINT_LVL_QUIET = 0,     /* no logging */
   DEBUG_PRINT_LVL_ERROR = 1,     /* alert, something went wrong */
   DEBUG_PRINT_LVL_WARNING = 2,   /* something unexpected happend */
   DEBUG_PRINT_LVL_INFO = 3,      /* status message */
@@ -317,6 +322,9 @@ void debug_print_msg(rtimer_clock_t timestamp,
  * @brief print out a message immediately over UART (blocking call)
  */
 void debug_print_msg_now(char *data);
+
+
+uint16_t debug_print_get_max_stack_size(void);
 
 
 #endif /* __DEBUG_PRINT_H__ */

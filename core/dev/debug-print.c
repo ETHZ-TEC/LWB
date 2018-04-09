@@ -116,16 +116,18 @@ PROCESS_THREAD(debug_print_process, ev, data)
   uart_enable(1);       /* make sure UART is enabled */
   
 #if DEBUG_CONF_STACK_GUARD
-  *(uint16_t*)DEBUG_CONF_STACK_GUARD = 0xaaaa;
-  *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) = 0xaaaa;
-  *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) = 0xaaaa;
-  *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) = 0xaaaa;
-  printf("Debug buffer size %ub, max stack size %ub\r\n",
+  /* fîll all unused stack memory with a dummy value */
+  uint16_t* addr;
+  uint16_t* end = (uint16_t*)&addr - 1;   /* stop at the current stack height */
+  for(addr = (uint16_t*)(DEBUG_CONF_STACK_GUARD); addr < end; addr++) {
+    *addr = 0xaaaa;
+  }
+  printf("Debug buffer size %uB, max stack size %uB\r\n",
          DEBUG_PRINT_CONF_NUM_MSG * DEBUG_PRINT_CONF_MSG_LEN + 
          DEBUG_PRINT_CONF_BUFFER_SIZE,
          (SRAM_END - DEBUG_CONF_STACK_GUARD - 7));
 #else
-  printf("Debug buffer size %ub\r\n",
+  printf("Debug buffer size %uB\r\n",
          DEBUG_PRINT_CONF_NUM_MSG * DEBUG_PRINT_CONF_MSG_LEN + 
          DEBUG_PRINT_CONF_BUFFER_SIZE);
 #endif /* DEBUG_CONF_STACK_GUARD */
@@ -291,6 +293,21 @@ debug_print_msg_now(char *data)
   }
 }
 /*---------------------------------------------------------------------------*/
+uint16_t
+debug_print_get_max_stack_size(void)
+{
+#if DEBUG_CONF_STACK_GUARD
+  uint16_t* addr = (uint16_t*)DEBUG_CONF_STACK_GUARD;
+  uint16_t* end = (uint16_t*)(SRAM_START + SRAM_SIZE);
+  for(; addr < end; addr++) {
+    if(*addr != 0xaaaa) {
+      return ((uint16_t)end - (uint16_t)addr);
+    }
+  }
+#endif /* DEBUG_CONF_STACK_GUARD */
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
 void
 printbuf_put(struct printbuf* p, const char* str)
 {
@@ -426,6 +443,11 @@ debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data)
 /*---------------------------------------------------------------------------*/
 void
 debug_print_msg_now(char *data)
+{
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_get_max_stack_size(void)
 {
 }
 /*---------------------------------------------------------------------------*/
