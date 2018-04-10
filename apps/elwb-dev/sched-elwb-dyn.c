@@ -241,10 +241,13 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     /* every node gets one slot (a chance to request a stream) */
     lwb_stream_list_t *curr_stream = list_head(streams_list);
     while(curr_stream != NULL) {
-      sched->slot[n_slots_assigned] = curr_stream->id;
-      n_slots_assigned++;
+      sched->slot[n_slots_assigned++] = curr_stream->id;
       /* go to the next stream in the list */
       curr_stream = curr_stream->next;
+    }
+    if(n_slots_assigned == 0) {
+      // if there are no registered nodes, then add a dummy slot
+      sched->slot[n_slots_assigned++] = 0xffff;
     }
     sched->period  = LWB_PERIOD_T_DATA;
     sched->n_slots = n_slots_assigned;
@@ -325,8 +328,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
 uint16_t 
 lwb_sched_init(lwb_schedule_t* sched) 
 {
-  printf(" using eLWB scheduler with T=%ums\r\n"
-         " round times [ms]: idle=%u cont=%u data=%u total=%u\r\n", 
+  printf(" round [ms]: T=%u idle=%u cont=%u data=%u sum=%u\r\n", 
          LWB_CONF_SCHED_PERIOD_IDLE_MS, 
          (uint16_t)LWB_T_IDLE_ROUND_MS, (uint16_t)LWB_T_REQ_ROUND_MS,
          (uint16_t)LWB_T_DATA_ROUND_MS, (uint16_t)LWB_T_ROUND_MAX_MS);
@@ -387,7 +389,9 @@ lwb_sched_init(lwb_schedule_t* sched)
 void 
 lwb_sched_set_period(uint16_t p)
 {
-  if (p) { period = (uint16_t)((uint32_t)p * LWB_PERIOD_SCALE); }
+  if (p * 1000 > LWB_T_ROUND_MAX_MS) {
+    period = (uint16_t)((uint32_t)p * LWB_PERIOD_SCALE);
+  }
 }
 /*---------------------------------------------------------------------------*/
 void

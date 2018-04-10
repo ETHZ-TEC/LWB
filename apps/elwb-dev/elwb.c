@@ -30,7 +30,7 @@
  * Author:  Reto Da Forno
  *          Felix Sutton
  * 
- * Version: 2.0
+ * Version: 2.1
  */
 
 /**
@@ -71,18 +71,25 @@
 #warning "LWB_CONF_SRQ_PKT_LEN should be set to 1!"
 #endif /* LWB_CONF_SRQ_PKT_LEN */
 
+/* set to 1 to directly forward all received messages to BOLT */
+#ifndef LWB_CONF_WRITE_TO_BOLT
+#define LWB_CONF_WRITE_TO_BOLT      0
+#endif /* LWB_CONF_WRITE_TO_BOLT */
+
+/* by default, forward all received packets to the app task on the source nodes
+ * that originated from the host (or ID 0) */
+#ifndef LWB_CONF_SRC_PKT_FILTER
+/* if expression evaluates to 'true', the packet is forwarded/kept */
+#define LWB_CONF_SRC_PKT_FILTER(data)  \
+                         (schedule.slot[i] == 0 || schedule.slot[i] == HOST_ID)
+#endif /* LWB_CONF_SRC_PKT_FILTER */
+/*---------------------------------------------------------------------------*/
 /* use a bit to indicate whether it is a contention or a data round */
 #define IS_DATA_ROUND(s)            LWB_SCHED_HAS_SACK_SLOT(s)
-
 /* use the DACK bit to indicate an idle state */
 #define IS_STATE_IDLE(s)            LWB_SCHED_HAS_DACK_SLOT(s)
-
 /* schedule that contains a contention slot is the first schedule of a round */
 #define IS_FIRST_SCHEDULE(s)        LWB_SCHED_HAS_CONT_SLOT(s)
-
-#ifndef LWB_CONF_FORWARD_PKT
-#define LWB_CONF_FORWARD_PKT(data)  0   /* 0 = drop, 1 = forward/keep */
-#endif /* LWB_CONF_FORWARD_PKT */
 /*---------------------------------------------------------------------------*/
 /* internal sync state of the LWB */
 typedef enum {
@@ -257,6 +264,7 @@ lwb_in_buffer_put(uint8_t* data, uint8_t len)
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
+  stats.rxbuf_drop++;
   DEBUG_PRINT_WARNING("lwb rx queue full");
   return 0;
 }
@@ -323,6 +331,7 @@ lwb_send_pkt(uint16_t recipient,
     DEBUG_PRINT_VERBOSE("msg added to lwb tx queue");
     return 1;
   }
+  stats.txbuf_drop++;
   DEBUG_PRINT_VERBOSE("lwb tx queue full");
   return 0;
 }
@@ -508,7 +517,11 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             } else {
               DEBUG_PRINT_VERBOSE("data received from node %u (%ub)", 
                                   schedule.slot[i], payload_len);
+  #if LWB_CONF_WRITE_TO_BOLT
+              bolt_write((uint8_t*)glossy_payload, payload_len);
+  #else /* LWB_CONF_WRITE_TO_BOLT */
               lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
+  #endif /* LWB_CONF_WRITE_TO_BOLT */
               /* update statistics */
               stats.rx_total += payload_len;
               stats.pck_cnt++;
@@ -519,7 +532,17 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
           }
         }
         t_slot_ofs += (t_slot + LWB_CONF_T_GAP);
+      }      
+  #if LWB_CONF_WRITE_TO_BOLT
+      if(IS_DATA_ROUND(&schedule)) {
+        static uint16_t pkt_cnt_prev;
+        uint16_t diff = stats.pck_cnt - pkt_cnt_prev;
+        if(diff) {
+          DEBUG_PRINT_INFO("%u msg forwarded to BOLT", diff);
+          pkt_cnt_prev = stats.pck_cnt;
+        }
       }
+  #endif /* LWB_CONF_WRITE_TO_BOLT */
     }
     
     /* --- CONTENTION SLOT --- */
@@ -670,6 +693,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
           break;  /* schedule received, exit bootstrap state */
         }
         /* go to sleep for LWB_CONF_T_DEEPSLEEP ticks */
+        stats.sleep_cnt++;
         DEBUG_PRINT_MSG_NOW("timeout, entering sleep mode");
         LWB_BEFORE_DEEPSLEEP();
         LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
@@ -793,9 +817,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             payload_len = glossy_get_payload_len();
             /* forward the packet to the application task if the initiator was
              * the host or sink or if the custom forward filter is 'true' */
-            if(schedule.slot[i] == 0 || schedule.slot[i] == HOST_ID ||
-               LWB_CONF_FORWARD_PKT(glossy_payload)) {
+            if(LWB_CONF_SRC_PKT_FILTER(glossy_payload)) {
+  #if LWB_CONF_WRITE_TO_BOLT
+              bolt_write((uint8_t*)glossy_payload, payload_len);
+  #else /* LWB_CONF_WRITE_TO_BOLT */
               lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
+  #endif /* LWB_CONF_WRITE_TO_BOLT */
             }
             stats.rx_total += payload_len;
             stats.pck_cnt++;
@@ -969,17 +996,18 @@ lwb_start(struct process *pre_lwb_proc, struct process *post_lwb_proc)
   pre_proc = pre_lwb_proc;
   post_proc = (struct process*)post_lwb_proc;
   printf("Starting '%s'\r\n", lwb_process.name);    
-  printf(" data=%ub n_slots=%u n_tx_data=%u n_tx_sched=%u n_hops=%u\r\n", 
+  printf(" pkt_len=%u data_len=%u slots=%u n_tx_d=%u n_tx_s=%u hops=%u\r\n", 
+         LWB_CONF_MAX_PKT_LEN,
          LWB_CONF_MAX_DATA_PKT_LEN, 
          LWB_CONF_MAX_DATA_SLOTS, 
          LWB_CONF_TX_CNT_DATA, 
          LWB_CONF_TX_CNT_SCHED,
          LWB_CONF_MAX_HOPS);
   /* ceil the values (therefore + RTIMER_SECOND_HF / 1000 - 1) */
-  printf(" slot times [ms]: sched=%u data=%u cont=%u\r\n",
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED + (RTIMER_SECOND_HF / 1000 - 1)),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA + (RTIMER_SECOND_HF / 1000 - 1)),
-         (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT + (RTIMER_SECOND_HF / 1000 - 1)));
+  printf(" slots [ms]: sched=%u data=%u cont=%u\r\n",
+   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED + (RTIMER_SECOND_HF / 1000 - 1)),
+   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA + (RTIMER_SECOND_HF / 1000 - 1)),
+   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT + (RTIMER_SECOND_HF / 1000 - 1)));
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

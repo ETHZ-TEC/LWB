@@ -79,8 +79,8 @@ send_msg(uint16_t recipient,
     switch(type) {
     case DPP_MSG_TYPE_COM_HEALTH:
       msg.header.payload_len = sizeof(dpp_com_health_t); break;
-    case DPP_MSG_TYPE_COM_CMD:
-      msg.header.payload_len = sizeof(dpp_command_t); break;
+    case DPP_MSG_TYPE_CMD:
+      msg.header.payload_len = 6; break;  /* default is 6 bytes */
     case DPP_MSG_TYPE_NODE_INFO:
       msg.header.payload_len = sizeof(dpp_node_info_t); break;
     case DPP_MSG_TYPE_TIMESYNC:
@@ -110,11 +110,12 @@ send_msg(uint16_t recipient,
   /* forward the message either to BOLT or the LWB */
   if(send_to_bolt) {
     bolt_write((uint8_t*)&msg, msg_len);
+    DEBUG_PRINT_VERBOSE("msg written to BOLT");
   } else {
     if(!lwb_send_pkt(recipient, 1, (uint8_t*)&msg, msg_len)) {
-      DEBUG_PRINT_INFO("message dropped (queue full)");
+      DEBUG_PRINT_INFO("msg dropped (queue full)");
     } else {
-      DEBUG_PRINT_INFO("message for node %u added to TX queue", recipient);
+      DEBUG_PRINT_INFO("msg for node %u added to TX queue", recipient);
     }
   }
 }
@@ -136,14 +137,14 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
     EVENT_WARNING(EVENT_COM_INV_MSG, 0);
     return;
   }
-  DEBUG_PRINT_INFO("msg from node %u (%uB)", 
-                   msg->header.device_id, msg_len);
+  DEBUG_PRINT_VERBOSE("msg from node %u (%uB)", 
+                      msg->header.device_id, msg_len);
   
   /* only process the message if target ID matched the node ID */
   uint16_t forward = 0;
   if(msg->header.target_id == node_id ||
      msg->header.target_id == DPP_DEVICE_ID_BROADCAST) {
-    if(msg->header.type == DPP_MSG_TYPE_COM_CMD) {
+    if(msg->header.type == DPP_MSG_TYPE_CMD) {
       DEBUG_PRINT_VERBOSE("command received");
       uint8_t successful = 0;
       switch(msg->cmd.type) {
@@ -176,17 +177,16 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         EVENT_INFO(EVENT_COM_CFG_CHANGED, arg);
       } else {
         /* either unknown command or invalid argument */
-        EVENT_WARNING(EVENT_COM_INV_CMD, arg);            
+        EVENT_WARNING(EVENT_COM_INV_CMD, arg);
+        DEBUG_PRINT_WARNING("unknown command or invalid parameter");
       }
-      
     } else if (msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
       if(node_id == HOST_ID) {
         /* update own time */
         msg->timestamp /= 1000000;
         lwb_sched_set_time(msg->timestamp);
         DEBUG_PRINT_INFO("time updated");
-      }
-      
+      }      
     /* unknown message type */
     } else {
       if (node_id != HOST_ID) {
@@ -226,27 +226,22 @@ send_timestamp(int64_t captured)
   
   /* timestamp request: calculate the timestamp and send it over BOLT */
   if(node_id == HOST_ID) {
-    timestamp = captured * 1000000 / 
-      (BOLT_CONF_TIMEREQ_HF_MODE ? RTIMER_SECOND_HF : RTIMER_SECOND_LF) + 
-      TIMESYNC_OFS;
+    timestamp = captured * 1000000 / RTIMER_SECOND_LF + TIMESYNC_OFS;
 
   /* only send a timestamp if the node is connected to the LWB */
   } else {
     rtimer_clock_t local_t_rx = 0;
     uint64_t lwb_time_secs = lwb_get_time(&local_t_rx);
     if (lwb_time_secs > 0) {
-    #if !BOLT_CONF_TIMEREQ_HF_MODE
       /* convert to LF ticks */
       rtimer_clock_t lf, hf;
       rtimer_now(&hf, &lf);
       local_t_rx = lf - (hf - local_t_rx) * RTIMER_SECOND_LF /RTIMER_SECOND_HF;
-    #endif /* BOLT_CONF_TIMEREQ_HF_MODE */
       /* if captured before last ref time update, then diff is > 0 and thus 
        * LWB time needs to be decreased by the difference */
       int64_t diff = (local_t_rx - captured);   /* in clock ticks */
       /* local t_rx is in clock ticks */
-      timestamp = lwb_time_secs * 1000000 - diff * 1000000 / 
-        (BOLT_CONF_TIMEREQ_HF_MODE ? RTIMER_SECOND_HF : RTIMER_SECOND_LF);
+      timestamp = lwb_time_secs * 1000000 - diff * 1000000 / RTIMER_SECOND_LF;
     }
   }
   /* send message over BOLT */
@@ -312,7 +307,7 @@ send_node_health(void)
   health_data.lwb_rx_drop   = lwb_stats->rxbuf_drop; // - last_rx_drop;
   health_data.lwb_sleep_cnt = lwb_stats->sleep_cnt;
   health_data.lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
-  health_data.uptime        = now / XT1CLK_SPEED;
+  health_data.uptime        = now / RTIMER_SECOND_LF;
   health_data.lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
   health_data.lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
   
@@ -322,12 +317,12 @@ send_node_health(void)
   /* duty cycle */
 #if ENERGEST_CONF_ON
   health_data.cpu_dc        = (uint16_t)
-                            (energest_type_time(ENERGEST_TYPE_CPU) *
-                            1000 / (now - last_energest_rst));
+                              (energest_type_time(ENERGEST_TYPE_CPU) *
+                              1000 / (now - last_energest_rst));
   health_data.rf_dc         = (uint16_t)
-                            ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
-                            energest_type_time(ENERGEST_TYPE_LISTEN)) *
-                            1000 / (now - last_energest_rst));
+                              ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
+                              energest_type_time(ENERGEST_TYPE_LISTEN)) *
+                              1000 / (now - last_energest_rst));
   last_energest_rst  = now;
   energest_type_set(ENERGEST_TYPE_CPU, 0);
   energest_type_set(ENERGEST_TYPE_TRANSMIT, 0);

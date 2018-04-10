@@ -41,33 +41,33 @@
 
 /* --- Node and component ID --- */
 
-//#define NODE_ID                         2
+//#define NODE_ID                         1
 #define HOST_ID                         1
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
 /* --- Radio config --- */
 
-#define RF_CONF_TX_CH                   10    /* note: use CH/870MHz on roof */
+#define RF_CONF_TX_CH                   10                  /* CH10 = 870MHz */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_PLUS_10_dBm
 
 
 /* --- Network parameters --- */
 
 #define LWB_CONF_MAX_HOPS               3
-#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  3
-#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4
+//#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  3
+//#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4
 
 
 /* --- LWB / eLWB config --- */
 
 #define LWB_CONF_SCHED_PERIOD_IDLE      5            /* period T in seconds */
-#define LWB_CONF_MAX_DATA_SLOTS         (LWB_CONF_SCHED_AE_SRC_NODE_CNT + 2)
-#define LWB_CONF_DATA_ACK               0                  /* use data ACKs? */
+#define LWB_CONF_MAX_DATA_SLOTS         20    /* max. # data slots per round */
+#define LWB_CONF_MAX_N_STREAMS          5       /* = max. # nodes in network */
 /* packet and buffer size */
 #define LWB_CONF_MAX_PKT_LEN            (128 - 7)  /* subtract RF&Glossy hdr */
-#define LWB_CONF_IN_BUFFER_SIZE         LWB_CONF_MAX_DATA_SLOTS
-#define LWB_CONF_OUT_BUFFER_SIZE        LWB_CONF_MAX_DATA_SLOTS
+#define LWB_CONF_IN_BUFFER_SIZE         5  //LWB_CONF_MAX_DATA_SLOTS
+#define LWB_CONF_OUT_BUFFER_SIZE        5  //LWB_CONF_MAX_DATA_SLOTS
 /* timings */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 125)      /* 8ms */
@@ -83,10 +83,16 @@
 #define LWB_VERSION                     0      /* override default LWB impl. */
 #define LWB_SCHED_ELWB_DYN                         /* use the eLWB scheduler */
 #define LWB_CONF_HEADER_LEN             0
-#define LWB_CONF_MAX_N_STREAMS          LWB_CONF_MAX_DATA_SLOTS
+#if NODE_ID == HOST_ID
+#define LWB_CONF_WRITE_TO_BOLT          1      /* write incoming msg to BOLT */
+#else
+#define LWB_CONF_WRITE_TO_BOLT          0
+#endif /* NODE_ID == HOST_ID */
 /* preprocessing task */
-#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 20)     /* 50ms */
-#define LWB_CONF_FORWARD_PKT(data)      (*(uint16_t*)(data + 4) == node_id)
+#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 20)      /* 50ms */
+/* override default packet filter (only keep pkts on src that match node_id) */ 
+#define LWB_CONF_SRC_PKT_FILTER(data)   (data[2] == node_id || \
+                                         data[2] == 0xffff)
 /* Glossy */
 #define GLOSSY_COMMON_HEADER            0xc0
 
@@ -104,11 +110,8 @@
 
 #define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 10)
 #define WATCHDOG_CONF_ON                1
-#define RTIMER_CONF_LF_UPDATE_LED_ON    1
-#define ENERGEST_CONF_ON                0
-#if !ENERGEST_CONF_ON
-  #define DCSTAT_CONF_ON                1
-#endif /* ENERGEST_CONF_ON */
+#define RTIMER_CONF_LF_UPDATE_LED_ON    0
+#define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
 #define EVENT_CONF_ON                   1
 #if NODE_ID == HOST_ID
   #define EVENT_CONF_TARGET             LOG_TARGET_BOLT
@@ -128,16 +131,17 @@
                                          /* -> bss size max 3500 */
 #define DEBUG_PRINT_CONF_USE_RINGBUFFER 1
 #define DEBUG_PRINT_CONF_BUFFER_SIZE    400
+#define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_ISR_TRAPS_ENABLE          0
 #define DEBUG_INTERRUPT_ENABLE          0
 #define DEBUG_INTERRUPT_PIN             PORT2, PIN0        /* must be port 2 */
 #define DEBUG_LED                       COM_MCU_SPARE2
 //#define DEBUG_CONF_ISR_INDICATOR        1         /* indicate CPU activity */
-//#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3   /* pin 9 on DBG header */
+#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3   /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
 #define LWB_CONF_TASK_ACT_PIN           COM_GPIO2
-#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
+//#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                      COM_MCU_INT2

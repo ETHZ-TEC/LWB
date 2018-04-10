@@ -48,7 +48,7 @@
 /*---------------------------------------------------------------------------*/
 /* global variables */
 static int64_t  captured = 0;     /* last captured timestamp */
-static uint32_t t_last_health_pkt = 0;
+static uint32_t last_health_pkt = 0;
 static uint16_t max_stack_size = 0;
 uint16_t seq_no_lwb  = 0;
 uint16_t seq_no_bolt = 0;
@@ -142,19 +142,22 @@ PROCESS_THREAD(app_proc_post, ev, data)
       msg_cnt++;
     }
     if(msg_cnt) {
-      DEBUG_PRINT_INFO("%d packet(s) received", msg_cnt);
+      DEBUG_PRINT_INFO("%d msg rcvd from network", msg_cnt);
     }
     
     /* --- send the timestamp if one has been requested --- */
     if(captured) {
       send_timestamp(captured);
+      captured = 0;
     }
       
     /* --- generate a new health message if necessary --- */
-    uint32_t time_now = lwb_get_time(0);
-    if((time_now - t_last_health_pkt) >= health_msg_period) {
+    uint16_t div = lwb_get_time(0) / health_msg_period;
+    if(div != last_health_pkt) {
+      /* using a divider instead of the elapsed time will group the health
+       * messages of all nodes together into one round */
       send_node_health();
-      t_last_health_pkt = time_now;
+      last_health_pkt = div;
       DEBUG_PRINT_INFO("health message generated");
     }
     
