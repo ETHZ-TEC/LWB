@@ -59,19 +59,6 @@
 #define EVENT_CONF_LEVEL                EVENT_LEVEL_INFO
 #endif /* EVENT_CONF_LVEL */
 
-#ifndef EVENT_CONF_STRING_BUFFER_SIZE
-#define EVENT_CONF_STRING_BUFFER_SIZE   64
-#endif /* EVENT_CONF_STRING_BUFFER_SIZE */
-
-#ifndef EVENT_CONF_LWB_STREAM_ID
-#define EVENT_CONF_LWB_STREAM_ID        0
-#endif /* EVENT_CONF_LWB_STREAM_ID */
-
-/* format the UART output string (add node ID, timestamp and msg type) */
-#ifndef EVENT_CONF_FORMAT_OUTPUT
-#define EVENT_CONF_FORMAT_OUTPUT        0
-#endif /* EVENT_CONF_FORMAT_OUTPUT */
-
 
 /* DEFINITIONS */
 
@@ -85,13 +72,15 @@ typedef enum {
   NUM_EVENT_LEVELS,
 } event_level_t;
 
-
-/* must use defines (typedef enum doesn't work) */
-#define EVENT_TARGET_NONE     0
-#define EVENT_TARGET_UART     1
-#define EVENT_TARGET_XMEM     2
-#define EVENT_TARGET_BOLT     3
-#define EVENT_TARGET_LWB      4
+typedef enum {
+  EVENT_TARGET_NONE, 
+  EVENT_TARGET_UART,
+  EVENT_TARGET_BOLT,
+  EVENT_TARGET_LWB,
+#if FRAM_CONF_ON
+  EVENT_TARGET_XMEM,      /* TODO not yet implemented */
+#endif /* FRAM_CONF_ON */
+} event_target_t;
 
 
 #if EVENT_CONF_ON
@@ -120,8 +109,6 @@ static __inline void event_set_level(event_level_t lvl) { event_lvl = lvl; }
 #define event_lvl               EVENT_CONF_LEVEL
 #endif /* EVENT_CONF_LEVEL_FIXED */
 
-extern char event_buffer[EVENT_CONF_STRING_BUFFER_SIZE];
-
 
 void event_write(event_level_t lvl, dpp_event_type_t type, uint16_t val);
 
@@ -134,8 +121,6 @@ void event_write(event_level_t lvl, dpp_event_type_t type, uint16_t val);
 #define EVENT_WARNING(x,y)
 #define EVENT_ERROR(x,y)
 #define EVENT_VERBOSE(x,y)
-#define EVENT_STR(x, ...)
-
 
 #endif /* EVENT_CONF_ON */
 

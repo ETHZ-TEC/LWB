@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,11 @@
  *
  * a modified implementation of the Low-Power Wireless Bus called e-LWB
  * (event-based/triggered LWB)
- * it is a many-to-one protocol for fast data dissemination under rapidly
- * chanding loads
  * 
  * header length is 0, neither recipient node ID nor stream ID are required 
- * since all the data flows to the sinks
+ * since all the data flows to the sinks, but will be received by all nodes
+ * in the network (filtering is possible on the source nodes with the macro
+ * LWB_CONF_SRC_PKT_FILTER)
  */
  
 #include "contiki.h"
@@ -402,7 +402,7 @@ lwb_get_timestamp(void)
 {
   /* convert to microseconds */
   uint64_t timestamp = (uint64_t)global_time * 1000000;
-  if(sync_state <= SYNCED) {
+  if(sync_state == SYNCED) {
     return timestamp + /* convert to microseconds */
            (rtimer_now_hf() - rx_timestamp) * 1000000 / RTIMER_SECOND_HF;
   }
@@ -569,8 +569,8 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         lwb_sched_compute(&schedule, 0, 0);
         glossy_payload[0] = schedule.period;
       } else {
-        /* else: no update to schedule needed; set period to 0 to indicate to source
-         * nodes that there is no change in period (and no request round 
+        /* else: no update to schedule needed; set period to 0 to indicate to 
+         * source nodes that there is no change in period (and no request round
          * following) */
         glossy_payload[0] = 0;
       }

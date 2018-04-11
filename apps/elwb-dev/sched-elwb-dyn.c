@@ -28,36 +28,26 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
- *          Felix Sutton
  * 
- * Version: 2.0
+ * Version: 2.1
  */
 
 /**
  * @addtogroup  lwb-scheduler
  * @{
  *
- * @defgroup    sched-ae scheduler used for the acoustic emission demo app
- * @{
- *
  * @brief
  * a simple scheduler implementation for the LWB
  * 
- * The scheduler has a static base period of LWB_CONF_SCHED_PERIOD_IDLE sec. 
- * There is no IPI (inter-packet interval) required for stream requests, the
- * scheduler will assign 1 slot to each stream in the next round. If the source
- * node wants to transmit more data, it needs to request another stream, i.e.
- * for each data packet, a stream request is necessary.
- * There are no more stream acknowledgements, but the SACK slot can be used
- * to acknowledge the data reception.
- * Schedule compression is not used.
+ * The scheduler has a default base period of LWB_CONF_SCHED_PERIOD_IDLE sec,
+ * which is adjustable at runtime.
  */
  
 #include "lwb.h"
 
 #ifdef LWB_SCHED_ELWB_DYN
 
-#define LWB_PERIOD_SCALE                100         /* also change in elwb.c */
+#define LWB_PERIOD_SCALE                100       /* same value as in elwb.c */
 
 #ifndef LWB_CONF_SCHED_PERIOD_IDLE_MS
 #define LWB_CONF_SCHED_PERIOD_IDLE_MS   (LWB_CONF_SCHED_PERIOD_IDLE * 1000)

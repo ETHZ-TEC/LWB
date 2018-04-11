@@ -158,7 +158,6 @@ PROCESS_THREAD(app_proc_post, ev, data)
        * messages of all nodes together into one round */
       send_node_health();
       last_health_pkt = div;
-      DEBUG_PRINT_INFO("health message generated");
     }
     
     /* --- debugging --- */
@@ -167,7 +166,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
       max_stack_size = stack_size;
       DEBUG_PRINT_INFO("stack size: %uB, max %uB", (SRAM_START + SRAM_SIZE) -
                                             (uint16_t)&stack_size, stack_size);
-    }
+    }    
     
     /* --- poll the debug task --- */
     debug_print_poll();

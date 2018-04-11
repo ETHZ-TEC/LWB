@@ -35,51 +35,53 @@
 #if EVENT_CONF_ON
 
 #if !EVENT_CONF_LEVEL_FIXED
-event_level_t   event_lvl = EVENT_LEVEL_INFO;
+event_level_t   event_lvl = EVENT_CONF_LEVEL;
+event_target_t  event_tgt = EVENT_CONF_TARGET;
 #endif /* EVENT_CONF_LEVEL_FIXED */
 
 /*---------------------------------------------------------------------------*/
 void
 event_write(event_level_t lvl, dpp_event_type_t type, uint16_t val)
 {
-#if EVENT_CONF_TARGET == EVENT_TARGET_UART
-  char tmp[32];
-  snprintf(tmp, EVENT_CONF_STRING_BUFFER_SIZE + 1, 
-           "event: 0x%02x, code: 0x%02x", type, value);
-  DEBUG_PRINT_MSG(0, (debug_level_t)lvl, tmp);
+  if(event_tgt == EVENT_TARGET_UART) {
+    char tmp[32];
+    snprintf(tmp, 32, "event: 0x%02x, code: 0x%02x", type, val);
+    DEBUG_PRINT_MSG(0, (debug_level_t)lvl, tmp);
+    
+  } else { 
+    /* generate a message */
+    dpp_message_t msg;
+    msg.header.device_id       = node_id;
+    msg.header.type            = DPP_MSG_TYPE_EVENT;
+    msg.header.payload_len     = DPP_EVENT_LEN;
+    msg.header.target_id       = DPP_DEVICE_ID_SINK;
+  #if EVENT_CONF_TARGET == EVENT_TARGET_BOLT
+    msg.header.seqnr           = seq_no_bolt++;
+  #elif EVENT_CONF_TARGET == EVENT_TARGET_LWB
+    msg.header.seqnr           = seq_no_lwb++;
+  #endif /* EVENT_CONF_TARGET */
+    msg.header.generation_time = lwb_get_timestamp();
 
-#else /* EVENT_CONF_TARGET == EVENT_TARGET_UART */
- 
-  /* generate a message */
-  dpp_message_t msg;
-  msg.header.device_id       = node_id;
-  msg.header.type            = DPP_MSG_TYPE_EVENT;
-  msg.header.payload_len     = DPP_EVENT_LEN;
-  msg.header.target_id       = DPP_DEVICE_ID_SINK;
- #if EVENT_CONF_TARGET == EVENT_TARGET_BOLT
-  msg.header.seqnr           = seq_no_bolt++;
- #elif EVENT_CONF_TARGET == EVENT_TARGET_LWB
-  msg.header.seqnr           = seq_no_lwb++;
- #endif /* EVENT_CONF_TARGET */
-  msg.header.generation_time = lwb_get_timestamp();
+    /* create the payload */
+    msg.event.type = type;
+    msg.event.value = val;
 
-  /* create the payload */
-  msg.event.type = type;
-  msg.event.value = val;
+    /* calculate and add the crc checksum */
+    uint16_t crc = crc16((uint8_t*)&msg, 
+                        msg.header.payload_len + DPP_MSG_HDR_LEN, 0);
+    DPP_MSG_SET_CRC16(&msg, crc);
 
-  /* calculate and add the crc checksum */
-  uint16_t crc = crc16((uint8_t*)&msg, 
-                       msg.header.payload_len + DPP_MSG_HDR_LEN, 0);
-  DPP_MSG_SET_CRC16(&msg, crc);
-
- #if EVENT_CONF_TARGET == EVENT_TARGET_BOLT
-  bolt_write((uint8_t*)&msg, DPP_MSG_LEN(msg));
- #elif EVENT_CONF_TARGET == EVENT_TARGET_LWB
-  lwb_send_pkt(DEVICE_ID_SINK, EVENT_CONF_LWB_STREAM_ID,
-               (uint8_t*)&msg, DPP_MSG_LEN(msg));
- #endif /* EVENT_CONF_TARGET */
-  
-#endif /* EVENT_CONF_TARGET == EVENT_TARGET_UART */
+    uint16_t msg_len = DPP_MSG_LEN(&msg);
+    if(event_tgt == EVENT_TARGET_BOLT) {
+      bolt_write((uint8_t*)&msg, msg_len);
+      DEBUG_PRINT_VERBOSE("event msg sent to BOLT");
+    } else if (event_tgt == EVENT_TARGET_LWB) {
+      lwb_send_pkt(DPP_DEVICE_ID_SINK, 0, (uint8_t*)&msg, msg_len);
+      DEBUG_PRINT_VERBOSE("event msg sent to LWB");
+    } else {
+      DEBUG_PRINT_WARNING("invalid event target");
+    }
+  }
 }
 /*---------------------------------------------------------------------------*/
 

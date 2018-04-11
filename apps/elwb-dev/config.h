@@ -41,15 +41,17 @@
 
 /* --- Node and component ID --- */
 
-//#define NODE_ID                         1
-#define HOST_ID                         1
+/* important: node ID must be set accordingly if host is to be programmed (does
+ * not work with objcopy in makefile for the host!) */
+//#define NODE_ID                         13
+#define HOST_ID                         13
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
 /* --- Radio config --- */
 
 #define RF_CONF_TX_CH                   10                  /* CH10 = 870MHz */
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_PLUS_10_dBm
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_MAX
 
 
 /* --- Network parameters --- */
@@ -61,9 +63,9 @@
 
 /* --- LWB / eLWB config --- */
 
-#define LWB_CONF_SCHED_PERIOD_IDLE      5            /* period T in seconds */
+#define LWB_CONF_SCHED_PERIOD_IDLE      15            /* period T in seconds */
 #define LWB_CONF_MAX_DATA_SLOTS         20    /* max. # data slots per round */
-#define LWB_CONF_MAX_N_STREAMS          5       /* = max. # nodes in network */
+#define LWB_CONF_MAX_N_STREAMS          10      /* = max. # nodes in network */
 /* packet and buffer size */
 #define LWB_CONF_MAX_PKT_LEN            (128 - 7)  /* subtract RF&Glossy hdr */
 #define LWB_CONF_IN_BUFFER_SIZE         5  //LWB_CONF_MAX_DATA_SLOTS
@@ -114,9 +116,9 @@
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
 #define EVENT_CONF_ON                   1
 #if NODE_ID == HOST_ID
-  #define EVENT_CONF_TARGET             LOG_TARGET_BOLT
+  #define EVENT_CONF_TARGET             EVENT_TARGET_BOLT
 #else /* LOG_CONF_ON */
-  #define EVENT_CONF_TARGET             LOG_TARGET_LWB
+  #define EVENT_CONF_TARGET             EVENT_TARGET_LWB
 #endif /* LOG_CONF_ON */
 //#define SVS_CONF_ON                   1
 //#define FRAM_CONF_ON                  0

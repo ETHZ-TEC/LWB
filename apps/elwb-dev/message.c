@@ -115,7 +115,7 @@ send_msg(uint16_t recipient,
     if(!lwb_send_pkt(recipient, 1, (uint8_t*)&msg, msg_len)) {
       DEBUG_PRINT_INFO("msg dropped (queue full)");
     } else {
-      DEBUG_PRINT_INFO("msg for node %u added to TX queue", recipient);
+      DEBUG_PRINT_INFO("msg for node %u queued for TX", recipient);
     }
   }
 }
@@ -126,7 +126,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   /* check message type */
   if(msg->header.type & DPP_MSG_TYPE_MIN) {
     DEBUG_PRINT_WARNING("unsupported message type (dropped)");
-    EVENT_WARNING(EVENT_COM_INV_MSG, msg->header.type);
+    EVENT_WARNING(EVENT_CC430_INV_MSG, msg->header.type);
     return;
   }
   /* check message length and CRC */
@@ -134,7 +134,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   if(msg_len > DPP_MSG_PKT_LEN || 
     DPP_MSG_GET_CRC16(msg) != crc16((uint8_t*)msg, msg_len - 2, 0)) {
     DEBUG_PRINT_WARNING("message with invalid length or CRC");
-    EVENT_WARNING(EVENT_COM_INV_MSG, 0);
+    EVENT_WARNING(EVENT_CC430_INV_MSG, 0);
     return;
   }
   DEBUG_PRINT_VERBOSE("msg from node %u (%uB)", 
@@ -148,24 +148,24 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       DEBUG_PRINT_VERBOSE("command received");
       uint8_t successful = 0;
       switch(msg->cmd.type) {
-      case CMD_COM_SET_ROUND_PERIOD:    /* value is in s */
+      case CMD_CC430_SET_ROUND_PERIOD:    /* value is in s */
         if(msg->cmd.arg16[0] > 0 && msg->cmd.arg16[0] <= 3600) {
           lwb_sched_set_period(msg->cmd.arg16[0]);
           DEBUG_PRINT_INFO("LWB period set to %us", msg->cmd.arg16[0]);
           successful = 1;
         }
         break;
-      case CMD_COM_SET_HEALTH_PERIOD:
+      case CMD_CC430_SET_HEALTH_PERIOD:
         health_msg_period = msg->cmd.arg16[0]; /* set health period in s */
         successful = 1;
         break;
-      case CMD_COM_SET_EVENT_LEVEL:
+      case CMD_CC430_SET_EVENT_LEVEL:
         if (msg->cmd.arg16[0] < NUM_EVENT_LEVELS) {
           event_lvl = msg->cmd.arg16[0];
           successful = 1;
         }
         break;   
-      case CMD_COM_RESET:
+      case CMD_CC430_RESET:
         PMM_TRIGGER_BOR;
         break;
       default:
@@ -174,11 +174,13 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       }
       uint32_t arg = (((uint32_t)msg->cmd.arg16[0]) << 16 | msg->cmd.type);
       if (successful) {
-        EVENT_INFO(EVENT_COM_CFG_CHANGED, arg);
+        EVENT_INFO(EVENT_CC430_CFG_CHANGED, arg);
       } else {
         /* either unknown command or invalid argument */
-        EVENT_WARNING(EVENT_COM_INV_CMD, arg);
-        DEBUG_PRINT_WARNING("unknown command or invalid parameter");
+        EVENT_WARNING(EVENT_CC430_INV_CMD, arg);
+        DEBUG_PRINT_WARNING(
+                      "unknown command or invalid parameter (0x%02x, 0x%02x)", 
+                      msg->cmd.type, msg->cmd.arg16[0]);
       }
     } else if (msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
       if(node_id == HOST_ID) {
@@ -193,7 +195,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         forward = 1;
       } else {
         /* ignore */      
-        EVENT_WARNING(EVENT_COM_MSG_IGNORED, msg->header.type);
+        EVENT_WARNING(EVENT_CC430_MSG_IGNORED, msg->header.type);
       }
     }
   }
@@ -215,7 +217,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       DEBUG_PRINT_INFO("msg forwarded to BOLT (%uB)", msg_len);
       arg |= 0x01000000;
     }
-    EVENT_VERBOSE(EVENT_COM_MSG_FORWARDED, arg);
+    EVENT_VERBOSE(EVENT_CC430_MSG_FORWARDED, arg);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -255,6 +257,7 @@ void
 send_node_info(void)
 {
   dpp_node_info_t node_info;
+  memset((uint8_t*)&node_info, 0, sizeof(dpp_node_info_t));
   node_info.component_id = COMPONENT_ID;
   node_info.compiler_ver = COMPILER_VERSION_ENC;  /* encoded 16-bit value */
   node_info.compile_date = COMPILE_TIME;          /* defined in makefile */
@@ -284,7 +287,7 @@ send_node_health(void)
   while(REFCTL0 & REFGENBUSY);
   REFCTL0 |= REFON;
   while(REFCTL0 & REFGENBUSY);
-  __delay_cycles(MCLK_SPEED / 25000);                /* let REF settle */
+  __delay_cycles(MCLK_SPEED / 25000);      /* let REF settle */
 
   temp = (temp + adc_get_temp()) / 2;      /* moving average (LP filter) */
   health_data.temp = temp;
@@ -308,8 +311,8 @@ send_node_health(void)
   health_data.lwb_sleep_cnt = lwb_stats->sleep_cnt;
   health_data.lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
   health_data.uptime        = now / RTIMER_SECOND_LF;
-  health_data.lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() * 100 /325);
-  health_data.lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx() * 100 / 325);
+  health_data.lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() *100/325);
+  health_data.lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx()  *100/325);
   
   /* test value (can be changed in the future for debug purposes) */
   health_data.test          = lwb_stats->drift;
@@ -338,5 +341,7 @@ send_node_health(void)
   /* host must send it to BOLT, a source node into the network */
   send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_COM_HEALTH,
            (const uint8_t*)&health_data, 0, node_id == HOST_ID); 
+  
+  DEBUG_PRINT_INFO("health msg generated");
 }
 /*---------------------------------------------------------------------------*/
