@@ -36,6 +36,8 @@
 #include "main.h"
 
 
+uint64_t utc_time = 0;
+uint64_t utc_time_rx = 0;
 uint16_t health_msg_period = HEALTH_MSG_PERIOD;
 
 
@@ -98,6 +100,7 @@ send_msg(uint16_t recipient,
     msg.header.seqnr         = seq_no_lwb++;
   }
   msg.header.generation_time = lwb_get_timestamp();
+  
   /* copy the payload */
   if (msg.header.payload_len && data) {
     memcpy(msg.payload, data, msg.header.payload_len);
@@ -137,13 +140,13 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
     EVENT_WARNING(EVENT_CC430_INV_MSG, 0);
     return;
   }
-  DEBUG_PRINT_VERBOSE("msg from node %u (%uB)", 
-                      msg->header.device_id, msg_len);
+  DEBUG_PRINT_VERBOSE("processing msg (type: %u src: %u target: %u len: %uB)", 
+                      msg->header.type, msg->header.device_id, 
+                      msg->header.target_id, msg_len);
   
   /* only process the message if target ID matched the node ID */
-  uint16_t forward = 0;
-  if(msg->header.target_id == node_id ||
-     msg->header.target_id == DPP_DEVICE_ID_BROADCAST) {
+  uint16_t forward = (msg->header.target_id == DPP_DEVICE_ID_BROADCAST);
+  if(msg->header.target_id == node_id || forward) {
     if(msg->header.type == DPP_MSG_TYPE_CMD) {
       DEBUG_PRINT_VERBOSE("command received");
       uint8_t successful = 0;
@@ -174,21 +177,24 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       }
       uint32_t arg = (((uint32_t)msg->cmd.arg16[0]) << 16 | msg->cmd.type);
       if (successful) {
+        DEBUG_PRINT_INFO("cmd processed, config changed");
         EVENT_INFO(EVENT_CC430_CFG_CHANGED, arg);
       } else {
         /* either unknown command or invalid argument */
-        EVENT_WARNING(EVENT_CC430_INV_CMD, arg);
+        /*EVENT_WARNING(EVENT_CC430_INV_CMD, arg);
         DEBUG_PRINT_WARNING(
                       "unknown command or invalid parameter (0x%02x, 0x%02x)", 
-                      msg->cmd.type, msg->cmd.arg16[0]);
+                      msg->cmd.type, msg->cmd.arg16[0]);*/
+        forward = 1;  /* forward to BOLT */
       }
+#if TIMESYNC_HOST_RCV_UTC
     } else if (msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
       if(node_id == HOST_ID) {
-        /* update own time */
-        msg->timestamp /= 1000000;
-        lwb_sched_set_time(msg->timestamp);
-        DEBUG_PRINT_INFO("time updated");
-      }      
+        utc_time    = msg->timestamp;
+        utc_time_rx = bolt_captured_trq;
+      } /* else: a source node does not handle this message type */
+#endif /* TIMESYNC_HOST_RCV_UTC */
+
     /* unknown message type */
     } else {
       if (node_id != HOST_ID) {
@@ -200,7 +206,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
     }
   }
   /* forward the message */
-  if(forward || msg->header.target_id != node_id) {
+  if(forward) {
     uint32_t arg = (msg->header.target_id | ((((uint32_t)msg_len) << 16) &
                     0x00ff0000));
     if(rcvd_from_bolt) {
@@ -259,7 +265,7 @@ send_node_info(void)
   dpp_node_info_t node_info;
   memset((uint8_t*)&node_info, 0, sizeof(dpp_node_info_t));
   node_info.component_id = COMPONENT_ID;
-  node_info.compiler_ver = COMPILER_VERSION_ENC;  /* encoded 16-bit value */
+  node_info.compiler_ver = COMPILER_VERSION_32;
   node_info.compile_date = COMPILE_TIME;          /* defined in makefile */
   node_info.fw_ver       = FW_VERSION;
   node_info.rst_cnt      = cfg.rst_cnt;

@@ -47,19 +47,43 @@
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
 /* global variables */
-static int64_t  captured = 0;     /* last captured timestamp */
-static uint32_t last_health_pkt = 0;
-static uint16_t max_stack_size = 0;
+rtimer_clock_t bolt_captured_trq = 0;     /* last captured timestamp */
 uint16_t seq_no_lwb  = 0;
 uint16_t seq_no_bolt = 0;
 config_t cfg;
+static uint32_t last_health_pkt = 0;
+static uint16_t max_stack_size = 0;
 /*---------------------------------------------------------------------------*/
 void
 capture_timestamp(void)
 { 
   /* simply store the timestamp, do calculations afterwards */
   rtimer_clock_t now = rtimer_now_lf();
-  captured = now - ((uint16_t)(now & 0xffff) - BOLT_CONF_TIMEREQ_CCR);
+  bolt_captured_trq = now - ((uint16_t)(now & 0xffff) - BOLT_CONF_TIMEREQ_CCR);
+}
+/*---------------------------------------------------------------------------*/
+void
+update_time(void)
+{
+  if(utc_time_rx) {
+    /* a UTC timestamp has been received -> update the network time */
+    uint32_t elapsed = 0;
+    /* adjust the timestamp to align with the next communication round 
+    * as closely as possible */
+    rtimer_clock_t next_round;
+    if(rtimer_next_expiration(LWB_CONF_LF_RTIMER_ID, &next_round)) {
+      elapsed = (next_round - utc_time_rx);          
+    } else {
+      DEBUG_PRINT_WARNING("invalid timer value");
+    }
+    /* convert to us */
+    elapsed = elapsed * (1000000 / RTIMER_SECOND_LF);
+    utc_time += elapsed;
+    uint32_t new_time = (utc_time + 500000) / 1000000;
+    lwb_sched_set_time(new_time);
+    DEBUG_PRINT_INFO("time updated to %lu (comp %lu)", new_time, elapsed);
+    utc_time_rx = 0;
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS(app_proc_pre, "App Task Pre");
@@ -145,12 +169,16 @@ PROCESS_THREAD(app_proc_post, ev, data)
       DEBUG_PRINT_INFO("%d msg rcvd from network", msg_cnt);
     }
     
+#if (NODE_ID != HOST_ID) || !TIMESYNC_HOST_RCV_UTC
     /* --- send the timestamp if one has been requested --- */
-    if(captured) {
-      send_timestamp(captured);
-      captured = 0;
+    if(bolt_captured_trq) {
+      send_timestamp(bolt_captured_trq);
+      bolt_captured_trq = 0;
     }
-      
+#else 
+    update_time();
+#endif /* !TIMESYNC_HOST_RCV_UTC */
+    
     /* --- generate a new health message if necessary --- */
     uint16_t div = lwb_get_time(0) / health_msg_period;
     if(div != last_health_pkt) {

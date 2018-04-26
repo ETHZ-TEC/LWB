@@ -43,8 +43,8 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-//#define NODE_ID                         13
-#define HOST_ID                         13
+#define NODE_ID                         1
+#define HOST_ID                         1
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
@@ -103,6 +103,7 @@
 
 #define BOLT_CONF_MAX_MSG_LEN           LWB_CONF_MAX_PKT_LEN
 #define BOLT_CONF_TIMEREQ_ENABLE        1
+#define TIMESYNC_HOST_RCV_UTC           1         /* host: rcv UTC timestamp */
 #define TIMESYNC_INTERRUPT_BASED        1     /* only ISR based is supported */
 #define TIMESYNC_OFS                    193          /* const offset to host */
 #define BOLT_CONF_TIMEREQ_HF_MODE       0 /* only low freq. mode is supported*/
@@ -110,7 +111,7 @@
 
 /* --- MISC --- */
 
-#define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 10)
+#define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 2)
 #define WATCHDOG_CONF_ON                1
 #define RTIMER_CONF_LF_UPDATE_LED_ON    0
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */

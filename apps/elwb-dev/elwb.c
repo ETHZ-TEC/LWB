@@ -397,17 +397,11 @@ lwb_get_time(rtimer_clock_t* reception_time)
   return global_time;
 }
 /*---------------------------------------------------------------------------*/
+/* based on the LF timer! */
 uint64_t
 lwb_get_timestamp(void)
 {
-  /* convert to microseconds */
-  uint64_t timestamp = (uint64_t)global_time * 1000000;
-  if(sync_state == SYNCED) {
-    return timestamp + /* convert to microseconds */
-           (rtimer_now_hf() - rx_timestamp) * 1000000 / RTIMER_SECOND_HF;
-  }
-  /* not synced! */
-  return timestamp +
+  return (uint64_t)global_time * 1000000 +
          (rtimer_now_lf() - last_synced_lf) * 1000000 / RTIMER_SECOND_LF;
 }
 /*---------------------------------------------------------------------------*/
@@ -457,12 +451,15 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- SEND SCHEDULE --- */    
     LWB_SEND_SCHED();
    
-    glossy_rssi     = glossy_get_rssi(0);
-    stats.relay_cnt = glossy_get_relay_cnt_first_rx();
-    t_slot_ofs      = (LWB_CONF_T_SCHED + LWB_CONF_T_GAP);
-    global_time     = schedule.time;
-    rx_timestamp    = t_start;
-        
+    if(IS_FIRST_SCHEDULE(&schedule)) {
+      glossy_rssi     = glossy_get_rssi(0);
+      stats.relay_cnt = glossy_get_relay_cnt_first_rx();
+      global_time     = schedule.time;
+      rx_timestamp    = t_start;
+      last_synced_lf  = t_start_lf;
+    }
+    t_slot_ofs = (LWB_CONF_T_SCHED + LWB_CONF_T_GAP);
+    
   #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
     xmem_wakeup();    

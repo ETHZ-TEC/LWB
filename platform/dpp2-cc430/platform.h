@@ -63,6 +63,9 @@
 #define COMPILER_VERSION_ENC        ((__GNUC__ << 10) + \
                                      (__GNUC_MINOR__ << 5) + \
                                      (__GNUC_PATCHLEVEL__))
+#define COMPILER_VERSION_32         (((uint32_t)__GNUC__ * 1000000) + \
+                                     ((uint32_t)__GNUC_MINOR__ * 1000) + \
+                                     (__GNUC_PATCHLEVEL__))
 #define COMPILER_INFO               __VERSION__   /* info string */
 #elif defined(__IAR_SYSTEMS_ICC__)
 #define COMPILER_DESC               "IAR"
