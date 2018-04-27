@@ -43,7 +43,7 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-#define NODE_ID                         1
+//#define NODE_ID                         1
 #define HOST_ID                         1
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
@@ -51,7 +51,7 @@
 /* --- Radio config --- */
 
 #define RF_CONF_TX_CH                   10                  /* CH10 = 870MHz */
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_MAX
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm //RF1A_TX_POWER_MAX
 
 
 /* --- Network parameters --- */
@@ -111,7 +111,7 @@
 
 /* --- MISC --- */
 
-#define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 2)
+#define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 10)
 #define WATCHDOG_CONF_ON                1
 #define RTIMER_CONF_LF_UPDATE_LED_ON    0
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */

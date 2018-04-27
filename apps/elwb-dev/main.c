@@ -124,6 +124,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
   PROCESS_BEGIN();
 
   /* --- initialization --- */
+  static uint8_t node_info_sent = 0;
 
   /* init the ADC */
   adc_init();
@@ -143,10 +144,6 @@ PROCESS_THREAD(app_proc_post, ev, data)
   
   /* enable the timestamp request interrupt */
   bolt_set_timereq_callback(capture_timestamp);
-
-  /* generate a node info message (will be sent out as soon as there is
-   * network connectivity) */
-  send_node_info();
 
   /* --- start of application main loop --- */
   while(1) {
@@ -169,15 +166,27 @@ PROCESS_THREAD(app_proc_post, ev, data)
       DEBUG_PRINT_INFO("%d msg rcvd from network", msg_cnt);
     }
     
-#if (NODE_ID != HOST_ID) || !TIMESYNC_HOST_RCV_UTC
+  #if (NODE_ID != HOST_ID) || !TIMESYNC_HOST_RCV_UTC
     /* --- send the timestamp if one has been requested --- */
     if(bolt_captured_trq) {
       send_timestamp(bolt_captured_trq);
       bolt_captured_trq = 0;
     }
-#else 
+  #else 
     update_time();
-#endif /* !TIMESYNC_HOST_RCV_UTC */
+  #endif /* !TIMESYNC_HOST_RCV_UTC */
+    
+    /* generate a node info message if necessary */
+    if(!node_info_sent) {
+  #if (NODE_ID != HOST_ID)
+      if(lwb_get_time(0)) { 
+  #else
+      if(!TIMESYNC_HOST_RCV_UTC || utc_time) {
+  #endif        
+        send_node_info();
+        node_info_sent = 1;
+      }
+    }
     
     /* --- generate a new health message if necessary --- */
     uint16_t div = lwb_get_time(0) / health_msg_period;

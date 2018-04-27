@@ -277,6 +277,7 @@ send_node_info(void)
     
   send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_NODE_INFO, (uint8_t*)&node_info, 0,
            HOST_ID == node_id);   /* host sends message towards BOLT */
+  DEBUG_PRINT_INFO("node info message generated");
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -299,9 +300,9 @@ send_node_health(void)
   health_data.temp = temp;
   health_data.vcc  = adc_get_vcc();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
-  health_data.stack = debug_print_get_max_stack_size();
-
-  rtimer_clock_t now      = rtimer_now_lf();
+  
+  health_data.stack         = debug_print_get_max_stack_size();
+  rtimer_clock_t now        = rtimer_now_lf();
 
   glossy_get_rssi(health_data.lwb_rssi);
   health_data.rf_snr        = glossy_get_snr();
@@ -316,7 +317,7 @@ send_node_health(void)
   health_data.lwb_rx_drop   = lwb_stats->rxbuf_drop; // - last_rx_drop;
   health_data.lwb_sleep_cnt = lwb_stats->sleep_cnt;
   health_data.lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
-  health_data.uptime        = now / RTIMER_SECOND_LF;
+  health_data.uptime        = now / RTIMER_SECOND_LF;   // convert to seconds
   health_data.lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() *100/325);
   health_data.lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx()  *100/325);
   
