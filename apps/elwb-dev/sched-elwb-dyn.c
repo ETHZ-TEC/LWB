@@ -143,7 +143,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   for(s = list_head(streams_list); s != 0; s = s->next) {
     if(req->id == s->id) {
       if(!s->state) {
-        n_streams++;
+        //n_streams++;
         s->state = 1;
       }
       s->n_pkts = req->reserved; /* # packets the node wants to send */
@@ -151,14 +151,14 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
     }
   }
   if(n_streams >= LWB_CONF_MAX_N_STREAMS) {
-    DEBUG_PRINT_WARNING("stream request from node %u dropped, max #streams "
-                        "reached", req->id);
+    DEBUG_PRINT_WARNING("request from node %u dropped, max #streams reached",
+                        req->id);
     return;
   } 
   /* does not exist: add the new stream */
   s = memb_alloc(&streams_memb);
   if(s == 0) {
-    DEBUG_PRINT_ERROR("out of memory: stream request dropped");
+    DEBUG_PRINT_ERROR("out of memory: request dropped");
     return;
   }
   s->id = req->id;
@@ -174,7 +174,7 @@ lwb_sched_proc_srq(const lwb_stream_req_t* req)
   }
   list_insert(streams_list, prev, s);
   n_streams++;
-  DEBUG_PRINT_INFO("stream of node %u added", req->id);
+  DEBUG_PRINT_INFO("node %u registered", req->id);
   /* no need to send a stream acknowledgement */
 }
 /*---------------------------------------------------------------------------*/
@@ -225,7 +225,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       sched_state = LWB_SCHED_STATE_IDLE;   /* stay in idle state */
     }
   } else if(sched_state == LWB_SCHED_STATE_CONT_DET) {
-    DEBUG_PRINT_VERBOSE("initiating a request round");
+    DEBUG_PRINT_VERBOSE("initiating request round");
     /* clear the content of the schedule */
     memset(sched->slot, 0, sizeof(sched->slot)); 
     /* every node gets one slot (a chance to request a stream) */
@@ -249,13 +249,16 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     /* clear the content of the schedule */
     memset(sched->slot, 0, sizeof(sched->slot)); 
     /* are there any streams? */
-    if(n_streams) {  
+    if(n_streams) {
+      uint16_t node_cnt = 0;
       /* go through the list of streams */
       lwb_stream_list_t *curr_stream = list_head(streams_list);
       while(curr_stream != NULL && 
             (n_slots_assigned < LWB_CONF_MAX_DATA_SLOTS)) {
         if(curr_stream->state) {
+          node_cnt++;
           uint8_t n = curr_stream->n_pkts;
+          DEBUG_PRINT_VERBOSE("%u slots for %u", n, curr_stream->id);
           /* assign as many slots as the node requested */
           while(n && (n_slots_assigned < LWB_CONF_MAX_DATA_SLOTS)) {
             sched->slot[n_slots_assigned++] = curr_stream->id;
@@ -265,6 +268,8 @@ lwb_sched_compute(lwb_schedule_t * const sched,
         /* go to the next stream in the list */
         curr_stream = curr_stream->next;
       }
+      DEBUG_PRINT_INFO("%u of %u nodes requested data slots", 
+                       node_cnt, n_streams);
     }
     sched->n_slots = n_slots_assigned;
     sched->period = (uint16_t)((uint32_t)period - 
@@ -278,7 +283,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     
   } else if(sched_state == LWB_SCHED_STATE_DATA) {    
     /* deactivate all streams (regardless of whether data was received) */
-    lwb_stream_list_t* curr_stream = NULL;
+    lwb_stream_list_t* curr_stream = list_head(streams_list);
     while(curr_stream != NULL) {
       curr_stream->state = 0;
       curr_stream = curr_stream->next;
@@ -307,7 +312,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   sched->time = time / LWB_PERIOD_SCALE;
      
   /* log the parameters of the new schedule */
-  DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u n=%u|%u len=%u)", 
+  DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u n=%u|%u l=%u)", 
                       n_streams, sched->period * (1000 / LWB_PERIOD_SCALE), 
                       n_slots_assigned, sched->n_slots >> 13, 
                       compressed_size);

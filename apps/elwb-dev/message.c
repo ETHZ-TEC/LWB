@@ -39,6 +39,7 @@
 uint64_t utc_time = 0;
 uint64_t utc_time_rx = 0;
 uint16_t health_msg_period = HEALTH_MSG_PERIOD;
+uint8_t  utc_time_updated = 0;
 
 
 #ifndef MIN
@@ -64,6 +65,13 @@ hexstr_to_dec(const char* str, uint8_t num_chars)
     str++;
   }
   return res;
+}
+/*---------------------------------------------------------------------------*/
+uint64_t
+utc_timestamp(void)
+{  
+  return utc_time + ((rtimer_now_lf() - utc_time_rx) *
+                     (1000000 / RTIMER_SECOND_LF));
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -99,7 +107,11 @@ send_msg(uint16_t recipient,
   } else {
     msg.header.seqnr         = seq_no_lwb++;
   }
+#if NODE_ID == HOST_ID
+  msg.header.generation_time = utc_timestamp();
+#else
   msg.header.generation_time = lwb_get_timestamp();
+#endif 
   
   /* copy the payload */
   if (msg.header.payload_len && data) {
@@ -187,12 +199,11 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
                       msg->cmd.type, msg->cmd.arg16[0]);*/
         forward = 1;  /* forward to BOLT */
       }
-#if TIMESYNC_HOST_RCV_UTC
+#if TIMESYNC_HOST_RCV_UTC && (NODE_ID == HOST_ID)
     } else if (msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
-      if(node_id == HOST_ID) {
-        utc_time    = msg->timestamp;
-        utc_time_rx = bolt_captured_trq;
-      } /* else: a source node does not handle this message type */
+      utc_time    = msg->timestamp;
+      utc_time_rx = bolt_captured_trq;
+      utc_time_updated = 1;
 #endif /* TIMESYNC_HOST_RCV_UTC */
 
     /* unknown message type */
@@ -204,6 +215,9 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         EVENT_WARNING(EVENT_CC430_MSG_IGNORED, msg->header.type);
       }
     }
+  } else {
+    /* target id is not this node */
+    forward = 1;
   }
   /* forward the message */
   if(forward) {
@@ -214,13 +228,14 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       /* queue is guaranteed to have at least one free spot (we check this 
         * before entering the wile loop */
       lwb_send_pkt(0, 1, (uint8_t*)msg, msg_len);
-      DEBUG_PRINT_INFO("BOLT msg forwarded to network (target: %u)",
-                       msg->header.target_id);
+      DEBUG_PRINT_INFO("BOLT msg forwarded to network (type: %u, dest: %u)",
+                       msg->header.type, msg->header.target_id);
       arg |= 0x02000000;
     } else {
       /* forward to BOLT */      
       bolt_write((uint8_t*)msg, msg_len);
-      DEBUG_PRINT_INFO("msg forwarded to BOLT (%uB)", msg_len);
+      DEBUG_PRINT_INFO("msg forwarded to BOLT (type: %u, len: %uB)", 
+                       msg->header.type, msg_len);
       arg |= 0x01000000;
     }
     EVENT_VERBOSE(EVENT_CC430_MSG_FORWARDED, arg);

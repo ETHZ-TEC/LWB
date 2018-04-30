@@ -57,6 +57,7 @@ void lwb_sched_set_period(uint16_t period);
 /* global variables */
 extern uint64_t utc_time;
 extern uint64_t utc_time_rx;  /* reception time of the UTC in local ticks */
+extern uint8_t  utc_time_updated;
 extern rtimer_clock_t bolt_captured_trq;
 extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
 extern uint16_t seq_no_bolt;

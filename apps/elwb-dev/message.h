@@ -35,6 +35,7 @@
 
 
 /* functions */
+uint64_t utc_timestamp(void);
 void send_timestamp(int64_t captured);
 void send_node_health(void);
 void send_node_info(void);

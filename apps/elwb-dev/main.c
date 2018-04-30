@@ -65,7 +65,7 @@ capture_timestamp(void)
 void
 update_time(void)
 {
-  if(utc_time_rx) {
+  if(utc_time_updated) {
     /* a UTC timestamp has been received -> update the network time */
     uint32_t elapsed = 0;
     /* adjust the timestamp to align with the next communication round 
@@ -76,13 +76,13 @@ update_time(void)
     } else {
       DEBUG_PRINT_WARNING("invalid timer value");
     }
+    DEBUG_PRINT_INFO("next: %llu, now: %llu, captured: %llu", next_round, rtimer_now_lf(), utc_time_rx);  //TODO remove
     /* convert to us */
     elapsed = elapsed * (1000000 / RTIMER_SECOND_LF);
-    utc_time += elapsed;
-    uint32_t new_time = (utc_time + 500000) / 1000000;
+    uint32_t new_time = (utc_time + elapsed) / 1000000;
     lwb_sched_set_time(new_time);
     DEBUG_PRINT_INFO("time updated to %lu (comp %lu)", new_time, elapsed);
-    utc_time_rx = 0;
+    utc_time_updated = 0;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -97,7 +97,7 @@ PROCESS_THREAD(app_proc_pre, ev, data)
     APP_TASK_ACTIVE;
     
     AFTER_DEEPSLEEP();    /* restore all clocks */
-          
+    
     /* --- read messages from the BOLT queue and forward them to the LWB --- */
     uint8_t  bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
     uint16_t msg_cnt = 0;
@@ -111,6 +111,10 @@ PROCESS_THREAD(app_proc_pre, ev, data)
     if(msg_cnt) {
       DEBUG_PRINT_INFO("%u message(s) read from BOLT", msg_cnt);
     }
+    
+  #if (NODE_ID == HOST_ID) && TIMESYNC_HOST_RCV_UTC
+    update_time();
+  #endif
   }
   
   PROCESS_END();
@@ -124,8 +128,9 @@ PROCESS_THREAD(app_proc_post, ev, data)
   PROCESS_BEGIN();
 
   /* --- initialization --- */
-  static uint8_t node_info_sent = 0;
 
+  static uint8_t node_info_sent = 0;
+  
   /* init the ADC */
   adc_init();
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
@@ -172,17 +177,15 @@ PROCESS_THREAD(app_proc_post, ev, data)
       send_timestamp(bolt_captured_trq);
       bolt_captured_trq = 0;
     }
-  #else 
-    update_time();
   #endif /* !TIMESYNC_HOST_RCV_UTC */
-    
-    /* generate a node info message if necessary */
+        
+    /* generate a node info message if necessary (must be here) */
     if(!node_info_sent) {
   #if (NODE_ID != HOST_ID)
       if(lwb_get_time(0)) { 
   #else
       if(!TIMESYNC_HOST_RCV_UTC || utc_time) {
-  #endif        
+  #endif
         send_node_info();
         node_info_sent = 1;
       }
