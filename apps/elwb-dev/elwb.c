@@ -76,6 +76,11 @@
 #define LWB_CONF_WRITE_TO_BOLT      0
 #endif /* LWB_CONF_WRITE_TO_BOLT */
 
+/* guard time used for the wakeup before the round (LF timer) */
+#ifndef LWB_CONF_T_GUARD_LF
+#define LWB_CONF_T_GUARD_LF         (LWB_CONF_T_GUARD / RTIMER_HF_LF_RATIO)
+#endif /* LWB_CONF_T_GUARD_LF */
+
 /* by default, forward all received packets to the app task on the source nodes
  * that originated from the host (or ID 0) */
 #ifndef LWB_CONF_SRC_PKT_FILTER
@@ -132,10 +137,6 @@ lwb_sync_state_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] =
 static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = {
   "BOOTSTRAP", "SYN", "USYN", "USYN2"
 };
-static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
-/*BOOTSTRAP,        SYNCED,           UNSYNCED,           UNSYNCED2 */
-  LWB_CONF_T_GUARD, LWB_CONF_T_GUARD, LWB_CONF_T_GUARD_1, LWB_CONF_T_GUARD_2
-};
 /*---------------------------------------------------------------------------*/
 #ifdef LWB_CONF_TASK_ACT_PIN
   #define LWB_TASK_RESUMED        PIN_CLR(LWB_CONF_TASK_ACT_PIN); \
@@ -161,7 +162,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
 {\
   glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule, payload_len, \
                LWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
-  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_SCHED + t_guard);\
+  LWB_WAIT_UNTIL(rt->time + LWB_CONF_T_SCHED + LWB_CONF_T_GUARD);\
   glossy_stop();\
 }   
 #define LWB_SEND_PACKET() \
@@ -178,7 +179,7 @@ static const uint32_t guard_time[NUM_OF_SYNC_STATES] = {
                payload_len, \
                LWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
-  LWB_WAIT_UNTIL(rt->time + t_slot + t_guard);\
+  LWB_WAIT_UNTIL(rt->time + t_slot + LWB_CONF_T_GUARD);\
   glossy_stop();\
 }
 /*---------------------------------------------------------------------------*/
@@ -207,12 +208,12 @@ static rtimer_clock_t   rx_timestamp;
 static uint32_t         global_time;
 static lwb_schedule_t   schedule;
 static uint8_t          schedule_len;
+static uint8_t          rf_channel = RF_CONF_TX_CH;
 static uint16_t         glossy_payload[(LWB_CONF_MAX_PKT_LEN + 1) / 2];
 static uint8_t          payload_len;
 static uint32_t         t_preprocess;
 static uint32_t         t_slot;
 static uint32_t         t_slot_ofs;
-static uint32_t         t_guard;
 static const void*      callback_func;
 static lwb_statistics_t stats = { 0 };
 static rtimer_clock_t   last_synced_lf;
@@ -420,7 +421,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   PT_BEGIN(&lwb_pt);
 
   callback_func = lwb_thread_host;
-  t_guard       = LWB_CONF_T_GUARD;      /* constant guard time for the host */
    
   while(1) {
   
@@ -503,7 +503,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             payload_len = LWB_CONF_SRQ_PKT_LEN;
           }
           /* wait until the data slot starts */
-          LWB_WAIT_UNTIL(t_start + t_slot_ofs - t_guard);
+          LWB_WAIT_UNTIL(t_start + t_slot_ofs - LWB_CONF_T_GUARD);
           LWB_RCV_PACKET();  /* receive a data packet */
           payload_len = glossy_get_payload_len();
           if(LWB_DATA_RCVD) {
@@ -549,7 +549,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
       payload_len = LWB_CONF_SRQ_PKT_LEN;
       glossy_payload[0] = 0;
       /* wait until the slot starts, then receive the packet */
-      LWB_WAIT_UNTIL(t_start + t_slot_ofs - t_guard);
+      LWB_WAIT_UNTIL(t_start + t_slot_ofs - LWB_CONF_T_GUARD);
       LWB_RCV_PACKET();
       if(LWB_DATA_RCVD && glossy_payload[0] != 0) {
         /* process the request only if there is a valid node ID */
@@ -696,11 +696,19 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
         LWB_AFTER_DEEPSLEEP();
         rt->time = rtimer_now_hf();
+        /* switch frequency and try again */
+        if(rf_channel == LWB_CONF_RF_CH_PRIMARY) {
+          rf_channel = LWB_CONF_RF_CH_SECONDARY;
+        } else {
+          rf_channel = LWB_CONF_RF_CH_PRIMARY;
+        }
+        rf1a_set_channel(rf_channel);
+        DEBUG_PRINT_MSG_NOW("RF channel switched to %u", rf_channel);
       }
     } else {
       LWB_RCV_SCHED();
     }
-    stats.glossy_snr = glossy_get_snr();
+    stats.glossy_snr = glossy_get_snr();       /* get SNR of schedule packet */
                    
   #if LWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
@@ -709,10 +717,8 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
 
     /* --- SYNC --- */
     
-    /* update the sync state machine (compute new sync state and update 
-     * t_guard) */
+    /* update the sync state machine */
     sync_state = next_state[GET_EVENT][sync_state];
-    t_guard = guard_time[sync_state];               /* adjust the guard time */
     if(sync_state == UNSYNCED) {
       stats.unsynced_cnt++;
     } else if(sync_state == BOOTSTRAP) {
@@ -809,7 +815,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
               payload_len = LWB_CONF_SRQ_PKT_LEN;
             }
             /* receive a data packet */
-            LWB_WAIT_UNTIL(t_ref + t_slot_ofs - t_guard);
+            LWB_WAIT_UNTIL(t_ref + t_slot_ofs - LWB_CONF_T_GUARD);
             LWB_RCV_PACKET();
             payload_len = glossy_get_payload_len();
             /* forward the packet to the application task if the initiator was
@@ -850,7 +856,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         } else {
           /* no request pending -> just receive / relay packets */
           payload_len = LWB_CONF_SRQ_PKT_LEN;
-          LWB_WAIT_UNTIL(t_ref + t_slot_ofs - t_guard);
+          LWB_WAIT_UNTIL(t_ref + t_slot_ofs - LWB_CONF_T_GUARD);
           LWB_RCV_PACKET();
         }
         t_slot_ofs += LWB_CONF_T_CONT + LWB_CONF_T_GAP;
@@ -859,7 +865,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
       
         /* only rcv the 2nd schedule if there was a contention slot */
         payload_len = 2;  /* we expect exactly 2 bytes */
-        LWB_WAIT_UNTIL(t_ref + t_slot_ofs - t_guard);
+        LWB_WAIT_UNTIL(t_ref + t_slot_ofs - LWB_CONF_T_GUARD);
         LWB_RCV_PACKET();
         if(LWB_DATA_RCVD) {
           uint16_t new_period = glossy_payload[0];
@@ -907,7 +913,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     /* schedule the wakeup for the next round */
     LWB_LF_WAIT_UNTIL(t_ref_lf + (schedule.period * RTIMER_SECOND_LF) /
                       LWB_PERIOD_SCALE - 
-                      (t_guard / RTIMER_HF_LF_RATIO) - t_preprocess);
+                      LWB_CONF_T_GUARD_LF - t_preprocess);
   }
 
   PT_END(&lwb_pt);

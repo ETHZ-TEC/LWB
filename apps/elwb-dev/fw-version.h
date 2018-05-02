@@ -34,26 +34,37 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0003
+#define FW_VERSION      0x0004
 #define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
 
 /*
 
-todo:
+TODO:
 - bug: host potentially sends a health message at the beginning with an invalid
        timestamp
 - inconsistency: network timestamp in schedule will jump, so last - current
                  time will not be equal to the round period
 
+Feature requests:
+- 
+
 
 Revision History
 ----------------
+
+Version 0.4 (2018-05-02):
+- feature: automatically switch RF channel if bootstrap times out
+- feature: host prints list of host nodes after a data dissemination round
+- change: now only 2 guard times, one for HF and one for LF timer
+- change: timestamp is only adjusted if the jump is > 5 seconds
+- change: schedule slot, contention slot and guard times increased
+- change: LWB_PERIOD_T_DATA is now calculated dynamically in the scheduler
 
 Version 0.3 (2018-04-30):
 - bugfix: host would not reset streams to inactive after a data round
 
 Version 0.2 (2018-04-27):
-- UTC timestamp now distributed over network (LWB schedule)
+- feature: UTC timestamp now distributed over network (LWB schedule)
 - bugfix: node info msg from host sometimes had an invalid timestamp (1970)
 
 Version 0.1 (2018-04-06):

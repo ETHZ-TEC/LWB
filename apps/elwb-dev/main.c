@@ -53,6 +53,7 @@ uint16_t seq_no_bolt = 0;
 config_t cfg;
 static uint32_t last_health_pkt = 0;
 static uint16_t max_stack_size = 0;
+//static uint8_t  rf_tx_pwr = RF_CONF_TX_POWER;
 /*---------------------------------------------------------------------------*/
 void
 capture_timestamp(void)
@@ -76,12 +77,25 @@ update_time(void)
     } else {
       DEBUG_PRINT_WARNING("invalid timer value");
     }
-    DEBUG_PRINT_INFO("next: %llu, now: %llu, captured: %llu", next_round, rtimer_now_lf(), utc_time_rx);  //TODO remove
     /* convert to us */
     elapsed = elapsed * (1000000 / RTIMER_SECOND_LF);
     uint32_t new_time = (utc_time + elapsed) / 1000000;
-    lwb_sched_set_time(new_time);
-    DEBUG_PRINT_INFO("time updated to %lu (comp %lu)", new_time, elapsed);
+    uint32_t curr_time = lwb_get_time(0);
+    /* only update if the difference is much larger than 1 second */
+    uint16_t diff;
+    if(new_time > curr_time) {
+      diff = new_time - curr_time;
+    } else {
+      diff = curr_time - new_time;
+    }
+    uint16_t period = lwb_sched_get_period();
+    if(diff > (period + 5)) {
+      DEBUG_PRINT_INFO("timestamp adjusted to %lu", new_time);
+      lwb_sched_set_time(new_time);
+    } else {
+      DEBUG_PRINT_INFO("timestamp: %lu, drift: %u", 
+                       new_time, diff - period);
+    }
     utc_time_updated = 0;
   }
 }
@@ -158,11 +172,10 @@ PROCESS_THREAD(app_proc_post, ev, data)
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     APP_TASK_ACTIVE;
         
-    /* --- process messages received via network --- */
     dpp_message_t msg;
     uint16_t msg_cnt = 0;
 
-    /* --- process all packets received from the network (forward to BOLT) --- */
+    /* --- process all packets rcvd from the network (forward to BOLT) --- */
     while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
       process_message(&msg, 0);
       msg_cnt++;
@@ -178,7 +191,21 @@ PROCESS_THREAD(app_proc_post, ev, data)
       bolt_captured_trq = 0;
     }
   #endif /* !TIMESYNC_HOST_RCV_UTC */
-        
+  
+    /* adjust the TX power */
+    /*uint16_t snr = lwb_get_stats()->glossy_snr;
+    if(snr > 0) {   // SNR valid?
+      if(snr > 50 && rf_tx_pwr > 0) {
+        rf_tx_pwr--;
+        rf1a_set_tx_power(rf_tx_pwr);
+        DEBUG_PRINT_INFO("TX power reduced");
+      } else if (snr < 20 && rf_tx_pwr < RF1A_TX_POWER_MAX) {
+        rf_tx_pwr++;
+        rf1a_set_tx_power(rf_tx_pwr);
+        DEBUG_PRINT_INFO("TX power increased");
+      }
+    }*/
+    
     /* generate a node info message if necessary (must be here) */
     if(!node_info_sent) {
   #if (NODE_ID != HOST_ID)
@@ -206,7 +233,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
       max_stack_size = stack_size;
       DEBUG_PRINT_INFO("stack size: %uB, max %uB", (SRAM_START + SRAM_SIZE) -
                                             (uint16_t)&stack_size, stack_size);
-    }    
+    }
     
     /* --- poll the debug task --- */
     debug_print_poll();

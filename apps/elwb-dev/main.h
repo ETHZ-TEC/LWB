@@ -53,6 +53,7 @@ typedef struct {
 
 /* the static scheduler implements the following function: */
 void lwb_sched_set_period(uint16_t period);
+uint16_t lwb_sched_get_period(void);
 
 /* global variables */
 extern uint64_t utc_time;

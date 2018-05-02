@@ -43,15 +43,18 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-#define NODE_ID                         1
+//#define NODE_ID                         1
 #define HOST_ID                         1
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
 /* --- Radio config --- */
 
-#define RF_CONF_TX_CH                   10                  /* CH10 = 870MHz */
+#define LWB_CONF_RF_CH_PRIMARY          10                  /* CH10 = 870MHz */
+#define LWB_CONF_RF_CH_SECONDARY        8
+#define RF_CONF_TX_CH                   LWB_CONF_RF_CH_PRIMARY
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm //RF1A_TX_POWER_MAX
+#define RF_CONF_MAX_PKT_LEN             128
 
 
 /* --- Network parameters --- */
@@ -64,17 +67,18 @@
 /* --- LWB / eLWB config --- */
 
 #define LWB_CONF_SCHED_PERIOD_IDLE      15            /* period T in seconds */
-#define LWB_CONF_MAX_DATA_SLOTS         20    /* max. # data slots per round */
-#define LWB_CONF_MAX_N_STREAMS          10      /* = max. # nodes in network */
+#define LWB_CONF_MAX_DATA_SLOTS         40    /* max. # data slots per round */
+#define LWB_CONF_MAX_N_STREAMS          20      /* = max. # nodes in network */
 /* packet and buffer size */
-#define LWB_CONF_MAX_PKT_LEN            (128 - 7)  /* subtract RF&Glossy hdr */
+#define LWB_CONF_MAX_PKT_LEN            (128 - 4)     /* subtract Glossy hdr */
 #define LWB_CONF_IN_BUFFER_SIZE         5  //LWB_CONF_MAX_DATA_SLOTS
 #define LWB_CONF_OUT_BUFFER_SIZE        5  //LWB_CONF_MAX_DATA_SLOTS
 /* timings */
-#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 250)      /* 4ms */
-#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 125)      /* 8ms */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200)      /* 5ms */
+#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 50)      /* 20ms */
 #define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500)      /* 2ms */
-#define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 4000)
+#define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 2000)   /* 0.5ms */
+#define LWB_CONF_T_GUARD_LF             (RTIMER_SECOND_LF / 1000)     /* 1ms */
 #define LWB_CONF_T_REF_OFS              3822 /* measured with logic analyzer */
 #define LWB_CONF_T_SILENT               (120 * RTIMER_SECOND_HF)     /* 2min */
 #define LWB_CONF_T_DEEPSLEEP            (RTIMER_SECOND_LF * 1800)   /* 30min */
@@ -144,7 +148,7 @@
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
 #define LWB_CONF_TASK_ACT_PIN           COM_GPIO2
-//#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
+#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                      COM_MCU_INT2
