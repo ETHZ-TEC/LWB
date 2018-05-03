@@ -83,18 +83,18 @@ update_time(void)
     uint32_t curr_time = lwb_get_time(0);
     /* only update if the difference is much larger than 1 second */
     uint16_t diff;
+    curr_time += lwb_sched_get_period();
     if(new_time > curr_time) {
       diff = new_time - curr_time;
     } else {
       diff = curr_time - new_time;
     }
-    uint16_t period = lwb_sched_get_period();
-    if(diff > (period + 5)) {
-      DEBUG_PRINT_INFO("timestamp adjusted to %lu", new_time);
+    if(diff > UTC_TIMESTAMP_MAX_DRIFT) {
       lwb_sched_set_time(new_time);
+      DEBUG_PRINT_INFO("timestamp adjusted to %lu", new_time);
+      EVENT_INFO(EVENT_CC430_TIME_UPDATED, diff);
     } else {
-      DEBUG_PRINT_INFO("timestamp: %lu, drift: %u", 
-                       new_time, diff - period);
+      DEBUG_PRINT_INFO("timestamp: %lu, drift: %u", new_time, diff);
     }
     utc_time_updated = 0;
   }
@@ -216,15 +216,17 @@ PROCESS_THREAD(app_proc_post, ev, data)
         send_node_info();
         node_info_sent = 1;
       }
-    }
+    } else {
+      /* only send other messages once the node info msg has been sent! */
     
-    /* --- generate a new health message if necessary --- */
-    uint16_t div = lwb_get_time(0) / health_msg_period;
-    if(div != last_health_pkt) {
-      /* using a divider instead of the elapsed time will group the health
-       * messages of all nodes together into one round */
-      send_node_health();
-      last_health_pkt = div;
+      /* --- generate a new health message if necessary --- */
+      uint16_t div = lwb_get_time(0) / health_msg_period;
+      if(div != last_health_pkt) {
+        /* using a divider instead of the elapsed time will group the health
+        * messages of all nodes together into one round */
+        send_node_health();
+        last_health_pkt = div;
+      }
     }
     
     /* --- debugging --- */

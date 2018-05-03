@@ -43,17 +43,17 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-//#define NODE_ID                         1
-#define HOST_ID                         1
+#define NODE_ID                         21
+#define HOST_ID                         21
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
 /* --- Radio config --- */
 
-#define LWB_CONF_RF_CH_PRIMARY          10                  /* CH10 = 870MHz */
-#define LWB_CONF_RF_CH_SECONDARY        8
+#define LWB_CONF_RF_CH_PRIMARY          8 //10             /* CH10 = 870MHz */
+#define LWB_CONF_RF_CH_SECONDARY        10
 #define RF_CONF_TX_CH                   LWB_CONF_RF_CH_PRIMARY
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm //RF1A_TX_POWER_MAX
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm //MAX
 #define RF_CONF_MAX_PKT_LEN             128
 
 
@@ -70,7 +70,7 @@
 #define LWB_CONF_MAX_DATA_SLOTS         40    /* max. # data slots per round */
 #define LWB_CONF_MAX_N_STREAMS          20      /* = max. # nodes in network */
 /* packet and buffer size */
-#define LWB_CONF_MAX_PKT_LEN            (128 - 4)     /* subtract Glossy hdr */
+#define LWB_CONF_MAX_PKT_LEN            (128 - 2)     /* subtract Glossy hdr */
 #define LWB_CONF_IN_BUFFER_SIZE         5  //LWB_CONF_MAX_DATA_SLOTS
 #define LWB_CONF_OUT_BUFFER_SIZE        5  //LWB_CONF_MAX_DATA_SLOTS
 /* timings */
@@ -116,6 +116,8 @@
 /* --- MISC --- */
 
 #define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 10)
+#define UTC_TIMESTAMP_MAX_DRIFT         5  /* for host only, allowed drift 
+                                            before time is adjusted (= jump) */
 #define WATCHDOG_CONF_ON                1
 #define RTIMER_CONF_LF_UPDATE_LED_ON    0
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
@@ -148,7 +150,7 @@
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
 #define LWB_CONF_TASK_ACT_PIN           COM_GPIO2
-#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
+//#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                      COM_MCU_INT2

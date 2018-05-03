@@ -238,7 +238,6 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
                        msg->header.type, msg_len);
       arg |= 0x01000000;
     }
-    EVENT_VERBOSE(EVENT_CC430_MSG_FORWARDED, arg);
   }
 }
 /*---------------------------------------------------------------------------*/

@@ -56,7 +56,7 @@
 #endif
 
 /*---------------------------------------------------------------------------*/
-#define LWB_PERIOD_SCALE                100   /* also change in sched-elwb.c */
+#define LWB_PERIOD_SCALE          100   /* must be same as in the scheduler! */
 
 #if LWB_CONF_HEADER_LEN != 0
 #error "LWB_CONF_HEADER_LEN must be set to 0!"
@@ -64,7 +64,7 @@
 
 /* expected packet length of a slot request */         
 #ifndef LWB_CONF_SRQ_PKT_LEN
-#define LWB_CONF_SRQ_PKT_LEN        2 
+#define LWB_CONF_SRQ_PKT_LEN      2 
 #endif /* LWB_CONF_SRQ_PKT_LEN */
 
 #if LWB_CONF_SRQ_PKT_LEN != 2
@@ -73,12 +73,16 @@
 
 /* set to 1 to directly forward all received messages to BOLT */
 #ifndef LWB_CONF_WRITE_TO_BOLT
-#define LWB_CONF_WRITE_TO_BOLT      0
+#define LWB_CONF_WRITE_TO_BOLT    0
 #endif /* LWB_CONF_WRITE_TO_BOLT */
+
+#if LWB_CONF_WRITE_TO_BOLT && !BOLT_CONF_ON
+#error "LWB_CONF_WRITE_TO_BOLT requires BOLT to be enabled!"
+#endif
 
 /* guard time used for the wakeup before the round (LF timer) */
 #ifndef LWB_CONF_T_GUARD_LF
-#define LWB_CONF_T_GUARD_LF         (LWB_CONF_T_GUARD / RTIMER_HF_LF_RATIO)
+#define LWB_CONF_T_GUARD_LF       (LWB_CONF_T_GUARD / RTIMER_HF_LF_RATIO)
 #endif /* LWB_CONF_T_GUARD_LF */
 
 /* by default, forward all received packets to the app task on the source nodes

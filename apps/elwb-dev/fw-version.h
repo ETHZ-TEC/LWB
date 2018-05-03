@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0004
+#define FW_VERSION      0x0005
 #define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -51,6 +51,9 @@ Feature requests:
 
 Revision History
 ----------------
+
+Version 0.5 (2018-05-03):   --- IN DEVELOPMENT ---
+- feature: event msg is generated whenever the local time was adjusted
 
 Version 0.4 (2018-05-02):
 - feature: automatically switch RF channel if bootstrap times out
