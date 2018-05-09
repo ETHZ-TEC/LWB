@@ -204,10 +204,7 @@
   #define LWB_CONF_MAX_PKT_LEN          (RF_CONF_MAX_PKT_LEN - \
                                          GLOSSY_MAX_HEADER_LEN)
  #else /* RF_CONF_MAX_PKT_LEN */
-/* the max. length of a packet (limits the message size as well as the max. 
-   * size of a LWB packet and the schedule); do not change this value before
-   * you have adjusted the radio module configuration! */
-  #define LWB_CONF_MAX_PKT_LEN          123
+  #define LWB_CONF_MAX_PKT_LEN          126
  #endif /* RF_CONF_MAX_PKT_LEN */
 #endif /* LWB_CONF_MAX_PKT_LEN */
 
@@ -304,8 +301,7 @@
 #endif /* RF_CONF_TX_BITRATE */
 
 #ifndef RF_CONF_MAX_PKT_LEN
-/* +1 seems to be necessary... maybe the length byte counts, too? */
-#define RF_CONF_MAX_PKT_LEN  (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN + 1)
+#define RF_CONF_MAX_PKT_LEN      (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
 #endif /* RF_CONF_MAX_PKT_LEN */
 
 /* Note: if RF_CONF_MAX_PKT_LEN is <= 61, then the whole packet will fit into
