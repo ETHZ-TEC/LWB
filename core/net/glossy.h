@@ -67,7 +67,7 @@
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
 /* max. header length (with sync) */
-#define GLOSSY_MAX_HEADER_LEN                   4
+#define GLOSSY_MAX_HEADER_LEN                   2
 
 
 enum {
@@ -183,21 +183,13 @@ int8_t glossy_get_snr(void);
 
 /**
  * @brief get the average RSSI value of the last flood
- * @param out rssi optional parameter, returns the individual RSSI values
- * (buffer must be able to hold 3 bytes!)
  */
-int8_t glossy_get_rssi(int8_t* rssi);
+int8_t glossy_get_rssi(void);
 
 /**
  * @brief get the relay count of the first received packet
  */
 uint8_t glossy_get_relay_cnt_first_rx(void);
-
-/**
- * @brief get the relay count of the last 3 packets (last flood)
- * @return 3x 4 bits (relay counter of the received packets)
- */
-uint16_t glossy_get_relay_cnt(void);
 
 /**
  * @brief get the packet error rate/ratio in percentages * 100
@@ -227,14 +219,20 @@ uint32_t glossy_get_n_pkts_crcok(void);
 uint16_t glossy_get_n_errors();
 
 /**
- * @brief get the duration of the last flood, in HF clock ticks
+ * @brief get the duration of the last flood (with sync), in HF clock ticks
  */
 uint32_t glossy_get_flood_duration(void);
 
 /**
- * @brief get the time to the first RX (since glossy_start), in HF clock ticks
+ * @brief get the time to the first RX (since glossy_start) of the last flood
+ * (with sync), in HF clock ticks
  */
 uint32_t glossy_get_t_to_first_rx(void);
+
+/**
+ * @brief reset all statistics values
+ */
+void glossy_reset_stats(void);
 
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
