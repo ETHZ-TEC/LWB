@@ -38,6 +38,7 @@
 uint64_t utc_timestamp(void);
 void send_timestamp(int64_t captured);
 void send_node_health(void);
+void send_lwb_health(void);
 void send_node_info(void);
 void send_msg(uint16_t recipient,
               dpp_message_type_t type,

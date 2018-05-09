@@ -46,14 +46,19 @@ TODO:
                  time will not be equal to the round period
 
 Feature requests:
-- 
+- data acks
 
 
 Revision History
 ----------------
 
-Version 0.5 (2018-05-03):   --- IN DEVELOPMENT ---
+Version 0.6 (--- IN DEVELOPMENT ---):
+- 
+
+Version 0.5 (2018-05-09):
 - feature: event msg is generated whenever the local time was adjusted
+- feature: separate duty cycle stats for radio RX and TX
+- change: dpp_com_health_t adjusted and new type DPP_MSG_TYPE_LWB_HEALTH added
 
 Version 0.4 (2018-05-02):
 - feature: automatically switch RF channel if bootstrap times out

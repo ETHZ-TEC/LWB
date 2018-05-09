@@ -41,6 +41,8 @@ uint64_t utc_time_rx = 0;
 uint16_t health_msg_period = HEALTH_MSG_PERIOD;
 uint8_t  utc_time_updated = 0;
 
+static uint16_t rcvd_msg_cnt = 0;
+
 
 #ifndef MIN
 #define MIN(x,y)    (((x) < (y)) ? (x) : (y))
@@ -95,6 +97,8 @@ send_msg(uint16_t recipient,
       msg.header.payload_len = sizeof(dpp_node_info_t); break;
     case DPP_MSG_TYPE_TIMESYNC:
       msg.header.payload_len = sizeof(dpp_timestamp_t); break;
+    case DPP_MSG_TYPE_LWB_HEALTH:
+      msg.header.payload_len = sizeof(dpp_lwb_health_t); break;
     default:
       msg.header.payload_len = 0; break;
     }
@@ -128,9 +132,9 @@ send_msg(uint16_t recipient,
     DEBUG_PRINT_VERBOSE("msg written to BOLT");
   } else {
     if(!lwb_send_pkt(recipient, 1, (uint8_t*)&msg, msg_len)) {
-      DEBUG_PRINT_INFO("msg dropped (queue full)");
+      DEBUG_PRINT_INFO("msg dropped (TX queue full)");
     } else {
-      DEBUG_PRINT_INFO("msg for node %u queued for TX", recipient);
+      DEBUG_PRINT_INFO("msg added to TX queue");
     }
   }
 }
@@ -159,6 +163,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   /* only process the message if target ID matched the node ID */
   uint16_t forward = (msg->header.target_id == DPP_DEVICE_ID_BROADCAST);
   if(msg->header.target_id == node_id || forward) {
+    rcvd_msg_cnt++;
     if(msg->header.type == DPP_MSG_TYPE_CMD) {
       DEBUG_PRINT_VERBOSE("command received");
       uint8_t successful = 0;
@@ -297,55 +302,50 @@ send_node_info(void)
 void
 send_node_health(void)
 {
+  static uint8_t   tx_dropped_last = 0,
+                   rx_dropped_last = 0;
   dpp_com_health_t health_data;
-  
-  static int16_t          temp = 0;
-#if ENERGEST_CONF_ON
-  static rtimer_clock_t   last_energest_rst = 0;
-#endif /* ENERGEST_CONF_ON */
   const lwb_statistics_t* lwb_stats = lwb_get_stats();
 
+  /* collect ADC values */
   while(REFCTL0 & REFGENBUSY);
   REFCTL0 |= REFON;
   while(REFCTL0 & REFGENBUSY);
   __delay_cycles(MCLK_SPEED / 25000);      /* let REF settle */
-
-  temp = (temp + adc_get_temp()) / 2;      /* moving average (LP filter) */
-  health_data.temp = temp;
-  health_data.vcc  = adc_get_vcc();
-  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
+  health_data.core_temp     = adc_get_temp();
+  health_data.core_vcc      = adc_get_vcc();
+  REFCTL0 &= ~REFON;                   /* shut down REF module to save power */
   
-  health_data.stack         = debug_print_get_max_stack_size();
   rtimer_clock_t now        = rtimer_now_lf();
-
-  glossy_get_rssi(health_data.lwb_rssi);
-  health_data.rf_snr        = glossy_get_snr();
-  health_data.lwb_rx_cnt    = glossy_get_n_pkts_crcok();
-  health_data.rf_per        = glossy_get_per();
-  health_data.lwb_n_rx_hops = glossy_get_n_rx() |
-                              (glossy_get_relay_cnt() << 4);
-  health_data.lwb_fsr       = glossy_get_fsr();
-  health_data.lwb_tx_buf    = lwb_get_send_buffer_state();
-  health_data.lwb_rx_buf    = lwb_get_rcv_buffer_state();
-  health_data.lwb_tx_drop   = lwb_stats->txbuf_drop; // - last_tx_drop;
-  health_data.lwb_rx_drop   = lwb_stats->rxbuf_drop; // - last_rx_drop;
-  health_data.lwb_sleep_cnt = lwb_stats->sleep_cnt;
-  health_data.lwb_bootstrap_cnt = lwb_stats->bootstrap_cnt;
-  health_data.uptime        = now / RTIMER_SECOND_LF;   // convert to seconds
-  health_data.lwb_t_flood   = (uint16_t)(glossy_get_flood_duration() *100/325);
-  health_data.lwb_t_to_rx   = (uint16_t)(glossy_get_t_to_first_rx()  *100/325);
+  health_data.uptime        = now / RTIMER_SECOND_LF;  /* convert to seconds */
+  health_data.msg_cnt       = rcvd_msg_cnt;
+  rcvd_msg_cnt              = 0;                       /* reset */
+  health_data.stack         = debug_print_get_max_stack_size() * 100 /
+                              (SRAM_END - DEBUG_CONF_STACK_GUARD - 7);
+  health_data.radio_snr     = lwb_stats->glossy_snr;  
+  health_data.radio_rssi    = (uint8_t)(-glossy_get_rssi());
+  health_data.radio_tx_pwr  = rf1a_tx_power_val[RF_CONF_TX_POWER];
+  health_data.radio_per     = glossy_get_per();  
+  health_data.rx_cnt        = lwb_stats->pck_cnt;
+                              //glossy_get_n_pkts_crcok();
+  health_data.tx_queue      = lwb_get_send_buffer_state();
+  health_data.rx_queue      = lwb_get_rcv_buffer_state();
+  health_data.tx_dropped    = lwb_stats->txbuf_drop - tx_dropped_last;
+  tx_dropped_last = lwb_stats->txbuf_drop;
+  health_data.rx_dropped    = lwb_stats->rxbuf_drop - rx_dropped_last;
+  rx_dropped_last = lwb_stats->rxbuf_drop;
   
-  /* test value (can be changed in the future for debug purposes) */
-  health_data.test          = lwb_stats->drift;
-
   /* duty cycle */
 #if ENERGEST_CONF_ON
+  static rtimer_clock_t   last_energest_rst = 0;
   health_data.cpu_dc        = (uint16_t)
                               (energest_type_time(ENERGEST_TYPE_CPU) *
                               1000 / (now - last_energest_rst));
-  health_data.rf_dc         = (uint16_t)
-                              ((energest_type_time(ENERGEST_TYPE_TRANSMIT) +
-                              energest_type_time(ENERGEST_TYPE_LISTEN)) *
+  health_data.radio_rx_dc   = (uint16_t)
+                              (energest_type_time(ENERGEST_TYPE_LISTEN) *
+                              1000 / (now - last_energest_rst));
+  health_data.radio_tx_dc   = (uint16_t)
+                              (energest_type_time(ENERGEST_TYPE_TRANSMIT) *
                               1000 / (now - last_energest_rst));
   last_energest_rst  = now;
   energest_type_set(ENERGEST_TYPE_CPU, 0);
@@ -354,7 +354,9 @@ send_node_health(void)
 #else  /* ENERGEST_CONF_ON */
   DCSTAT_CPU_OFF;
   health_data.cpu_dc        = DCSTAT_CPU_DC;
-  health_data.rf_dc         = DCSTAT_RF_DC;
+  //health_data.radio_dc    = DCSTAT_RF_DC;
+  health_data.radio_rx_dc   = DCSTAT_RFRX_DC;
+  health_data.radio_tx_dc   = DCSTAT_RFTX_DC;
   DCSTAT_RESET;
   DCSTAT_CPU_ON;
 #endif /* ENERGEST_CONF_ON */
@@ -364,5 +366,36 @@ send_node_health(void)
            (const uint8_t*)&health_data, 0, node_id == HOST_ID); 
   
   DEBUG_PRINT_INFO("health msg generated");
+}
+/*---------------------------------------------------------------------------*/
+void
+send_lwb_health(void)
+{
+  static uint16_t max_hops = 0;
+  const lwb_statistics_t* lwb_stats = lwb_get_stats();
+
+  dpp_lwb_health_t health_data;
+  health_data.sleep_cnt     = lwb_stats->sleep_cnt;
+  health_data.bootstrap_cnt = lwb_stats->bootstrap_cnt;
+  health_data.fsr           = glossy_get_fsr();
+  health_data.t_to_rx       = (uint16_t)(glossy_get_t_to_first_rx()  *100/325);
+  health_data.t_flood       = (uint16_t)(glossy_get_flood_duration() *100/325);
+  health_data.n_tx          = glossy_get_n_tx();
+  health_data.n_rx          = glossy_get_n_rx();
+  health_data.n_hops        = lwb_stats->relay_cnt;
+  if(lwb_stats->relay_cnt > max_hops) {
+    max_hops                = lwb_stats->relay_cnt;
+  }
+  health_data.n_hops_max  = max_hops;
+
+  //TODO: add     lwb_stats->unsynced_cnt
+  //TODO: add     lwb_stats->drift
+
+  glossy_reset_stats();
+    
+  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_LWB_HEALTH,
+           (const uint8_t*)&health_data, 0, node_id == HOST_ID); 
+  
+  DEBUG_PRINT_INFO("LWB health msg generated");
 }
 /*---------------------------------------------------------------------------*/

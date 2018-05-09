@@ -225,6 +225,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
         /* using a divider instead of the elapsed time will group the health
         * messages of all nodes together into one round */
         send_node_health();
+        send_lwb_health();
         last_health_pkt = div;
       }
     }

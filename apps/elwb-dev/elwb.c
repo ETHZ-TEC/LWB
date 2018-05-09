@@ -420,7 +420,6 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static rtimer_clock_t t_start_lf;
   static uint16_t curr_period = 0;
   static uint16_t srq_cnt = 0;
-  static int8_t glossy_rssi = 0;
   
   PT_BEGIN(&lwb_pt);
 
@@ -449,18 +448,18 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- COMMUNICATION ROUND STARTS --- */
         
     t_start_lf = rt->time; 
-    rt->time = rtimer_now_hf();    
+    rt->time = rtimer_now_hf();
     t_start = rt->time;
 
     /* --- SEND SCHEDULE --- */    
     LWB_SEND_SCHED();
    
     if(IS_FIRST_SCHEDULE(&schedule)) {
-      glossy_rssi     = glossy_get_rssi(0);
-      stats.relay_cnt = glossy_get_relay_cnt_first_rx();
-      global_time     = schedule.time;
-      rx_timestamp    = t_start;
-      last_synced_lf  = t_start_lf;
+      stats.glossy_snr = glossy_get_rssi(); /* use this field */
+      stats.relay_cnt  = glossy_get_relay_cnt_first_rx();
+      global_time      = schedule.time;
+      rx_timestamp     = t_start;
+      last_synced_lf   = t_start_lf;
     }
     t_slot_ofs = (LWB_CONF_T_SCHED + LWB_CONF_T_GAP);
     
@@ -588,7 +587,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     
     /* --- COMMUNICATION ROUND ENDS --- */
     /* time for other computations */
-                
+    
     /* poll the other processes to allow them to run after the LWB task was 
      * suspended (note: the polled processes will be executed in the inverse
      * order they were started/created) */
@@ -602,7 +601,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
                        srq_cnt, 
                        stats.pck_cnt,
                        glossy_get_per(),
-                       glossy_rssi);
+                       stats.glossy_snr);
       
     #if LWB_CONF_USE_XMEM
       /* make sure the xmem task has a chance to run, yield for T_GAP */
@@ -712,6 +711,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     } else {
       LWB_RCV_SCHED();
     }
+    /* collect some stats of the schedule flood */
     stats.glossy_snr = glossy_get_snr();       /* get SNR of schedule packet */
                    
   #if LWB_CONF_USE_XMEM
@@ -795,7 +795,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++) {
           if(schedule.slot[i] == node_id) {
             node_registered = 1;
-            stats.t_slot_last = schedule.time;
             /* this is our data slot, send a data packet */
             if(!FIFO_EMPTY(&out_buffer)) {
               if(IS_DATA_ROUND(&schedule)) {
@@ -888,13 +887,12 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     
     if(IS_STATE_IDLE(&schedule)) {
       /* print out some stats (note: takes ~2ms to compose this string!) */
-      DEBUG_PRINT_INFO("%s %lu T=%u n=%u tp=%u p=%u r=%u b=%u "
+      DEBUG_PRINT_INFO("%s %lu T=%u n=%u p=%u h=%u b=%u "
                        "u=%u per=%d snr=%ddbm dr=%d", 
                        lwb_sync_state_to_string[sync_state],
                        schedule.time, 
                        schedule.period * (1000 / LWB_PERIOD_SCALE), 
-                       LWB_SCHED_N_SLOTS(&schedule), 
-                       stats.t_proc_max,
+                       LWB_SCHED_N_SLOTS(&schedule),
                        stats.pck_cnt,
                        stats.relay_cnt, 
                        stats.bootstrap_cnt, 

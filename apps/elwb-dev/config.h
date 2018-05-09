@@ -43,7 +43,7 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-#define NODE_ID                         21
+//#define NODE_ID                         21
 #define HOST_ID                         21
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
