@@ -95,12 +95,12 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
                    GLOSSY_WITH_RF_CAL);
       WAIT_UNTIL(rt->time + GLOSSY_T_SLOT);
       glossy_stop();
-      if(glossy_get_rssi(0) != 0) {
-        avg_rssi += glossy_get_rssi(0);
+      if(glossy_get_rssi() != 0) {
+        avg_rssi += glossy_get_rssi();
         rssi_cnt++;
       }
       DEBUG_PRINT_INFO("packet sent, rssi=%ddBm last_rssi=%ddBm avg=%ddBm", 
-                       glossy_get_rssi(0), rf1a_get_last_packet_rssi(), 
+                       glossy_get_rssi(), rf1a_get_last_packet_rssi(), 
                        (int16_t)(avg_rssi / MAX(1, rssi_cnt)));
             
       debug_print_poll();

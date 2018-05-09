@@ -610,7 +610,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     global_time  = schedule.time;
     rx_timestamp = glossy_get_t_ref();
 
-    glossy_rssi = glossy_get_rssi(0);
+    glossy_rssi = glossy_get_rssi();
     slot_idx    = 0;     /* reset the packet counter */
 
 #if LWB_CONF_USE_XMEM

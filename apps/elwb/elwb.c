@@ -494,7 +494,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     /* --- SEND SCHEDULE --- */    
     LWB_SEND_SCHED();
    
-    glossy_rssi     = glossy_get_rssi(0);
+    glossy_rssi     = glossy_get_rssi();
     stats.relay_cnt = glossy_get_relay_cnt_first_rx();
     t_slot_ofs      = (LWB_CONF_T_SCHED + LWB_CONF_T_GAP);
     global_time     = schedule.time;
