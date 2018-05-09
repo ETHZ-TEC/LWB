@@ -115,7 +115,7 @@ adc_get_vcc(void)
     ADC12CTL0 |= ADC12ENC + ADC12SC; 
     /* wait until sample / conversion operation has completed */
     while (ADC12CTL0 & ADC12BUSY);    
-    return ADC12MEM1;
+    return (int16_t)(3000 * (uint32_t)(ADC12MEM1) / 4096);
   }
   return 0;
 }
@@ -172,7 +172,7 @@ adc_get_vcc(void)
     /* wait until sample / conversion operation has completed */
     while (ADC10CTL0 & ADC10BUSY);
     ADC10CTL0 &= ~ADC10ENC;
-    return ADC10MEM0;
+    return (int16_t)(((50 * ADC10MEM0 + 64) / 128) * 10);
   }
   return 0;  
 }

@@ -52,8 +52,8 @@
 #define RF_CONF_MAX_PKT_LEN     255     /* max. is 255 */
 #endif /* RF_CONF_MAX_PKT_LEN */
 /*---------------------------------------------------------------------------*/
-const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS] = { 
-    "-30", "-12", "-6", "0", "10", "MAX" 
+const int8_t rf1a_tx_power_val[N_TX_POWER_LEVELS] = { 
+    -30, -12, -6, 0, 10, 12, 
 };
 /* number of bytes to read from the RX FIFO (or to write to the TX FIFO) */
 /* after crossing a FIFO threshold */
@@ -193,8 +193,8 @@ rf1a_init(void)
   PMMCTL0_L |= PMMHPMRE;
   PMMCTL0_H  = 0;        /* lock */
   
-  printf("RF module configured (pwr=%sdBm, ch=%u/%u.%uMHz, len=%ub)\r\n",
-         rf1a_tx_powers_to_string[RF_CONF_TX_POWER], 
+  printf("RF module configured (pwr=%ddBm, ch=%u/%u.%uMHz, len=%ub)\r\n",
+         rf1a_tx_power_val[RF_CONF_TX_POWER], 
          RF_CONF_TX_CH, RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
          RF_CONF_MAX_PKT_LEN);
 }

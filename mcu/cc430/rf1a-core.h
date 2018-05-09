@@ -82,7 +82,7 @@ typedef enum {
   N_TX_POWER_LEVELS
 } rf1a_tx_powers_t;
 
-extern const char* rf1a_tx_powers_to_string[N_TX_POWER_LEVELS];
+extern const int8_t rf1a_tx_power_val[N_TX_POWER_LEVELS];
 
 /* possible calibration modes */
 typedef enum {
