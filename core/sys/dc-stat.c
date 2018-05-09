@@ -34,10 +34,14 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-static uint32_t dc_stat_starttime_cpu = 0,
-                dc_stat_starttime_rf  = 0;
+static uint32_t dc_stat_starttime_cpu   = 0,
+                dc_stat_starttime_rf    = 0,
+                dc_stat_starttime_rf_tx = 0,
+                dc_stat_starttime_rf_rx = 0;
 static uint64_t dc_stat_sum_cpu   = 0,
                 dc_stat_sum_rf    = 0,
+                dc_stat_sum_rf_tx = 0,
+                dc_stat_sum_rf_rx = 0,
                 dc_stat_resettime = 0;
 static uint16_t dc_stat_isr = 0;         /* for CPU */
 /*---------------------------------------------------------------------------*/
@@ -67,8 +71,39 @@ void dcstat_rf_on(void)
 /*---------------------------------------------------------------------------*/
 void dcstat_rf_off(void)
 {
-  uint32_t elapsed = (uint32_t)rtimer_now_lf() - dc_stat_starttime_rf;
-  dc_stat_sum_rf += elapsed;
+  if(dc_stat_starttime_rf) {
+    uint32_t elapsed = (uint32_t)rtimer_now_lf() - dc_stat_starttime_rf;
+    dc_stat_sum_rf += elapsed;
+    dc_stat_starttime_rf = 0;
+  }
+}
+/*---------------------------------------------------------------------------*/
+void dcstat_rf_tx_on(void)
+{
+  dc_stat_starttime_rf_tx = (uint32_t)rtimer_now_lf();
+}
+/*---------------------------------------------------------------------------*/
+void dcstat_rf_tx_off(void)
+{
+  if(dc_stat_starttime_rf_tx) {
+    uint32_t elapsed = (uint32_t)rtimer_now_lf() - dc_stat_starttime_rf_tx;
+    dc_stat_sum_rf_tx += elapsed;
+    dc_stat_starttime_rf_tx = 0;
+  }
+}
+/*---------------------------------------------------------------------------*/
+void dcstat_rf_rx_on(void)
+{
+  dc_stat_starttime_rf_rx = (uint32_t)rtimer_now_lf();
+}
+/*---------------------------------------------------------------------------*/
+void dcstat_rf_rx_off(void)
+{
+  if(dc_stat_starttime_rf_rx) {
+    uint32_t elapsed = (uint32_t)rtimer_now_lf() - dc_stat_starttime_rf_rx;
+    dc_stat_sum_rf_rx += elapsed;
+    dc_stat_starttime_rf_rx = 0;
+  }
 }
 /*---------------------------------------------------------------------------*/
 uint16_t dcstat_get_cpu_dc(void)
@@ -81,10 +116,22 @@ uint16_t dcstat_get_rf_dc(void)
   return (dc_stat_sum_rf * 10000 / (rtimer_now_lf() - dc_stat_resettime));
 }
 /*---------------------------------------------------------------------------*/
+uint16_t dcstat_get_rf_tx_dc(void)
+{
+  return (dc_stat_sum_rf_tx * 10000 / (rtimer_now_lf() - dc_stat_resettime));
+}
+/*---------------------------------------------------------------------------*/
+uint16_t dcstat_get_rf_rx_dc(void)
+{
+  return (dc_stat_sum_rf_rx * 10000 / (rtimer_now_lf() - dc_stat_resettime));
+}
+/*---------------------------------------------------------------------------*/
 void dcstat_reset(void)
 {
   dc_stat_sum_cpu   = 0;
   dc_stat_sum_rf    = 0;
+  dc_stat_sum_rf_tx = 0;
+  dc_stat_sum_rf_rx = 0;
   dc_stat_isr       = 0;
   dc_stat_resettime = rtimer_now_lf();
 }

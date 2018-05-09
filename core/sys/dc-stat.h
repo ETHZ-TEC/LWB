@@ -55,14 +55,28 @@
 #define DCSTAT_RF_OFF   dcstat_rf_off()
 #define DCSTAT_RF_DC    dcstat_get_rf_dc()
 
+#define DCSTAT_RFTX_ON  dcstat_rf_tx_on()
+#define DCSTAT_RFTX_OFF dcstat_rf_tx_off()
+#define DCSTAT_RFTX_DC  dcstat_get_rf_tx_dc()
+
+#define DCSTAT_RFRX_ON  dcstat_rf_rx_on()
+#define DCSTAT_RFRX_OFF dcstat_rf_rx_off()
+#define DCSTAT_RFRX_DC  dcstat_get_rf_rx_dc()
+
 #define DCSTAT_RESET    dcstat_reset()
 
 void dcstat_cpu_on(void);
 void dcstat_cpu_off(void);
 void dcstat_rf_on(void);
 void dcstat_rf_off(void);
+void dcstat_rf_tx_on(void);
+void dcstat_rf_tx_off(void);
+void dcstat_rf_rx_on(void);
+void dcstat_rf_rx_off(void);
 uint16_t dcstat_get_cpu_dc(void);
 uint16_t dcstat_get_rf_dc(void);
+uint16_t dcstat_get_rf_tx_dc(void);
+uint16_t dcstat_get_rf_rx_dc(void);
 void dcstat_reset(void);
 
 #else /* DCCALC_CONF_ON */
@@ -74,6 +88,14 @@ void dcstat_reset(void);
 #define DCSTAT_RF_ON
 #define DCSTAT_RF_OFF
 #define DCSTAT_RF_DC    0
+
+#define DCSTAT_RFTX_ON  
+#define DCSTAT_RFTX_OFF 
+#define DCSTAT_RFTX_DC  0
+
+#define DCSTAT_RFRX_ON  
+#define DCSTAT_RFRX_OFF 
+#define DCSTAT_RFRX_DC  0
 
 #define DCSTAT_RESET
 
