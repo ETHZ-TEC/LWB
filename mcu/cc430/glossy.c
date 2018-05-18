@@ -188,7 +188,8 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
       return GLOSSY_FAIL;
     }
     if((GET_N_TX_MAX(g.header.pkt_type) != GLOSSY_UNKNOWN_N_TX_MAX) &&
-       GET_SYNC(g.header.pkt_type) != GET_SYNC(rcvd_header->pkt_type)) {
+       (GET_N_TX_MAX(g.header.pkt_type) !=
+        GET_N_TX_MAX(rcvd_header->pkt_type))) {
       /* keep processing only if the local n_tx_max value is either unknown or
        * it matches the received one */
       return GLOSSY_FAIL;
@@ -375,12 +376,12 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     DCSTAT_RFRX_ON;
 #if GLOSSY_CONF_COLLECT_STATS
     /* measure the channel noise (but only if waiting for the schedule */
-    if(sync == GLOSSY_WITH_SYNC) {
+    //if(sync == GLOSSY_WITH_SYNC) {
       /* wait after entering RX mode before reading RSSI (see swra114d.pdf)  */
       //__delay_cycles(MCLK_SPEED / 3000);                   /* wait 0.33 ms */
       while(!(RF1AIN & BIT1));              /* wait for RSSI to become valid */
       g.stats.last_flood_rssi_noise = rf1a_get_rssi();        /* noise floor */
-    }
+    //}
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   }
   DCSTAT_RF_ON;

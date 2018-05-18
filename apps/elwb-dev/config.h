@@ -43,17 +43,17 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-//#define NODE_ID                         21
+//#define NODE_ID                         HOST_ID
 #define HOST_ID                         21
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
 /* --- Radio config --- */
 
-#define LWB_CONF_RF_CH_PRIMARY          8 //10             /* CH10 = 870MHz */
-#define LWB_CONF_RF_CH_SECONDARY        10
+#define LWB_CONF_RF_CH_PRIMARY          8 //8            /* CH10 = 870MHz */
+#define LWB_CONF_RF_CH_SECONDARY        8
 #define RF_CONF_TX_CH                   LWB_CONF_RF_CH_PRIMARY
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm //MAX
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm  // RF1A_TX_POWER_PLUS_10_dBm
 #define RF_CONF_MAX_PKT_LEN             128
 
 
@@ -69,6 +69,7 @@
 #define LWB_CONF_SCHED_PERIOD_IDLE      15            /* period T in seconds */
 #define LWB_CONF_MAX_DATA_SLOTS         40    /* max. # data slots per round */
 #define LWB_CONF_MAX_N_STREAMS          20      /* = max. # nodes in network */
+#define LWB_CONF_DATA_ACK               1  /* use data ACKs from src to host */
 /* packet and buffer size */
 #define LWB_CONF_MAX_PKT_LEN            (128 - 2)     /* subtract Glossy hdr */
 #define LWB_CONF_IN_BUFFER_SIZE         5  //LWB_CONF_MAX_DATA_SLOTS

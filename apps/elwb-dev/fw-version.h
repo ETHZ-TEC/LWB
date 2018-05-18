@@ -53,7 +53,12 @@ Revision History
 ----------------
 
 Version 0.6 (--- IN DEVELOPMENT ---):
-- 
+- feature: new command CMD_CC430_SET_TX_POWER added
+- feature: data ack mechanism added, allows source nodes to retransmit lost
+           packets to the host (only works for pkts from SRC -> HOST)
+- change: to reduce the memory usage, it has to be specified at compile time 
+          whether the node is a host or source node
+- bugfix: radio SNR value for host fixed
 
 Version 0.5 (2018-05-09):
 - feature: event msg is generated whenever the local time was adjusted

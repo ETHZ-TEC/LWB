@@ -55,6 +55,10 @@
 #error "eLWB only supports the ELWB_DYN scheduler!"
 #endif
 
+#if LWB_CONF_DATA_ACK && LWB_CONF_USE_XMEM
+#error "LWB_CONF_DATA_ACK cannot be used together with LWB_CONF_USE_XMEM!"
+#endif
+
 /*---------------------------------------------------------------------------*/
 #define LWB_PERIOD_SCALE          100   /* must be same as in the scheduler! */
 
@@ -124,6 +128,11 @@ typedef struct {
   /* note: 'op' and 'notify' are RW for the xmem task, whereas the other 
    *       fields are read-only! */
 } xmem_task_t;
+/*---------------------------------------------------------------------------*/
+typedef struct {
+  uint8_t   len;
+  uint8_t   data[LWB_CONF_MAX_DATA_PKT_LEN];
+} lwbqueue_elem_t;
 /*---------------------------------------------------------------------------*/
 /**
  * @brief the finite state machine for the time synchronization on a source 
@@ -204,6 +213,8 @@ static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = {
   LWB_TASK_RESUMED;\
 }
 /*---------------------------------------------------------------------------*/
+PROCESS(lwb_process, "Com Task (eLWB)");/* process ctrl block def. */
+/*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
 static struct process*  post_proc;
 static struct process*  pre_proc;
@@ -223,19 +234,43 @@ static lwb_statistics_t stats = { 0 };
 static rtimer_clock_t   last_synced_lf;
 #if !LWB_CONF_USE_XMEM
 /* allocate memory in the SRAM (+1 to store the message length) */
-static uint8_t          in_buffer_mem[LWB_CONF_IN_BUFFER_SIZE * 
-                                      (LWB_CONF_MAX_DATA_PKT_LEN + 1)];  
-static uint8_t          out_buffer_mem[LWB_CONF_OUT_BUFFER_SIZE * 
-                                       (LWB_CONF_MAX_DATA_PKT_LEN + 1)]; 
+static lwbqueue_elem_t  rx_queue_mem[LWB_CONF_IN_BUFFER_SIZE];  
+static lwbqueue_elem_t  tx_queue_mem[LWB_CONF_OUT_BUFFER_SIZE];
 #else /* LWB_CONF_USE_XMEM */
-static uint8_t          xmem_buffer[LWB_CONF_MAX_DATA_PKT_LEN + 1];
+static lwbqueue_elem_t  xmem_buffer;
 /* shared memory for process-to-protothread communication (xmem access) */
 static xmem_task_t      xmem_task = { 0 };
 #endif /* LWB_CONF_USE_XMEM */
-FIFO(in_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_IN_BUFFER_SIZE);
-FIFO(out_buffer, LWB_CONF_MAX_DATA_PKT_LEN + 1, LWB_CONF_OUT_BUFFER_SIZE);
+FIFO(rx_queue, sizeof(lwbqueue_elem_t), LWB_CONF_IN_BUFFER_SIZE);
+FIFO(tx_queue, sizeof(lwbqueue_elem_t), LWB_CONF_OUT_BUFFER_SIZE);
 /*---------------------------------------------------------------------------*/
-PROCESS(lwb_process, "Com Task (eLWB)");/* process ctrl block def. */
+#if LWB_CONF_DATA_ACK
+void
+lwb_requeue_pkt(uint32_t pkt_addr)
+{
+  /* re-insert the packet into the tx queue */
+  if(FIFO_ERROR == pkt_addr) return;
+  
+  /* find an empty spot in the queue */
+  uint32_t new_pkt_addr = fifo_put(&tx_queue);
+  if(new_pkt_addr != FIFO_ERROR) {
+    if(new_pkt_addr == pkt_addr) {
+      return; /* same address? -> nothing to do */
+    }
+#if !LWB_CONF_USE_XMEM
+    memcpy((uint8_t*)(uint16_t)new_pkt_addr, (uint8_t*)(uint16_t)pkt_addr, 
+           ((lwbqueue_elem_t*)(uint16_t)pkt_addr)->len + 1);
+#else /* LWB_CONF_USE_XMEM */
+    xmem_read(pkt_addr, sizeof(lwbqueue_elem_t), (uint8_t*)&xmem_buffer);
+    xmem_write(new_pkt_addr, ((lwbqueue_elem_t*)(uint16_t)pkt_addr)->len + 1,
+               data_buffer);      
+#endif /* LWB_CONF_USE_XMEM */
+  } else {
+      stats.txbuf_drop++;
+      DEBUG_PRINT_ERROR("requeue failed, out queue full");
+  }
+}
+#endif /* LWB_CONF_DATA_ACK */
 /*---------------------------------------------------------------------------*/
 /* store a received message in the incoming queue, returns 1 if successful, 
  * 0 otherwise */
@@ -247,14 +282,13 @@ lwb_in_buffer_put(uint8_t* data, uint8_t len)
     return 0;
   }
   /* received messages will have the max. length LWB_CONF_MAX_DATA_PKT_LEN */
-  uint32_t pkt_addr = fifo_put(&in_buffer);
+  uint32_t pkt_addr = fifo_put(&rx_queue);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* copy the data into the queue */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
-    memcpy(next_msg, data, len);
-    /* last byte holds the payload length */
-    *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;    
+    lwbqueue_elem_t* next_msg = (lwbqueue_elem_t*)((uint16_t)pkt_addr);
+    memcpy(next_msg->data, data, len);
+    next_msg->len = len;
 #else /* LWB_CONF_USE_XMEM */
     if(xmem_task.op) {
       DEBUG_PRINT_ERROR("xmem task busy, operation skipped");
@@ -281,13 +315,13 @@ lwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
 {   
   /* messages have the max. length LWB_CONF_MAX_DATA_PKT_LEN and are already
    * formatted */
-  uint32_t pkt_addr = fifo_get(&out_buffer);
+  uint32_t pkt_addr = fifo_get(&tx_queue);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);  
-    memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
-    *out_len = *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
+    lwbqueue_elem_t* next_msg = (lwbqueue_elem_t*)((uint16_t)pkt_addr);  
+    memcpy(out_data, next_msg->data, next_msg->len);
+    *out_len = next_msg->len;
 #else /* LWB_CONF_USE_XMEM */
     if(xmem_task.op) {
       DEBUG_PRINT_ERROR("xmem task busy, operation skipped");
@@ -320,18 +354,18 @@ lwb_send_pkt(uint16_t recipient,
   if(len > LWB_CONF_MAX_DATA_PKT_LEN || !data) {
     return 0;
   }
-  uint32_t pkt_addr = fifo_put(&out_buffer);
+  uint32_t pkt_addr = fifo_put(&tx_queue);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr);
-    *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN) = len;
-    memcpy(next_msg, data, len);
+    lwbqueue_elem_t* next_msg = (lwbqueue_elem_t*)((uint16_t)pkt_addr);
+    next_msg->len = len;
+    memcpy(next_msg->data, data, len);
 #else /* LWB_CONF_USE_XMEM */
-    memcpy(xmem_buffer, data, len);
-    *(xmem_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = len;
+    memcpy(xmem_buffer.data, data, len);
+    xmem_buffer.len = len;
     xmem_wait_until_ready();
-    xmem_write(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, xmem_buffer);
+    xmem_write(pkt_addr, len + 1, (uint8_t*)&xmem_buffer);
 #endif /* LWB_CONF_USE_XMEM */
     DEBUG_PRINT_VERBOSE("msg added to lwb tx queue");
     return 1;
@@ -353,22 +387,21 @@ lwb_rcv_pkt(uint8_t* out_data,
   /* messages in the queue have the max. length LWB_CONF_MAX_DATA_PKT_LEN, 
    * lwb header needs to be stripped off; payload has max. length
    * LWB_CONF_MAX_DATA_PKT_LEN */
-  uint32_t pkt_addr = fifo_get(&in_buffer);
+  uint32_t pkt_addr = fifo_get(&rx_queue);
   if(FIFO_ERROR != pkt_addr) {
 #if !LWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    uint8_t* next_msg = (uint8_t*)((uint16_t)pkt_addr); 
-    memcpy(out_data, next_msg, *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN));
-    return *(next_msg + LWB_CONF_MAX_DATA_PKT_LEN);
+    lwbqueue_elem_t* next_msg = (lwbqueue_elem_t*)((uint16_t)pkt_addr); 
+    memcpy(out_data, next_msg->data, next_msg->len);
+    return next_msg->len;
 #else /* LWB_CONF_USE_XMEM */
-    if(!xmem_read(pkt_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, xmem_buffer)) {
+    if(!xmem_read(pkt_addr, sizeof(lwbqueue_elem_t), (uint8_t*)&xmem_buffer)) {
       DEBUG_PRINT_ERROR("xmem_read() failed");
       return 0;
     }
     xmem_wait_until_ready(); /* wait for the data transfer to complete */
-    uint8_t msg_len = *(xmem_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
-    memcpy(out_data, xmem_buffer, msg_len);
-    return msg_len;
+    memcpy(out_data, xmem_buffer->data, xmem_buffer.len);
+    return xmem_buffer.len;
 #endif /* LWB_CONF_USE_XMEM */
   }
   DEBUG_PRINT_VERBOSE("lwb rx queue empty");
@@ -378,13 +411,13 @@ lwb_rcv_pkt(uint8_t* out_data,
 uint8_t
 lwb_get_rcv_buffer_state(void)
 {
-  return FIFO_CNT(&in_buffer);
+  return FIFO_CNT(&rx_queue);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
 lwb_get_send_buffer_state(void)
 {
-  return FIFO_CNT(&out_buffer);
+  return FIFO_CNT(&tx_queue);
 }
 /*---------------------------------------------------------------------------*/
 const lwb_statistics_t * const
@@ -420,6 +453,9 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   static rtimer_clock_t t_start_lf;
   static uint16_t curr_period = 0;
   static uint16_t srq_cnt = 0;
+#if LWB_CONF_DATA_ACK
+  static uint8_t  data_ack[(LWB_CONF_MAX_DATA_SLOTS + 7) / 8] = { 0 };
+#endif /* LWB_CONF_DATA_ACK */
   
   PT_BEGIN(&lwb_pt);
 
@@ -433,11 +469,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         process_poll(pre_proc);
       }
       
-      /* update the schedule in case there is data to send!
-      * note: this will delay the sending of the schedule by some time! */
-      if(LWB_SCHED_HAS_CONT_SLOT(&schedule) && !FIFO_EMPTY(&out_buffer)) {
+      /* update the schedule in case there is data to send! */
+      if(LWB_SCHED_HAS_CONT_SLOT(&schedule) && lwb_get_send_buffer_state()) {
         schedule_len = lwb_sched_compute(&schedule, 0, 
-                                        lwb_get_send_buffer_state());
+                                         lwb_get_send_buffer_state());
         DEBUG_PRINT_VERBOSE("schedule recomputed");
       }
       LWB_LF_WAIT_UNTIL(rt->time + LWB_CONF_T_PREPROCESS);
@@ -517,11 +552,18 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
             } else {
               DEBUG_PRINT_VERBOSE("data received from node %u (%ub)", 
                                   schedule.slot[i], payload_len);
+              uint16_t res;
   #if LWB_CONF_WRITE_TO_BOLT
-              bolt_write((uint8_t*)glossy_payload, payload_len);
+              res = bolt_write((uint8_t*)glossy_payload, payload_len);
   #else /* LWB_CONF_WRITE_TO_BOLT */
-              lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
+              res = lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
   #endif /* LWB_CONF_WRITE_TO_BOLT */
+              if(res) {
+  #if LWB_CONF_DATA_ACK
+                /* set the corresponding bit in the data ack packet */
+                data_ack[i >> 3] |= (1 << (i & 0x07));
+  #endif /* LWB_CONF_DATA_ACK */              
+              }
               /* update statistics */
               stats.rx_total += payload_len;
               stats.pck_cnt++;
@@ -543,7 +585,23 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         }
       }
   #endif /* LWB_CONF_WRITE_TO_BOLT */
+    }    
+    
+#if LWB_CONF_DATA_ACK  
+    /* --- D-ACK SLOT --- */
+    
+    if(IS_DATA_ROUND(&schedule)) {
+      /* acknowledge each received packet of the last round */
+      payload_len = (LWB_SCHED_N_SLOTS(&schedule) + 7) >> 3;
+      memcpy((uint8_t*)glossy_payload, data_ack, payload_len);
+      t_slot = LWB_CONF_T_CONT;
+      LWB_WAIT_UNTIL(t_start + t_slot_ofs);            
+      LWB_SEND_PACKET();
+      DEBUG_PRINT_VERBOSE("D-ACK sent (%u bytes)", payload_len);
+      t_slot_ofs += (t_slot + LWB_CONF_T_GAP);
     }
+    memset(data_ack, 0, (LWB_CONF_MAX_DATA_SLOTS + 7) / 8);
+#endif /* LWB_CONF_DATA_ACK */
     
     /* --- CONTENTION SLOT --- */
     
@@ -575,6 +633,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
         glossy_payload[0] = 0;
       }
       t_slot_ofs += LWB_CONF_T_CONT + LWB_CONF_T_GAP;
+      //stats.glossy_snr = glossy_get_snr();   /* get SNR of schedule packet */
   
       /* --- SEND 2ND SCHEDULE --- */
       
@@ -646,6 +705,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static rtimer_clock_t t_ref_lf;
   static uint8_t  node_registered = 0;
   static uint16_t period_idle;        /* last base period */
+#if LWB_CONF_DATA_ACK
+  static uint8_t first_slot = 0,
+                 num_slots = 0;
+#endif /* LWB_CONF_DATA_ACK */
   
   PT_BEGIN(&lwb_pt);
   
@@ -675,10 +738,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
     if(sync_state == BOOTSTRAP) {
       while (1) {
         schedule.n_slots = 0;   /* reset */
-        DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
         stats.bootstrap_cnt++;
         static rtimer_clock_t bootstrap_started;
         bootstrap_started = rtimer_now_hf();
+        DEBUG_PRINT_MSG_NOW("BOOTSTRAP");
         /* synchronize first! wait for the first schedule... */
         do {
           /* turn radio on */
@@ -787,6 +850,10 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         if(IS_DATA_ROUND(&schedule)) {
           /* this is a data round */
           t_slot = LWB_CONF_T_DATA;
+  #if LWB_CONF_DATA_ACK
+          first_slot = 0xff;
+          num_slots  = 0;
+  #endif /* LWB_CONF_DATA_ACK */
         } else {
           /* it's a request round */
           t_slot = LWB_CONF_T_CONT;
@@ -795,9 +862,15 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         for(i = 0; i < LWB_SCHED_N_SLOTS(&schedule); i++) {
           if(schedule.slot[i] == node_id) {
             node_registered = 1;
-            /* this is our data slot, send a data packet */
-            if(!FIFO_EMPTY(&out_buffer)) {
+            /* this is our data slot, send a data packet (if there is any) */
+            if(!FIFO_EMPTY(&tx_queue)) {
               if(IS_DATA_ROUND(&schedule)) {
+  #if LWB_CONF_DATA_ACK
+                if(first_slot == 0xff) {
+                  first_slot = i;
+                }
+                num_slots++;
+  #endif /* LWB_CONF_DATA_ACK */
                 lwb_out_buffer_get((uint8_t*)glossy_payload, &payload_len);
               } else {
                 payload_len = LWB_CONF_SRQ_PKT_LEN;
@@ -837,12 +910,45 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         }
       }
       
+  #if LWB_CONF_DATA_ACK  
+      /* --- D-ACK SLOT --- */
+                 
+      if(IS_DATA_ROUND(&schedule)) {
+        t_slot = LWB_CONF_T_CONT;
+        payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
+        LWB_WAIT_UNTIL(t_ref + t_slot_ofs - LWB_CONF_T_GUARD);
+        LWB_RCV_PACKET();                 /* receive data ack */
+
+        /* only look into the D-ACK packet if we actually sent some data in the
+         * previous round */
+        if(LWB_DATA_RCVD && first_slot != 0xff) {
+          DEBUG_PRINT_VERBOSE("D-ACK rcvd");
+          for(i = 0; i < num_slots; i++) {
+            if(schedule.slot[i] == node_id) {
+              /* bit not set? => not acknowledged */
+              if(!(glossy_payload[(first_slot + i) >> 3] &
+                 (1 << ((first_slot + i) & 0x07)))) {
+                /* resend the packet (re-insert it into the output FIFO)
+                 * note: the packet data has not yet been overwritten */
+                uint16_t elem_id = fifo_elem_id(&tx_queue, i - num_slots);
+                uint32_t addr = fifo_elem_addr(&tx_queue, elem_id);
+                lwb_requeue_pkt(addr);
+                DEBUG_PRINT_INFO("packet requeued (elem_id %u)", elem_id);
+                stats.pkts_nack++;
+              }
+            }
+          }
+        }
+        t_slot_ofs += (t_slot + LWB_CONF_T_GAP);
+      }
+  #endif /* LWB_CONF_DATA_ACK */
+      
       /* --- CONTENTION SLOT --- */
       
       /* is there a contention slot in this round? */
       if(LWB_SCHED_HAS_CONT_SLOT(&schedule)) {
         t_slot = LWB_CONF_T_CONT;
-        if(!FIFO_EMPTY(&out_buffer)) {
+        if(!FIFO_EMPTY(&tx_queue)) {
           /* if there is data in the output buffer, then request a slot */
           /* a slot request packet always looks the same (1 byte) */
           payload_len = LWB_CONF_SRQ_PKT_LEN;
@@ -927,14 +1033,14 @@ PROCESS_THREAD(lwb_process, ev, data)
   
 #if !LWB_CONF_USE_XMEM
   /* pass the start addresses of the memory blocks holding the queues */
-  fifo_init(&in_buffer, (uint16_t)in_buffer_mem);
-  fifo_init(&out_buffer, (uint16_t)out_buffer_mem); 
+  fifo_init(&rx_queue, (uint16_t)rx_queue_mem);
+  fifo_init(&tx_queue, (uint16_t)tx_queue_mem); 
 #else  /* LWB_CONF_USE_XMEM */
   /* allocate memory for the message buffering (in ext. memory) */
-  fifo_init(&in_buffer, xmem_alloc(LWB_CONF_IN_BUFFER_SIZE * 
-                                   (LWB_CONF_MAX_DATA_PKT_LEN + 1)));
-  fifo_init(&out_buffer, xmem_alloc(LWB_CONF_OUT_BUFFER_SIZE * 
-                                    (LWB_CONF_MAX_DATA_PKT_LEN + 1)));   
+  fifo_init(&rx_queue, xmem_alloc(LWB_CONF_IN_BUFFER_SIZE * 
+                                   sizeof(lwbqueue_elem_t));
+  fifo_init(&tx_queue, xmem_alloc(LWB_CONF_OUT_BUFFER_SIZE * 
+                                    sizeof(lwbqueue_elem_t));   
 #endif /* LWB_CONF_USE_XMEM */
 
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -944,23 +1050,23 @@ PROCESS_THREAD(lwb_process, ev, data)
   
   PT_INIT(&lwb_pt); /* initialize the protothread */
 
-  if(node_id == HOST_ID) {
+#if (NODE_ID == HOST_ID)
     schedule_len = lwb_sched_init(&schedule);
-  }
+#endif
 
   /* start in 10ms */
   rtimer_clock_t t_wakeup = rtimer_now_lf() + RTIMER_SECOND_LF / 100;
   rtimer_id_t    rt_id    = LWB_CONF_LF_RTIMER_ID;
     
-  if(node_id == HOST_ID) {
+#if (NODE_ID == HOST_ID)
     /* update the global time and wait for the next full second */
     schedule.time = ((t_wakeup + RTIMER_SECOND_LF) / RTIMER_SECOND_LF);
     lwb_sched_set_time(schedule.time);
     t_wakeup = (rtimer_clock_t)schedule.time * RTIMER_SECOND_LF;
     rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_host);
-  } else {
+#else
     rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_src);
-  }
+#endif
 
   /* instead of terminating the process here, use it for other tasks such as
    * external memory access */  
@@ -971,22 +1077,23 @@ PROCESS_THREAD(lwb_process, ev, data)
     LWB_TASK_RESUMED;
     /* is there anything to do? */
     if(xmem_task.op == 1) {           /* read operation */
-      if(xmem_read(xmem_task.xmem_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1, 
-                   xmem_buffer)) {
+      if(xmem_read(xmem_task.xmem_addr, sizeof(lwbqueue_elem_t), 
+                   (uint8_t*)&xmem_buffer)) {
         xmem_wait_until_ready();   /* wait for the data transfer to complete */
         /* trust the data in the memory, no need to check the length field */
-        uint8_t len = *(xmem_buffer + LWB_CONF_MAX_DATA_PKT_LEN);
-        memcpy(xmem_task.sram_ptr, xmem_buffer, len);
-        if(xmem_task.notify) {
-          *xmem_task.notify = len;
+        if(xmem_buffer.len <= LWB_CONF_MAX_DATA_PKT_LEN) {
+          memcpy(xmem_task.sram_ptr, xmem_buffer.data, xmem_buffer.len);
+          if(xmem_task.notify) {
+            *xmem_task.notify = xmem_buffer.len;
+          }
         }
       }
     } else if(xmem_task.op == 2) {    /* write operation */
-      memcpy(xmem_buffer, xmem_task.sram_ptr, xmem_task.len);
-      *(xmem_buffer + LWB_CONF_MAX_DATA_PKT_LEN) = xmem_task.len;
+      memcpy(xmem_buffer.data, xmem_task.sram_ptr, xmem_task.len);
+      xmem_buffer.len = xmem_task.len;
       xmem_wait_until_ready();      /* wait for ongoing transfer to complete */
-      xmem_write(xmem_task.xmem_addr, LWB_CONF_MAX_DATA_PKT_LEN + 1,
-                 xmem_buffer);
+      xmem_write(xmem_task.xmem_addr, xmem_task.len + 1,
+                 (uint8_t*)&xmem_buffer);
     } // else: no operation pending
     xmem_task.op = 0;
   }  

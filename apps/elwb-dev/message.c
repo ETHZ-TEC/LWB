@@ -58,7 +58,7 @@ hexstr_to_dec(const char* str, uint8_t num_chars)
       res += *str - 'A' + 10;
     } else if(*str >= 'a' && *str <= 'f') {
       res += *str - 'a' + 10;
-    } else if (*str >= '1' && *str <= '9') {
+    } else if(*str >= '1' && *str <= '9') {
       res += *str - '0';
     }
     num_chars--;
@@ -118,7 +118,7 @@ send_msg(uint16_t recipient,
 #endif 
   
   /* copy the payload */
-  if (msg.header.payload_len && data) {
+  if(msg.header.payload_len && data) {
     memcpy(msg.payload, data, msg.header.payload_len);
   }
   /* calculate and append the CRC */
@@ -134,7 +134,7 @@ send_msg(uint16_t recipient,
     if(!lwb_send_pkt(recipient, 1, (uint8_t*)&msg, msg_len)) {
       DEBUG_PRINT_INFO("msg dropped (TX queue full)");
     } else {
-      DEBUG_PRINT_INFO("msg added to TX queue");
+      DEBUG_PRINT_VERBOSE("msg added to TX queue");
     }
   }
 }
@@ -166,46 +166,46 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
     rcvd_msg_cnt++;
     if(msg->header.type == DPP_MSG_TYPE_CMD) {
       DEBUG_PRINT_VERBOSE("command received");
-      uint8_t successful = 0;
+      uint8_t  successful = 0;
+      uint16_t arg1 = msg->cmd.arg16[0];
       switch(msg->cmd.type) {
       case CMD_CC430_SET_ROUND_PERIOD:    /* value is in s */
-        if(msg->cmd.arg16[0] > 0 && msg->cmd.arg16[0] <= 3600) {
-          lwb_sched_set_period(msg->cmd.arg16[0]);
-          DEBUG_PRINT_INFO("LWB period set to %us", msg->cmd.arg16[0]);
+        if(arg1 > 0 && arg1 <= 3600) {
+          lwb_sched_set_period(arg1);
+          DEBUG_PRINT_INFO("LWB period set to %us", arg1);
           successful = 1;
         }
         break;
       case CMD_CC430_SET_HEALTH_PERIOD:
-        health_msg_period = msg->cmd.arg16[0]; /* set health period in s */
+        health_msg_period = arg1; /* set health period in s */
         successful = 1;
         break;
       case CMD_CC430_SET_EVENT_LEVEL:
-        if (msg->cmd.arg16[0] < NUM_EVENT_LEVELS) {
-          event_lvl = msg->cmd.arg16[0];
+        if(arg1 < NUM_EVENT_LEVELS) {
+          event_lvl = arg1;
           successful = 1;
         }
-        break;   
+        break;
+      case CMD_CC430_SET_TX_POWER:
+        if(arg1 < N_TX_POWER_LEVELS) {
+          rf1a_set_tx_power(arg1);
+          successful = 1; 
+        }
       case CMD_CC430_RESET:
         PMM_TRIGGER_BOR;
         break;
       default:
         /* unknown command */
+        forward = 1;  /* forward to BOLT */
         break;
       }
-      uint32_t arg = (((uint32_t)msg->cmd.arg16[0]) << 16 | msg->cmd.type);
-      if (successful) {
+      if(successful) {
         DEBUG_PRINT_INFO("cmd processed, config changed");
-        EVENT_INFO(EVENT_CC430_CFG_CHANGED, arg);
-      } else {
-        /* either unknown command or invalid argument */
-        /*EVENT_WARNING(EVENT_CC430_INV_CMD, arg);
-        DEBUG_PRINT_WARNING(
-                      "unknown command or invalid parameter (0x%02x, 0x%02x)", 
-                      msg->cmd.type, msg->cmd.arg16[0]);*/
-        forward = 1;  /* forward to BOLT */
+        EVENT_INFO(EVENT_CC430_CFG_CHANGED,
+                   (((uint32_t)arg1) << 16 | msg->cmd.type));
       }
 #if TIMESYNC_HOST_RCV_UTC && (NODE_ID == HOST_ID)
-    } else if (msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
+    } else if(msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
       utc_time    = msg->timestamp;
       utc_time_rx = bolt_captured_trq;
       utc_time_updated = 1;
@@ -213,7 +213,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
 
     /* unknown message type */
     } else {
-      if (node_id != HOST_ID) {
+      if(node_id != HOST_ID) {
         forward = 1;
       } else {
         /* ignore */      
@@ -259,7 +259,7 @@ send_timestamp(int64_t captured)
   } else {
     rtimer_clock_t local_t_rx = 0;
     uint64_t lwb_time_secs = lwb_get_time(&local_t_rx);
-    if (lwb_time_secs > 0) {
+    if(lwb_time_secs > 0) {
       /* convert to LF ticks */
       rtimer_clock_t lf, hf;
       rtimer_now(&hf, &lf);
@@ -304,6 +304,7 @@ send_node_health(void)
 {
   static uint8_t   tx_dropped_last = 0,
                    rx_dropped_last = 0;
+  static uint16_t  rx_cnt_last = 0;
   dpp_com_health_t health_data;
   const lwb_statistics_t* lwb_stats = lwb_get_stats();
 
@@ -322,11 +323,21 @@ send_node_health(void)
   rcvd_msg_cnt              = 0;                       /* reset */
   health_data.stack         = debug_print_get_max_stack_size() * 100 /
                               (SRAM_END - DEBUG_CONF_STACK_GUARD - 7);
-  health_data.radio_snr     = lwb_stats->glossy_snr;  
+#if NODE_ID == HOST_ID
+  health_data.radio_snr     = glossy_get_snr();
+  health_data.radio_rssi    = (uint8_t)(-lwb_stats->glossy_snr);
+#else
+  health_data.radio_snr     = lwb_stats->glossy_snr;
   health_data.radio_rssi    = (uint8_t)(-glossy_get_rssi());
+#endif 
   health_data.radio_tx_pwr  = rf1a_tx_power_val[RF_CONF_TX_POWER];
-  health_data.radio_per     = glossy_get_per();  
-  health_data.rx_cnt        = lwb_stats->pck_cnt;
+  health_data.radio_per     = glossy_get_per();
+  if(rx_cnt_last > lwb_stats->pck_cnt) {
+    health_data.rx_cnt      = (65535 - rx_cnt_last) + lwb_stats->pck_cnt;
+  } else {
+    health_data.rx_cnt      = (lwb_stats->pck_cnt - rx_cnt_last);
+  }
+  rx_cnt_last               = health_data.rx_cnt;
                               //glossy_get_n_pkts_crcok();
   health_data.tx_queue      = lwb_get_send_buffer_state();
   health_data.rx_queue      = lwb_get_rcv_buffer_state();
@@ -396,6 +407,6 @@ send_lwb_health(void)
   send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_LWB_HEALTH,
            (const uint8_t*)&health_data, 0, node_id == HOST_ID); 
   
-  DEBUG_PRINT_INFO("LWB health msg generated");
+  //DEBUG_PRINT_INFO("LWB health msg generated");
 }
 /*---------------------------------------------------------------------------*/
