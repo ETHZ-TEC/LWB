@@ -43,18 +43,20 @@
 #include "event.h"
 #include "message.h"
 
-
-/* non-volatile configuration and stats */
-typedef struct {
-  uint8_t   rst_cnt;
-  uint8_t   reserved[7];
-} config_t;
-
+/* general return value type definition */
+typedef enum
+{
+  FAILED = 0,
+  SUCCESS = 1
+} retval_t;
 
 /* the static scheduler implements the following function: */
 void lwb_sched_set_period(uint16_t period);
 uint16_t lwb_sched_get_period(void);
 
+/* defined in fw.c */
+retval_t fw_init(void);
+retval_t fw_process_msg(dpp_message_t* msg);
 
 /* global variables */
 extern uint64_t utc_time;
@@ -64,7 +66,6 @@ extern rtimer_clock_t bolt_captured_trq;
 extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
 extern uint16_t seq_no_bolt;
 extern uint32_t rst_flag;     /* defined in contiki-cc430-main.c */
-extern config_t cfg;          /* most important config parameters and stats */
-
+extern dpp_message_t msg_tx;  /* needed for send_msg() */
 
 #endif /* __MAIN_H__ */

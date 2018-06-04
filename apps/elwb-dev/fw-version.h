@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,26 +39,33 @@
 
 /*
 
-TODO:
-- bug: host potentially sends a health message at the beginning with an invalid
-       timestamp
-- inconsistency: network timestamp in schedule will jump, so last - current
-                 time will not be equal to the round period
-
-Feature requests:
-- data acks
-
-
 Revision History
 ----------------
 
-Version 0.6 (--- IN DEVELOPMENT ---):
-- feature: new command CMD_CC430_SET_TX_POWER added
+Version 0.7 (--- IN DEVELOPMENT ---):
+- 
+
+Version 0.6 (works with FRAM chip only, 2018-06-04):
+- bugfix: timing issue on the host node resolved where the time to compute the 
+          new schedule was sometimes too short
+- change: schedule recomputation at beginning of round removed
+- bugfix: in scheduler time management (period added twice, when schedule
+          was recomputed at the beginning of a round)
+- feature: firmware updater added, enables OTA updates if an FRAM chip is 
+           installed (still in experimental stage!)
+- change: stack usage reduced by utilizing global packet buffers
+- change: preprocess task set to 100ms before round
+- feature: node ID is now stored in NVMEM config
+- feature: new message type dpp_com_response_t and command added to read out
+           an arbitrary memory location (for debugging)
+- feature: new command and persistent config option added to enable/disable
+           LEDs (CMD_CC430_SET_DBG_FLAGS)
+- feature: new command CMD_CC430_SET_TX_POWER added + stored in NVMEM config
 - feature: data ack mechanism added, allows source nodes to retransmit lost
            packets to the host (only works for pkts from SRC -> HOST)
 - change: to reduce the memory usage, it has to be specified at compile time 
           whether the node is a host or source node
-- bugfix: radio SNR value for host fixed
+- bugfix: radio SNR value in dpp_com_health_t for host node corrected
 
 Version 0.5 (2018-05-09):
 - feature: event msg is generated whenever the local time was adjusted
@@ -84,7 +91,5 @@ Version 0.1 (2018-04-06):
 - initial version (based on code in lwb-dev)
 
 */
-
-
 
 #endif /* __FW_VERSION_H__ */

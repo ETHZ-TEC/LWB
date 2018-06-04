@@ -47,13 +47,13 @@
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
 /* global variables */
-rtimer_clock_t bolt_captured_trq = 0;     /* last captured timestamp */
+rtimer_clock_t bolt_captured_trq = 0;             /* last captured timestamp */
 uint16_t seq_no_lwb  = 0;
 uint16_t seq_no_bolt = 0;
 config_t cfg;
-static uint32_t last_health_pkt = 0;
+static uint16_t last_health_pkt = 0;
 static uint16_t max_stack_size = 0;
-//static uint8_t  rf_tx_pwr = RF_CONF_TX_POWER;
+static dpp_message_t msg_rx;                            /* only used for RX! */
 /*---------------------------------------------------------------------------*/
 void
 capture_timestamp(void)
@@ -100,6 +100,27 @@ update_time(void)
   }
 }
 /*---------------------------------------------------------------------------*/
+void
+load_config(void)
+{
+  /* load and restore the config */
+  if(nvcfg_load((uint8_t*)&cfg)) {
+    rf1a_set_tx_power(cfg.tx_pwr);
+  #if (node_id != HOST_ID)
+    if(node_id == 0x1122 && cfg.node_id != 0) {         /* still on default value? */
+      node_id = cfg.node_id;
+    } else {
+      /* save node ID */
+      cfg.node_id = node_id;
+    }
+  #endif /* node_id != HOST_ID */
+  } else {
+    DEBUG_PRINT_MSG_NOW("WARNING: failed to load config");
+  }
+  cfg.rst_cnt++;    /* update reset counter */
+  nvcfg_save((uint8_t*)&cfg);
+}
+/*---------------------------------------------------------------------------*/
 PROCESS(app_proc_pre, "App Task Pre");
 PROCESS_THREAD(app_proc_pre, ev, data) 
 {  
@@ -113,17 +134,20 @@ PROCESS_THREAD(app_proc_pre, ev, data)
     AFTER_DEEPSLEEP();    /* restore all clocks */
     
     /* --- read messages from the BOLT queue and forward them to the LWB --- */
-    uint8_t  bolt_buffer[BOLT_CONF_MAX_MSG_LEN];
-    uint16_t msg_cnt = 0;
+    uint16_t read = 0,
+             forwarded = 0;
     while(BOLT_DATA_AVAILABLE &&
           (lwb_get_send_buffer_state() < LWB_CONF_OUT_BUFFER_SIZE)) {
-      if(bolt_read(bolt_buffer)) {
-        msg_cnt++;
-        process_message((dpp_message_t*)bolt_buffer, 1);
+      if(bolt_read((uint8_t*)&msg_rx)) {
+        if(!process_message(&msg_rx, 1)) {
+          forwarded++;
+        }
+        read++;
       } /* else: invalid message received from BOLT */
     }
-    if(msg_cnt) {
-      DEBUG_PRINT_INFO("%u message(s) read from BOLT", msg_cnt);
+    if(read) {
+      DEBUG_PRINT_INFO("%u msg read from BOLT, %u forwarded", 
+                       read, forwarded);
     }
     
   #if (NODE_ID == HOST_ID) && TIMESYNC_HOST_RCV_UTC
@@ -141,9 +165,20 @@ PROCESS_THREAD(app_proc_post, ev, data)
 {
   PROCESS_BEGIN();
 
+  /* compile time checks */
+  if(sizeof(dpp_message_t) > DPP_MSG_PKT_LEN) {
+    DEBUG_PRINT_MSG_NOW("invalid DPP message size");
+    while (1);
+  }
+  
   /* --- initialization --- */
-
+  
   static uint8_t node_info_sent = 0;
+  
+  /* init FW updater if required */
+#if FW_UPDATE_CONF_ON
+  fw_init();
+#endif /* FW_UPDATE_CONF_ON */
   
   /* init the ADC */
   adc_init();
@@ -153,13 +188,8 @@ PROCESS_THREAD(app_proc_post, ev, data)
   lwb_start(&app_proc_pre, &app_proc_post);
   process_start(&app_proc_pre, NULL);
   
-  /* --- load the configuration --- */
-  if(!nvcfg_load((uint8_t*)&cfg)) {
-    DEBUG_PRINT_MSG_NOW("WARNING: failed to load config");
-  }
-  /* update stats and save */
-  cfg.rst_cnt++;
-  nvcfg_save((uint8_t*)&cfg);
+  /* --- load/apply the configuration --- */
+  load_config();
   
   /* enable the timestamp request interrupt */
   bolt_set_timereq_callback(capture_timestamp);
@@ -172,16 +202,18 @@ PROCESS_THREAD(app_proc_post, ev, data)
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     APP_TASK_ACTIVE;
         
-    dpp_message_t msg;
-    uint16_t msg_cnt = 0;
-
     /* --- process all packets rcvd from the network (forward to BOLT) --- */
-    while(lwb_rcv_pkt((uint8_t*)&msg, 0, 0)) {
-      process_message(&msg, 0);
-      msg_cnt++;
+    uint16_t rcvd = 0,
+             forwarded = 0;
+    while(lwb_rcv_pkt((uint8_t*)&msg_rx, 0, 0)) {
+      if(!process_message(&msg_rx, 0)) {
+        forwarded++;
+      }
+      rcvd++;
     }
-    if(msg_cnt) {
-      DEBUG_PRINT_INFO("%d msg rcvd from network", msg_cnt);
+    if(rcvd) {
+      DEBUG_PRINT_INFO("%u msg rcvd from network, %u forwarded", 
+                       rcvd, forwarded);
     }
     
   #if (NODE_ID != HOST_ID) || !TIMESYNC_HOST_RCV_UTC
@@ -191,21 +223,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
       bolt_captured_trq = 0;
     }
   #endif /* !TIMESYNC_HOST_RCV_UTC */
-  
-    /* adjust the TX power */
-    /*uint16_t snr = lwb_get_stats()->glossy_snr;
-    if(snr > 0) {   // SNR valid?
-      if(snr > 50 && rf_tx_pwr > 0) {
-        rf_tx_pwr--;
-        rf1a_set_tx_power(rf_tx_pwr);
-        DEBUG_PRINT_INFO("TX power reduced");
-      } else if (snr < 20 && rf_tx_pwr < RF1A_TX_POWER_MAX) {
-        rf_tx_pwr++;
-        rf1a_set_tx_power(rf_tx_pwr);
-        DEBUG_PRINT_INFO("TX power increased");
-      }
-    }*/
-    
+      
     /* generate a node info message if necessary (must be here) */
     if(!node_info_sent) {
   #if (NODE_ID != HOST_ID)
@@ -237,7 +255,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
       DEBUG_PRINT_INFO("stack size: %uB, max %uB", (SRAM_START + SRAM_SIZE) -
                                             (uint16_t)&stack_size, stack_size);
     }
-    
+        
     /* --- poll the debug task --- */
     debug_print_poll();
     process_poll(&app_proc_post);

@@ -79,9 +79,11 @@
   #define LED_OFF(portandpin)           PIN_CLR_I(portandpin)
   #define LED_TOGGLE(portandpin)        PIN_XOR_I(portandpin)
 #else
+ #ifndef LED_ON   /* allows to override the default */
   #define LED_ON(portandpin)
   #define LED_OFF(portandpin)
   #define LED_TOGGLE(portandpin)
+ #endif /* LED_ON */
 #endif
 
 /* note: all following macros ending with '_I' (immediate) can only be used

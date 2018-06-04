@@ -9,11 +9,8 @@ CONTIKI_PROJECT = elwb-dev
 
 SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
-node_id ?= 0
-
-#ifndef $(node_id)
-#    node_id = 0
-#endif
+node_id ?= 0x1122
+target ?= dpp2
 
 include $(CONTIKI)/Makefile.include
 

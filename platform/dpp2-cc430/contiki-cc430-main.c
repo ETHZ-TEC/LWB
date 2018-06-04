@@ -118,12 +118,6 @@ main(int argc, char **argv)
   
   /* enable status LED to indicate start of init routine */
   PIN_SET(LED_STATUS);
-      
-#ifdef MUX_SEL_PIN
-  /* this board has a multiplexer (set it to UART) */
-  PIN_CFG_OUT(MUX_SEL_PIN);
-  PIN_SET(MUX_SEL_PIN);
-#endif 
 
   /* pin mappings */
 #ifdef RF_GDO0_PIN

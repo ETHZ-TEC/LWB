@@ -82,7 +82,7 @@
 #endif /* FRAM_CONF_SIZE */
 
 #ifndef FRAM_CONF_ALLOC_SIZE    /* bytes available for dynamic allocation */
-#define FRAM_CONF_ALLOC_SIZE    125000      /* default: 1 Mbit */ 
+#define FRAM_CONF_ALLOC_SIZE    FRAM_CONF_SIZE
 #endif /* FRAM_CONF_ALLOC_SIZE */
 
 #ifndef FRAM_CONF_ALLOC_START   /* start address for dynamic mem. alloc. */

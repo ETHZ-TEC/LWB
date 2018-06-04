@@ -279,8 +279,8 @@ fram_alloc(uint16_t size)
                       "(requested block size: %db)", size);
     return FRAM_ALLOC_ERROR;
   }
-  printf(" memory allocated (block: %d, len: %db, ofs: %lu)\r\n",
-         fram_num_alloc_blocks, size, fram_curr_offset);
+  DEBUG_PRINT_MSG_NOW("FRAM allocated (0x%04lx, %ub)",
+                      fram_curr_offset, size);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
   return addr;
@@ -340,14 +340,14 @@ inline void xmem_wait_until_ready(void)
 uint16_t 
 crc16(const uint8_t* data, uint8_t num_bytes, uint16_t init_value) 
 {
-  uint16_t crc  = init_value,
-           mask = 0xa001;
+  uint16_t crc  = init_value;
   while(num_bytes) {
-    uint8_t ch = *data;
-    int8_t bit = 0;
+    /* use of 16-bit local variables is faster than 8-bit! */
+    uint16_t ch = *data;
+    uint16_t bit = 0;
     while(bit < 8) {
       if((crc & 1) ^ (ch & 1)) {
-        crc = (crc >> 1) ^ mask;
+        crc = (crc >> 1) ^ 0xa001;    /* mask is 0xa001*/
       } else {
         crc >>= 1;
       }

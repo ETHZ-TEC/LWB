@@ -40,15 +40,16 @@ void send_timestamp(int64_t captured);
 void send_node_health(void);
 void send_lwb_health(void);
 void send_node_info(void);
-void send_msg(uint16_t recipient,
-              dpp_message_type_t type,
-              const uint8_t* data,
-              uint8_t len,
-              uint8_t send_to_bolt);
-void process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt);
+uint8_t send_msg(uint16_t recipient,
+                 dpp_message_type_t type,
+                 const uint8_t* data,
+                 uint8_t len,
+                 uint8_t send_to_bolt);
+uint8_t process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt);
 
 
 /* globals */
+extern dpp_message_t dppmsg;
 extern uint16_t health_msg_period;
 
 

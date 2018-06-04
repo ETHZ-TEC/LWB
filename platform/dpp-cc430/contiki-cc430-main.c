@@ -118,11 +118,6 @@ main(int argc, char **argv)
   
   /* board-specific GPIO config */
   
-  PIN_CFG_IN(BOLT_CONF_IND_PIN);
-  PIN_CFG_IN(BOLT_CONF_IND_OUT_PIN);
-  PIN_CFG_OUT(LED_STATUS);
-  PIN_SET(LED_STATUS);
-      
 #ifdef MUX_SEL_PIN
   /* this board has a multiplexer (set it to UART) */
   PIN_CFG_OUT(MUX_SEL_PIN);

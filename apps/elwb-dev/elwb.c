@@ -55,8 +55,8 @@
 #error "eLWB only supports the ELWB_DYN scheduler!"
 #endif
 
-#if LWB_CONF_DATA_ACK && LWB_CONF_USE_XMEM
-#error "LWB_CONF_DATA_ACK cannot be used together with LWB_CONF_USE_XMEM!"
+#if !FRAM_CONF_ON && LWB_CONF_USE_XMEM
+#error "FRAM not enabled!"
 #endif
 
 /*---------------------------------------------------------------------------*/
@@ -257,13 +257,13 @@ lwb_requeue_pkt(uint32_t pkt_addr)
     if(new_pkt_addr == pkt_addr) {
       return; /* same address? -> nothing to do */
     }
+    /* note: one could use the actual packet size instead of sizeof(...) */
 #if !LWB_CONF_USE_XMEM
     memcpy((uint8_t*)(uint16_t)new_pkt_addr, (uint8_t*)(uint16_t)pkt_addr, 
-           ((lwbqueue_elem_t*)(uint16_t)pkt_addr)->len + 1);
+           sizeof(lwbqueue_elem_t));
 #else /* LWB_CONF_USE_XMEM */
     xmem_read(pkt_addr, sizeof(lwbqueue_elem_t), (uint8_t*)&xmem_buffer);
-    xmem_write(new_pkt_addr, ((lwbqueue_elem_t*)(uint16_t)pkt_addr)->len + 1,
-               data_buffer);      
+    xmem_write(new_pkt_addr, sizeof(lwbqueue_elem_t), (uint8_t*)&xmem_buffer);      
 #endif /* LWB_CONF_USE_XMEM */
   } else {
       stats.txbuf_drop++;
@@ -400,7 +400,7 @@ lwb_rcv_pkt(uint8_t* out_data,
       return 0;
     }
     xmem_wait_until_ready(); /* wait for the data transfer to complete */
-    memcpy(out_data, xmem_buffer->data, xmem_buffer.len);
+    memcpy(out_data, xmem_buffer.data, xmem_buffer.len);
     return xmem_buffer.len;
 #endif /* LWB_CONF_USE_XMEM */
   }
@@ -464,16 +464,10 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
   while(1) {
   
   #if LWB_CONF_T_PREPROCESS
+    /* make sure t_preprocess is 0 except when a new round starts! */
     if(t_preprocess) {
       if(pre_proc) {
         process_poll(pre_proc);
-      }
-      
-      /* update the schedule in case there is data to send! */
-      if(LWB_SCHED_HAS_CONT_SLOT(&schedule) && lwb_get_send_buffer_state()) {
-        schedule_len = lwb_sched_compute(&schedule, 0, 
-                                         lwb_get_send_buffer_state());
-        DEBUG_PRINT_VERBOSE("schedule recomputed");
       }
       LWB_LF_WAIT_UNTIL(rt->time + LWB_CONF_T_PREPROCESS);
       t_preprocess = 0; /* reset value */
@@ -486,7 +480,7 @@ PT_THREAD(lwb_thread_host(rtimer_t *rt))
     rt->time = rtimer_now_hf();
     t_start = rt->time;
 
-    /* --- SEND SCHEDULE --- */    
+    /* --- SEND SCHEDULE --- */
     LWB_SEND_SCHED();
    
     if(IS_FIRST_SCHEDULE(&schedule)) {
@@ -757,7 +751,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
         }
         /* go to sleep for LWB_CONF_T_DEEPSLEEP ticks */
         stats.sleep_cnt++;
-        DEBUG_PRINT_MSG_NOW("timeout, entering sleep mode");
+        DEBUG_PRINT_MSG_NOW("TIMEOUT");
         LWB_BEFORE_DEEPSLEEP();
         LWB_LF_WAIT_UNTIL(rtimer_now_lf() + LWB_CONF_T_DEEPSLEEP);
         LWB_AFTER_DEEPSLEEP();
@@ -913,7 +907,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   #if LWB_CONF_DATA_ACK  
       /* --- D-ACK SLOT --- */
                  
-      if(IS_DATA_ROUND(&schedule)) {
+      if(!(cfg.dbg_flags & 0x02) && IS_DATA_ROUND(&schedule)) {
         t_slot = LWB_CONF_T_CONT;
         payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
         LWB_WAIT_UNTIL(t_ref + t_slot_ofs - LWB_CONF_T_GUARD);
@@ -1038,9 +1032,9 @@ PROCESS_THREAD(lwb_process, ev, data)
 #else  /* LWB_CONF_USE_XMEM */
   /* allocate memory for the message buffering (in ext. memory) */
   fifo_init(&rx_queue, xmem_alloc(LWB_CONF_IN_BUFFER_SIZE * 
-                                   sizeof(lwbqueue_elem_t));
+                                   sizeof(lwbqueue_elem_t)));
   fifo_init(&tx_queue, xmem_alloc(LWB_CONF_OUT_BUFFER_SIZE * 
-                                    sizeof(lwbqueue_elem_t));   
+                                    sizeof(lwbqueue_elem_t)));   
 #endif /* LWB_CONF_USE_XMEM */
 
 #ifdef LWB_CONF_TASK_ACT_PIN

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
 //#define NODE_ID                         HOST_ID
-#define HOST_ID                         21
+#define HOST_ID                         6
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 
 
@@ -72,8 +72,24 @@
 #define LWB_CONF_DATA_ACK               1  /* use data ACKs from src to host */
 /* packet and buffer size */
 #define LWB_CONF_MAX_PKT_LEN            (128 - 2)     /* subtract Glossy hdr */
-#define LWB_CONF_IN_BUFFER_SIZE         5  //LWB_CONF_MAX_DATA_SLOTS
-#define LWB_CONF_OUT_BUFFER_SIZE        5  //LWB_CONF_MAX_DATA_SLOTS
+#if NODE_ID == HOST_ID
+ #if FRAM_CONF_ON
+  #define LWB_CONF_OUT_BUFFER_SIZE      10  /* = max #pkts the host can send */
+ #else /* FRAM_CONF_ON */
+  #define LWB_CONF_OUT_BUFFER_SIZE      3
+ #endif /* FRAM_CONF_ON */
+ #define LWB_CONF_IN_BUFFER_SIZE        1  /* typically LWB_CONF_MAX_DATA_SLOTS
+                                       but not required if forwarded to BOLT */
+#else /* node_id == HOST_ID */
+ #if FRAM_CONF_ON
+  #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
+  #define LWB_CONF_IN_BUFFER_SIZE       10 /* = max #pkts a src node can rcv */
+ #else /* FRAM_CONF_ON */
+  #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
+  #define LWB_CONF_IN_BUFFER_SIZE       3  /* = max #pkts a src node can rcv */   
+ #endif /* FRAM_CONF_ON */
+#endif /* node_id == HOST_ID */
+#define LWB_CONF_USE_XMEM               FRAM_CONF_ON      /* if FRAM enabled */
 /* timings */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200)      /* 5ms */
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 50)      /* 20ms */
@@ -91,12 +107,12 @@
 #define LWB_SCHED_ELWB_DYN                         /* use the eLWB scheduler */
 #define LWB_CONF_HEADER_LEN             0
 #if NODE_ID == HOST_ID
-#define LWB_CONF_WRITE_TO_BOLT          1      /* write incoming msg to BOLT */
+ #define LWB_CONF_WRITE_TO_BOLT         1      /* write incoming msg to BOLT */
 #else
-#define LWB_CONF_WRITE_TO_BOLT          0
+ #define LWB_CONF_WRITE_TO_BOLT         0
 #endif /* NODE_ID == HOST_ID */
 /* preprocessing task */
-#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 20)      /* 50ms */
+#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 10)     /* 100ms */
 /* override default packet filter (only keep pkts on src that match node_id) */ 
 #define LWB_CONF_SRC_PKT_FILTER(data)   (data[2] == node_id || \
                                          data[2] == 0xffff)
@@ -114,9 +130,15 @@
 #define BOLT_CONF_TIMEREQ_HF_MODE       0 /* only low freq. mode is supported*/
 
 
+/* --- external memory (FRAM) --- */
+
+#define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
+
+
 /* --- MISC --- */
 
 #define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 10)
+                                        /* inital value only, can be changed */
 #define UTC_TIMESTAMP_MAX_DRIFT         5  /* for host only, allowed drift 
                                             before time is adjusted (= jump) */
 #define WATCHDOG_CONF_ON                1
@@ -129,37 +151,57 @@
   #define EVENT_CONF_TARGET             EVENT_TARGET_LWB
 #endif /* LOG_CONF_ON */
 //#define SVS_CONF_ON                   1
-//#define FRAM_CONF_ON                  0
+#define DEBUG_PRINT_CONF_USE_XMEM       0
 #define RTIMER_CONF_LF_UPDATE_INT       1       /* enable LFXT OVF interrupt */
+#define NVCFG_CONF_BLOCK_SIZE           6
+#define FW_UPDATE_CONF_ON               FRAM_CONF_ON
 
 
 /* --- DEBUG config --- */
 
 #define DEBUG_PRINT_CONF_ON             1
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3500)
-                                         /* -> bss size max 3500 */
 #define DEBUG_PRINT_CONF_USE_RINGBUFFER 1
 #define DEBUG_PRINT_CONF_BUFFER_SIZE    400
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
-#define DEBUG_ISR_TRAPS_ENABLE          0
-#define DEBUG_INTERRUPT_ENABLE          0
-#define DEBUG_INTERRUPT_PIN             PORT2, PIN0        /* must be port 2 */
-#define DEBUG_LED                       COM_MCU_SPARE2
+#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3396 + 140)
+                                         /* -> .bss + .dec size max 3500 */
 //#define DEBUG_CONF_ISR_INDICATOR        1         /* indicate CPU activity */
 #define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3   /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
 #define LWB_CONF_TASK_ACT_PIN           COM_GPIO2
-//#define GLOSSY_START_PIN                COM_GPIO3  /* use the default (LED0) */
+//#define GLOSSY_START_PIN              COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                      COM_MCU_INT2
 
+#define LED_CONF_ON                     0     /* override default LED on/off */
+#define LED_ON(portandpin)              if(!(cfg.dbg_flags & 0x01)) \
+                                          PIN_SET_I(portandpin)
+#define LED_OFF(portandpin)             if(!(cfg.dbg_flags & 0x01)) \
+                                          PIN_CLR_I(portandpin)
+#define LED_TOGGLE(portandpin)          if(!(cfg.dbg_flags & 0x01)) \
+                                          PIN_XOR_I(portandpin)
 
-/* --- Global includes --- */
+
+/* --- Global includes, typedefs and variables --- */
 
 #include "fw-version.h"
+
+/* non-volatile configuration and stats (length must be NVCFG_CONF_BLOCK_SIZE
+ * bytes) */
+typedef struct {
+  uint16_t  node_id;
+  uint8_t   rst_cnt;
+  uint8_t   dbg_flags;     /* debug flags:
+                              0x01    set to turn LEDs off
+                              0x02    disable eLWB ACK mechanism on source */
+  uint8_t   tx_pwr;        /* transmit power for radio */ 
+  uint8_t   spare;
+} config_t;
+
+extern config_t cfg;           /* most important config parameters and stats */
 
 
 #endif /* __CONFIG_H__ */

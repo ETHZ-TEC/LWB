@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,11 @@
 #define LWB_CONF_MAX_SLOTS_HOST         (LWB_CONF_MAX_DATA_SLOTS / 2)
 #endif /* LWB_CONF_MAX_SLOTS_HOST */
 
+/* slack time for schedule computation, in HF ticks */
+#ifndef LWB_CONF_SCHED_COMP_TIME
+#define LWB_CONF_SCHED_COMP_TIME        (RTIMER_SECOND_HF / 50)      /* 20ms */
+#endif /* LWB_CONF_SCHED_COMP_TIME */
+
 /* parameter sanity check */
 
 #if LWB_CONF_MAX_SLOTS_HOST > LWB_CONF_MAX_DATA_SLOTS
@@ -80,15 +85,15 @@
  * to rounding issue) */
 #define LWB_PERIOD_T_REQ_MIN    ((LWB_CONF_T_SCHED + \
                                  2 * LWB_CONF_T_CONT + 2 * LWB_CONF_T_GAP + \
-                                 (RTIMER_SECOND_HF / 100)) * LWB_PERIOD_SCALE \
-                                 / RTIMER_SECOND_HF)
+                                 LWB_CONF_SCHED_COMP_TIME) / \
+                                 (RTIMER_SECOND_HF / LWB_PERIOD_SCALE))
     
 /* duration of the 'request round' = start of the data round,
  * depends on the max. # nodes (= LWB_CONF_MAX_N_STREAMS), + add 10ms slack */
 #define LWB_PERIOD_T_DATA_MAX   ((LWB_CONF_T_SCHED + LWB_CONF_T_GAP + \
                                   LWB_CONF_MAX_N_STREAMS * \
                                    (LWB_CONF_T_CONT + LWB_CONF_T_GAP) + \
-                                  (RTIMER_SECOND_HF / 100)) / \
+                                  LWB_CONF_SCHED_COMP_TIME) / \
                                  (RTIMER_SECOND_HF / LWB_PERIOD_SCALE))
 
 /* note: round up for the following values */
@@ -202,49 +207,26 @@ lwb_sched_compute(lwb_schedule_t * const sched,
                   const uint8_t * const unused, 
                   uint8_t reserve_slot_host) 
 { 
-  static uint8_t slots_host;
+  static uint16_t t_round  = 0;
   uint8_t n_slots_assigned = 0;
-  
-  /* increment the timestamp */
-  time += sched->period;
-  
+    
   /*
    * note: the schedule is sent at the beginning of the next round,
    * i.e. it must include the next period
    */
-  if(sched_state == LWB_SCHED_STATE_IDLE) {
-    if(sched->period == 0) {
-      /* request detected! prepare 2nd schedule (just update the period) */
-      sched->n_slots = 0;
-      sched->period = LWB_PERIOD_T_REQ_MIN + LWB_SCHED_N_SLOTS(sched) * 
-                        (LWB_CONF_T_DATA + LWB_CONF_T_GAP) /
-                        (RTIMER_SECOND_HF / LWB_PERIOD_SCALE);
-      sched_state = LWB_SCHED_STATE_CONT_DET; /* change state */
-      return 0;   /* return value doesn't matter here */
-      
-    } else {    
-      /* regular idle round */
-      slots_host = 0;
-    #if LWB_CONF_MAX_SLOTS_HOST
-      /* add slots for the host if requested */
-      while(reserve_slot_host && n_slots_assigned < LWB_CONF_MAX_SLOTS_HOST) {
-        sched->slot[n_slots_assigned++] = node_id;
-        reserve_slot_host--;
-      }
-      slots_host = n_slots_assigned;
-    #endif /* LWB_CONF_MAX_SLOTS_HOST */
-      sched->n_slots = n_slots_assigned;
-      sched->period  = period;
-      if(n_slots_assigned) {
-        SET_DATA_ROUND(sched);
-      }
-      LWB_SCHED_SET_CONT_SLOT(sched);
-      SET_STATE_IDLE(sched);  /* will be used by source nodes */
-      
-      sched_state = LWB_SCHED_STATE_IDLE;   /* stay in idle state */
-    }
-  } else if(sched_state == LWB_SCHED_STATE_CONT_DET) {
-    DEBUG_PRINT_VERBOSE("initiating request round");
+  if(sched_state == LWB_SCHED_STATE_IDLE && sched->period == 0) {
+    /* request detected! prepare 2nd schedule (just update the period) */
+    sched->n_slots = 0;
+    sched->period = t_round;                   /* use current round duration */
+    sched_state = LWB_SCHED_STATE_CONT_DET;                  /* change state */
+    return 2;                            /* return value doesn't matter here */
+  }
+  /* use the period of the last round to update the network time */
+  time += sched->period;
+  
+  if(sched_state == LWB_SCHED_STATE_CONT_DET) {
+    /* contention has been detected, now schedule request slots for all 
+     * registered nodes in the network */
     /* clear the content of the schedule */
     memset(sched->slot, 0, sizeof(sched->slot)); 
     /* every node gets one slot (a chance to request a stream) */
@@ -258,18 +240,19 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       /* if there are no registered nodes, then add a dummy slot */
       sched->slot[n_slots_assigned++] = 0xffff;
     }
-    
+    sched->n_slots = n_slots_assigned;
     /* calculate next round period (or use LWB_PERIOD_T_DATA_MAX) */
     sched->period  = ((LWB_CONF_T_SCHED + LWB_CONF_T_GAP + 
                        n_slots_assigned * (LWB_CONF_T_CONT + LWB_CONF_T_GAP) + 
-                       (RTIMER_SECOND_HF / 100)) / 
+                       LWB_CONF_SCHED_COMP_TIME) / 
                       (RTIMER_SECOND_HF / LWB_PERIOD_SCALE));
-    sched->n_slots = n_slots_assigned;
+    t_round += sched->period;
     
     sched_state = LWB_SCHED_STATE_REQ;
     
   } else if(sched_state == LWB_SCHED_STATE_REQ) {
-    /* calculate the schedule based on the received stream requests */
+    /* a request round has just finished, now calculate the schedule based on
+     * the received stream requests */
     /* clear the content of the schedule */
     memset(sched->slot, 0, sizeof(sched->slot)); 
     /* are there any streams? */
@@ -296,22 +279,23 @@ lwb_sched_compute(lwb_schedule_t * const sched,
                        node_cnt, n_streams);
     }
     sched->n_slots = n_slots_assigned;
-    uint16_t prev_period = sched->period;
-    sched->period = (uint16_t)((uint32_t)period - prev_period -
-                              LWB_PERIOD_T_REQ_MIN -
-                              slots_host * (LWB_CONF_T_DATA + LWB_CONF_T_GAP) /
-                               (RTIMER_SECOND_HF / LWB_PERIOD_SCALE));
+    sched->period = period - t_round;
+    t_round += (n_slots_assigned * (LWB_CONF_T_CONT + LWB_CONF_T_GAP) + 
+                LWB_CONF_SCHED_COMP_TIME) / 
+                (RTIMER_SECOND_HF / LWB_PERIOD_SCALE);
     SET_DATA_ROUND(sched);            /* mark the next round as 'data round' */
     SET_STATE_IDLE(sched);            /* mark as 'idle' after this round */
     
     sched_state = LWB_SCHED_STATE_DATA;
     
-  } else if(sched_state == LWB_SCHED_STATE_DATA) {    
+  } else if(sched_state == LWB_SCHED_STATE_DATA) {
+    /* a data round has just finished */
     /* deactivate all streams (regardless of whether data was received) */
     lwb_stream_list_t* curr_stream = list_head(streams_list);
     char buffer[64];
     uint16_t idx = 0;
     while(curr_stream != NULL) {
+      /* write the node IDs into a buffer */
       if(idx < 59) {
         idx += uint16_to_str(curr_stream->id, &buffer[idx]);
         buffer[idx++] = ' ';
@@ -319,20 +303,34 @@ lwb_sched_compute(lwb_schedule_t * const sched,
       curr_stream->state = 0;
       curr_stream = curr_stream->next;
     }
-    /* reset values, back to idle state */
-    slots_host     = 0;
-    sched->n_slots = 0;
-    sched->period  = period;
-    LWB_SCHED_SET_CONT_SLOT(sched);
-    
-    sched_state = LWB_SCHED_STATE_IDLE;
-    SET_STATE_IDLE(sched);  /* will be used by source nodes */
-    
     /* print out some stream infos */
     if(idx) {
       buffer[idx] = 0;
-      DEBUG_PRINT_INFO("node list: %s", buffer);
+      DEBUG_PRINT_INFO("round duration: %u0ms, nodelist: %s", t_round, buffer);
     }
+    
+    sched_state = LWB_SCHED_STATE_IDLE;
+    /* schedule for next round will be set below */
+  }
+  
+  if(sched_state == LWB_SCHED_STATE_IDLE) {
+    /* regular idle round */
+    /* add slots for the host if requested */
+    while(reserve_slot_host && n_slots_assigned < LWB_CONF_MAX_SLOTS_HOST) {
+      sched->slot[n_slots_assigned++] = node_id;
+      reserve_slot_host--;
+    }
+    sched->n_slots = n_slots_assigned;
+    /* calculate round duration */
+    t_round = LWB_PERIOD_T_REQ_MIN + (n_slots_assigned * 
+                                      (LWB_CONF_T_DATA + LWB_CONF_T_GAP) /
+                                      (RTIMER_SECOND_HF / LWB_PERIOD_SCALE));
+    sched->period = period;   /* assume idle period for next round */
+    if(n_slots_assigned) {
+      SET_DATA_ROUND(sched);
+    }
+    LWB_SCHED_SET_CONT_SLOT(sched);
+    SET_STATE_IDLE(sched);  /* will be used by source nodes */
   }
   
   uint8_t compressed_size;
@@ -346,11 +344,12 @@ lwb_sched_compute(lwb_schedule_t * const sched,
   compressed_size = n_slots_assigned * 2;
 #endif /* LWB_CONF_SCHED_COMPRESS */
   
+  /* increment the timestamp */
   sched->time = time / LWB_PERIOD_SCALE;
      
   /* log the parameters of the new schedule */
-  DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u n=%u|%u l=%u)", 
-                      n_streams, sched->period * (1000 / LWB_PERIOD_SCALE), 
+  DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u0 n=%u|%u l=%u)", 
+                      n_streams, sched->period, 
                       n_slots_assigned, sched->n_slots >> 13, 
                       compressed_size);
   

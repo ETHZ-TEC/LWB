@@ -264,7 +264,7 @@ lwb_sched_compute(lwb_schedule_t * const sched,
     
   } else if(*state == LWB_SCHED_STATE_DATA) {    
     /* deactivate all streams (regardless of whether data was received) */
-    lwb_stream_list_t* curr_stream = NULL;
+    lwb_stream_list_t* curr_stream = list_head(streams_list);
     while(curr_stream != NULL) {
       curr_stream->state = 0;
       curr_stream = curr_stream->next;

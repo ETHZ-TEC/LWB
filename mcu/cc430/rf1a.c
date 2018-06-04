@@ -65,8 +65,8 @@ static rf1a_rx_tx_states_t rf1a_state;
 /* buffer used to manage packets longer than the RX/TX FIFO size (64 bytes) */
 /* force its address to be even in order to avoid misalignment issues */
 /* when executing the callback functions */
-/* add +3 to account for length byte, rssi and lqi */
-static uint8_t rf1a_buffer[RF_CONF_MAX_PKT_LEN +3] __attribute__((aligned(2)));
+/* add +2 to account for rssi and lqi */
+static uint8_t rf1a_buffer[RF_CONF_MAX_PKT_LEN +2] __attribute__((aligned(2)));
 /* variables to indicate where is the starting point of the buffer (used for
    TX) and its length */
 static uint8_t rf1a_buffer_start, rf1a_buffer_len;
@@ -84,7 +84,9 @@ static rf1a_tx_powers_t rf1a_tx_pwr = RF_CONF_TX_POWER;
 static inline void
 read_bytes_from_rx_fifo(uint8_t n_bytes)
 {
-  if(rf1a_buffer_len + n_bytes <= packet_len_max) {
+  /* note that rssi and lqi can be added to RX buffer, therefore +2 
+   * (length byte is already accounted for) */
+  if(rf1a_buffer_len + n_bytes <= packet_len_max + 2) {
     if(rf1a_buffer_len == 0) {
       /* no bytes read from the RX FIFO yet: store the first one as the packet
          length */
@@ -193,9 +195,9 @@ rf1a_init(void)
   PMMCTL0_L |= PMMHPMRE;
   PMMCTL0_H  = 0;        /* lock */
   
-  printf("RF module configured (pwr=%ddBm, ch=%u/%u.%uMHz, len=%ub)\r\n",
+  printf("RF module configured (%ddBm, %u.%uMHz, %ub)\r\n",
          rf1a_tx_power_val[RF_CONF_TX_POWER], 
-         RF_CONF_TX_CH, RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
+         RF_CONF_TX_CH / 5 + 868, (RF_CONF_TX_CH * 2) % 10,
          RF_CONF_MAX_PKT_LEN);
 }
 /*---------------------------------------------------------------------------*/
