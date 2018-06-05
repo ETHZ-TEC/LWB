@@ -115,11 +115,11 @@ send_msg(uint16_t recipient,
   } else {
     msg_tx.header.seqnr   = seq_no_lwb++;
   }
-#if node_id == HOST_ID
+#if IS_HOST
   msg_tx.header.generation_time = utc_timestamp();
-#else
+#else /* IS_HOST */
   msg_tx.header.generation_time = lwb_get_timestamp();
-#endif 
+#endif /* IS_HOST */
   
   /* copy the payload if valid */
   if(msg_tx.header.payload_len && data) {
@@ -200,7 +200,9 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
           cfg.tx_pwr = (uint8_t)arg1;
           nvcfg_save((uint8_t*)&cfg);
           rf1a_set_tx_power(arg1);
-          successful = 1; 
+          DEBUG_PRINT_INFO("TX power changed to %ddBm", 
+                           rf1a_tx_power_val[arg1]);
+          successful = 1;
         }
         break;
       case CMD_CC430_SET_DBG_FLAGS:
@@ -217,7 +219,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
           memcpy(&buf[2], (uint8_t*)arg1, arg2);            
           send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_COM_RESPONSE, 
                    (uint8_t*)buf, arg2 + DPP_COM_RESPONSE_HDR_LEN, 
-                   HOST_ID == node_id);
+                   IS_HOST);
           successful = 1;
         }
         break;
@@ -227,22 +229,22 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         break;
       }
       if(successful) {
+        uint32_t val = (((uint32_t)arg1) << 16 | msg->cmd.type);
         DEBUG_PRINT_INFO("cmd processed, config changed");
-        EVENT_INFO(EVENT_CC430_CFG_CHANGED,
-                   (((uint32_t)arg1) << 16 | msg->cmd.type));
+        EVENT_INFO(EVENT_CC430_CFG_CHANGED, val);
       }
-#if TIMESYNC_HOST_RCV_UTC && (NODE_ID == HOST_ID)
+  #if IS_HOST
     } else if(msg->header.type == DPP_MSG_TYPE_TIMESYNC) {
       utc_time    = msg->timestamp;
       utc_time_rx = bolt_captured_trq;
       utc_time_updated = 1;
-#endif /* TIMESYNC_HOST_RCV_UTC */
+  #endif /* IS_HOST */
 
-#if FW_UPDATE_CONF_ON
+  #if FW_UPDATE_CONF_ON
     /* firmware message type (only continue if component ID matches) */
     } else if(msg->header.type == DPP_MSG_TYPE_FW &&
               msg->firmware.component_id == DPP_COMPONENT_ID_CC430) {
-  #if (node_id == HOST_ID)
+    #if IS_HOST
       /* host node only processes this msg type if target == node_id */
       if(msg->header.target_id == node_id) {
         if(!fw_process_msg(msg)) {
@@ -250,22 +252,22 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         }
         forward = 0;   /* do not forward FW packets that are for host nodes! */
       } /* else: just forward to the network */
-  #else /* node_id == HOST_ID */
+    #else /* IS_HOST */
       if(!fw_process_msg(msg)) {
         DEBUG_PRINT_INFO("failed to process FW msg type");
       }
       forward = 0;  /* source node shall not forward this to the AP */
-  #endif /* node_id == HOST_ID */
-#endif /* FW_UPDATE_CONF_ON */
+    #endif /* IS_HOST */
+  #endif /* FW_UPDATE_CONF_ON */
       
     } else {
       /* unknown message type */
-      if(node_id != HOST_ID) {
+  #if !IS_HOST
         forward = 1;
-      } else {
+  #else /* !IS_HOST */
         /* ignore */      
         EVENT_WARNING(EVENT_CC430_MSG_IGNORED, msg->header.type);
-      }
+  #endif /* !IS_HOST */
     }
   } else {
     /* target id is not this node */
@@ -297,26 +299,26 @@ send_timestamp(int64_t captured)
   msg_tx.timestamp = 0;
   
   /* timestamp request: calculate the timestamp and send it over BOLT */
-  if(node_id == HOST_ID) {
-    msg_tx.timestamp = captured * 1000000 / RTIMER_SECOND_LF + TIMESYNC_OFS;
-
+#if IS_HOST
+  msg_tx.timestamp = captured * 1000000 / RTIMER_SECOND_LF + TIMESYNC_OFS;
+#else /* IS_HOST */
   /* only send a timestamp if the node is connected to the LWB */
-  } else {
-    rtimer_clock_t local_t_rx = 0;
-    uint64_t lwb_time_secs = lwb_get_time(&local_t_rx);
-    if(lwb_time_secs > 0) {
-      /* convert to LF ticks */
-      rtimer_clock_t lf, hf;
-      rtimer_now(&hf, &lf);
-      local_t_rx = lf - (hf - local_t_rx) * RTIMER_SECOND_LF /RTIMER_SECOND_HF;
-      /* if captured before last ref time update, then diff is > 0 and thus 
-       * LWB time needs to be decreased by the difference */
-      int64_t diff = (local_t_rx - captured);   /* in clock ticks */
-      /* local t_rx is in clock ticks */
-      msg_tx.timestamp = lwb_time_secs * 1000000 - 
-                         diff * 1000000 / RTIMER_SECOND_LF;
-    }
+  rtimer_clock_t local_t_rx = 0;
+  uint64_t lwb_time_secs = lwb_get_time(&local_t_rx);
+  if(lwb_time_secs > 0) {
+    /* convert to LF ticks */
+    rtimer_clock_t lf, hf;
+    rtimer_now(&hf, &lf);
+    local_t_rx = lf - (hf - local_t_rx) * RTIMER_SECOND_LF /RTIMER_SECOND_HF;
+    /* if captured before last ref time update, then diff is > 0 and thus 
+      * LWB time needs to be decreased by the difference */
+    int64_t diff = (local_t_rx - captured);   /* in clock ticks */
+    /* local t_rx is in clock ticks */
+    msg_tx.timestamp = lwb_time_secs * 1000000 - 
+                        diff * 1000000 / RTIMER_SECOND_LF;
   }
+#endif /* IS_HOST */
+
   /* send message over BOLT */
   send_msg(node_id, DPP_MSG_TYPE_TIMESYNC, 0, 0, 1);
   
@@ -339,9 +341,9 @@ send_node_info(void)
          MIN(4,strlen(COMPILER_DESC)));
   memcpy(msg_tx.node_info.fw_name, FW_NAME, MIN(8, strlen(FW_NAME)));
   memcpy(msg_tx.node_info.mcu_desc, MCU_DESC, MIN(12, strlen(MCU_DESC)));
-    
-  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_NODE_INFO, 0, 0,
-           HOST_ID == node_id);   /* host sends message towards BOLT */
+  
+  /* note: host sends message towards BOLT */
+  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_NODE_INFO, 0, 0, IS_HOST);
   DEBUG_PRINT_INFO("node info message generated");
 }
 /*---------------------------------------------------------------------------*/
@@ -371,13 +373,13 @@ send_node_health(void)
   rcvd_msg_cnt                    = 0;              /* reset */
   msg_tx.com_health.stack         = debug_print_get_max_stack_size() * 100 /
                                     (SRAM_END - DEBUG_CONF_STACK_GUARD - 7);
-#if NODE_ID == HOST_ID
+#if IS_HOST
   msg_tx.com_health.radio_snr     = glossy_get_snr();
   msg_tx.com_health.radio_rssi    = (uint8_t)(-lwb_stats->glossy_snr);
-#else
+#else /* IS_HOST */
   msg_tx.com_health.radio_snr     = lwb_stats->glossy_snr;
   msg_tx.com_health.radio_rssi    = (uint8_t)(-glossy_get_rssi());
-#endif 
+#endif /* IS_HOST */
   msg_tx.com_health.radio_tx_pwr  = rf1a_tx_power_val[RF_CONF_TX_POWER];
   msg_tx.com_health.radio_per     = glossy_get_per();
   if(rx_cnt_last > lwb_stats->pck_cnt) {
@@ -422,7 +424,7 @@ send_node_health(void)
     
   /* host must send it to BOLT, a source node into the network */
   send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_COM_HEALTH, 0, 0, 
-           node_id == HOST_ID);
+           IS_HOST);
   
   DEBUG_PRINT_INFO("health msg generated");
 }
@@ -454,7 +456,7 @@ send_lwb_health(void)
   glossy_reset_stats();
     
   send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_LWB_HEALTH, 0, 0, 
-           node_id == HOST_ID);
+           IS_HOST);
   
   //DEBUG_PRINT_INFO("LWB health msg generated");
 }

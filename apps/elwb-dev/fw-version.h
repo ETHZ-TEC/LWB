@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0005
+#define FW_VERSION      0x0006
 #define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -43,7 +43,13 @@ Revision History
 ----------------
 
 Version 0.7 (--- IN DEVELOPMENT ---):
-- 
+- change: NODE_ID is now defined differently in contiki-conf.h, node_id now 
+          exists as a global variable in any case (host and source)
+- change: preprocess time reverted back to 50ms (is sufficient)
+- bugfix: when changing the round period, the timestamp was unnecessarily 
+          'adjusted' (i.e. a difference of more than 5s was detected)
+- change: defines TIMESYNC_HOST_RCV_UTC and TIMESYNC_INTERRUPT_BASED removed
+          (deprecated), IS_HOST macro added
 
 Version 0.6 (works with FRAM chip only, 2018-06-04):
 - bugfix: timing issue on the host node resolved where the time to compute the 

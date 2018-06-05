@@ -44,14 +44,16 @@
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
 //#define NODE_ID                         HOST_ID
-#define HOST_ID                         6
+#define HOST_ID                         16
+
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
+#define IS_HOST                         (NODE_ID == HOST_ID)
 
 
 /* --- Radio config --- */
 
-#define LWB_CONF_RF_CH_PRIMARY          8 //8            /* CH10 = 870MHz */
-#define LWB_CONF_RF_CH_SECONDARY        8
+#define LWB_CONF_RF_CH_PRIMARY          10 //8            /* CH10 = 870MHz */
+#define LWB_CONF_RF_CH_SECONDARY        10
 #define RF_CONF_TX_CH                   LWB_CONF_RF_CH_PRIMARY
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm  // RF1A_TX_POWER_PLUS_10_dBm
 #define RF_CONF_MAX_PKT_LEN             128
@@ -60,8 +62,8 @@
 /* --- Network parameters --- */
 
 #define LWB_CONF_MAX_HOPS               3
-//#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  3
-//#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4
+//#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4  /* predefined list of nodes */
+//#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  3         /* # nodes in list above */
 
 
 /* --- LWB / eLWB config --- */
@@ -72,7 +74,7 @@
 #define LWB_CONF_DATA_ACK               1  /* use data ACKs from src to host */
 /* packet and buffer size */
 #define LWB_CONF_MAX_PKT_LEN            (128 - 2)     /* subtract Glossy hdr */
-#if NODE_ID == HOST_ID
+#if IS_HOST
  #if FRAM_CONF_ON
   #define LWB_CONF_OUT_BUFFER_SIZE      10  /* = max #pkts the host can send */
  #else /* FRAM_CONF_ON */
@@ -80,7 +82,7 @@
  #endif /* FRAM_CONF_ON */
  #define LWB_CONF_IN_BUFFER_SIZE        1  /* typically LWB_CONF_MAX_DATA_SLOTS
                                        but not required if forwarded to BOLT */
-#else /* node_id == HOST_ID */
+#else /* IS_HOST */
  #if FRAM_CONF_ON
   #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
   #define LWB_CONF_IN_BUFFER_SIZE       10 /* = max #pkts a src node can rcv */
@@ -88,7 +90,7 @@
   #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
   #define LWB_CONF_IN_BUFFER_SIZE       3  /* = max #pkts a src node can rcv */   
  #endif /* FRAM_CONF_ON */
-#endif /* node_id == HOST_ID */
+#endif /* IS_HOST */
 #define LWB_CONF_USE_XMEM               FRAM_CONF_ON      /* if FRAM enabled */
 /* timings */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200)      /* 5ms */
@@ -106,13 +108,13 @@
 #define LWB_VERSION                     0      /* override default LWB impl. */
 #define LWB_SCHED_ELWB_DYN                         /* use the eLWB scheduler */
 #define LWB_CONF_HEADER_LEN             0
-#if NODE_ID == HOST_ID
+#if IS_HOST
  #define LWB_CONF_WRITE_TO_BOLT         1      /* write incoming msg to BOLT */
-#else
+#else /* IS_HOST */
  #define LWB_CONF_WRITE_TO_BOLT         0
-#endif /* NODE_ID == HOST_ID */
+#endif /* IS_HOST */
 /* preprocessing task */
-#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 10)     /* 100ms */
+#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 20)     /* 50ms */
 /* override default packet filter (only keep pkts on src that match node_id) */ 
 #define LWB_CONF_SRC_PKT_FILTER(data)   (data[2] == node_id || \
                                          data[2] == 0xffff)
@@ -124,13 +126,11 @@
 
 #define BOLT_CONF_MAX_MSG_LEN           LWB_CONF_MAX_PKT_LEN
 #define BOLT_CONF_TIMEREQ_ENABLE        1
-#define TIMESYNC_HOST_RCV_UTC           1         /* host: rcv UTC timestamp */
-#define TIMESYNC_INTERRUPT_BASED        1     /* only ISR based is supported */
 #define TIMESYNC_OFS                    193          /* const offset to host */
 #define BOLT_CONF_TIMEREQ_HF_MODE       0 /* only low freq. mode is supported*/
 
 
-/* --- external memory (FRAM) --- */
+/* --- External memory (FRAM) --- */
 
 #define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
 
@@ -145,11 +145,11 @@
 #define RTIMER_CONF_LF_UPDATE_LED_ON    0
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
 #define EVENT_CONF_ON                   1
-#if NODE_ID == HOST_ID
+#if IS_HOST
   #define EVENT_CONF_TARGET             EVENT_TARGET_BOLT
-#else /* LOG_CONF_ON */
+#else /* IS_HOST */
   #define EVENT_CONF_TARGET             EVENT_TARGET_LWB
-#endif /* LOG_CONF_ON */
+#endif /* IS_HOST */
 //#define SVS_CONF_ON                   1
 #define DEBUG_PRINT_CONF_USE_XMEM       0
 #define RTIMER_CONF_LF_UPDATE_INT       1       /* enable LFXT OVF interrupt */
@@ -164,8 +164,8 @@
 #define DEBUG_PRINT_CONF_USE_RINGBUFFER 1
 #define DEBUG_PRINT_CONF_BUFFER_SIZE    400
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
-#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3396 + 140)
-                                         /* -> .bss + .dec size max 3500 */
+#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
+                                         /* -> .bss + .dec size */
 //#define DEBUG_CONF_ISR_INDICATOR        1         /* indicate CPU activity */
 #define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3   /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */

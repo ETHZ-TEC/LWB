@@ -92,7 +92,8 @@
 /* by default, forward all received packets to the app task on the source nodes
  * that originated from the host (or ID 0) */
 #ifndef LWB_CONF_SRC_PKT_FILTER
-/* if expression evaluates to 'true', the packet is forwarded/kept */
+/* if expression evaluates to 'true', the packet is forwarded/kept (by default
+ * keep packets originating from the host (first field in pkt is device ID) */
 #define LWB_CONF_SRC_PKT_FILTER(data)  \
                          (schedule.slot[i] == 0 || schedule.slot[i] == HOST_ID)
 #endif /* LWB_CONF_SRC_PKT_FILTER */
@@ -304,7 +305,7 @@ lwb_in_buffer_put(uint8_t* data, uint8_t len)
     return 1;
   }
   stats.rxbuf_drop++;
-  DEBUG_PRINT_WARNING("lwb rx queue full");
+  DEBUG_PRINT_WARNING("eLWB RX queue full");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -336,7 +337,7 @@ lwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
 #endif /* LWB_CONF_USE_XMEM */
     return 1;
   }
-  DEBUG_PRINT_VERBOSE("lwb tx queue empty");
+  DEBUG_PRINT_VERBOSE("eLWB TX queue empty");
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -1044,26 +1045,26 @@ PROCESS_THREAD(lwb_process, ev, data)
   
   PT_INIT(&lwb_pt); /* initialize the protothread */
 
-#if (NODE_ID == HOST_ID)
-    schedule_len = lwb_sched_init(&schedule);
-#endif
+#if IS_HOST
+  /* compute initial schedule */
+  schedule_len = lwb_sched_init(&schedule);
+#endif /* IS_HOST */
 
-  /* start in 10ms */
+  /* start in 10ms (use LF timer) */
   rtimer_clock_t t_wakeup = rtimer_now_lf() + RTIMER_SECOND_LF / 100;
   rtimer_id_t    rt_id    = LWB_CONF_LF_RTIMER_ID;
-    
-#if (NODE_ID == HOST_ID)
-    /* update the global time and wait for the next full second */
-    schedule.time = ((t_wakeup + RTIMER_SECOND_LF) / RTIMER_SECOND_LF);
-    lwb_sched_set_time(schedule.time);
-    t_wakeup = (rtimer_clock_t)schedule.time * RTIMER_SECOND_LF;
-    rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_host);
-#else
-    rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_src);
-#endif
+#if IS_HOST
+  /* update the global time and wait for the next full second */
+  schedule.time = ((t_wakeup + RTIMER_SECOND_LF) / RTIMER_SECOND_LF);
+  lwb_sched_set_time(schedule.time);
+  t_wakeup = (rtimer_clock_t)schedule.time * RTIMER_SECOND_LF;
+  rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_host);
+#else /* IS_HOST */
+  rtimer_schedule(rt_id, t_wakeup, 0, lwb_thread_src);
+#endif /* IS_HOST */
 
   /* instead of terminating the process here, use it for other tasks such as
-   * external memory access */  
+   * external memory access */
 #if LWB_CONF_USE_XMEM
   while(1) {
     LWB_TASK_SUSPENDED;

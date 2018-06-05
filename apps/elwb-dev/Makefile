@@ -18,3 +18,8 @@ upload:
 	tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(CONTIKI_PROJECT).exe $(CONTIKI_PROJECT).hex TOS_NODE_ID=$(node_id)
 	@export LD_LIBRARY_PATH="/home/keepcoding/ti/ccsv7/ccs_base/DebugServer/drivers/"
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
+	#@mspdebug tilib "verify $(CONTIKI_PROJECT).hex"
+	
+verify:
+	@mspdebug tilib "verify $(CONTIKI_PROJECT).hex"
+

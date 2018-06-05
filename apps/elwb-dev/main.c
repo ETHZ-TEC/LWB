@@ -65,7 +65,7 @@ capture_timestamp(void)
 /*---------------------------------------------------------------------------*/
 void
 update_time(void)
-{
+{  
   if(utc_time_updated) {
     /* a UTC timestamp has been received -> update the network time */
     uint32_t elapsed = 0;
@@ -80,15 +80,11 @@ update_time(void)
     /* convert to us */
     elapsed = elapsed * (1000000 / RTIMER_SECOND_LF);
     uint32_t new_time = (utc_time + elapsed) / 1000000;
-    uint32_t curr_time = lwb_get_time(0);
+    uint32_t curr_time = lwb_sched_get_time();
+    uint16_t diff = (new_time > curr_time) ? (new_time - curr_time) :
+                                             (curr_time - new_time);
+
     /* only update if the difference is much larger than 1 second */
-    uint16_t diff;
-    curr_time += lwb_sched_get_period();
-    if(new_time > curr_time) {
-      diff = new_time - curr_time;
-    } else {
-      diff = curr_time - new_time;
-    }
     if(diff > UTC_TIMESTAMP_MAX_DRIFT) {
       lwb_sched_set_time(new_time);
       DEBUG_PRINT_INFO("timestamp adjusted to %lu", new_time);
@@ -106,14 +102,15 @@ load_config(void)
   /* load and restore the config */
   if(nvcfg_load((uint8_t*)&cfg)) {
     rf1a_set_tx_power(cfg.tx_pwr);
-  #if (node_id != HOST_ID)
+  #if !IS_HOST
     if(node_id == 0x1122 && cfg.node_id != 0) {         /* still on default value? */
       node_id = cfg.node_id;
+      DEBUG_PRINT_MSG_NOW("Node ID %u restored from config", cfg.node_id);
     } else {
       /* save node ID */
       cfg.node_id = node_id;
     }
-  #endif /* node_id != HOST_ID */
+  #endif /* IS_HOST */
   } else {
     DEBUG_PRINT_MSG_NOW("WARNING: failed to load config");
   }
@@ -150,9 +147,17 @@ PROCESS_THREAD(app_proc_pre, ev, data)
                        read, forwarded);
     }
     
-  #if (NODE_ID == HOST_ID) && TIMESYNC_HOST_RCV_UTC
+  #if !IS_HOST
+    /* --- send the timestamp if one has been requested --- */
+    if(bolt_captured_trq) {
+      send_timestamp(bolt_captured_trq);
+      bolt_captured_trq = 0;
+    }
+  #else /* !IS_HOST */
+    /* note: even though the time is updated here, it will only be used from
+     *       the next round since the schedule has already been computed. */
     update_time();
-  #endif
+  #endif /* !IS_HOST */
   }
   
   PROCESS_END();
@@ -215,22 +220,14 @@ PROCESS_THREAD(app_proc_post, ev, data)
       DEBUG_PRINT_INFO("%u msg rcvd from network, %u forwarded", 
                        rcvd, forwarded);
     }
-    
-  #if (NODE_ID != HOST_ID) || !TIMESYNC_HOST_RCV_UTC
-    /* --- send the timestamp if one has been requested --- */
-    if(bolt_captured_trq) {
-      send_timestamp(bolt_captured_trq);
-      bolt_captured_trq = 0;
-    }
-  #endif /* !TIMESYNC_HOST_RCV_UTC */
       
     /* generate a node info message if necessary (must be here) */
     if(!node_info_sent) {
-  #if (NODE_ID != HOST_ID)
+  #if !IS_HOST
       if(lwb_get_time(0)) { 
-  #else
-      if(!TIMESYNC_HOST_RCV_UTC || utc_time) {
-  #endif
+  #else /* !IS_HOST */
+      if(utc_time) {
+  #endif /* !IS_HOST */
         send_node_info();
         node_info_sent = 1;
       }
@@ -252,7 +249,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
     uint16_t stack_size = debug_print_get_max_stack_size();
     if(stack_size > max_stack_size) {
       max_stack_size = stack_size;
-      DEBUG_PRINT_INFO("stack size: %uB, max %uB", (SRAM_START + SRAM_SIZE) -
+      DEBUG_PRINT_INFO("stack size: %ub, max %ub", (SRAM_START + SRAM_SIZE) -
                                             (uint16_t)&stack_size, stack_size);
     }
         

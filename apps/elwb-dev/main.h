@@ -43,6 +43,7 @@
 #include "event.h"
 #include "message.h"
 
+
 /* general return value type definition */
 typedef enum
 {
@@ -53,6 +54,7 @@ typedef enum
 /* the static scheduler implements the following function: */
 void lwb_sched_set_period(uint16_t period);
 uint16_t lwb_sched_get_period(void);
+uint32_t lwb_sched_get_time(void);
 
 /* defined in fw.c */
 retval_t fw_init(void);

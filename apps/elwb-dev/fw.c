@@ -235,7 +235,7 @@ fw_verify(const dpp_fw_t* fwpkt)
   notification.type         = DPP_FW_TYPE_READY;
   notification.component_id = DPP_COMPONENT_ID_CC430;
   notification.version      = fwinfo.version;
-  send_msg(0, DPP_MSG_TYPE_FW, (uint8_t*)&notification, 4, HOST_ID == node_id);
+  send_msg(0, DPP_MSG_TYPE_FW, (uint8_t*)&notification, 4, IS_HOST);
 
   return SUCCESS;
 }
@@ -267,7 +267,7 @@ fw_request_data(void)
   msg_tx.firmware.version      = fwinfo.version;
   msg_tx.firmware.req.num      = cnt;
   send_msg(0, DPP_MSG_TYPE_FW, 0, 6 + cnt * 2,
-           HOST_ID == node_id);
+           IS_HOST);
   
   DEBUG_PRINT_INFO("%u FW data blocks requested", cnt);
 }

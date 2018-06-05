@@ -420,6 +420,7 @@ lwb_sched_init(lwb_schedule_t* sched)
 uint16_t 
 lwb_sched_get_period(void)
 {
+  /* period in seconds */
   return period / LWB_PERIOD_SCALE;
 }
 /*---------------------------------------------------------------------------*/
@@ -429,6 +430,13 @@ lwb_sched_set_period(uint16_t p)
   if (p * 1000 > LWB_T_ROUND_MAX_MS) {
     period = (uint16_t)((uint32_t)p * LWB_PERIOD_SCALE);
   }
+}
+/*---------------------------------------------------------------------------*/
+uint32_t
+lwb_sched_get_time(void)
+{
+  /* network time in seconds */
+  return (time / LWB_PERIOD_SCALE);
 }
 /*---------------------------------------------------------------------------*/
 void
