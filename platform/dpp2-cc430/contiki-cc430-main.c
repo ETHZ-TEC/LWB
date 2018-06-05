@@ -34,11 +34,11 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-uint16_t TOS_NODE_ID = 0x1122;  /* do NOT change this default value! */
-#ifndef NODE_ID
+uint16_t TOS_NODE_ID = NODE_ID;             /* required for tos-set-symbols! */
+//#ifndef NODE_ID
 volatile uint16_t node_id;
-#endif /* NODE_ID */
-uint16_t rst_flag;    /* make it global to be accessible by the app task */
+//#endif /* NODE_ID */
+uint16_t rst_flag;        /* make it global to be accessible by the app task */
 /*---------------------------------------------------------------------------*/
 void
 print_processes(struct process *const processes[])
@@ -152,9 +152,7 @@ main(int argc, char **argv)
 #endif /* RF_CONF_ON */
 
   /* set the node ID */
-#ifndef NODE_ID
   node_id = TOS_NODE_ID;
-#endif /* NODE_ID */
   printf(CONTIKI_VERSION_STRING " started. Node ID is set to %u.\r\n",
          node_id);
 
