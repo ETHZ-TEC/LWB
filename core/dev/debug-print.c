@@ -85,11 +85,14 @@ static uint8_t buffer_full = 0;
   #endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 /*---------------------------------------------------------------------------*/
-PROCESS(debug_print_process, "Debug Print Task");
+PROCESS(debug_print_process, "Debug Print");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(debug_print_process, ev, data)
 {
   PROCESS_BEGIN();
+  
+  uart_enable(1);       /* make sure UART is enabled */
+  printf("Process '%s' started\r\n", debug_print_process.name);
         
 #if DEBUG_PRINT_CONF_USE_XMEM
   static uint32_t next_msg = MEMBX_INVALID_ADDR;
@@ -112,8 +115,6 @@ PROCESS_THREAD(debug_print_process, ev, data)
 #ifdef DEBUG_PRINT_CONF_TASK_ACT_PIN
   PIN_CFG_OUT(DEBUG_PRINT_CONF_TASK_ACT_PIN);
 #endif
-    
-  uart_enable(1);       /* make sure UART is enabled */
   
 #if DEBUG_CONF_STACK_GUARD
   /* fîll all unused stack memory with a dummy value */
@@ -202,7 +203,6 @@ PROCESS_THREAD(debug_print_process, ev, data)
 void
 debug_print_init(void)
 {
-  printf("Starting '%s'\r\n", debug_print_process.name);
   process_start(&debug_print_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

@@ -40,25 +40,13 @@ volatile uint16_t node_id;
 //#endif /* NODE_ID */
 uint16_t rst_flag;        /* make it global to be accessible by the app task */
 /*---------------------------------------------------------------------------*/
-void
-print_processes(struct process *const processes[])
-{
-  uart_enable(1);
-  printf("Starting");
-  while(*processes != NULL) {
-    printf(" '%s'", (*processes)->name);
-    processes++;
-  }
-  printf("\r\n");
-}
-/*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
 print_device_info(void)
 {
   const char* rst_source[14] = { "BOR", "nRST", "SWBOR", "SECV", "SVS", "SVM",
                                  "SWPOR", "WDT", "WDTPW", "KEYV", "PLLUL",
-                                 "PERF", "PMMKEY", "Unknown" };
+                                 "PERF", "PMMKEY", "?" };
   uint8_t idx;
   /* 
    * note: this device does not offer an LPMx.5 mode, therefore there's no
@@ -86,7 +74,7 @@ print_device_info(void)
     case SYSRSTIV_PMMKEY:   idx = 12; break;
     default:                idx = 13; break;
   }
-  printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFirmware: %u.%02u " \
+  printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFW: %u.%02u " \
          __DATE__ "\r\n", rst_source[idx], FW_VERSION >> 8, FW_VERSION & 0xff);
 
   /* note: KEYV indicates an incorrect FCTLx password was written to any flash
@@ -175,7 +163,7 @@ main(int argc, char **argv)
 #endif /* SVS_CONF_ON */
 
   process_init();
-  process_start(&etimer_process, NULL);
+  //process_start(&etimer_process, NULL);
 
   random_init(node_id * TA0R);
   serial_line_init();
@@ -190,7 +178,6 @@ main(int argc, char **argv)
 #endif /* NULLMAC_CONF_ON */
   
   /* start processes */
-  print_processes(autostart_processes);
   autostart_start(autostart_processes);
   debug_print_init();
   /* note: start debug process as last due to process_poll() execution order */

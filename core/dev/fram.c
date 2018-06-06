@@ -270,17 +270,17 @@ fram_fill(uint32_t start_address, uint16_t num_bytes, const uint8_t fill_value)
 /*---------------------------------------------------------------------------*/
 uint32_t
 fram_alloc(uint16_t size)
-{    
+{  
   uint32_t addr = fram_curr_offset;     /* word address */
+  uart_enable(1);
   if(0 == size || 
     ((fram_curr_offset + size) >= (FRAM_CONF_ALLOC_SIZE + FRAM_CONF_START))) {
     /* fatal error: do not proceed */
-    DEBUG_PRINT_FATAL("ERROR: Memory allocation failed! "
-                      "(requested block size: %db)", size);
+    printf("ERROR: FRAM malloc failed! (requested block size: %db)\r\n",
+           size);
     return FRAM_ALLOC_ERROR;
   }
-  DEBUG_PRINT_MSG_NOW("FRAM allocated (0x%04lx, %ub)",
-                      fram_curr_offset, size);
+  printf("FRAM allocated (0x%04lx, %ub)\r\n", fram_curr_offset, size);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
   return addr;
