@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0006
+#define FW_VERSION      0x0007
 #define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -42,7 +42,21 @@
 Revision History
 ----------------
 
-Version 0.7 (--- IN DEVELOPMENT ---):
+Version 0.7 (--- IN DEVELOPMENT | bugfixes only ---):
+- bugfix: on the source node during a data round, there was no checked whether
+          a packet was actually received before applying the node_id filter
+- bugfix: TX power was set to the minimum after a reset if it hasn't been set 
+          before via a command
+- change: debug prints optimized
+- change: etimer_process disabled and print_processes removed from
+          contiki-cc430-main.c
+- bugfix: order of defines in config.h is critical, FRAM_CONF_ON used before
+          defining will compile but yield unexpected results
+- bugfix: packet RX count was still not just over the last health period
+- bugfix: TX power in com health was constant instead of the actual value
+- change: event_write() optimized to use the global struct for the message
+          (reduces stack usage)
+- bugfix: first event message ('time adjusted') had an invalid timestamp
 - change: NODE_ID is now defined differently in contiki-conf.h, node_id now 
           exists as a global variable in any case (host and source)
 - change: preprocess time reverted back to 50ms (is sufficient)

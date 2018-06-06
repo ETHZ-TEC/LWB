@@ -44,16 +44,21 @@
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
 //#define NODE_ID                         HOST_ID
-#define HOST_ID                         16
+#define HOST_ID                         6 //16 //6
 
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 #define IS_HOST                         (NODE_ID == HOST_ID)
 
 
+/* --- External memory (FRAM) --- */
+
+#define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
+
+
 /* --- Radio config --- */
 
-#define LWB_CONF_RF_CH_PRIMARY          10 //8            /* CH10 = 870MHz */
-#define LWB_CONF_RF_CH_SECONDARY        10
+#define LWB_CONF_RF_CH_PRIMARY          8 //8            /* CH10 = 870MHz */
+#define LWB_CONF_RF_CH_SECONDARY        8
 #define RF_CONF_TX_CH                   LWB_CONF_RF_CH_PRIMARY
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm  // RF1A_TX_POWER_PLUS_10_dBm
 #define RF_CONF_MAX_PKT_LEN             128
@@ -74,24 +79,24 @@
 #define LWB_CONF_DATA_ACK               1  /* use data ACKs from src to host */
 /* packet and buffer size */
 #define LWB_CONF_MAX_PKT_LEN            (128 - 2)     /* subtract Glossy hdr */
+#define LWB_CONF_USE_XMEM               FRAM_CONF_ON      /* if FRAM enabled */
 #if IS_HOST
- #if FRAM_CONF_ON
+ #if LWB_CONF_USE_XMEM
   #define LWB_CONF_OUT_BUFFER_SIZE      10  /* = max #pkts the host can send */
- #else /* FRAM_CONF_ON */
+ #else /* LWB_CONF_USE_XMEM */
   #define LWB_CONF_OUT_BUFFER_SIZE      3
- #endif /* FRAM_CONF_ON */
+ #endif /* LWB_CONF_USE_XMEM */
  #define LWB_CONF_IN_BUFFER_SIZE        1  /* typically LWB_CONF_MAX_DATA_SLOTS
                                        but not required if forwarded to BOLT */
 #else /* IS_HOST */
- #if FRAM_CONF_ON
+ #if LWB_CONF_USE_XMEM
   #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
   #define LWB_CONF_IN_BUFFER_SIZE       10 /* = max #pkts a src node can rcv */
- #else /* FRAM_CONF_ON */
+ #else /* LWB_CONF_USE_XMEM */
   #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
   #define LWB_CONF_IN_BUFFER_SIZE       3  /* = max #pkts a src node can rcv */   
- #endif /* FRAM_CONF_ON */
+ #endif /* LWB_CONF_USE_XMEM */
 #endif /* IS_HOST */
-#define LWB_CONF_USE_XMEM               FRAM_CONF_ON      /* if FRAM enabled */
 /* timings */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200)      /* 5ms */
 #define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 50)      /* 20ms */
@@ -128,11 +133,6 @@
 #define BOLT_CONF_TIMEREQ_ENABLE        1
 #define TIMESYNC_OFS                    193          /* const offset to host */
 #define BOLT_CONF_TIMEREQ_HF_MODE       0 /* only low freq. mode is supported*/
-
-
-/* --- External memory (FRAM) --- */
-
-#define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
 
 
 /* --- MISC --- */
@@ -202,6 +202,14 @@ typedef struct {
 } config_t;
 
 extern config_t cfg;           /* most important config parameters and stats */
+
+
+/* --- Compile time parameter checks --- */
+
+#if DPP_MSG_PKT_LEN > LWB_CONF_MAX_PKT_LEN
+#error "LWB_CONF_MAX_PKT_LEN is too small"
+#endif
+
 
 
 #endif /* __CONFIG_H__ */

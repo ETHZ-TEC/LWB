@@ -52,7 +52,6 @@ uint16_t seq_no_lwb  = 0;
 uint16_t seq_no_bolt = 0;
 config_t cfg;
 static uint16_t last_health_pkt = 0;
-static uint16_t max_stack_size = 0;
 static dpp_message_t msg_rx;                            /* only used for RX! */
 /*---------------------------------------------------------------------------*/
 void
@@ -101,7 +100,11 @@ load_config(void)
 {
   /* load and restore the config */
   if(nvcfg_load((uint8_t*)&cfg)) {
-    rf1a_set_tx_power(cfg.tx_pwr);
+    if(cfg.tx_pwr == 0) {   /* take 0 as invalid -> use value set at compile time */
+      cfg.tx_pwr = RF_CONF_TX_POWER;
+    } else {
+      rf1a_set_tx_power(cfg.tx_pwr);
+    }
   #if !IS_HOST
     if(node_id == 0x1122 && cfg.node_id != 0) {         /* still on default value? */
       node_id = cfg.node_id;
@@ -111,6 +114,8 @@ load_config(void)
       cfg.node_id = node_id;
     }
   #endif /* IS_HOST */
+    DEBUG_PRINT_MSG_NOW("Config restored (TX pwr %ddBm, DBG flags 0x%x)",
+                        rf1a_tx_power_val[cfg.tx_pwr], cfg.dbg_flags);
   } else {
     DEBUG_PRINT_MSG_NOW("WARNING: failed to load config");
   }
@@ -118,10 +123,12 @@ load_config(void)
   nvcfg_save((uint8_t*)&cfg);
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_proc_pre, "App Task Pre");
+PROCESS(app_proc_pre, "BOLT Task");
 PROCESS_THREAD(app_proc_pre, ev, data) 
 {  
   PROCESS_BEGIN();
+  
+  DEBUG_PRINT_MSG_NOW("Process '%s' started", app_proc_pre.name);
   
   while(1) {  
     APP_TASK_INACTIVE;
@@ -163,7 +170,7 @@ PROCESS_THREAD(app_proc_pre, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_proc_post, "App Task Post");
+PROCESS(app_proc_post, "App Post");
 AUTOSTART_PROCESSES(&app_proc_post);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_proc_post, ev, data) 
@@ -171,10 +178,10 @@ PROCESS_THREAD(app_proc_post, ev, data)
   PROCESS_BEGIN();
 
   /* compile time checks */
-  if(sizeof(dpp_message_t) > DPP_MSG_PKT_LEN) {
-    DEBUG_PRINT_MSG_NOW("invalid DPP message size");
-    while (1);
+  if(sizeof(dpp_message_t) != DPP_MSG_PKT_LEN) {
+    DEBUG_PRINT_FATAL("invalid DPP message size");
   }
+  DEBUG_PRINT_MSG_NOW("Process '%s' started", app_proc_post.name);
   
   /* --- initialization --- */
   
@@ -233,8 +240,6 @@ PROCESS_THREAD(app_proc_post, ev, data)
       }
     } else {
       /* only send other messages once the node info msg has been sent! */
-    
-      /* --- generate a new health message if necessary --- */
       uint16_t div = lwb_get_time(0) / health_msg_period;
       if(div != last_health_pkt) {
         /* using a divider instead of the elapsed time will group the health
@@ -243,14 +248,6 @@ PROCESS_THREAD(app_proc_post, ev, data)
         send_lwb_health();
         last_health_pkt = div;
       }
-    }
-    
-    /* --- debugging --- */
-    uint16_t stack_size = debug_print_get_max_stack_size();
-    if(stack_size > max_stack_size) {
-      max_stack_size = stack_size;
-      DEBUG_PRINT_INFO("stack size: %ub, max %ub", (SRAM_START + SRAM_SIZE) -
-                                            (uint16_t)&stack_size, stack_size);
     }
         
     /* --- poll the debug task --- */

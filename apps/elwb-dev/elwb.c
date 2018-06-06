@@ -120,12 +120,18 @@ typedef enum {
   NUM_OF_SYNC_EVENTS
 } sync_event_t;
 /*---------------------------------------------------------------------------*/
+typedef enum {
+  XMEM_TASK_OP_NONE = 0,
+  XMEM_TASK_OP_READ,
+  XMEM_TASK_OP_WRITE,
+} xmem_task_op_t;
+/*---------------------------------------------------------------------------*/
 typedef struct {
-  uint8_t   op;          /* pending operation: 0 = none, 1 = read, 2 = write */
-  uint8_t   len;                            /* for write op: number of bytes */
-  uint8_t*  notify;  /* pointer to notification byte, length will be written */
-  uint8_t*  sram_ptr;                       /* local buffer (16-bit address) */
-  uint32_t  xmem_addr;              /* 32-bit address in the external memory */
+  xmem_task_op_t op : 8;
+  uint8_t        len;                       /* for write op: number of bytes */
+  uint8_t*       notify;           /* length will be written to this address */
+  uint8_t*       sram_ptr;                  /* local buffer (16-bit address) */
+  uint32_t       xmem_addr;         /* 32-bit address in the external memory */
   /* note: 'op' and 'notify' are RW for the xmem task, whereas the other 
    *       fields are read-only! */
 } xmem_task_t;
@@ -214,7 +220,7 @@ static const char* lwb_sync_state_to_string[NUM_OF_SYNC_STATES] = {
   LWB_TASK_RESUMED;\
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(lwb_process, "Com Task (eLWB)");/* process ctrl block def. */
+PROCESS(lwb_process, "eLWB");/* process ctrl block def. */
 /*---------------------------------------------------------------------------*/
 static struct pt        lwb_pt;
 static struct process*  post_proc;
@@ -266,9 +272,10 @@ lwb_requeue_pkt(uint32_t pkt_addr)
     xmem_read(pkt_addr, sizeof(lwbqueue_elem_t), (uint8_t*)&xmem_buffer);
     xmem_write(new_pkt_addr, sizeof(lwbqueue_elem_t), (uint8_t*)&xmem_buffer);      
 #endif /* LWB_CONF_USE_XMEM */
+    DEBUG_PRINT_INFO("packet requeued");
   } else {
-      stats.txbuf_drop++;
-      DEBUG_PRINT_ERROR("requeue failed, out queue full");
+    stats.txbuf_drop++;
+    DEBUG_PRINT_ERROR("requeue failed, out queue full");
   }
 }
 #endif /* LWB_CONF_DATA_ACK */
@@ -291,12 +298,12 @@ lwb_in_buffer_put(uint8_t* data, uint8_t len)
     memcpy(next_msg->data, data, len);
     next_msg->len = len;
 #else /* LWB_CONF_USE_XMEM */
-    if(xmem_task.op) {
+    if(xmem_task.op != XMEM_TASK_OP_NONE) {
       DEBUG_PRINT_ERROR("xmem task busy, operation skipped");
       return 0;
     }
     /* schedule a write operation from the external memory */
-    xmem_task.op        = 2;
+    xmem_task.op        = XMEM_TASK_OP_WRITE;
     xmem_task.len       = len;
     xmem_task.xmem_addr = pkt_addr;
     xmem_task.sram_ptr  = data;
@@ -324,12 +331,12 @@ lwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
     memcpy(out_data, next_msg->data, next_msg->len);
     *out_len = next_msg->len;
 #else /* LWB_CONF_USE_XMEM */
-    if(xmem_task.op) {
+    if(xmem_task.op != XMEM_TASK_OP_NONE) {
       DEBUG_PRINT_ERROR("xmem task busy, operation skipped");
       return 0;
     }
     /* schedule a read operation from the external memory */
-    xmem_task.op        = 1;
+    xmem_task.op        = XMEM_TASK_OP_READ;
     xmem_task.notify    = out_len;
     xmem_task.xmem_addr = pkt_addr;
     xmem_task.sram_ptr  = out_data;
@@ -707,7 +714,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   
   PT_BEGIN(&lwb_pt);
   
-  memset(&schedule, 0, sizeof(schedule));
   sync_state    = BOOTSTRAP;
   callback_func = lwb_thread_src;
   
@@ -889,17 +895,19 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
             LWB_WAIT_UNTIL(t_ref + t_slot_ofs - LWB_CONF_T_GUARD);
             LWB_RCV_PACKET();
             payload_len = glossy_get_payload_len();
-            /* forward the packet to the application task if the initiator was
-             * the host or sink or if the custom forward filter is 'true' */
-            if(LWB_CONF_SRC_PKT_FILTER(glossy_payload)) {
-  #if LWB_CONF_WRITE_TO_BOLT
-              bolt_write((uint8_t*)glossy_payload, payload_len);
-  #else /* LWB_CONF_WRITE_TO_BOLT */
-              lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
-  #endif /* LWB_CONF_WRITE_TO_BOLT */
+            if(IS_DATA_ROUND(&schedule) && LWB_DATA_RCVD) {
+              /* forward the packet to the application task if the initiator was
+              * the host or sink or if the custom forward filter is 'true' */
+              if(LWB_CONF_SRC_PKT_FILTER(glossy_payload)) {
+    #if LWB_CONF_WRITE_TO_BOLT
+                bolt_write((uint8_t*)glossy_payload, payload_len);
+    #else /* LWB_CONF_WRITE_TO_BOLT */
+                lwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
+    #endif /* LWB_CONF_WRITE_TO_BOLT */
+              }
+              stats.rx_total += payload_len;
+              stats.pck_cnt++;
             }
-            stats.rx_total += payload_len;
-            stats.pck_cnt++;
           }
           t_slot_ofs += (t_slot + LWB_CONF_T_GAP);
         }
@@ -928,7 +936,6 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
                 uint16_t elem_id = fifo_elem_id(&tx_queue, i - num_slots);
                 uint32_t addr = fifo_elem_addr(&tx_queue, elem_id);
                 lwb_requeue_pkt(addr);
-                DEBUG_PRINT_INFO("packet requeued (elem_id %u)", elem_id);
                 stats.pkts_nack++;
               }
             }
@@ -1026,6 +1033,21 @@ PROCESS_THREAD(lwb_process, ev, data)
 {
   PROCESS_BEGIN();
   
+  uart_enable(1);
+  printf("Process '%s' started", lwb_process.name);
+  printf("Starting '%s'\r\n", lwb_process.name);    
+  printf(" pkt_len=%u slots=%u n_tx_d=%u n_tx_s=%u hops=%u\r\n", 
+         LWB_CONF_MAX_PKT_LEN,
+         LWB_CONF_MAX_DATA_SLOTS,
+         LWB_CONF_TX_CNT_DATA, 
+         LWB_CONF_TX_CNT_SCHED,
+         LWB_CONF_MAX_HOPS);
+  /* ceil the values (therefore + RTIMER_SECOND_HF / 1000 - 1) */
+  printf(" slots [ms]: sched=%u data=%u cont=%u\r\n",
+   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED + (RTIMER_SECOND_HF / 1000 - 1)),
+   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA + (RTIMER_SECOND_HF / 1000 - 1)),
+   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT + (RTIMER_SECOND_HF / 1000 - 1)));
+  
 #if !LWB_CONF_USE_XMEM
   /* pass the start addresses of the memory blocks holding the queues */
   fifo_init(&rx_queue, (uint16_t)rx_queue_mem);
@@ -1035,7 +1057,7 @@ PROCESS_THREAD(lwb_process, ev, data)
   fifo_init(&rx_queue, xmem_alloc(LWB_CONF_IN_BUFFER_SIZE * 
                                    sizeof(lwbqueue_elem_t)));
   fifo_init(&tx_queue, xmem_alloc(LWB_CONF_OUT_BUFFER_SIZE * 
-                                    sizeof(lwbqueue_elem_t)));   
+                                    sizeof(lwbqueue_elem_t)));
 #endif /* LWB_CONF_USE_XMEM */
 
 #ifdef LWB_CONF_TASK_ACT_PIN
@@ -1048,10 +1070,12 @@ PROCESS_THREAD(lwb_process, ev, data)
 #if IS_HOST
   /* compute initial schedule */
   schedule_len = lwb_sched_init(&schedule);
+#else /* IS_HOST */
+  memset(&schedule, 0, sizeof(schedule));
 #endif /* IS_HOST */
 
-  /* start in 10ms (use LF timer) */
-  rtimer_clock_t t_wakeup = rtimer_now_lf() + RTIMER_SECOND_LF / 100;
+  /* start in 50ms (use LF timer), gives other task enough time to init */
+  rtimer_clock_t t_wakeup = rtimer_now_lf() + RTIMER_SECOND_LF / 20;
   rtimer_id_t    rt_id    = LWB_CONF_LF_RTIMER_ID;
 #if IS_HOST
   /* update the global time and wait for the next full second */
@@ -1071,7 +1095,7 @@ PROCESS_THREAD(lwb_process, ev, data)
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     LWB_TASK_RESUMED;
     /* is there anything to do? */
-    if(xmem_task.op == 1) {           /* read operation */
+    if(xmem_task.op == XMEM_TASK_OP_READ) {           /* read operation */
       if(xmem_read(xmem_task.xmem_addr, sizeof(lwbqueue_elem_t), 
                    (uint8_t*)&xmem_buffer)) {
         xmem_wait_until_ready();   /* wait for the data transfer to complete */
@@ -1083,14 +1107,14 @@ PROCESS_THREAD(lwb_process, ev, data)
           }
         }
       }
-    } else if(xmem_task.op == 2) {    /* write operation */
+    } else if(xmem_task.op == XMEM_TASK_OP_WRITE) {    /* write operation */
       memcpy(xmem_buffer.data, xmem_task.sram_ptr, xmem_task.len);
       xmem_buffer.len = xmem_task.len;
       xmem_wait_until_ready();      /* wait for ongoing transfer to complete */
       xmem_write(xmem_task.xmem_addr, xmem_task.len + 1,
                  (uint8_t*)&xmem_buffer);
     } // else: no operation pending
-    xmem_task.op = 0;
+    xmem_task.op = XMEM_TASK_OP_NONE;
   }  
 #endif /* LWB_CONF_USE_XMEM */
 
@@ -1102,19 +1126,6 @@ lwb_start(struct process *pre_lwb_proc, struct process *post_lwb_proc)
 {
   pre_proc = pre_lwb_proc;
   post_proc = (struct process*)post_lwb_proc;
-  printf("Starting '%s'\r\n", lwb_process.name);    
-  printf(" pkt_len=%u data_len=%u slots=%u n_tx_d=%u n_tx_s=%u hops=%u\r\n", 
-         LWB_CONF_MAX_PKT_LEN,
-         LWB_CONF_MAX_DATA_PKT_LEN, 
-         LWB_CONF_MAX_DATA_SLOTS, 
-         LWB_CONF_TX_CNT_DATA, 
-         LWB_CONF_TX_CNT_SCHED,
-         LWB_CONF_MAX_HOPS);
-  /* ceil the values (therefore + RTIMER_SECOND_HF / 1000 - 1) */
-  printf(" slots [ms]: sched=%u data=%u cont=%u\r\n",
-   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_SCHED + (RTIMER_SECOND_HF / 1000 - 1)),
-   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_DATA + (RTIMER_SECOND_HF / 1000 - 1)),
-   (uint16_t)RTIMER_HF_TO_MS(LWB_CONF_T_CONT + (RTIMER_SECOND_HF / 1000 - 1)));
   process_start(&lwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

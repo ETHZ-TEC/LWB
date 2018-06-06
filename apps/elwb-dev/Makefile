@@ -9,16 +9,16 @@ CONTIKI_PROJECT = elwb-dev
 
 SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
-node_id ?= 0x1122
 target ?= dpp2
 
 include $(CONTIKI)/Makefile.include
 
 upload:
+ifdef node_id
 	tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(CONTIKI_PROJECT).exe $(CONTIKI_PROJECT).hex TOS_NODE_ID=$(node_id)
+endif
 	@export LD_LIBRARY_PATH="/home/keepcoding/ti/ccsv7/ccs_base/DebugServer/drivers/"
 	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
-	#@mspdebug tilib "verify $(CONTIKI_PROJECT).hex"
 	
 verify:
 	@mspdebug tilib "verify $(CONTIKI_PROJECT).hex"
