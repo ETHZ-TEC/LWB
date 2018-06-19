@@ -285,7 +285,7 @@
 
 /*---------------------------------------------------------------------------*/
 
-#ifndef RF_CONF_TX_POWER                /* set the radio antenna gain */
+#ifndef RF_CONF_TX_POWER
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm   
 #endif /* RF_CONF_TX_POWER */
 

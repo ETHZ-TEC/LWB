@@ -248,6 +248,8 @@ uint16_t lwb_sched_compute(lwb_schedule_t * const sched,
                            uint8_t n_slot_host);
 
 
+uint16_t lwb_sched_compress(uint8_t* compressed_data,
+                            uint8_t n_slots);
 uint8_t lwb_sched_uncompress(uint8_t* compressed_data, 
                              uint8_t n_slots);
 

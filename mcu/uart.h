@@ -58,6 +58,11 @@
 #define UART_CONF_TX_INTERRUPT  0
 #endif /* UART_CONF_TX_INTERRUPT */
 
+/* enable receive interrupt? */
+#ifndef UART_CONF_RX_INTERRUPT
+#define UART_CONF_RX_INTERRUPT  0
+#endif /* UART_CONF_TX_INTERRUPT */
+
 #if UART_CONF_TX_INTERRUPT
 /* set the buffer size for interrupt driven transmission */
 #ifndef UART_CONF_TXBUF_SIZE 
