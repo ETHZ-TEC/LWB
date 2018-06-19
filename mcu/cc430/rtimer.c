@@ -500,12 +500,6 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
   #if !RTIMER_CONF_LF_UPDATE_INT
     RTIMER_LF_HANDLE_OVF();
   #endif /* RTIMER_CONF_LF_UPDATE_INT */
-    /* check whether there are etimers ready to be served */
-    if(etimer_pending() &&
-       (etimer_next_expiration_time() - count - 1) > MAX_TICKS) {
-      etimer_request_poll();
-      __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */
-    }
     break;
   default: break;
   }

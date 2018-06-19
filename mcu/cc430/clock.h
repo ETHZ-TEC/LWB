@@ -63,13 +63,13 @@
 #endif /* CLOCK_CONF_XT1_CAP */
 
 /* speed of XT1 (low-frequency crystal) */
-#define XT1CLK_SPEED    32768
+#define XT1CLK_SPEED    32768UL
 
 /* speed of XT2 (high-frequency crystal) */
-#define XT2CLK_SPEED    26000000LU
+#define XT2CLK_SPEED    26000000UL
 
 /* speed of the internal DCO */
-#define DCOCLK_SPEED    13000000
+#define DCOCLK_SPEED    13000000UL
 
 /* source and speed of the Master Clock MCLK */
 #define SELM            SELM__XT2CLK
