@@ -57,21 +57,21 @@ print_device_info(void)
      interrupt vector generator register (SYSRSTIV), corresponding to the
      source of the reset */
   switch(rst_flag) {
-    case SYSRSTIV_BOR:      idx = 0;  break;
-    case SYSRSTIV_RSTNMI:   idx = 1;  break;
-    case SYSRSTIV_DOBOR:    idx = 2;  break;
-    case SYSRSTIV_SECYV:    idx = 3;  break;
-    case SYSRSTIV_SVSL:
-    case SYSRSTIV_SVSH:     idx = 4;  break;
-    case SYSRSTIV_SVML_OVP:
-    case SYSRSTIV_SVMH_OVP: idx = 5;  break;
-    case SYSRSTIV_DOPOR:    idx = 6;  break;
-    case SYSRSTIV_WDTTO:    idx = 7;  break;
-    case SYSRSTIV_WDTKEY:   idx = 8;  break;
-    case SYSRSTIV_KEYV:     idx = 9;  break; /* flash password violation */
-    case SYSRSTIV_PLLUL:    idx = 10; break;
-    case SYSRSTIV_PERF:     idx = 11; break;
-    case SYSRSTIV_PMMKEY:   idx = 12; break;
+    case SYSRSTIV_BOR:      idx = 0;  break; /* reset flag value 2 */
+    case SYSRSTIV_RSTNMI:   idx = 1;  break; /* 4 */
+    case SYSRSTIV_DOBOR:    idx = 2;  break; /* 6 */
+    case SYSRSTIV_SECYV:    idx = 3;  break; /* 10 */
+    case SYSRSTIV_SVSL:                      /* 12 */
+    case SYSRSTIV_SVSH:     idx = 4;  break; /* 14 */
+    case SYSRSTIV_SVML_OVP:                  /* 16 */
+    case SYSRSTIV_SVMH_OVP: idx = 5;  break; /* 18 */
+    case SYSRSTIV_DOPOR:    idx = 6;  break; /* 20 (software reset) */
+    case SYSRSTIV_WDTTO:    idx = 7;  break; /* 22 */
+    case SYSRSTIV_WDTKEY:   idx = 8;  break; /* 24 */
+    case SYSRSTIV_KEYV:     idx = 9;  break; /* 26 */
+    case SYSRSTIV_PLLUL:    idx = 10; break; /* 28 */
+    case SYSRSTIV_PERF:     idx = 11; break; /* 30 */
+    case SYSRSTIV_PMMKEY:   idx = 12; break; /* 32 */
     default:                idx = 13; break;
   }
   printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFW: %u.%02u " \
@@ -131,9 +131,12 @@ main(int argc, char **argv)
   rtimer_init();
   uart_init();
   uart_enable(1);
+#if UART_CONF_RX_INTERRUPT
   uart_set_input_handler(serial_line_input_byte);
+#endif /* UART_CONF_RX_INTERRUPT */
+
   print_device_info();
-    
+
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
@@ -166,12 +169,16 @@ main(int argc, char **argv)
   //process_start(&etimer_process, NULL);
 
   random_init(node_id * TA0R);
+#if UART_CONF_RX_INTERRUPT
   serial_line_init();
+#endif /* UART_CONF_RX_INTERRUPT */
   /* note: do not start the debug process here */
 
+#if ENERGEST_CONF_ON
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
   DCSTAT_CPU_ON;
+#endif /* ENERGEST_CONF_ON */
 
 #if NULLMAC_CONF_ON
   nullmac_init();
