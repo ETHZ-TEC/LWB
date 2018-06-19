@@ -282,6 +282,15 @@ debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 }
 /*---------------------------------------------------------------------------*/
+#if DEBUG_PRINT_CONF_USE_RINGBUFFER
+/* put strings directly into the print buffer */
+void
+debug_print_buffer_put(char *str)
+{  
+  printbuf_put(&dbg_printbuf, str);
+}
+#endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+/*---------------------------------------------------------------------------*/
 void
 debug_print_msg_now(char *data)
 {
@@ -312,7 +321,7 @@ void
 printbuf_put(struct printbuf* p, const char* str)
 {
   if(p->cnt == p->size)
-    return;
+    return;   /* full */
   uint16_t lim = p->size - 3;
   while(*str && p->cnt < lim) {
     p->data[p->put_idx++] = *str++;
@@ -333,6 +342,7 @@ printbuf_put(struct printbuf* p, const char* str)
     }
     p->cnt += 3;
   }
+  /* success */
 }
 /*---------------------------------------------------------------------------*/
 void

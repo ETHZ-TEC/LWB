@@ -321,6 +321,14 @@ void debug_print_msg(rtimer_clock_t timestamp,
 #endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
 
 /**
+ * @brief add a string to the debug print buffer
+ * @note only available when using the ring buffer
+ */
+#if DEBUG_PRINT_CONF_USE_RINGBUFFER
+void debug_print_buffer_put(char *str);
+#endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+
+/**
  * @brief print out a message immediately over UART (blocking call)
  */
 void debug_print_msg_now(char *data);
