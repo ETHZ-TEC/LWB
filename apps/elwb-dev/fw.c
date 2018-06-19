@@ -208,6 +208,7 @@ fw_verify(const dpp_fw_t* fwpkt)
     /* first, check whether all blocks are in the memory */
     if(fwinfo.block_cnt < FW_FILE_BLOCK_CNT) {
       fw_request_data();
+      EVENT_INFO(EVENT_CC430_FW_PROGRESS, ((uint32_t)fwinfo.block_cnt * 100 / FW_FILE_BLOCK_CNT));      
       return FAILED;
     }
     /* data is in place, verify checksum */

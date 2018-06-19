@@ -120,7 +120,7 @@ send_msg(uint16_t recipient,
 #if IS_HOST
   msg_tx.header.generation_time = utc_timestamp();
 #else /* IS_HOST */
-  msg_tx.header.generation_time = lwb_get_timestamp();
+  msg_tx.header.generation_time = elwb_get_timestamp();
 #endif /* IS_HOST */
   
   /* copy the payload if valid */
@@ -132,7 +132,7 @@ send_msg(uint16_t recipient,
   uint16_t crc = crc16((uint8_t*)&msg_tx, msg_tx_len - 2, 0);
   DPP_MSG_SET_CRC16(&msg_tx, crc);
 
-  /* forward the message either to BOLT or the LWB */
+  /* forward the message either to BOLT or the eLWB */
   if(send_to_bolt) {
     if(bolt_write((uint8_t*)&msg_tx, msg_tx_len)) {
       DEBUG_PRINT_VERBOSE("msg written to BOLT");
@@ -140,7 +140,7 @@ send_msg(uint16_t recipient,
     }
     DEBUG_PRINT_INFO("msg dropped (BOLT queue full)");
   } else {
-    if(lwb_send_pkt(recipient, 1, (uint8_t*)&msg_tx, msg_tx_len)) {
+    if(elwb_send_pkt((uint8_t*)&msg_tx, msg_tx_len)) {
       DEBUG_PRINT_VERBOSE("msg added to TX queue");
       return 1;
     }
@@ -182,15 +182,18 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         PMM_TRIGGER_POR;
         break;
       case CMD_CC430_SET_ROUND_PERIOD:    /* value is in s */
-        if(arg1 > 0 && arg1 <= 3600) {
-          lwb_sched_set_period(arg1);
+        if(arg1 >= ELWB_CONF_SCHED_PERIOD_MIN && 
+           arg1 <= ELWB_SCHED_PERIOD_MAX) {
+          elwb_sched_set_period(arg1);
           DEBUG_PRINT_INFO("LWB period set to %us", arg1);
           successful = 1;
         }
         break;
       case CMD_CC430_SET_HEALTH_PERIOD:
-        health_msg_period = arg1; /* set health period in s */
-        successful = 1;
+        if(arg1 >= ELWB_CONF_SCHED_PERIOD_MIN) {
+          health_msg_period = arg1; /* set health period in s */
+          successful = 1;
+        }
         break;
       case CMD_CC430_SET_EVENT_LEVEL:
         if(arg1 < NUM_EVENT_LEVELS) {
@@ -223,13 +226,21 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
           uint16_t buf[16 + DPP_COM_RESPONSE_HDR_LEN / 2];
           buf[0] = CMD_CC430_DBG_READ_MEM;
           buf[1] = arg1;
-          memcpy(&buf[2], (uint8_t*)arg1, arg2);            
+          memcpy(&buf[2], (uint8_t*)arg1, arg2);
           send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_COM_RESPONSE, 
                    (uint8_t*)buf, arg2 + DPP_COM_RESPONSE_HDR_LEN, 
                    IS_HOST);
           successful = 1;
         }
         break;
+  #if IS_HOST
+      case CMD_CC430_ADD_NODE:
+        if(arg1) {
+          elwb_sched_process_req(arg1, 0);
+          successful = 1;
+        }
+        break;
+  #endif /* IS_HOST */
       default:
         /* unknown command */
         forward = 1;  /* forward to BOLT */
@@ -286,7 +297,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       /* forward to network */
       /* queue is guaranteed to have at least one free spot (we check this 
         * before entering the wile loop */
-      lwb_send_pkt(0, 1, (uint8_t*)msg, msg_len);
+      elwb_send_pkt((uint8_t*)msg, msg_len);
       DEBUG_PRINT_VERBOSE("BOLT msg forwarded to network (type: %u, dest: %u)",
                           msg->header.type, msg->header.target_id);
     } else {
@@ -300,32 +311,28 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   return 1;   /* processed */
 }
 /*---------------------------------------------------------------------------*/
+/* note: this function only runs on the source node! */
 void
 send_timestamp(int64_t captured)
 { 
   msg_tx.timestamp = 0;
   
   /* timestamp request: calculate the timestamp and send it over BOLT */
-#if IS_HOST
-  msg_tx.timestamp = captured * 1000000 / RTIMER_SECOND_LF + TIMESYNC_OFS;
-#else /* IS_HOST */
-  /* only send a timestamp if the node is connected to the LWB */
+  /* only send a timestamp if the node is connected to the eLWB */
   rtimer_clock_t local_t_rx = 0;
-  uint64_t lwb_time_secs = lwb_get_time(&local_t_rx);
-  if(lwb_time_secs > 0) {
+  uint64_t elwb_time_secs = elwb_get_time(&local_t_rx);
+  if(elwb_time_secs > 0) {
     /* convert to LF ticks */
     rtimer_clock_t lf, hf;
     rtimer_now(&hf, &lf);
     local_t_rx = lf - (hf - local_t_rx) * RTIMER_SECOND_LF /RTIMER_SECOND_HF;
     /* if captured before last ref time update, then diff is > 0 and thus 
-      * LWB time needs to be decreased by the difference */
+     * network time needs to be decreased by the difference */
     int64_t diff = (local_t_rx - captured);   /* in clock ticks */
     /* local t_rx is in clock ticks */
-    msg_tx.timestamp = lwb_time_secs * 1000000 - 
+    msg_tx.timestamp = elwb_time_secs * 1000000 - 
                         diff * 1000000 / RTIMER_SECOND_LF;
   }
-#endif /* IS_HOST */
-
   /* send message over BOLT */
   send_msg(node_id, DPP_MSG_TYPE_TIMESYNC, 0, 0, 1);
   
@@ -361,7 +368,7 @@ send_node_health(void)
                   rx_dropped_last = 0;
   static uint16_t rx_cnt_last = 0;
   static uint16_t max_stack_size = 0;
-  const lwb_statistics_t* lwb_stats = lwb_get_stats();
+  const elwb_stats_t* stats = elwb_get_stats();
 
   /* collect ADC values */
   while(REFCTL0 & REFGENBUSY);
@@ -393,26 +400,26 @@ send_node_health(void)
   /* radio / communication stats */
 #if IS_HOST
   msg_tx.com_health.radio_snr     = glossy_get_snr();
-  msg_tx.com_health.radio_rssi    = (uint8_t)(-lwb_stats->glossy_snr);
+  msg_tx.com_health.radio_rssi    = (uint8_t)(-stats->glossy_snr);
 #else /* IS_HOST */
-  msg_tx.com_health.radio_snr     = lwb_stats->glossy_snr;
+  msg_tx.com_health.radio_snr     = stats->glossy_snr;
   msg_tx.com_health.radio_rssi    = (uint8_t)(-glossy_get_rssi());
 #endif /* IS_HOST */
   msg_tx.com_health.radio_tx_pwr  = rf1a_tx_power_val[cfg.tx_pwr];
   msg_tx.com_health.radio_per     = glossy_get_per();
-  if(rx_cnt_last > lwb_stats->pck_cnt) {
-    msg_tx.com_health.rx_cnt      = (65535 - rx_cnt_last) + lwb_stats->pck_cnt;
+  if(rx_cnt_last > stats->pck_cnt) {
+    msg_tx.com_health.rx_cnt      = (65535 - rx_cnt_last) + stats->pck_cnt;
   } else {
-    msg_tx.com_health.rx_cnt      = (lwb_stats->pck_cnt - rx_cnt_last);
+    msg_tx.com_health.rx_cnt      = (stats->pck_cnt - rx_cnt_last);
   }
-  rx_cnt_last                     = lwb_stats->pck_cnt;
+  rx_cnt_last                     = stats->pck_cnt;
                                     //glossy_get_n_pkts_crcok();
-  msg_tx.com_health.tx_queue      = lwb_get_send_buffer_state();
-  msg_tx.com_health.rx_queue      = lwb_get_rcv_buffer_state();
-  msg_tx.com_health.tx_dropped    = lwb_stats->txbuf_drop - tx_dropped_last;
-  tx_dropped_last = lwb_stats->txbuf_drop;
-  msg_tx.com_health.rx_dropped    = lwb_stats->rxbuf_drop - rx_dropped_last;
-  rx_dropped_last = lwb_stats->rxbuf_drop;
+  msg_tx.com_health.tx_queue      = elwb_get_send_buffer_state();
+  msg_tx.com_health.rx_queue      = elwb_get_rcv_buffer_state();
+  msg_tx.com_health.tx_dropped    = stats->txbuf_drop - tx_dropped_last;
+  tx_dropped_last = stats->txbuf_drop;
+  msg_tx.com_health.rx_dropped    = stats->rxbuf_drop - rx_dropped_last;
+  rx_dropped_last = stats->rxbuf_drop;
   
   /* duty cycle */
 #if ENERGEST_CONF_ON
@@ -450,11 +457,11 @@ send_node_health(void)
 void
 send_lwb_health(void)
 {
-  static uint16_t max_hops = 0;
-  const lwb_statistics_t* lwb_stats = lwb_get_stats();
+  static uint16_t max_hops  = 0;
+  const elwb_stats_t* stats = elwb_get_stats();
 
-  msg_tx.lwb_health.sleep_cnt     = lwb_stats->sleep_cnt;
-  msg_tx.lwb_health.bootstrap_cnt = lwb_stats->bootstrap_cnt;
+  msg_tx.lwb_health.sleep_cnt     = stats->sleep_cnt;
+  msg_tx.lwb_health.bootstrap_cnt = stats->bootstrap_cnt;
   msg_tx.lwb_health.fsr           = glossy_get_fsr();
   msg_tx.lwb_health.t_to_rx       = (uint16_t)(glossy_get_t_to_first_rx()  *
                                                100 / 325);
@@ -462,14 +469,14 @@ send_lwb_health(void)
                                                100 / 325);
   msg_tx.lwb_health.n_tx          = glossy_get_n_tx();
   msg_tx.lwb_health.n_rx          = glossy_get_n_rx();
-  msg_tx.lwb_health.n_hops        = lwb_stats->relay_cnt;
-  if(lwb_stats->relay_cnt > max_hops) {
-    max_hops                = lwb_stats->relay_cnt;
+  msg_tx.lwb_health.n_hops        = stats->relay_cnt;
+  if(stats->relay_cnt > max_hops) {
+    max_hops = stats->relay_cnt;
   }
-  msg_tx.lwb_health.n_hops_max  = max_hops;
-
-  //TODO: add     lwb_stats->unsynced_cnt
-  //TODO: add     lwb_stats->drift
+  msg_tx.lwb_health.n_hops_max    = max_hops;
+  msg_tx.lwb_health.unsynced_cnt  = stats->unsynced_cnt;
+  msg_tx.lwb_health.drift         = stats->drift;
+  msg_tx.lwb_health.bus_load      = stats->load;
 
   glossy_reset_stats();
     

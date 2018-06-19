@@ -71,7 +71,7 @@ update_time(void)
     /* adjust the timestamp to align with the next communication round 
     * as closely as possible */
     rtimer_clock_t next_round;
-    if(rtimer_next_expiration(LWB_CONF_LF_RTIMER_ID, &next_round)) {
+    if(rtimer_next_expiration(ELWB_CONF_LF_RTIMER_ID, &next_round)) {
       elapsed = (next_round - utc_time_rx);          
     } else {
       DEBUG_PRINT_WARNING("invalid timer value");
@@ -79,13 +79,13 @@ update_time(void)
     /* convert to us */
     elapsed = elapsed * (1000000 / RTIMER_SECOND_LF);
     uint32_t new_time = (utc_time + elapsed) / 1000000;
-    uint32_t curr_time = lwb_sched_get_time();
+    uint32_t curr_time = elwb_sched_get_time();
     uint16_t diff = (new_time > curr_time) ? (new_time - curr_time) :
                                              (curr_time - new_time);
 
     /* only update if the difference is much larger than 1 second */
     if(diff > UTC_TIMESTAMP_MAX_DRIFT) {
-      lwb_sched_set_time(new_time);
+      elwb_sched_set_time(new_time);
       DEBUG_PRINT_INFO("timestamp adjusted to %lu", new_time);
       EVENT_INFO(EVENT_CC430_TIME_UPDATED, diff);
     } else {
@@ -123,12 +123,12 @@ load_config(void)
   nvcfg_save((uint8_t*)&cfg);
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_proc_pre, "BOLT Task");
-PROCESS_THREAD(app_proc_pre, ev, data) 
+PROCESS(app_pre, "BOLT Task");
+PROCESS_THREAD(app_pre, ev, data) 
 {  
   PROCESS_BEGIN();
   
-  DEBUG_PRINT_MSG_NOW("Process '%s' started", app_proc_pre.name);
+  DEBUG_PRINT_MSG_NOW("Process '%s' started", app_pre.name);
   
   while(1) {  
     APP_TASK_INACTIVE;
@@ -137,11 +137,11 @@ PROCESS_THREAD(app_proc_pre, ev, data)
     
     AFTER_DEEPSLEEP();    /* restore all clocks */
     
-    /* --- read messages from the BOLT queue and forward them to the LWB --- */
+    /* --- read messages from BOLT --- */
     uint16_t read = 0,
              forwarded = 0;
     while(BOLT_DATA_AVAILABLE &&
-          (lwb_get_send_buffer_state() < LWB_CONF_OUT_BUFFER_SIZE)) {
+          (elwb_get_send_buffer_state() < ELWB_CONF_OUT_BUFFER_SIZE)) {
       if(bolt_read((uint8_t*)&msg_rx)) {
         if(!process_message(&msg_rx, 1)) {
           forwarded++;
@@ -170,10 +170,10 @@ PROCESS_THREAD(app_proc_pre, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_proc_post, "App Post");
-AUTOSTART_PROCESSES(&app_proc_post);
+PROCESS(app_post, "App Post");
+AUTOSTART_PROCESSES(&app_post);
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(app_proc_post, ev, data) 
+PROCESS_THREAD(app_post, ev, data) 
 {
   PROCESS_BEGIN();
 
@@ -181,7 +181,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
   if(sizeof(dpp_message_t) != DPP_MSG_PKT_LEN) {
     DEBUG_PRINT_FATAL("invalid DPP message size");
   }
-  DEBUG_PRINT_MSG_NOW("Process '%s' started", app_proc_post.name);
+  DEBUG_PRINT_MSG_NOW("Process '%s' started", app_post.name);
   
   /* --- initialization --- */
   
@@ -197,15 +197,15 @@ PROCESS_THREAD(app_proc_post, ev, data)
   REFCTL0 &= ~REFON;             /* shut down REF module to save power */
 
   /* start the preprocess and LWB threads */
-  lwb_start(&app_proc_pre, &app_proc_post);
-  process_start(&app_proc_pre, NULL);
+  elwb_start(&app_pre, &app_post);
+  process_start(&app_pre, NULL);
   
   /* --- load/apply the configuration --- */
   load_config();
   
   /* enable the timestamp request interrupt */
   bolt_set_timereq_callback(capture_timestamp);
-
+  
   /* --- start of application main loop --- */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
@@ -217,7 +217,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
     /* --- process all packets rcvd from the network (forward to BOLT) --- */
     uint16_t rcvd = 0,
              forwarded = 0;
-    while(lwb_rcv_pkt((uint8_t*)&msg_rx, 0, 0)) {
+    while(elwb_rcv_pkt((uint8_t*)&msg_rx)) {
       if(!process_message(&msg_rx, 0)) {
         forwarded++;
       }
@@ -231,16 +231,16 @@ PROCESS_THREAD(app_proc_post, ev, data)
     /* generate a node info message if necessary (must be here) */
     if(!node_info_sent) {
   #if !IS_HOST
-      if(lwb_get_time(0)) { 
+      if(elwb_get_time(0)) { 
   #else /* !IS_HOST */
       if(utc_time) {
   #endif /* !IS_HOST */
         send_node_info();
         node_info_sent = 1;
       }
-    } else {
+    } else if (health_msg_period) {
       /* only send other messages once the node info msg has been sent! */
-      uint16_t div = lwb_get_time(0) / health_msg_period;
+      uint16_t div = elwb_get_time(0) / health_msg_period;
       if(div != last_health_pkt) {
         /* using a divider instead of the elapsed time will group the health
         * messages of all nodes together into one round */
@@ -252,7 +252,7 @@ PROCESS_THREAD(app_proc_post, ev, data)
         
     /* --- poll the debug task --- */
     debug_print_poll();
-    process_poll(&app_proc_post);
+    process_poll(&app_post);  /* poll self to run again after the debug task */
     APP_TASK_INACTIVE;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     APP_TASK_ACTIVE;

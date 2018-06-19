@@ -39,6 +39,7 @@
 
 #include "contiki.h"
 #include "platform.h"
+#include "elwb.h"
 #include "messages/dpp_message.h"      /* packet structure and message types */
 #include "event.h"
 #include "message.h"
@@ -50,11 +51,6 @@ typedef enum
   FAILED = 0,
   SUCCESS = 1
 } retval_t;
-
-/* the static scheduler implements the following function: */
-void lwb_sched_set_period(uint16_t period);
-uint16_t lwb_sched_get_period(void);
-uint32_t lwb_sched_get_time(void);
 
 /* defined in fw.c */
 retval_t fw_init(void);

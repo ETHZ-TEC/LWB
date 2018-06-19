@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0007
+#define FW_VERSION      0x0008
 #define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
 
 /*
@@ -42,7 +42,34 @@
 Revision History
 ----------------
 
-Version 0.7 (--- IN DEVELOPMENT | bugfixes only ---):
+Version 0.8 (2018-06-19):
+- change: debug buffer size increased to 512 bytes
+- change: new fields added to LWB health message (load, drift and unsynced_cnt)
+- change: UART_CONF_RX_INTERRUPT define added, serial_line process and UART
+          receive interrupt disabled by default
+- change: scheduler adjusted: new flag ELWB_CONF_SCHED_FAIR added, enables
+          'fair' slot allocation (before it was first come, first serve =>
+          lower node IDs had higher priority)
+- feature: scheduler: nodes that have not transmitted any data for
+           ELWB_CONF_SCHED_NODE_TIMEOUT seconds are now removed from the list
+- bugfix: potential divide by zero fixed for health_msg_period
+- change: minimal allowed round period changed to ELWB_CONF_SCHED_PERIOD_MIN
+          seconds, max. period changed to ELWB_SCHED_MAX_PERIOD, max. number of
+          allowed slots per round and nodes increased to 50
+- feature: events EVENT_CC430_NODE_ADDED and EVENT_CC430_NODE_REMOVE and
+           command CMD_CC430_ADD_NODE added
+- change: code restucturing and some cleanup in elwb.c and sched-elwb-dyn.c, 
+          variable renaming for consistency, prefix of all defines and function
+          names renamed from lwb_/LWB_ to elwb_/ELWB_
+- bugfix: event value for event_write() increased from 16 to 32 bits
+- change: parameter LWB_CONF_MAX_N_STREAMS increased to 40 and
+          LWB_CONF_OUT_BUFFER_SIZE for source increased to 5
+- change: debug_print_buffer_put() added, allows scheduler to print all node
+          IDs
+- change: preprocess for host set to 100ms (50 seems too tight when reading
+          many packets from BOLT)
+
+Version 0.7 (bugfix update, 2018-06-06):
 - bugfix: on the source node during a data round, there was no checked whether
           a packet was actually received before applying the node_id filter
 - bugfix: TX power was set to the minimum after a reset if it hasn't been set 
@@ -65,7 +92,7 @@ Version 0.7 (--- IN DEVELOPMENT | bugfixes only ---):
 - change: defines TIMESYNC_HOST_RCV_UTC and TIMESYNC_INTERRUPT_BASED removed
           (deprecated), IS_HOST macro added
 
-Version 0.6 (works with FRAM chip only, 2018-06-04):
+Version 0.6 (2018-06-04):
 - bugfix: timing issue on the host node resolved where the time to compute the 
           new schedule was sometimes too short
 - change: schedule recomputation at beginning of round removed

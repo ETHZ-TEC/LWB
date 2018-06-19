@@ -110,7 +110,7 @@ static __inline void event_set_level(event_level_t lvl) { event_lvl = lvl; }
 #endif /* EVENT_CONF_LEVEL_FIXED */
 
 
-void event_write(event_level_t lvl, dpp_event_type_t type, uint16_t val);
+void event_write(event_level_t lvl, dpp_event_type_t type, uint32_t val);
 
 
 #else /* EVENT_CONF_ON */

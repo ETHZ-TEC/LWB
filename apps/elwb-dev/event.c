@@ -41,11 +41,11 @@ event_target_t  event_tgt = EVENT_CONF_TARGET;
 
 /*---------------------------------------------------------------------------*/
 void
-event_write(event_level_t lvl, dpp_event_type_t type, uint16_t val)
+event_write(event_level_t lvl, dpp_event_type_t type, uint32_t val)
 {
   if(event_tgt == EVENT_TARGET_UART) {
     char tmp[32];
-    snprintf(tmp, 32, "event: 0x%02x, code: 0x%02x", type, val);
+    snprintf(tmp, 32, "event: 0x%02x, code: 0x%02lx", type, val);
     DEBUG_PRINT_MSG(0, (debug_level_t)lvl, tmp);
     
   } else { 

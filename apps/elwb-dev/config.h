@@ -43,8 +43,8 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-//#define NODE_ID                         HOST_ID
-#define HOST_ID                         6 //16 //6
+#define NODE_ID                         HOST_ID
+#define HOST_ID                         16 //6
 
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 #define IS_HOST                         (NODE_ID == HOST_ID)
@@ -57,87 +57,87 @@
 
 /* --- Radio config --- */
 
-#define LWB_CONF_RF_CH_PRIMARY          8 //8            /* CH10 = 870MHz */
-#define LWB_CONF_RF_CH_SECONDARY        8
-#define RF_CONF_TX_CH                   LWB_CONF_RF_CH_PRIMARY
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm  // RF1A_TX_POWER_PLUS_10_dBm
+#define ELWB_CONF_RF_CH_PRIMARY         10 //8            /* CH10 = 870MHz */
+#define ELWB_CONF_RF_CH_SECONDARY       10
+#define RF_CONF_TX_CH                   ELWB_CONF_RF_CH_PRIMARY
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 #define RF_CONF_MAX_PKT_LEN             128
 
 
 /* --- Network parameters --- */
 
-#define LWB_CONF_MAX_HOPS               3
-//#define LWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4  /* predefined list of nodes */
-//#define LWB_CONF_SCHED_AE_SRC_NODE_CNT  3         /* # nodes in list above */
+#define ELWB_CONF_MAX_HOPS              3
+//#define ELWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4  /* predefined list of nodes */
+//#define ELWB_CONF_SCHED_AE_SRC_NODE_CNT  3         /* # nodes in list above */
 
 
-/* --- LWB / eLWB config --- */
+/* --- eLWB config --- */
 
-#define LWB_CONF_SCHED_PERIOD_IDLE      15            /* period T in seconds */
-#define LWB_CONF_MAX_DATA_SLOTS         40    /* max. # data slots per round */
-#define LWB_CONF_MAX_N_STREAMS          20      /* = max. # nodes in network */
-#define LWB_CONF_DATA_ACK               1  /* use data ACKs from src to host */
+#define ELWB_CONF_SCHED_PERIOD_IDLE     15            /* period T in seconds */
+#define ELWB_CONF_SCHED_PERIOD_MIN      3        /* min. allowed period in s */
+#define ELWB_CONF_SCHED_NODE_TIMEOUT    43200       /* remove node after x s */
+#define ELWB_CONF_MAX_DATA_SLOTS        50    /* max. # data slots per round */
+#define ELWB_CONF_MAX_N_NODES           50        /* max. # nodes in network */
+#define ELWB_CONF_DATA_ACK              1  /* use data ACKs from src to host */
 /* packet and buffer size */
-#define LWB_CONF_MAX_PKT_LEN            (128 - 2)     /* subtract Glossy hdr */
-#define LWB_CONF_USE_XMEM               FRAM_CONF_ON      /* if FRAM enabled */
+#define ELWB_CONF_MAX_PKT_LEN           (128 - 2)     /* subtract Glossy hdr */
+#define ELWB_CONF_USE_XMEM              FRAM_CONF_ON      /* if FRAM enabled */
 #if IS_HOST
- #if LWB_CONF_USE_XMEM
-  #define LWB_CONF_OUT_BUFFER_SIZE      10  /* = max #pkts the host can send */
- #else /* LWB_CONF_USE_XMEM */
-  #define LWB_CONF_OUT_BUFFER_SIZE      3
- #endif /* LWB_CONF_USE_XMEM */
- #define LWB_CONF_IN_BUFFER_SIZE        1  /* typically LWB_CONF_MAX_DATA_SLOTS
+ #if ELWB_CONF_USE_XMEM
+  #define ELWB_CONF_OUT_BUFFER_SIZE     10  /* = max #pkts the host can send */
+ #else /* ELWB_CONF_USE_XMEM */
+  #define ELWB_CONF_OUT_BUFFER_SIZE     3
+ #endif /* ELWB_CONF_USE_XMEM */
+ #define ELWB_CONF_IN_BUFFER_SIZE       1 /* typically ELWB_CONF_MAX_DATA_SLOTS
                                        but not required if forwarded to BOLT */
 #else /* IS_HOST */
- #if LWB_CONF_USE_XMEM
-  #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
-  #define LWB_CONF_IN_BUFFER_SIZE       10 /* = max #pkts a src node can rcv */
- #else /* LWB_CONF_USE_XMEM */
-  #define LWB_CONF_OUT_BUFFER_SIZE      3 /* = max #pkts a src node can send */
-  #define LWB_CONF_IN_BUFFER_SIZE       3  /* = max #pkts a src node can rcv */   
- #endif /* LWB_CONF_USE_XMEM */
+ #if ELWB_CONF_USE_XMEM
+  #define ELWB_CONF_OUT_BUFFER_SIZE     5 /* = max #pkts a src node can send */
+  #define ELWB_CONF_IN_BUFFER_SIZE      10 /* = max #pkts a src node can rcv */
+ #else /* ELWB_CONF_USE_XMEM */
+  #define ELWB_CONF_OUT_BUFFER_SIZE     3 /* = max #pkts a src node can send */
+  #define ELWB_CONF_IN_BUFFER_SIZE      3  /* = max #pkts a src node can rcv */   
+ #endif /* ELWB_CONF_USE_XMEM */
 #endif /* IS_HOST */
 /* timings */
-#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 200)      /* 5ms */
-#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 50)      /* 20ms */
-#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 500)      /* 2ms */
-#define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 2000)   /* 0.5ms */
-#define LWB_CONF_T_GUARD_LF             (RTIMER_SECOND_LF / 1000)     /* 1ms */
-#define LWB_CONF_T_REF_OFS              3822 /* measured with logic analyzer */
-#define LWB_CONF_T_SILENT               (120 * RTIMER_SECOND_HF)     /* 2min */
-#define LWB_CONF_T_DEEPSLEEP            (RTIMER_SECOND_LF * 1800)   /* 30min */
+#define ELWB_CONF_T_CONT                (RTIMER_SECOND_HF / 200)      /* 5ms */
+#define ELWB_CONF_T_SCHED               (RTIMER_SECOND_HF / 50)      /* 20ms */
+#define ELWB_CONF_T_GAP                 (RTIMER_SECOND_HF / 500)      /* 2ms */
+#define ELWB_CONF_T_GUARD               (RTIMER_SECOND_HF / 2000)   /* 0.5ms */
+#define ELWB_CONF_T_GUARD_LF            (RTIMER_SECOND_LF / 1000)     /* 1ms */
+#define ELWB_CONF_T_REF_OFS             3822 /* measured with logic analyzer */
+#define ELWB_CONF_T_SILENT              (120 * RTIMER_SECOND_HF)     /* 2min */
+#define ELWB_CONF_T_DEEPSLEEP           (RTIMER_SECOND_LF * 1800)   /* 30min */
 /* retransmissions */
-#define LWB_CONF_TX_CNT_SCHED           3
-#define LWB_CONF_TX_CNT_DATA            3
-/* eLWB specific config */
-#define LWB_VERSION                     0      /* override default LWB impl. */
-#define LWB_SCHED_ELWB_DYN                         /* use the eLWB scheduler */
-#define LWB_CONF_HEADER_LEN             0
+#define ELWB_CONF_TX_CNT_SCHED          3
+#define ELWB_CONF_TX_CNT_DATA           3
+/* misc */
 #if IS_HOST
- #define LWB_CONF_WRITE_TO_BOLT         1      /* write incoming msg to BOLT */
+ #define ELWB_CONF_WRITE_TO_BOLT        1      /* write incoming msg to BOLT */
+  #define ELWB_CONF_T_PREPROCESS_LF     (RTIMER_SECOND_LF / 10)     /* 100ms */
 #else /* IS_HOST */
- #define LWB_CONF_WRITE_TO_BOLT         0
+ #define ELWB_CONF_WRITE_TO_BOLT        0
+  #define ELWB_CONF_T_PREPROCESS_LF     (RTIMER_SECOND_LF / 20)      /* 50ms */
 #endif /* IS_HOST */
-/* preprocessing task */
-#define LWB_CONF_T_PREPROCESS           (RTIMER_SECOND_LF / 20)     /* 50ms */
 /* override default packet filter (only keep pkts on src that match node_id) */ 
-#define LWB_CONF_SRC_PKT_FILTER(data)   (data[2] == node_id || \
+#define ELWB_CONF_SRC_PKT_FILTER(data)  (data[2] == node_id || \
                                          data[2] == 0xffff)
+#define LWB_VERSION                     0       /* exclude default LWB impl. */
+
 /* Glossy */
 #define GLOSSY_COMMON_HEADER            0xc0
 
 
 /* --- BOLT config --- */
 
-#define BOLT_CONF_MAX_MSG_LEN           LWB_CONF_MAX_PKT_LEN
+#define BOLT_CONF_MAX_MSG_LEN           ELWB_CONF_MAX_PKT_LEN
 #define BOLT_CONF_TIMEREQ_ENABLE        1
-#define TIMESYNC_OFS                    193          /* const offset to host */
 #define BOLT_CONF_TIMEREQ_HF_MODE       0 /* only low freq. mode is supported*/
 
 
 /* --- MISC --- */
 
-#define HEALTH_MSG_PERIOD               (LWB_CONF_SCHED_PERIOD_IDLE * 10)
+#define HEALTH_MSG_PERIOD               (ELWB_CONF_SCHED_PERIOD_IDLE * 10)
                                         /* inital value only, can be changed */
 #define UTC_TIMESTAMP_MAX_DRIFT         5  /* for host only, allowed drift 
                                             before time is adjusted (= jump) */
@@ -162,15 +162,15 @@
 #define DEBUG_PRINT_CONF_ON             1
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_PRINT_CONF_USE_RINGBUFFER 1
-#define DEBUG_PRINT_CONF_BUFFER_SIZE    400
+#define DEBUG_PRINT_CONF_BUFFER_SIZE    512
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
                                          /* -> .bss + .dec size */
 //#define DEBUG_CONF_ISR_INDICATOR        1         /* indicate CPU activity */
-#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3   /* pin 9 on DBG header */
+#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
-#define LWB_CONF_TASK_ACT_PIN           COM_GPIO2
+#define ELWB_CONF_TASK_ACT_PIN           COM_GPIO3
 //#define GLOSSY_START_PIN              COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
@@ -206,8 +206,8 @@ extern config_t cfg;           /* most important config parameters and stats */
 
 /* --- Compile time parameter checks --- */
 
-#if DPP_MSG_PKT_LEN > LWB_CONF_MAX_PKT_LEN
-#error "LWB_CONF_MAX_PKT_LEN is too small"
+#if DPP_MSG_PKT_LEN > ELWB_CONF_MAX_PKT_LEN
+#error "ELWB_CONF_MAX_PKT_LEN is too small"
 #endif
 
 
