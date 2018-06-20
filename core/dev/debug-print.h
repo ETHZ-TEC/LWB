@@ -148,16 +148,13 @@
 #define DEBUG_CONF_ISR_INDICATOR        0
 #endif /* DEBUG_CONF_ISR_INDICATOR */
 
-#if DEBUG_CONF_ISR_INDICATOR
-  #ifndef DEBUG_CONF_ISR_IND_PIN
-    #define DEBUG_CONF_ISR_IND_PIN      LED_STATUS
-  #endif /* DEBUG_CONF_ISR_IND_PIN */
+#ifdef DEBUG_CONF_ISR_IND_PIN
   #define DEBUG_ISR_ENTRY               PIN_SET(DEBUG_CONF_ISR_IND_PIN)
   #define DEBUG_ISR_EXIT                PIN_CLR(DEBUG_CONF_ISR_IND_PIN)
-#else /* DEBUG_CONF_ISR_INDICATOR */
+#else /* DEBUG_CONF_ISR_IND_PIN */
   #define DEBUG_ISR_ENTRY
   #define DEBUG_ISR_EXIT
-#endif /* DEBUG_CONF_ISR_INDICATOR */
+#endif /* DEBUG_CONF_ISR_IND_PIN */
 
 /**
  * @brief set DEBUG_PRINT_DISABLE_CONF_UART to 1 to disable UART after each

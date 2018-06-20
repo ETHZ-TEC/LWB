@@ -46,6 +46,21 @@
 #ifndef __ADC_H__
 #define __ADC_H__
 
+
+/*
+ * @brief turn on the reference oscillator for the ADC module
+ * @note takes at least 40us to settle
+ */
+#define ADC_REFOSC_ON     { while(REFCTL0 & REFGENBUSY); \
+                            REFCTL0 |= REFON; \
+                            while(REFCTL0 & REFGENBUSY); \
+                            __delay_cycles(MCLK_SPEED / 25000); }
+
+/* 
+ * @turn off the reference oscillator for the ADC module to safe power
+ */
+#define ADC_REFOSC_OFF    (REFCTL0 &= ~REFON)
+
 /**
  * @brief initialize the ADC12 module for battery voltage and on-chip
  * temperature sensing
