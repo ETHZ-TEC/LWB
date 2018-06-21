@@ -34,13 +34,28 @@
 #define __FW_VERSION_H__
 
 /* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0008
+#define FW_VERSION      0x0009
 #define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 0.9 (bugfix update, 2018-06-20):
+- change: broadcast reset command doesn't affect the host node anymore
+- change: rt->time not anymore overwritten with HF timestamp
+- bugfix: max. number of nodes and data slots reduced to 40 to be compatible 
+          with v0.7 source nodes (prevent overflow of schedule struct)
+- bugfix: several buffer overflows fixed: in elwb_sched_compute(),
+          lwb_schedule_t (length of slot field), lwb_sched_compress() and
+          lwb_sched_uncompress(), mostly because the default value for
+          LWB_CONF_MAX_DATA_SLOTS was used
+- change: guard time (HF) reduced to 250us
+- change: D-ACK slot only if there is no contention slot (no D-ACK if host node
+          sends data!)
+- change: DEBUG_CONF_ISR_INDICATOR define removed
+- change: in glossy.c only read noise floor in schedule slot (with sync)
 
 Version 0.8 (2018-06-19):
 - change: debug buffer size increased to 512 bytes

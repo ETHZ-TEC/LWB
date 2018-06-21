@@ -162,7 +162,7 @@ PROCESS(elwb_process, "eLWB"); /* process ctrl block def. */
 static struct pt          elwb_pt;
 static struct process*    post_proc;
 static struct process*    pre_proc;
-static elwb_schedule_t    schedule;
+static elwb_schedule_t    schedule;      /* use standard LWB schedule struct */
 static elwb_stats_t       stats = { 0 };
 static rtimer_clock_t     last_synced_hf;
 static rtimer_clock_t     last_synced_lf;
@@ -387,6 +387,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
   static rtimer_clock_t t_start_lf;
   static uint16_t curr_period = 0;
   static uint16_t req_cnt = 0;
+  static uint16_t forwarded = 0;
 #if ELWB_CONF_DATA_ACK
   static uint8_t  data_ack[(ELWB_CONF_MAX_DATA_SLOTS + 7) / 8] = { 0 };
 #endif /* ELWB_CONF_DATA_ACK */
@@ -405,14 +406,13 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
       }
       ELWB_LF_WAIT_UNTIL(rt->time + ELWB_CONF_T_PREPROCESS_LF);
       t_preprocess = 0; /* reset value */
-    }    
+    }
   #endif /* ELWB_CONF_T_PREPROCESS_LF */
       
     /* --- COMMUNICATION ROUND STARTS --- */
         
-    t_start_lf = rt->time; 
-    rt->time = rtimer_now_hf();
-    t_start = rt->time;
+    t_start    = rtimer_now_hf();
+    t_start_lf = rt->time;
 
     /* --- SEND SCHEDULE --- */
     ELWB_SEND_SCHED();
@@ -437,11 +437,11 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
     if(ELWB_SCHED_HAS_SLOTS(&schedule)) {
 
     #if ELWB_CONF_SCHED_COMPRESS
-      lwb_sched_uncompress((uint8_t*)schedule.slot, 
-                           ELWB_SCHED_N_SLOTS(&schedule));
+      elwb_sched_uncompress((uint8_t*)schedule.slot, 
+                            ELWB_SCHED_N_SLOTS(&schedule));
     #endif /* ELWB_CONF_SCHED_COMPRESS */
 
-      if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+      if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
         /* this is a data round */
         t_slot     = ELWB_CONF_T_DATA;
         /* calculate the load (moving average over 10 rounds) */
@@ -465,7 +465,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
             DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
           }
         } else {
-          if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+          if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
             payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
           } else {
             /* it's a request round */
@@ -476,7 +476,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
           ELWB_RCV_PACKET();  /* receive a data packet */
           payload_len = glossy_get_payload_len();
           if(ELWB_DATA_RCVD) {
-            if(!ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+            if(!ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
               elwb_sched_process_req(schedule.slot[i], glossy_payload[0]);
             } else {
               DEBUG_PRINT_VERBOSE("data received from node %u (%ub)", 
@@ -488,6 +488,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
               res = elwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
   #endif /* ELWB_CONF_WRITE_TO_BOLT */
               if(res) {
+                forwarded++;
   #if ELWB_CONF_DATA_ACK
                 /* set the corresponding bit in the data ack packet */
                 data_ack[i >> 3] |= (1 << (i & 0x07));
@@ -503,23 +504,14 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
           }
         }
         t_slot_ofs += (t_slot + ELWB_CONF_T_GAP);
-      }      
-  #if ELWB_CONF_WRITE_TO_BOLT
-      if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
-        static uint16_t pkt_cnt_prev;
-        uint16_t diff = stats.pck_cnt - pkt_cnt_prev;
-        if(diff) {
-          DEBUG_PRINT_INFO("%u msg forwarded to BOLT", diff);
-          pkt_cnt_prev = stats.pck_cnt;
-        }
       }
-  #endif /* ELWB_CONF_WRITE_TO_BOLT */
-    }    
+    }
     
 #if ELWB_CONF_DATA_ACK  
     /* --- D-ACK SLOT --- */
     
-    if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+    if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule) &&
+       !ELWB_SCHED_HAS_CONT_SLOT(&schedule)) {
       /* acknowledge each received packet of the last round */
       payload_len = (ELWB_SCHED_N_SLOTS(&schedule) + 7) >> 3;
       memcpy((uint8_t*)glossy_payload, data_ack, payload_len);
@@ -561,7 +553,6 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
         glossy_payload[0] = 0;
       }
       t_slot_ofs += ELWB_CONF_T_CONT + ELWB_CONF_T_GAP;
-      //stats.glossy_snr = glossy_get_snr();   /* get SNR of schedule packet */
   
       /* --- SEND 2ND SCHEDULE --- */
       
@@ -580,15 +571,21 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
      * order they were started/created) */
     if(ELWB_SCHED_IS_STATE_IDLE(&schedule)) {
       /* print out some stats */
-      DEBUG_PRINT_INFO("t=%lu T=%u n=%u req=%u p=%u per=%d "
-                       "rssi=%ddBm", 
+      DEBUG_PRINT_INFO("t=%lu T=%us n=%u req=%u p=%u per=%d rssi=%ddBm", 
                        global_time,
-                       curr_period * (1000 / ELWB_PERIOD_SCALE),
+                       elwb_sched_get_period(),
                        ELWB_SCHED_N_SLOTS(&schedule),
                        req_cnt, 
                        stats.pck_cnt,
                        glossy_get_per(),
                        stats.glossy_snr);
+      
+    #if ELWB_CONF_WRITE_TO_BOLT
+      if(forwarded) {
+        DEBUG_PRINT_INFO("%u msg forwarded to BOLT", forwarded);
+        forwarded  = 0;
+      }
+    #endif /* ELWB_CONF_WRITE_TO_BOLT */
       
     #if ELWB_CONF_USE_XMEM
       /* make sure the xmem task has a chance to run, yield for T_GAP */
@@ -596,10 +593,10 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
     #endif /* ELWB_CONF_USE_XMEM */
     
       if(post_proc) {
-        process_poll(post_proc);    
+        process_poll(post_proc);
       }
     #if ELWB_CONF_T_PREPROCESS_LF
-      t_preprocess = ELWB_CONF_T_PREPROCESS_LF;     
+      t_preprocess = ELWB_CONF_T_PREPROCESS_LF;
     #endif /* ELWB_CONF_T_PREPROCESS_LF */
     }
     
@@ -675,14 +672,14 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           glossy_stop();
         } while(!glossy_is_t_ref_updated() && ((rtimer_now_hf() -
                 bootstrap_started) < ELWB_CONF_T_SILENT));        
-        if (glossy_is_t_ref_updated()) {
+        if(glossy_is_t_ref_updated()) {
           break;  /* schedule received, exit bootstrap state */
         }
-        /* go to sleep for ELWB_CONF_T_DEEPSLEEP ticks */
+        /* go to sleep for ELWB_CONF_T_DEEPSLEEP_LF ticks */
         stats.sleep_cnt++;
         DEBUG_PRINT_MSG_NOW("TIMEOUT");
         ELWB_BEFORE_DEEPSLEEP();
-        ELWB_LF_WAIT_UNTIL(rtimer_now_lf() + ELWB_CONF_T_DEEPSLEEP);
+        ELWB_LF_WAIT_UNTIL(rtimer_now_lf() + ELWB_CONF_T_DEEPSLEEP_LF);
         ELWB_AFTER_DEEPSLEEP();
         rt->time = rtimer_now_hf();
         /* switch frequency and try again */
@@ -749,7 +746,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       if(!ELWB_SCHED_IS_STATE_IDLE(&schedule)) {
         /* missed schedule was during a contention/data round -> reset t_ref */
         t_ref_lf = last_synced_lf;      /* restore the last known sync point */
-        if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+        if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
           /* last round was a data round? -> add one period */
           t_ref_lf += period_idle * RTIMER_SECOND_LF / ELWB_PERIOD_SCALE;
         }
@@ -763,8 +760,8 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     if(sync_state == SYNCED) {
       
     #if ELWB_CONF_SCHED_COMPRESS
-      lwb_sched_uncompress((uint8_t*)schedule.slot, 
-                           ELWB_SCHED_N_SLOTS(&schedule));
+      elwb_sched_uncompress((uint8_t*)schedule.slot, 
+                            ELWB_SCHED_N_SLOTS(&schedule));
     #endif /* ELWB_CONF_SCHED_COMPRESS */
       
       static uint16_t i;
@@ -774,7 +771,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       
       if(ELWB_SCHED_HAS_SLOTS(&schedule)) {
         /* set the slot duration */
-        if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+        if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
           /* this is a data round */
           t_slot = ELWB_CONF_T_DATA;
   #if ELWB_CONF_DATA_ACK
@@ -791,7 +788,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
             node_registered = 1;
             /* this is our data slot, send a data packet (if there is any) */
             if(!FIFO_EMPTY(&tx_queue)) {
-              if(ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+              if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
   #if ELWB_CONF_DATA_ACK
                 if(first_slot == 0xff) {
                   first_slot = i;
@@ -816,7 +813,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           } else
           {
             payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
-            if(!ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+            if(!ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
               /* the payload length is known in the request round */
               payload_len = ELWB_REQ_PKT_LEN;
             }
@@ -824,7 +821,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
             ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD);
             ELWB_RCV_PACKET();
             payload_len = glossy_get_payload_len();
-            if(ELWB_SCHED_IS_DATA_ROUND(&schedule) && ELWB_DATA_RCVD) {
+            if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule) && ELWB_DATA_RCVD) {
              /* forward the packet to the application task if the initiator was
               * the host or sink or if the custom forward filter is 'true' */
               if(ELWB_CONF_SRC_PKT_FILTER(glossy_payload)) {
@@ -844,8 +841,9 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       
   #if ELWB_CONF_DATA_ACK  
       /* --- D-ACK SLOT --- */
-                 
-      if(!(cfg.dbg_flags & 0x02) && ELWB_SCHED_IS_DATA_ROUND(&schedule)) {
+      
+      if(!(cfg.dbg_flags & 0x02) && ELWB_SCHED_HAS_DATA_SLOTS(&schedule) &&
+         !ELWB_SCHED_HAS_CONT_SLOT(&schedule)) {
         t_slot = ELWB_CONF_T_CONT;
         payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
         ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD);
@@ -937,7 +935,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
                        glossy_get_per(),
                        stats.glossy_snr,
                        stats.drift);
-        
+    
       /* poll the post process */
       if(post_proc) {
         process_poll(post_proc);
@@ -948,6 +946,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     }
     /* erase the schedule (slot allocations only) */
     memset(&schedule.slot, 0, sizeof(schedule.slot));
+    ELWB_SCHED_CLR_SLOTS(&schedule);
     
     /* schedule the wakeup for the next round */
     ELWB_LF_WAIT_UNTIL(t_ref_lf + (schedule.period * RTIMER_SECOND_LF) /

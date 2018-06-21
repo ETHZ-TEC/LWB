@@ -47,10 +47,12 @@
 #endif /* APP_TASK_ACT_PIN */
 /*---------------------------------------------------------------------------*/
 /* global variables */
+config_t cfg;
 rtimer_clock_t bolt_captured_trq = 0;             /* last captured timestamp */
 uint16_t seq_no_lwb  = 0;
 uint16_t seq_no_bolt = 0;
-config_t cfg;
+uint16_t health_msg_period = HEALTH_MSG_PERIOD;
+/*---------------------------------------------------------------------------*/
 static uint16_t last_health_pkt = 0;
 static dpp_message_t msg_rx;                            /* only used for RX! */
 /*---------------------------------------------------------------------------*/
@@ -238,7 +240,7 @@ PROCESS_THREAD(app_post, ev, data)
         send_node_info();
         node_info_sent = 1;
       }
-    } else if (health_msg_period) {
+    } else if(health_msg_period) {
       /* only send other messages once the node info msg has been sent! */
       uint16_t div = elwb_get_time(0) / health_msg_period;
       if(div != last_health_pkt) {

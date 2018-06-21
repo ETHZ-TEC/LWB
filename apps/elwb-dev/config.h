@@ -43,7 +43,7 @@
 
 /* important: node ID must be set accordingly if host is to be programmed (does
  * not work with objcopy in makefile for the host!) */
-#define NODE_ID                         HOST_ID
+//#define NODE_ID                         HOST_ID
 #define HOST_ID                         16 //6
 
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
@@ -52,7 +52,7 @@
 
 /* --- External memory (FRAM) --- */
 
-#define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
+#define FRAM_CONF_ON                    0   /* enable if FRAM chip installed */
 
 
 /* --- Radio config --- */
@@ -67,8 +67,7 @@
 /* --- Network parameters --- */
 
 #define ELWB_CONF_MAX_HOPS              3
-//#define ELWB_CONF_SCHED_AE_SRC_NODE_LIST 2,3,4  /* predefined list of nodes */
-//#define ELWB_CONF_SCHED_AE_SRC_NODE_CNT  3         /* # nodes in list above */
+//#define ELWB_CONF_SCHED_NODE_LIST       2,3,4  /* predefined list of nodes */
 
 
 /* --- eLWB config --- */
@@ -76,8 +75,8 @@
 #define ELWB_CONF_SCHED_PERIOD_IDLE     15            /* period T in seconds */
 #define ELWB_CONF_SCHED_PERIOD_MIN      3        /* min. allowed period in s */
 #define ELWB_CONF_SCHED_NODE_TIMEOUT    43200       /* remove node after x s */
-#define ELWB_CONF_MAX_DATA_SLOTS        50    /* max. # data slots per round */
-#define ELWB_CONF_MAX_N_NODES           50        /* max. # nodes in network */
+#define ELWB_CONF_MAX_DATA_SLOTS        40    /* max. # data slots per round */
+#define ELWB_CONF_MAX_N_NODES           40        /* max. # nodes in network */
 #define ELWB_CONF_DATA_ACK              1  /* use data ACKs from src to host */
 /* packet and buffer size */
 #define ELWB_CONF_MAX_PKT_LEN           (128 - 2)     /* subtract Glossy hdr */
@@ -103,11 +102,11 @@
 #define ELWB_CONF_T_CONT                (RTIMER_SECOND_HF / 200)      /* 5ms */
 #define ELWB_CONF_T_SCHED               (RTIMER_SECOND_HF / 50)      /* 20ms */
 #define ELWB_CONF_T_GAP                 (RTIMER_SECOND_HF / 500)      /* 2ms */
-#define ELWB_CONF_T_GUARD               (RTIMER_SECOND_HF / 2000)   /* 0.5ms */
+#define ELWB_CONF_T_GUARD               (RTIMER_SECOND_HF / 4000)  /* 0.25ms */
 #define ELWB_CONF_T_GUARD_LF            (RTIMER_SECOND_LF / 1000)     /* 1ms */
 #define ELWB_CONF_T_REF_OFS             3822 /* measured with logic analyzer */
 #define ELWB_CONF_T_SILENT              (120 * RTIMER_SECOND_HF)     /* 2min */
-#define ELWB_CONF_T_DEEPSLEEP           (RTIMER_SECOND_LF * 1800)   /* 30min */
+#define ELWB_CONF_T_DEEPSLEEP_LF        (RTIMER_SECOND_LF * 1800)   /* 30min */
 /* retransmissions */
 #define ELWB_CONF_TX_CNT_SCHED          3
 #define ELWB_CONF_TX_CNT_DATA           3
@@ -166,11 +165,10 @@
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
                                          /* -> .bss + .dec size */
-//#define DEBUG_CONF_ISR_INDICATOR        1         /* indicate CPU activity */
 #define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
-#define ELWB_CONF_TASK_ACT_PIN           COM_GPIO3
+#define ELWB_CONF_TASK_ACT_PIN          COM_GPIO3
 //#define GLOSSY_START_PIN              COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2

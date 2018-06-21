@@ -71,8 +71,6 @@
                                 ELWB_CONF_SCHED_COMP_TIME))
 
 /*---------------------------------------------------------------------------*/
-#define elwb_sched_compress(data, slot_cnt)  lwb_sched_compress(data, slot_cnt)
-/*---------------------------------------------------------------------------*/
 /**
  * @brief struct to store information about active nodes on the host
  */
@@ -97,6 +95,157 @@ static uint16_t           n_nodes;                         /* # active nodes */
 static elwb_sched_state_t sched_state;
 LIST(nodes_list);                            /* linked list for active nodes */
 elwb_node_list_t nodes_mem[ELWB_CONF_MAX_N_NODES];
+/*---------------------------------------------------------------------------*/
+/* the number of bits for depth and length are stored in the thirds slot;
+ * 5 bits are reserved to store the number of bits needed for the depth 
+ * (i.e. 0 to 31 bits) */
+#define GET_D_BITS()       (compressed_data[2] >> 3)
+/* 3 bits are reserved to store the number of bits needed for the length
+ * (i.e. 0 to 7 bits) */
+#define GET_L_BITS()       (compressed_data[2] & 0x07)  
+#define SET_D_L_BITS(d, l) (compressed_data[2] = ((d) << 3) | ((l) & 0x07))
+#define COMPR_SLOT(a)      (compressed_data[3 + (a)])
+/*---------------------------------------------------------------------------*/
+static inline uint8_t 
+get_min_bits(uint16_t a) 
+{
+  uint8_t i;
+  for(i = 15; i > 0; i--) {
+    if(a & (1 << i)) {
+      return i + 1;
+    }
+  }
+  return i + 1;
+}
+/*---------------------------------------------------------------------------*/
+uint16_t 
+elwb_sched_compress(uint8_t* compressed_data, uint8_t n_slots)
+{
+  uint16_t slots_buffer[ELWB_CONF_MAX_DATA_SLOTS];
+
+  if(!compressed_data || n_slots > ELWB_CONF_MAX_DATA_SLOTS) {
+    return 0;
+  }
+  if(n_slots < 2) {  /* don't do anything in case there is only 0 or 1 slot */
+    return n_slots * 2;
+  }
+  /* copy the input data into a buffer */
+  memcpy(slots_buffer, compressed_data, n_slots * 2);
+  /* clear the output data buffer (except for the first slot!) */
+  memset(compressed_data + 2, 0, ELWB_CONF_MAX_DATA_SLOTS * 2 - 2);
+  
+  /* Note: the first slot holds the first node ID */
+  
+  uint8_t  n_runs = 0;    /* how many times the delta has changed */
+  uint16_t d[n_slots - 1];
+  d[n_runs] = slots_buffer[1] - slots_buffer[0];  /* delta (step size) */
+  uint16_t d_max = d[n_runs];
+  /* length (how many consecutive slots with step size d) */
+  uint16_t l[n_slots - 1];
+  l[n_runs] = 0;
+  uint8_t  l_max = l[n_runs];
+  uint8_t  idx;
+
+  for(idx = 1; idx < n_slots - 1; idx++) {
+    if((slots_buffer[idx + 1] - slots_buffer[idx]) == d[n_runs]) {
+      l[n_runs]++;
+    } else {
+      if(l[n_runs] > l_max) {
+        /* keep track of the max. num. of conseq. slots with const. delta */
+        l_max = l[n_runs]; 
+      }
+      n_runs++; 
+      /* calculate the new delta */
+      d[n_runs] = slots_buffer[idx + 1] - slots_buffer[idx]; 
+      /* make sure the node IDs are in increasing order */
+      if(slots_buffer[idx + 1] < slots_buffer[idx]) {
+        return 0; /* node IDs are not sorted! */
+      }
+      if(d[n_runs] > d_max) {
+        d_max = d[n_runs];  /* keep track of the max. delta */
+      }
+      l[n_runs] = 0;
+    }
+  }
+  if(l[n_runs] > l_max) {
+    l_max = l[n_runs];
+  }
+  n_runs++;
+  
+  uint8_t d_bits = get_min_bits(d_max);
+  uint8_t l_bits = get_min_bits(l_max);
+  /* required bits for each delta + length */
+  uint16_t run_bits = d_bits + l_bits; 
+  
+  for(idx = 0; idx < n_runs; idx++) {    
+    uint16_t offset_bits = run_bits * idx;
+    /* store the current and the following 3 bytes in a 32-bit variable */
+    uint32_t tmp = (uint32_t)COMPR_SLOT(offset_bits / 8) | 
+                   ((uint32_t)COMPR_SLOT(offset_bits / 8 + 1) << 8)  |
+                   ((uint32_t)COMPR_SLOT(offset_bits / 8 + 2) << 16) |
+                   ((uint32_t)COMPR_SLOT(offset_bits / 8 + 3) << 24);
+    /* append the new data (d and l) */
+    tmp |= ( ( ((uint32_t)d[idx] << l_bits) | l[idx] ) << (offset_bits % 8) );
+    COMPR_SLOT(offset_bits / 8)     = (uint8_t)tmp;
+    COMPR_SLOT(offset_bits / 8 + 1) = (uint8_t)(tmp >> 8);
+    COMPR_SLOT(offset_bits / 8 + 2) = (uint8_t)(tmp >> 16);
+    COMPR_SLOT(offset_bits / 8 + 3) = (uint8_t)(tmp >> 24);
+  }
+  SET_D_L_BITS(d_bits, l_bits);   /* store the number of bits for d and l */
+  
+  /* return the size of the compressed schedule */
+  return 3 + ((((uint16_t)n_runs * run_bits) + 7) >> 3);
+}
+/*---------------------------------------------------------------------------*/
+uint8_t
+elwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots) 
+{
+  /* note: buffer size for uncompression must be large enough for the case
+   *       where ELWB_SCHED_MAX_SLOTS == ELWB_CONF_MAX_DATA_SLOTS */
+  uint16_t slots_buffer[ELWB_SCHED_MAX_SLOTS];
+  
+  if(!compressed_data || n_slots > ELWB_SCHED_MAX_SLOTS) {
+    return 0;
+  }
+  if(n_slots < 2) {  /* don't do anything in case there is only 0 or 1 slot */
+    return 1;
+  }
+  
+  slots_buffer[0] = (uint16_t)compressed_data[1] << 8 | compressed_data[0];
+
+  uint8_t d_bits = GET_D_BITS();
+  uint8_t l_bits = GET_L_BITS();
+  uint16_t run_bits = d_bits + l_bits;
+  
+  /* check whether the values make sense */
+  if(d_bits == 0 || d_bits > 16 || l_bits == 0) {
+    return 0; /* invalid d or l bits */
+  }
+  
+  uint8_t slot_idx = 1, idx;
+  uint32_t mask = (((uint32_t)1 << run_bits) - 1);
+  for(idx = 0; slot_idx < n_slots; idx++) {
+    /* extract d and l of this run */
+    uint16_t offset_bits = run_bits * idx;
+    uint32_t tmp = (uint32_t)COMPR_SLOT(offset_bits / 8) |
+                   ((uint32_t)COMPR_SLOT(offset_bits / 8 + 1) << 8)  |
+                   ((uint32_t)COMPR_SLOT(offset_bits / 8 + 2) << 16) | 
+                   ((uint32_t)COMPR_SLOT(offset_bits / 8 + 3) << 24);
+    uint32_t run_info = ((tmp >> (offset_bits % 8)) & mask);
+    uint16_t d = run_info >> l_bits;
+    uint16_t l = run_info & ((1 << l_bits) - 1);
+    uint8_t i;
+    /* generate the slots */
+    for(i = 0; i < l + 1; i++) {
+      /* add the offset to the previous slot */
+      slots_buffer[slot_idx] = slots_buffer[slot_idx - 1] + d;
+      slot_idx++;
+    }
+  }  
+  memcpy(compressed_data, slots_buffer, n_slots * 2);
+  
+  return 1;
+}
 /*---------------------------------------------------------------------------*/
 uint16_t 
 uint16_to_str(uint16_t val, char* out_buffer)
@@ -162,40 +311,44 @@ elwb_sched_add_node(uint16_t id)
 void
 elwb_sched_remove_node(elwb_node_list_t* node)
 {
-  if(!node) {
+  if(node == 0 || n_nodes == 0) {
+    DEBUG_PRINT_ERROR("invalid argument for remove_node");
     return;
   }
   DEBUG_PRINT_INFO("node %u removed", node->id);
   EVENT_INFO(EVENT_CC430_NODE_REMOVED, node->id);
   node->id = 0;   /* mark as 'unused' by setting the ID to zero */
+  n_nodes--;
   list_remove(nodes_list, node);
 }
 /*---------------------------------------------------------------------------*/
-void 
-elwb_sched_process_req(uint16_t node,
+void
+elwb_sched_process_req(uint16_t id,
                        uint8_t n_pkts) 
 {
   if(n_pkts > ELWB_CONF_MAX_DATA_SLOTS) {
     n_pkts = ELWB_CONF_MAX_DATA_SLOTS;      /* cap */
   }
-  elwb_node_list_t *s = 0;
+  elwb_node_list_t *node = 0;
   /* check if node already exists */
-  for(s = list_head(nodes_list); s != 0; s = s->next) {
-    if(node == s->id) {
-      s->n_pkts = n_pkts;
-      s->t_last_req = (time / ELWB_PERIOD_SCALE);
+  for(node = list_head(nodes_list); node != 0; node = node->next) {
+    if(id == node->id) {
+      node->n_pkts = n_pkts;
+      node->t_last_req = (time / ELWB_PERIOD_SCALE);
       return;
     }
   }
   /* does not exist: add the node */
-  elwb_sched_add_node(node);
+  elwb_sched_add_node(id);
 }
 /*---------------------------------------------------------------------------*/
-uint16_t 
+uint16_t
 elwb_sched_compute(elwb_schedule_t * const sched,
                    uint8_t reserve_slots_host) 
 { 
   static uint16_t t_round   = 0;
+  static uint16_t req_nodes = 0;
+  static uint16_t req_slots = 0;
   uint16_t n_slots_assigned = 0;
 
   /*
@@ -205,8 +358,8 @@ elwb_sched_compute(elwb_schedule_t * const sched,
   if(sched_state == ELWB_SCHED_STATE_IDLE && sched->period == 0) {
     /* request detected! prepare 2nd schedule (just update the period) */
     sched->n_slots = 0;
-    sched->period = t_round;                   /* use current round duration */
-    sched_state = ELWB_SCHED_STATE_CONT_DET;                 /* change state */
+    sched->period  = t_round;                  /* use current round duration */
+    sched_state    = ELWB_SCHED_STATE_CONT_DET;              /* change state */
     return 2;                            /* return value doesn't matter here */
   }
   /* use the period of the last round to update the network time */
@@ -228,11 +381,11 @@ elwb_sched_compute(elwb_schedule_t * const sched,
       sched->slot[n_slots_assigned++] = 0xffff;
     }
     sched->n_slots = n_slots_assigned;
-    /* calculate next round period (or use ELWB_PERIOD_T_DATA_MAX) */
-    sched->period  = ((ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP + 
-                      n_slots_assigned * (ELWB_CONF_T_CONT + ELWB_CONF_T_GAP) + 
-                      ELWB_CONF_SCHED_COMP_TIME) / 
-                     (RTIMER_SECOND_HF / ELWB_PERIOD_SCALE));
+    /* calculate next round period */
+    sched->period  = HFTICKS_TO_SCHEDUNITS(ELWB_CONF_T_SCHED +
+                      ELWB_CONF_T_GAP + n_slots_assigned * 
+                       (ELWB_CONF_T_CONT + ELWB_CONF_T_GAP) + 
+                      ELWB_CONF_SCHED_COMP_TIME);
     t_round += sched->period;
     
     sched_state = ELWB_SCHED_STATE_REQ;
@@ -242,14 +395,16 @@ elwb_sched_compute(elwb_schedule_t * const sched,
      * the received requests */
     
     memset(sched->slot, 0, sizeof(sched->slot));        /* clear the content */
-    uint16_t node_cnt = 0;
+    req_nodes = 0;
+    req_slots = 0;
+    n_slots_assigned = 0;
+    elwb_node_list_t *curr_node = 0;
     
     /* first, go through the list of nodes and calculate the traffic demand */
-    elwb_node_list_t *curr_node = list_head(nodes_list);
-    uint16_t req_slots = 0;
+    curr_node = list_head(nodes_list);
     while(curr_node != 0) {
       if(curr_node->n_pkts) {
-        node_cnt++;
+        req_nodes++;
         req_slots += curr_node->n_pkts;
       }
       curr_node = curr_node->next;
@@ -266,7 +421,7 @@ elwb_sched_compute(elwb_schedule_t * const sched,
       while(curr_node != 0 && 
             (n_slots_assigned < ELWB_CONF_MAX_DATA_SLOTS)) {
         if(curr_node->n_pkts) {
-          uint16_t n = (scale * curr_node->n_pkts + 128) >> 8;
+          uint16_t n = (scale * curr_node->n_pkts + 128) / 256;
           while(n && (n_slots_assigned < ELWB_CONF_MAX_DATA_SLOTS)) {
             sched->slot[n_slots_assigned++] = curr_node->id;
             n--;
@@ -289,21 +444,24 @@ elwb_sched_compute(elwb_schedule_t * const sched,
         curr_node = curr_node->next;
       }
     }
-    DEBUG_PRINT_INFO("%u of %u nodes requested slots, %u assigned", 
-                     node_cnt, n_nodes, n_slots_assigned);
-
     sched->n_slots = n_slots_assigned;
     sched->period  = period - t_round;
-    t_round += (n_slots_assigned * (ELWB_CONF_T_CONT + ELWB_CONF_T_GAP) + 
-                ELWB_CONF_SCHED_COMP_TIME) / 
-                (RTIMER_SECOND_HF / ELWB_PERIOD_SCALE);
-    ELWB_SCHED_SET_DATA_ROUND(sched); /* mark the next round as 'data round' */
+    t_round += HFTICKS_TO_SCHEDUNITS(ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP +
+                n_slots_assigned * (ELWB_CONF_T_DATA + ELWB_CONF_T_GAP) + 
+#if ELWB_CONF_DATA_ACK
+                ELWB_CONF_T_CONT + ELWB_CONF_T_GAP +
+#endif /* ELWB_CONF_DATA_ACK */
+                ELWB_CONF_SCHED_COMP_TIME);
+    ELWB_SCHED_SET_DATA_SLOTS(sched); /* mark the next round as 'data round' */
     ELWB_SCHED_SET_STATE_IDLE(sched);     /* mark as 'idle' after this round */
     
     sched_state = ELWB_SCHED_STATE_DATA;
     
   } else if(sched_state == ELWB_SCHED_STATE_DATA) {
     /* a data round has just finished */
+    
+    DEBUG_PRINT_INFO("%ums round duration, %u of %u nodes requested %u slots", 
+                     SCHEDUNITS_TO_MS(t_round), req_nodes, n_nodes, req_slots);
     
     memset(sched->slot, 0, sizeof(sched->slot));        /* clear the content */
     /* reset all requests (set n_pkts to 0) */
@@ -319,17 +477,15 @@ elwb_sched_compute(elwb_schedule_t * const sched,
       } else {
         /* convert the node ID to a string and write it into the debug print
          * buffer */
-        char buffer[6];       /* note IDs are 5 characters at most (16 bits) */
-        uint16_t num_chars = uint16_to_str(curr_node->id, buffer);
-        buffer[num_chars++] = ' ';
-        buffer[num_chars] = 0;
+        char buffer[6];       /* node IDs are 5 characters at most (16 bits) */
+        uint16_to_str(curr_node->id, buffer);
         debug_print_buffer_put(buffer);
+        debug_print_buffer_put(" ");
         curr_node->n_pkts = 0;  /* reset */
         curr_node = curr_node->next;
       }
     }
     debug_print_buffer_put("\r\n");
-    DEBUG_PRINT_VERBOSE("round duration: %u0ms", t_round);
     
     sched_state = ELWB_SCHED_STATE_IDLE;
     /* schedule for next round will be set below */
@@ -338,18 +494,18 @@ elwb_sched_compute(elwb_schedule_t * const sched,
   if(sched_state == ELWB_SCHED_STATE_IDLE) {
     /* regular idle round */
     /* add slots for the host if requested */
+    n_slots_assigned = 0;
     while(reserve_slots_host && n_slots_assigned < ELWB_CONF_MAX_SLOTS_HOST) {
       sched->slot[n_slots_assigned++] = node_id;
       reserve_slots_host--;
     }
     sched->n_slots = n_slots_assigned;
-    /* calculate round duration */
-    t_round = ELWB_T_IDLE_ROUND + (n_slots_assigned * 
-                                      (ELWB_CONF_T_DATA + ELWB_CONF_T_GAP) /
-                                      (RTIMER_SECOND_HF / ELWB_PERIOD_SCALE));
+    /* calculate round duration (standard idle round + #slots for host) */
+    t_round = ELWB_T_IDLE_ROUND + HFTICKS_TO_SCHEDUNITS(n_slots_assigned * 
+                                      (ELWB_CONF_T_DATA + ELWB_CONF_T_GAP));
     sched->period = period;   /* assume idle period for next round */
     if(n_slots_assigned) {
-      ELWB_SCHED_SET_DATA_ROUND(sched);
+      ELWB_SCHED_SET_DATA_SLOTS(sched);
     }
     ELWB_SCHED_SET_CONT_SLOT(sched);
     ELWB_SCHED_SET_STATE_IDLE(sched);  /* will be used by source nodes */
@@ -358,7 +514,7 @@ elwb_sched_compute(elwb_schedule_t * const sched,
   uint8_t compressed_size;
 #if ELWB_CONF_SCHED_COMPRESS
   compressed_size = elwb_sched_compress((uint8_t*)sched->slot, 
-                                       n_slots_assigned);
+                                        n_slots_assigned);
   if((compressed_size + ELWB_SCHED_HDR_LEN) > ELWB_CONF_MAX_PKT_LEN) {
     DEBUG_PRINT_ERROR("compressed schedule is too big!");
   }
@@ -410,21 +566,17 @@ elwb_sched_init(elwb_schedule_t* sched)
   ELWB_SCHED_SET_STATE_IDLE(sched);
   
   /* NOTE: node IDs must be sorted in increasing order */
-#if defined(ELWB_CONF_SCHED_AE_SRC_NODE_CNT) && ELWB_CONF_SCHED_AE_SRC_NODE_CNT
-  uint16_t node_ids[ELWB_CONF_SCHED_AE_SRC_NODE_CNT] = 
-                                          { ELWB_CONF_SCHED_AE_SRC_NODE_LIST };
- #if ELWB_CONF_SCHED_AE_SRC_NODE_CNT > ELWB_CONF_MAX_N_NODES
- #error "ELWB_CONF_SCHED_AE_SRC_NODE_CNT is too high"
- #endif /* ELWB_CONF_SCHED_AE_SRC_NODE_CNT */
+#ifdef ELWB_CONF_SCHED_NODE_LIST
+  const uint16_t node_ids[] = { ELWB_CONF_SCHED_NODE_LIST };
+  uint16_t cnt = sizeof(node_ids) / 2;
   uint16_t i;
-  elwb_node_list_t *prev = 0;
-  printf(" %u source nodes registered: ", ELWB_CONF_SCHED_AE_SRC_NODE_CNT);
-  for(i = 0; i < ELWB_CONF_SCHED_AE_SRC_NODE_CNT; i++) {
+  printf(" %u source nodes registered: ", cnt);
+  for(i = 0; i < cnt; i++) {
     elwb_sched_add_node(node_ids[i]);
     printf("%u", node_ids[i]);
   }
   printf("\r\n");
-#endif /* ELWB_CONF_SCHED_AE_INIT_NODES */
+#endif /* ELWB_CONF_SCHED_NODE_LIST */
   
   return ELWB_SCHED_HDR_LEN;/* empty schedule, no slots allocated yet */
 }

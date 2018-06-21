@@ -106,7 +106,7 @@
 #endif /* ELWB_CONF_T_SCHED */
   
 #ifndef ELWB_CONF_T_DATA
-#define ELWB_CONF_T_DATA          ELWB_T_SLOT_MIN(LWB_CONF_MAX_DATA_PKT_LEN + \
+#define ELWB_CONF_T_DATA          ELWB_T_SLOT_MIN(ELWB_CONF_MAX_PKT_LEN + \
                                                   GLOSSY_MAX_HEADER_LEN)
 #endif /* ELWB_CONF_T_DATA */
 
@@ -114,13 +114,15 @@
 
 #define ELWB_PERIOD_SCALE       100
 #define ELWB_REQ_PKT_LEN        2
-#define ELWB_SCHED_HDR_LEN      LWB_SCHED_PKT_HEADER_LEN  /* use same header */
 #define ELWB_SCHED_PERIOD_MAX   (65535 / ELWB_PERIOD_SCALE)
 
-/* use LWB_T_HOP() for this macro */
+#define ELWB_T_HOP(len)         ((RTIMER_SECOND_HF * \
+                                 (3 + 24 + 192 + 192 + ((1000000 * \
+                                 (len) * 8) / RF_CONF_TX_BITRATE))) \
+                                  / 1000000)
 #define ELWB_T_SLOT_MIN(len)    ((ELWB_CONF_MAX_HOPS + \
                                  (2 * ELWB_CONF_TX_CNT_DATA) - 2) * \
-                                 LWB_T_HOP(len) + (RTIMER_SECOND_HF / 4000))
+                                 ELWB_T_HOP(len) + (RTIMER_SECOND_HF / 4000))
 
 #ifndef RF_CONF_MAX_PKT_LEN
 #define RF_CONF_MAX_PKT_LEN     (ELWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
@@ -158,6 +160,10 @@
 #error "ELWB_CONF_MAX_N_NODES is invalid"
 #endif
 
+#if (ELWB_CONF_MAX_DATA_SLOTS * 2 + ELWB_SCHED_HDR_LEN) > ELWB_CONF_MAX_PKT_LEN
+#error "ELWB_CONF_MAX_DATA_SLOTS exceeds the packet size limit"
+#endif
+
 #if ELWB_CONF_MAX_SLOTS_HOST > ELWB_CONF_MAX_DATA_SLOTS
 #error "ELWB_CONF_MAX_SLOTS_HOST > ELWB_CONF_MAX_DATA_SLOTS!"
 #endif
@@ -167,20 +173,22 @@
   #error "ELWB_CONF_MAX_DATA_SLOTS > 100 not allowed"
   #endif
 #endif
+
 /*---------------------------------------------------------------------------*/
 
 /* macros */
 
 #define ELWB_SCHED_N_SLOTS(s)           ((s)->n_slots & 0x1fff)
+#define ELWB_SCHED_CLR_SLOTS(s)         ((s)->n_slots &= ~0x1fff)
 #define ELWB_SCHED_HAS_SLOTS(s)         (((s)->n_slots & 0x1fff) > 0)
 
-#define ELWB_SCHED_IS_DATA_ROUND(s)     (((s)->n_slots & 0x8000) > 0)
+#define ELWB_SCHED_HAS_DATA_SLOTS(s)    (((s)->n_slots & 0x8000) > 0)
 #define ELWB_SCHED_HAS_CONT_SLOT(s)     (((s)->n_slots & 0x4000) > 0)
 #define ELWB_SCHED_IS_FIRST(s)          ELWB_SCHED_HAS_CONT_SLOT(s)
 #define ELWB_SCHED_IS_STATE_IDLE(s)     (((s)->n_slots & 0x2000) > 0)
 
 #define ELWB_SCHED_SET_CONT_SLOT(s)     ((s)->n_slots |= 0x4000)
-#define ELWB_SCHED_SET_DATA_ROUND(s)    ((s)->n_slots |= 0x8000)
+#define ELWB_SCHED_SET_DATA_SLOTS(s)    ((s)->n_slots |= 0x8000)
 #define ELWB_SCHED_SET_STATE_IDLE(s)    ((s)->n_slots |= 0x2000)
 
 /*---------------------------------------------------------------------------*/
@@ -207,8 +215,17 @@ typedef struct {
   uint16_t load;        /* bandwidth utilization */
 } elwb_stats_t;
 
-/* use the same schedule struct as defined in scheduler.h */
-typedef lwb_schedule_t elwb_schedule_t;
+#define ELWB_SCHED_HDR_LEN   8
+#define ELWB_SCHED_MAX_SLOTS ((ELWB_CONF_MAX_PKT_LEN - ELWB_SCHED_HDR_LEN) / 2)
+/* note: ELWB_SCHED_MAX_SLOTS != ELWB_CONF_MAX_DATA_SLOTS */
+typedef struct {    
+  uint32_t time;
+  uint16_t period;
+    /* store num. of data slots and last two bits to indicate whether there is
+    * a contention or an s-ack slot in this round */
+  uint16_t n_slots;
+  uint16_t slot[ELWB_SCHED_MAX_SLOTS];
+} elwb_schedule_t;
 
 /*---------------------------------------------------------------------------*/
 
@@ -231,10 +248,11 @@ uint64_t elwb_get_timestamp(void);
 const elwb_stats_t * const elwb_get_stats(void);
 
 uint16_t elwb_sched_init(elwb_schedule_t* sched);
-void     elwb_sched_process_req(uint16_t node_id, 
+void     elwb_sched_process_req(uint16_t id, 
                                 uint8_t n_pkts);
 uint16_t elwb_sched_compute(elwb_schedule_t * const sched,
                             uint8_t reserve_slots_host);
+uint8_t  elwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots);
 uint16_t elwb_sched_get_period(void);
 void     elwb_sched_set_period(uint16_t p);
 uint32_t elwb_sched_get_time(void);

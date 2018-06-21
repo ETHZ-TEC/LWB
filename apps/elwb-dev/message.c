@@ -38,7 +38,6 @@
 
 uint64_t utc_time = 0;
 uint64_t utc_time_rx = 0;
-uint16_t health_msg_period = HEALTH_MSG_PERIOD;
 uint8_t  utc_time_updated = 0;
 
 /* reduce stack usage by utilizing only one global data structure for all 
@@ -72,12 +71,14 @@ hexstr_to_dec(const char* str, uint8_t num_chars)
   return res;
 }
 /*---------------------------------------------------------------------------*/
+#if IS_HOST
 uint64_t
 utc_timestamp(void)
-{  
+{
   return utc_time + ((rtimer_now_lf() - utc_time_rx) *
                      (1000000 / RTIMER_SECOND_LF));
 }
+#endif /* IS_HOST */
 /*---------------------------------------------------------------------------*/
 /* Do not call this function from an interrupt context!
  * Note: data may be 0, in that case the function will use the payload in 
@@ -179,7 +180,13 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       switch(msg->cmd.type) {
       case DPP_COMMAND_RESET:
       case CMD_CC430_RESET:
+  #if IS_HOST
+        if(!forward) {
+          PMM_TRIGGER_POR;  /* host ignores RESET broadcast */
+        }
+  #else /* IS_HOST */
         PMM_TRIGGER_POR;
+  #endif /* IS_HOST */
         break;
       case CMD_CC430_SET_ROUND_PERIOD:    /* value is in s */
         if(arg1 >= ELWB_CONF_SCHED_PERIOD_MIN && 
@@ -190,10 +197,11 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         }
         break;
       case CMD_CC430_SET_HEALTH_PERIOD:
-        if(arg1 >= ELWB_CONF_SCHED_PERIOD_MIN) {
-          health_msg_period = arg1; /* set health period in s */
-          successful = 1;
-        }
+        /* note: even if the health msg period is smaller than the eLWB round 
+         * period, only one health packet will be generated per round! set
+         * the health period to 0 to disable health messages */
+        health_msg_period = arg1; /* health period in s */
+        successful = 1;
         break;
       case CMD_CC430_SET_EVENT_LEVEL:
         if(arg1 < NUM_EVENT_LEVELS) {
@@ -311,7 +319,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   return 1;   /* processed */
 }
 /*---------------------------------------------------------------------------*/
-/* note: this function only runs on the source node! */
+#if !IS_HOST
 void
 send_timestamp(int64_t captured)
 { 
@@ -339,6 +347,7 @@ send_timestamp(int64_t captured)
   DEBUG_PRINT_INFO("timestamp sent: %llu", msg_tx.timestamp);
   captured = 0;
 }
+#endif /* IS_HOST */
 /*---------------------------------------------------------------------------*/
 void
 send_node_info(void)
@@ -371,16 +380,13 @@ send_node_health(void)
   const elwb_stats_t* stats = elwb_get_stats();
 
   /* collect ADC values */
-  while(REFCTL0 & REFGENBUSY);
-  REFCTL0 |= REFON;
-  while(REFCTL0 & REFGENBUSY);
-  __delay_cycles(MCLK_SPEED / 25000);      /* let REF settle */
+  ADC_REFOSC_ON;
   
   /* general stats */
   msg_tx.com_health.core_temp     = adc_get_temp();
   msg_tx.com_health.core_vcc      = adc_get_vcc();
   
-  REFCTL0 &= ~REFON;                   /* shut down REF module to save power */
+  ADC_REFOSC_OFF;                      /* shut down REF module to save power */
   
   rtimer_clock_t now              = rtimer_now_lf();
   msg_tx.com_health.uptime        = now / RTIMER_SECOND_LF; 
