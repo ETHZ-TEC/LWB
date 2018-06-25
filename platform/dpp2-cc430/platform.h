@@ -239,6 +239,7 @@
                                   TA0CTL  |= MC_2; \
                                   P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
                                               BIT6); \
+                                  P1REN    = 0; /* disable pullup */ \
                                 }
 /* note: errata PMM11 should not affect this clock config; MCLK is sourced from
  * DCO, but DCO is not running at >4MHz and clock divider is 2 */
@@ -246,12 +247,13 @@
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
 #define BEFORE_DEEPSLEEP()      {\
                                   FRAM_SLEEP; \
-                                  TA0CTL &= ~MC_3; /* stop TA0 */\
-                                  P1SEL = 0; /* reconfigure GPIOs */\
-                                  P1DIR = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6); \
-                                  P1OUT = 0; \
+                                  TA0CTL  &= ~MC_3; /* stop TA0 */ \
+                                  P1DIR    = (BIT2 | BIT3 | BIT4 | BIT6); \
+                                  P1OUT    = (BIT5 | BIT6); \
+                                  P1REN    = BIT5; /* enable pullup */ \
+                                  P1SEL    = 0; /* reconfigure GPIOs */ \
                                   /* set clock source to DCO (3.25MHz) */\
-                                  UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
+                                  UCSCTL4  = SELA__XT1CLK | SELS__DCOCLKDIV | \
                                             SELM__DCOCLKDIV; \
                                   UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
                                   UCSCTL7  = 0; \
@@ -260,7 +262,7 @@
 
 #define LWB_BEFORE_DEEPSLEEP    BEFORE_DEEPSLEEP
 #define LWB_AFTER_DEEPSLEEP     AFTER_DEEPSLEEP
-                                
+
 /* min. duration of 1 packet transmission with Glossy in HF ticks
  * note: TX to RX switch takes ~313us, RX to TX switch ~287us -> constant
  *       overhead is ~300us per hop, which already includes the transmission

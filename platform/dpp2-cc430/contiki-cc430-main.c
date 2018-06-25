@@ -54,28 +54,29 @@ print_device_info(void)
    */
   rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
   /* when the PMM causes a reset, a value is generated in the system reset
-     interrupt vector generator register (SYSRSTIV), corresponding to the
-     source of the reset */
+     interrupt vector generator register (SYSRSTIV)
+     reset sources 2 - 10 generate a BOR, 12 - 20 a POR and 22 - 32 a PUC */
   switch(rst_flag) {
-    case SYSRSTIV_BOR:      idx = 0;  break; /* reset flag value 2 */
-    case SYSRSTIV_RSTNMI:   idx = 1;  break; /* 4 */
-    case SYSRSTIV_DOBOR:    idx = 2;  break; /* 6 */
-    case SYSRSTIV_SECYV:    idx = 3;  break; /* 10 */
-    case SYSRSTIV_SVSL:                      /* 12 */
-    case SYSRSTIV_SVSH:     idx = 4;  break; /* 14 */
+    case SYSRSTIV_BOR:      idx = 0;  break; /* 2 brownout reset */
+    case SYSRSTIV_RSTNMI:   idx = 1;  break; /* 4 reset pin */
+    case SYSRSTIV_DOBOR:    idx = 2;  break; /* 6 software BOR */
+    case SYSRSTIV_SECYV:    idx = 3;  break; /* 10 security violation */
+    case SYSRSTIV_SVSL:                      /* 12 supply voltage supervisor */
+    case SYSRSTIV_SVSH:     idx = 4;  break; /* 14 supply voltage supervisor */
     case SYSRSTIV_SVML_OVP:                  /* 16 */
     case SYSRSTIV_SVMH_OVP: idx = 5;  break; /* 18 */
     case SYSRSTIV_DOPOR:    idx = 6;  break; /* 20 (software reset) */
-    case SYSRSTIV_WDTTO:    idx = 7;  break; /* 22 */
-    case SYSRSTIV_WDTKEY:   idx = 8;  break; /* 24 */
-    case SYSRSTIV_KEYV:     idx = 9;  break; /* 26 */
+    case SYSRSTIV_WDTTO:    idx = 7;  break; /* 22 watchdog timeout */
+    case SYSRSTIV_WDTKEY:   idx = 8;  break; /* 24 watchdog PW violation */
+    case SYSRSTIV_KEYV:     idx = 9;  break; /* 26 flash password violation */
     case SYSRSTIV_PLLUL:    idx = 10; break; /* 28 */
-    case SYSRSTIV_PERF:     idx = 11; break; /* 30 */
-    case SYSRSTIV_PMMKEY:   idx = 12; break; /* 32 */
+    case SYSRSTIV_PERF:     idx = 11; break; /* 30 peripheral area fetch */
+    case SYSRSTIV_PMMKEY:   idx = 12; break; /* 32 PMM PW violation */
     default:                idx = 13; break;
   }
+  uint16_t major = FW_VERSION / 10000;
   printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFW: %u.%02u " \
-         __DATE__ "\r\n", rst_source[idx], FW_VERSION >> 8, FW_VERSION & 0xff);
+         __DATE__ "\r\n", rst_source[idx], major, FW_VERSION - (10000* major));
 
   /* note: KEYV indicates an incorrect FCTLx password was written to any flash
    * control register and generates a PUC when set. */
