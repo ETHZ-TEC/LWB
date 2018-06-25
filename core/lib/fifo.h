@@ -180,19 +180,16 @@ fifo_elem_addr(struct fifo * const f, uint16_t elem)
 }
 
 /**
- * @brief get the ID of an element in the FIFO relative to the read pointer
+ * @brief get the address of an element in the FIFO relative to the read ptr
  * @param ofs offset (in number of elements) relative to the current read ptr
- * @note this function only works if the total number of elements is < 32768
  */
 static inline uint16_t
-fifo_elem_id(struct fifo * const f, int16_t ofs) 
+fifo_elem_addr_rel(struct fifo * const f, int8_t ofs) 
 {
-  uint16_t n_elem = f->last + 1;
-  if(n_elem > 32768) return 0;
-  ofs += f->read;
-  while(ofs < 0) { ofs += n_elem; }
-  if(ofs > f->last) { ofs = ofs % n_elem; }
-  return (uint16_t)ofs;
+  int16_t elem = f->read + ofs;
+  while(elem < 0) { elem += (f->last + 1); }
+  if(elem > f->last) { elem = elem % (f->last + 1); }
+  return f->start + ((uint32_t)elem * (uint32_t)f->size);
 }
 
 #endif /* __FIFO_H__ */
