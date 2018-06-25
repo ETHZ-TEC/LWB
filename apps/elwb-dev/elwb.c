@@ -63,26 +63,12 @@ typedef enum {
   NUM_OF_SYNC_EVENTS
 } sync_event_t;
 /*---------------------------------------------------------------------------*/
-typedef enum {
-  XMEM_TASK_OP_NONE = 0,
-  XMEM_TASK_OP_READ,
-  XMEM_TASK_OP_WRITE,
-} xmem_task_op_t;
-/*---------------------------------------------------------------------------*/
-typedef struct {
-  xmem_task_op_t op : 8;
-  uint8_t        len;                       /* for write op: number of bytes */
-  uint8_t*       notify;           /* length will be written to this address */
-  uint8_t*       sram_ptr;                  /* local buffer (16-bit address) */
-  uint32_t       xmem_addr;         /* 32-bit address in the external memory */
-  /* note: 'op' and 'notify' are RW for the xmem task, whereas the other 
-   *       fields are read-only! */
-} xmem_task_t;
-/*---------------------------------------------------------------------------*/
+#pragma pack(1)     /* force alignment to 1 byte */
 typedef struct {
   uint8_t   len;
   uint8_t   data[ELWB_CONF_MAX_PKT_LEN];
 } elwb_queue_elem_t;
+#pragma pack()
 /*---------------------------------------------------------------------------*/
 static const 
 elwb_syncstate_t next_state[NUM_OF_SYNC_EVENTS][NUM_OF_SYNC_STATES] = 
@@ -109,21 +95,21 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
 #define ELWB_SEND_SCHED() \
 {\
   glossy_start(node_id, (uint8_t *)&schedule, schedule_len, \
-               ELWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
+               ELWB_CONF_N_TX_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
   ELWB_WAIT_UNTIL(rt->time + ELWB_CONF_T_SCHED);\
   glossy_stop();\
-}   
+}
 #define ELWB_RCV_SCHED() \
 {\
   glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule, payload_len, \
-               ELWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
+               ELWB_CONF_N_TX_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
   ELWB_WAIT_UNTIL(rt->time + ELWB_CONF_T_SCHED + ELWB_CONF_T_GUARD);\
   glossy_stop();\
-}   
+}
 #define ELWB_SEND_PACKET() \
 {\
   glossy_start(node_id, (uint8_t*)glossy_payload, payload_len, \
-               ELWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
+               ELWB_CONF_N_TX_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
   ELWB_WAIT_UNTIL(rt->time + t_slot);\
   glossy_stop();\
@@ -132,7 +118,7 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
 {\
   glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t*)glossy_payload, \
                payload_len, \
-               ELWB_CONF_TX_CNT_DATA, GLOSSY_WITHOUT_SYNC, \
+               ELWB_CONF_N_TX_DATA, GLOSSY_WITHOUT_SYNC, \
                GLOSSY_WITHOUT_RF_CAL);\
   ELWB_WAIT_UNTIL(rt->time + t_slot + ELWB_CONF_T_GUARD);\
   glossy_stop();\
@@ -157,8 +143,6 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
 #define ELWB_BEFORE_DEEPSLEEP     BEFORE_DEEPSLEEP
 #define ELWB_AFTER_DEEPSLEEP      AFTER_DEEPSLEEP
 /*---------------------------------------------------------------------------*/
-PROCESS(elwb_process, "eLWB"); /* process ctrl block def. */
-/*---------------------------------------------------------------------------*/
 static struct pt          elwb_pt;
 static struct process*    post_proc;
 static struct process*    pre_proc;
@@ -175,13 +159,10 @@ static uint8_t            schedule_len;
 static uint8_t            payload_len;
 static const void*        elwb_cb;
 #if !ELWB_CONF_USE_XMEM
-/* allocate memory in the SRAM (+1 to store the message length) */
 static elwb_queue_elem_t  rx_queue_mem[ELWB_CONF_IN_BUFFER_SIZE];
 static elwb_queue_elem_t  tx_queue_mem[ELWB_CONF_OUT_BUFFER_SIZE];
 #else /* ELWB_CONF_USE_XMEM */
 static elwb_queue_elem_t  xmem_buffer;
-/* shared memory for process-to-protothread communication (xmem access) */
-static xmem_task_t        xmem_task = { 0 };
 #endif /* ELWB_CONF_USE_XMEM */
 FIFO(rx_queue, sizeof(elwb_queue_elem_t), ELWB_CONF_IN_BUFFER_SIZE);
 FIFO(tx_queue, sizeof(elwb_queue_elem_t), ELWB_CONF_OUT_BUFFER_SIZE);
@@ -191,23 +172,20 @@ void
 elwb_requeue_pkt(uint32_t pkt_addr)
 {
   /* re-insert the packet into the tx queue */
-  if(FIFO_ERROR == pkt_addr) return;
-  
   /* find an empty spot in the queue */
   uint32_t new_pkt_addr = fifo_put(&tx_queue);
   if(new_pkt_addr != FIFO_ERROR) {
     if(new_pkt_addr == pkt_addr) {
       return; /* same address? -> nothing to do */
     }
-    /* note: one could use the actual packet size instead of sizeof(...) */
 #if !ELWB_CONF_USE_XMEM
     memcpy((uint8_t*)(uint16_t)new_pkt_addr, (uint8_t*)(uint16_t)pkt_addr, 
            sizeof(elwb_queue_elem_t));
 #else /* ELWB_CONF_USE_XMEM */
     xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer);
-    xmem_write(new_pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer);
+    xmem_write(new_pkt_addr, xmem_buffer.len + 1, (uint8_t*)&xmem_buffer);
 #endif /* ELWB_CONF_USE_XMEM */
-    DEBUG_PRINT_INFO("packet requeued");
+    DEBUG_PRINT_VERBOSE("packet requeued");
   } else {
     stats.txbuf_drop++;
     DEBUG_PRINT_ERROR("requeue failed, out queue full");
@@ -219,7 +197,7 @@ elwb_requeue_pkt(uint32_t pkt_addr)
  * 0 otherwise */
 uint8_t 
 elwb_in_buffer_put(uint8_t* data, uint8_t len)
-{  
+{
   if(!len || len > ELWB_CONF_MAX_PKT_LEN) {
     DEBUG_PRINT_WARNING("lwb: invalid packet received");
     return 0;
@@ -233,16 +211,9 @@ elwb_in_buffer_put(uint8_t* data, uint8_t len)
     memcpy(next_msg->data, data, len);
     next_msg->len = len;
 #else /* ELWB_CONF_USE_XMEM */
-    if(xmem_task.op != XMEM_TASK_OP_NONE) {
-      DEBUG_PRINT_ERROR("xmem task busy, operation skipped");
-      return 0;
-    }
-    /* schedule a write operation from the external memory */
-    xmem_task.op        = XMEM_TASK_OP_WRITE;
-    xmem_task.len       = len;
-    xmem_task.xmem_addr = pkt_addr;
-    xmem_task.sram_ptr  = data;
-    process_poll(&elwb_process);    
+    memcpy(xmem_buffer.data, data, len);
+    xmem_buffer.len = len;
+    xmem_write(pkt_addr, len + 1, (uint8_t*)&xmem_buffer);
 #endif /* ELWB_CONF_USE_XMEM */
     return 1;
   }
@@ -255,7 +226,7 @@ elwb_in_buffer_put(uint8_t* data, uint8_t len)
  * returns 1 if successful, 0 otherwise */
 uint8_t 
 elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
-{   
+{
   /* messages have the max. length ELWB_CONF_MAX_PKT_LEN and are already
    * formatted */
   uint32_t pkt_addr = fifo_get(&tx_queue);
@@ -266,16 +237,9 @@ elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
     memcpy(out_data, next_msg->data, next_msg->len);
     *out_len = next_msg->len;
 #else /* ELWB_CONF_USE_XMEM */
-    if(xmem_task.op != XMEM_TASK_OP_NONE) {
-      DEBUG_PRINT_ERROR("xmem task busy, operation skipped");
-      return 0;
-    }
-    /* schedule a read operation from the external memory */
-    xmem_task.op        = XMEM_TASK_OP_READ;
-    xmem_task.notify    = out_len;
-    xmem_task.xmem_addr = pkt_addr;
-    xmem_task.sram_ptr  = out_data;
-    process_poll(&elwb_process);
+    xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer);
+    memcpy(out_data, xmem_buffer.data, xmem_buffer.len);
+    *out_len = xmem_buffer.len;
 #endif /* ELWB_CONF_USE_XMEM */
     return 1;
   }
@@ -330,7 +294,6 @@ elwb_rcv_pkt(uint8_t* out_data)
 #else /* ELWB_CONF_USE_XMEM */
     if(!xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), 
                   (uint8_t*)&xmem_buffer)) {
-      DEBUG_PRINT_ERROR("xmem_read() failed");
       return 0;
     }
     xmem_wait_until_ready(); /* wait for the data transfer to complete */
@@ -386,8 +349,6 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
   static rtimer_clock_t t_start;
   static rtimer_clock_t t_start_lf;
   static uint16_t curr_period = 0;
-  static uint16_t req_cnt = 0;
-  static uint16_t forwarded = 0;
 #if ELWB_CONF_DATA_ACK
   static uint8_t  data_ack[(ELWB_CONF_MAX_DATA_SLOTS + 7) / 8] = { 0 };
 #endif /* ELWB_CONF_DATA_ACK */
@@ -413,6 +374,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
         
     t_start    = rtimer_now_hf();
     t_start_lf = rt->time;
+    rt->time   = t_start;
 
     /* --- SEND SCHEDULE --- */
     ELWB_SEND_SCHED();
@@ -423,7 +385,6 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
       global_time      = schedule.time;
       last_synced_hf   = t_start;
       last_synced_lf   = t_start_lf;
-      //stats.load       = 0;   /* reset */
     }
     t_slot_ofs = (ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP);
     
@@ -463,6 +424,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
             ELWB_WAIT_UNTIL(t_start + t_slot_ofs);  
             ELWB_SEND_PACKET();
             DEBUG_PRINT_VERBOSE("data packet sent (%ub)", payload_len);
+            stats.pkt_snd++;
           }
         } else {
           if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
@@ -488,15 +450,14 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
               res = elwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
   #endif /* ELWB_CONF_WRITE_TO_BOLT */
               if(res) {
-                forwarded++;
+                stats.pkt_fwd++;
   #if ELWB_CONF_DATA_ACK
                 /* set the corresponding bit in the data ack packet */
                 data_ack[i >> 3] |= (1 << (i & 0x07));
   #endif /* ELWB_CONF_DATA_ACK */
               }
               /* update statistics */
-              stats.rx_total += payload_len;
-              stats.pck_cnt++;
+              stats.pkt_rcv++;
             }
           } else {
             DEBUG_PRINT_VERBOSE("no data received from node %u", 
@@ -507,21 +468,23 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
       }
     }
     
-#if ELWB_CONF_DATA_ACK  
+#if ELWB_CONF_DATA_ACK
     /* --- D-ACK SLOT --- */
     
     if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule) &&
        !ELWB_SCHED_HAS_CONT_SLOT(&schedule)) {
       /* acknowledge each received packet of the last round */
-      payload_len = (ELWB_SCHED_N_SLOTS(&schedule) + 7) >> 3;
-      memcpy((uint8_t*)glossy_payload, data_ack, payload_len);
-      t_slot = ELWB_CONF_T_CONT;
-      ELWB_WAIT_UNTIL(t_start + t_slot_ofs);            
-      ELWB_SEND_PACKET();
-      DEBUG_PRINT_VERBOSE("D-ACK sent (%u bytes)", payload_len);
-      t_slot_ofs += ELWB_CONF_T_CONT + ELWB_CONF_T_GAP;
+      payload_len = (ELWB_SCHED_N_SLOTS(&schedule) + 7) / 8;
+      if(payload_len) {
+        memcpy((uint8_t*)glossy_payload, data_ack, payload_len);
+        t_slot = ELWB_CONF_T_DACK;
+        ELWB_WAIT_UNTIL(t_start + t_slot_ofs);
+        ELWB_SEND_PACKET();
+        DEBUG_PRINT_VERBOSE("D-ACK sent (%u bytes)", payload_len);
+        t_slot_ofs += (ELWB_CONF_T_DACK + ELWB_CONF_T_GAP);
+      }
+      memset(data_ack, 0, (ELWB_CONF_MAX_DATA_SLOTS + 7) / 8);
     }
-    memset(data_ack, 0, (ELWB_CONF_MAX_DATA_SLOTS + 7) / 8);
 #endif /* ELWB_CONF_DATA_ACK */
     
     /* --- CONTENTION SLOT --- */
@@ -541,7 +504,6 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
         /* set the period to 0 to notify the scheduler that at 
          * least one nodes has data to send */
         schedule.period = 0;
-        req_cnt++;
         
         /* compute 2nd schedule */
         elwb_sched_compute(&schedule, 0);  /* do not allocate slots for host */
@@ -571,26 +533,16 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
      * order they were started/created) */
     if(ELWB_SCHED_IS_STATE_IDLE(&schedule)) {
       /* print out some stats */
-      DEBUG_PRINT_INFO("t=%lu T=%us n=%u req=%u p=%u per=%d rssi=%ddBm", 
+      DEBUG_PRINT_INFO("%lu T=%us n=%u rcv=%u fwd=%u snd=%u per=%d "
+                       "rssi=%ddBm", 
                        global_time,
                        elwb_sched_get_period(),
                        ELWB_SCHED_N_SLOTS(&schedule),
-                       req_cnt, 
-                       stats.pck_cnt,
+                       stats.pkt_rcv,
+                       stats.pkt_fwd,
+                       stats.pkt_snd,
                        glossy_get_per(),
                        stats.glossy_snr);
-      
-    #if ELWB_CONF_WRITE_TO_BOLT
-      if(forwarded) {
-        DEBUG_PRINT_INFO("%u msg forwarded to BOLT", forwarded);
-        forwarded  = 0;
-      }
-    #endif /* ELWB_CONF_WRITE_TO_BOLT */
-      
-    #if ELWB_CONF_USE_XMEM
-      /* make sure the xmem task has a chance to run, yield for T_GAP */
-      ELWB_WAIT_UNTIL(rtimer_now_hf() + ELWB_CONF_T_GAP);
-    #endif /* ELWB_CONF_USE_XMEM */
     
       if(post_proc) {
         process_poll(post_proc);
@@ -625,8 +577,8 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
   static uint8_t  rf_channel;
   static uint16_t period_idle;        /* last base period */
 #if ELWB_CONF_DATA_ACK
-  static uint8_t first_slot,
-                 num_slots;
+  static uint8_t first_slot = 0xff,
+                 num_slots  = 0;
 #endif /* ELWB_CONF_DATA_ACK */
   
   PT_BEGIN(&elwb_pt);
@@ -651,7 +603,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     /* --- COMMUNICATION ROUND STARTS --- */
     
     rt->time = rtimer_now_hf();            /* overwrite LF with HF timestamp */
-            
+    
     /* --- RECEIVE SCHEDULE --- */
     
     payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
@@ -664,14 +616,9 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         DEBUG_PRINT_MSG_NOW(elwb_syncstate_to_string[BOOTSTRAP]);
         /* synchronize first! wait for the first schedule... */
         do {
-          /* turn radio on */
-          glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule,
-                      payload_len, ELWB_CONF_TX_CNT_SCHED, GLOSSY_WITH_SYNC,
-                      GLOSSY_WITH_RF_CAL);
-          ELWB_WAIT_UNTIL(rt->time + ELWB_CONF_T_SCHED);
-          glossy_stop();
+          ELWB_RCV_SCHED();
         } while(!glossy_is_t_ref_updated() && ((rtimer_now_hf() -
-                bootstrap_started) < ELWB_CONF_T_SILENT));        
+                bootstrap_started) < ELWB_CONF_T_SILENT));
         if(glossy_is_t_ref_updated()) {
           break;  /* schedule received, exit bootstrap state */
         }
@@ -699,7 +646,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
 
   #if ELWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
-    xmem_wakeup();    
+    xmem_wakeup();
   #endif /* ELWB_CONF_USE_XMEM */
 
     /* schedule received? */
@@ -707,7 +654,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       /* update the sync state machine */
       sync_state = next_state[EVT_SCHED_RCVD][sync_state];
       /* HF timestamp of 1st RX, subtract const offset to align src and host */
-      t_ref = glossy_get_t_ref() - ELWB_CONF_T_REF_OFS;      
+      t_ref = glossy_get_t_ref() - ELWB_T_REF_OFS;
       /* calculate t_ref_lf by subtracting the elapsed time since t_ref: */
       rtimer_clock_t hf_now;
       rtimer_now(&hf_now, &t_ref_lf);
@@ -728,34 +675,31 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         global_time = schedule.time;
         last_synced_lf = t_ref_lf;
         last_synced_hf = t_ref;
-        //stats.load = 0;   /* reset */
       }
       stats.relay_cnt = glossy_get_relay_cnt_first_rx();
 
     } else {
       /* update the sync state machine */
       sync_state = next_state[EVT_SCHED_MISSED][sync_state];
-      if(sync_state == UNSYNCED) {
-        stats.unsynced_cnt++;
-      } else if(sync_state == BOOTSTRAP) {
+      if(sync_state == BOOTSTRAP) {
         t_preprocess = 0;
         continue;
       }
+      stats.unsynced_cnt++;
       DEBUG_PRINT_WARNING("schedule missed");
       /* we can only estimate t_ref and t_ref_lf */
       if(!ELWB_SCHED_IS_STATE_IDLE(&schedule)) {
         /* missed schedule was during a contention/data round -> reset t_ref */
-        t_ref_lf = last_synced_lf;      /* restore the last known sync point */
-        if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
-          /* last round was a data round? -> add one period */
-          t_ref_lf += period_idle * RTIMER_SECOND_LF / ELWB_PERIOD_SCALE;
-        }
-        schedule.period = period_idle;
+        t_ref_lf = last_synced_lf;
+        /* mark as 'idle state' such that other processes can run */
+        ELWB_SCHED_SET_STATE_IDLE(&schedule);
       } else {
-        t_ref_lf += period_idle * RTIMER_SECOND_LF / ELWB_PERIOD_SCALE;
+        /* missed schedule is at beginning of a round: add last period */
+        t_ref_lf += schedule.period * RTIMER_SECOND_LF / ELWB_PERIOD_SCALE;
       }
+      schedule.period = period_idle;  /* reset period to idle period */
     }
-        
+    
     /* permission to participate in this round? */
     if(sync_state == SYNCED) {
       
@@ -774,10 +718,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
           /* this is a data round */
           t_slot = ELWB_CONF_T_DATA;
-  #if ELWB_CONF_DATA_ACK
-          first_slot = 0xff;
-          num_slots  = 0;
-  #endif /* ELWB_CONF_DATA_ACK */
         } else {
           /* it's a request round */
           t_slot = ELWB_CONF_T_CONT;
@@ -796,16 +736,23 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
                 num_slots++;
   #endif /* ELWB_CONF_DATA_ACK */
                 elwb_out_buffer_get((uint8_t*)glossy_payload, &payload_len);
+                stats.pkt_snd++;
               } else {
                 payload_len = ELWB_REQ_PKT_LEN;
                 /* request as many data slots as there are pkts in the queue*/
-                *(uint8_t*)glossy_payload = elwb_get_send_buffer_state();
+                glossy_payload[0] = elwb_get_send_buffer_state();
                 stats.load = (stats.load * 9 + 
                               (uint16_t)elwb_get_send_buffer_state() * 100 / 
                               ELWB_CONF_OUT_BUFFER_SIZE + 9) / 10;
               }
               ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
               ELWB_SEND_PACKET();
+              /* TODO remove */
+              /*if((glossy_payload[1] & 0xff) == DPP_MSG_TYPE_GEOPHONE_ACQ) {
+                uint16_t id;
+                memcpy(&id, (((uint8_t*)glossy_payload) + payload_len - 6), 2);
+                DEBUG_PRINT_MSG_NOW("%u", id);
+              }*/
               DEBUG_PRINT_VERBOSE("packet sent (%ub)", payload_len);
             } else {
               DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
@@ -830,45 +777,61 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     #else /* ELWB_CONF_WRITE_TO_BOLT */
                 elwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
     #endif /* ELWB_CONF_WRITE_TO_BOLT */
+                stats.pkt_fwd++;
               }
-              stats.rx_total += payload_len;
-              stats.pck_cnt++;
+              stats.pkt_rcv++;
             }
           }
           t_slot_ofs += (t_slot + ELWB_CONF_T_GAP);
         }
       }
       
-  #if ELWB_CONF_DATA_ACK  
+  #if ELWB_CONF_DATA_ACK
       /* --- D-ACK SLOT --- */
       
-      if(!(cfg.dbg_flags & 0x02) && ELWB_SCHED_HAS_DATA_SLOTS(&schedule) &&
+      if(!(cfg.dbg_flags & 0x02) && 
+         ELWB_SCHED_HAS_DATA_SLOTS(&schedule) &&
          !ELWB_SCHED_HAS_CONT_SLOT(&schedule)) {
-        t_slot = ELWB_CONF_T_CONT;
+        t_slot = ELWB_CONF_T_DACK;
         payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
         ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD);
         ELWB_RCV_PACKET();                 /* receive data ack */
-
+        payload_len = glossy_get_payload_len();
         /* only look into the D-ACK packet if we actually sent some data in the
          * previous round */
-        if(ELWB_DATA_RCVD && first_slot != 0xff) {
-          DEBUG_PRINT_VERBOSE("D-ACK rcvd");
-          for(i = 0; i < num_slots; i++) {
-            if(schedule.slot[i] == node_id) {
+        if(first_slot != 0xff) {
+          if(ELWB_DATA_RCVD) {
+            DEBUG_PRINT_VERBOSE("D-ACK rcvd (%ub)", payload_len);
+            uint8_t* data_acks = (uint8_t*)glossy_payload;
+            for(i = 0; i < num_slots; i++) {
               /* bit not set? => not acknowledged */
-              if(!(glossy_payload[(first_slot + i) >> 3] &
-                 (1 << ((first_slot + i) & 0x07)))) {
-                /* resend the packet (re-insert it into the output FIFO)
-                 * note: the packet data has not yet been overwritten */
-                uint16_t elem_id = fifo_elem_id(&tx_queue, i - num_slots);
-                uint32_t addr = fifo_elem_addr(&tx_queue, elem_id);
+              if(!(data_acks[(first_slot + i) >> 3] &
+                  (1 << ((first_slot + i) & 0x07)))) {
+                /* resend the packet (re-insert it into the output FIFO) */
+                uint32_t addr = fifo_elem_addr_rel(&tx_queue,
+                                                   (int16_t)i - num_slots);
                 elwb_requeue_pkt(addr);
-                stats.pkts_nack++;
+              } else {
+                stats.pkt_ack++;
               }
             }
+          } else {
+            /* requeue all */
+            fifo_restore(&tx_queue, num_slots);
+            DEBUG_PRINT_WARNING("D-ACK pkt missed, %u pkt requeued", num_slots);
           }
+          first_slot  = 0xff;
+          num_slots   = 0;
         }
-        t_slot_ofs += (t_slot + ELWB_CONF_T_GAP);
+        /* DEBUG */
+        /*if(ELWB_DATA_RCVD) {
+          DEBUG_PRINT_INFO("D-ACK rcvd (%ub)", payload_len);
+          for (i = 0; i < ELWB_SCHED_N_SLOTS(&schedule); i++) {
+            DEBUG_PRINT_MSG_NOW("slot %u: %u %u", i + 1, schedule.slot[i], 
+             (*((uint8_t*)glossy_payload + (i >> 3)) & (1 << (i & 0x07))) > 0);
+          }
+        }*/
+        t_slot_ofs += (ELWB_CONF_T_DACK + ELWB_CONF_T_GAP);
       }
   #endif /* ELWB_CONF_DATA_ACK */
       
@@ -879,12 +842,11 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         t_slot = ELWB_CONF_T_CONT;
         if(!FIFO_EMPTY(&tx_queue)) {
           /* if there is data in the output buffer, then request a slot */
-          /* a slot request packet always looks the same (1 byte) */
+          /* a slot request packet always looks the same */
           payload_len = ELWB_REQ_PKT_LEN;
           /* include the node ID in case this is the first request */
           glossy_payload[0] = 0;
           if(!node_registered) {
-            payload_len = 2;
             glossy_payload[0] = node_id;
             DEBUG_PRINT_INFO("transmitting node ID");
           }
@@ -922,24 +884,27 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     
     if(ELWB_SCHED_IS_STATE_IDLE(&schedule)) {
       /* print out some stats (note: takes ~2ms to compose this string!) */
-      DEBUG_PRINT_INFO("%s %lu T=%u n=%u p=%u h=%u b=%u "
-                       "u=%u per=%d snr=%ddbm dr=%d", 
+      DEBUG_PRINT_INFO("%s %lu T=%u n=%u rcv=%u fwd=%u snd=%u ack=%u h=%u b=%u"
+                       " u=%u per=%d snr=%d dr=%d", 
                        elwb_syncstate_to_string[sync_state],
                        schedule.time, 
                        schedule.period * (1000 / ELWB_PERIOD_SCALE), 
                        ELWB_SCHED_N_SLOTS(&schedule),
-                       stats.pck_cnt,
+                       stats.pkt_rcv,
+                       stats.pkt_fwd,
+                       stats.pkt_snd,
+                       stats.pkt_ack,
                        stats.relay_cnt, 
                        stats.bootstrap_cnt, 
                        stats.unsynced_cnt,
                        glossy_get_per(),
                        stats.glossy_snr,
                        stats.drift);
-    
+
       /* poll the post process */
       if(post_proc) {
         process_poll(post_proc);
-      }      
+      }
     #if ELWB_CONF_T_PREPROCESS_LF
       t_preprocess = ELWB_CONF_T_PREPROCESS_LF;
     #endif /* ELWB_CONF_T_PREPROCESS_LF */
@@ -956,18 +921,20 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
   PT_END(&elwb_pt);
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(elwb_process, ev, data) 
+void
+elwb_start(struct process *pre_elwb_proc, struct process *post_elwb_proc)
 {
-  PROCESS_BEGIN();
+  pre_proc  = pre_elwb_proc;
+  post_proc = (struct process*)post_elwb_proc;
   
   uart_enable(1);
-  printf("Process '%s' started\r\n", elwb_process.name);
+  printf("Protothread 'eLWB' started\r\n");
   printf(" pkt_len=%u slots=%u n_tx_d=%u n_tx_s=%u hops=%u\r\n", 
          ELWB_CONF_MAX_PKT_LEN,
          ELWB_CONF_MAX_DATA_SLOTS,
-         ELWB_CONF_TX_CNT_DATA, 
-         ELWB_CONF_TX_CNT_SCHED,
-         ELWB_CONF_MAX_HOPS);
+         ELWB_CONF_N_TX_DATA, 
+         ELWB_CONF_N_TX_SCHED,
+         ELWB_CONF_N_HOPS);
   /* ceil the values (therefore + RTIMER_SECOND_HF / 1000 - 1) */
   printf(" slots [ms]: sched=%u data=%u cont=%u\r\n",
    (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_SCHED + (RTIMER_SECOND_HF / 1000 - 1)),
@@ -981,9 +948,9 @@ PROCESS_THREAD(elwb_process, ev, data)
 #else  /* ELWB_CONF_USE_XMEM */
   /* allocate memory for the message buffering (in ext. memory) */
   fifo_init(&rx_queue, xmem_alloc(ELWB_CONF_IN_BUFFER_SIZE * 
-                                   sizeof(elwb_queue_elem_t)));
+                                  sizeof(elwb_queue_elem_t)));
   fifo_init(&tx_queue, xmem_alloc(ELWB_CONF_OUT_BUFFER_SIZE * 
-                                    sizeof(elwb_queue_elem_t)));
+                                  sizeof(elwb_queue_elem_t)));
 #endif /* ELWB_CONF_USE_XMEM */
 
 #ifdef ELWB_CONF_TASK_ACT_PIN
@@ -1012,47 +979,6 @@ PROCESS_THREAD(elwb_process, ev, data)
 #else /* IS_HOST */
   rtimer_schedule(rt_id, t_wakeup, 0, elwb_thread_src);
 #endif /* IS_HOST */
-
-  /* instead of terminating the process here, use it for other tasks such as
-   * external memory access */
-#if ELWB_CONF_USE_XMEM
-  while(1) {
-    ELWB_TASK_SUSPENDED;
-    PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-    ELWB_TASK_RESUMED;
-    /* is there anything to do? */
-    if(xmem_task.op == XMEM_TASK_OP_READ) {           /* read operation */
-      if(xmem_read(xmem_task.xmem_addr, sizeof(elwb_queue_elem_t), 
-                   (uint8_t*)&xmem_buffer)) {
-        xmem_wait_until_ready();   /* wait for the data transfer to complete */
-        /* trust the data in the memory, no need to check the length field */
-        if(xmem_buffer.len <= ELWB_CONF_MAX_PKT_LEN) {
-          memcpy(xmem_task.sram_ptr, xmem_buffer.data, xmem_buffer.len);
-          if(xmem_task.notify) {
-            *xmem_task.notify = xmem_buffer.len;
-          }
-        }
-      }
-    } else if(xmem_task.op == XMEM_TASK_OP_WRITE) {    /* write operation */
-      memcpy(xmem_buffer.data, xmem_task.sram_ptr, xmem_task.len);
-      xmem_buffer.len = xmem_task.len;
-      xmem_wait_until_ready();      /* wait for ongoing transfer to complete */
-      xmem_write(xmem_task.xmem_addr, xmem_task.len + 1,
-                 (uint8_t*)&xmem_buffer);
-    } // else: no operation pending
-    xmem_task.op = XMEM_TASK_OP_NONE;
-  }  
-#endif /* ELWB_CONF_USE_XMEM */
-
-  PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
-void
-elwb_start(struct process *pre_elwb_proc, struct process *post_elwb_proc)
-{
-  pre_proc = pre_elwb_proc;
-  post_proc = (struct process*)post_elwb_proc;
-  process_start(&elwb_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
 

@@ -159,13 +159,13 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   if(msg->header.type & DPP_MSG_TYPE_MIN ||
      msg_len > DPP_MSG_PKT_LEN || 
      DPP_MSG_GET_CRC16(msg) != crc16((uint8_t*)msg, msg_len - 2, 0)) {
-     DEBUG_PRINT_WARNING("msg with invalid length or CRC");
-     EVENT_WARNING(EVENT_CC430_INV_MSG, 0);
+    DEBUG_PRINT_WARNING("msg with invalid length or CRC");
+    EVENT_WARNING(EVENT_CC430_INV_MSG, ((uint32_t)msg->header.type) << 16 |
+                                       msg->header.device_id);
     return 1;
   }
-  DEBUG_PRINT_VERBOSE("processing msg (type: %u src: %u target: %u len: %uB)", 
-                      msg->header.type, msg->header.device_id, 
-                      msg->header.target_id, msg_len);
+  DEBUG_PRINT_VERBOSE("msg type: %u, src: %u, len: %uB", 
+                      msg->header.type, msg->header.device_id, msg_len);
   
   /* only process the message if target ID matched the node ID */
   uint16_t forward = (msg->header.target_id == DPP_DEVICE_ID_BROADCAST);
@@ -256,7 +256,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       }
       if(successful) {
         uint32_t val = (((uint32_t)arg1) << 16 | msg->cmd.type);
-        DEBUG_PRINT_INFO("cmd processed, config changed");
+        DEBUG_PRINT_INFO("cmd %u processed", msg->cmd.type);
         EVENT_INFO(EVENT_CC430_CFG_CHANGED, val);
       }
   #if IS_HOST
@@ -413,12 +413,12 @@ send_node_health(void)
 #endif /* IS_HOST */
   msg_tx.com_health.radio_tx_pwr  = rf1a_tx_power_val[cfg.tx_pwr];
   msg_tx.com_health.radio_per     = glossy_get_per();
-  if(rx_cnt_last > stats->pck_cnt) {
-    msg_tx.com_health.rx_cnt      = (65535 - rx_cnt_last) + stats->pck_cnt;
+  if(rx_cnt_last > stats->pkt_rcv) {
+    msg_tx.com_health.rx_cnt      = (65535 - rx_cnt_last) + stats->pkt_rcv;
   } else {
-    msg_tx.com_health.rx_cnt      = (stats->pck_cnt - rx_cnt_last);
+    msg_tx.com_health.rx_cnt      = (stats->pkt_rcv - rx_cnt_last);
   }
-  rx_cnt_last                     = stats->pck_cnt;
+  rx_cnt_last                     = stats->pkt_rcv;
                                     //glossy_get_n_pkts_crcok();
   msg_tx.com_health.tx_queue      = elwb_get_send_buffer_state();
   msg_tx.com_health.rx_queue      = elwb_get_rcv_buffer_state();

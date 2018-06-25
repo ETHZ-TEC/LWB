@@ -272,7 +272,7 @@ elwb_sched_add_node(uint16_t id)
     return;     /* invalid argument */
   }
   if(n_nodes >= ELWB_CONF_MAX_N_NODES) {
-    DEBUG_PRINT_WARNING("request from node %u ignored, max #nodes reached",
+    DEBUG_PRINT_VERBOSE("request from node %u ignored, max #nodes reached",
                         id);
     EVENT_WARNING(EVENT_CC430_NODE_REMOVED, id);
     return;
@@ -304,7 +304,7 @@ elwb_sched_add_node(uint16_t id)
   }
   list_insert(nodes_list, prev, node);
   n_nodes++;
-  DEBUG_PRINT_INFO("node %u registered", id);
+  DEBUG_PRINT_VERBOSE("node %u registered", id);
   EVENT_INFO(EVENT_CC430_NODE_ADDED, id);
 }
 /*---------------------------------------------------------------------------*/
@@ -449,7 +449,7 @@ elwb_sched_compute(elwb_schedule_t * const sched,
     t_round += HFTICKS_TO_SCHEDUNITS(ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP +
                 n_slots_assigned * (ELWB_CONF_T_DATA + ELWB_CONF_T_GAP) + 
 #if ELWB_CONF_DATA_ACK
-                ELWB_CONF_T_CONT + ELWB_CONF_T_GAP +
+                ELWB_CONF_T_DACK + ELWB_CONF_T_GAP +
 #endif /* ELWB_CONF_DATA_ACK */
                 ELWB_CONF_SCHED_COMP_TIME);
     ELWB_SCHED_SET_DATA_SLOTS(sched); /* mark the next round as 'data round' */
@@ -565,20 +565,26 @@ elwb_sched_init(elwb_schedule_t* sched)
   ELWB_SCHED_SET_CONT_SLOT(sched);              /* include a contention slot */
   ELWB_SCHED_SET_STATE_IDLE(sched);
   
+  return ELWB_SCHED_HDR_LEN;/* empty schedule, no slots allocated yet */
+}
+/*---------------------------------------------------------------------------*/
+void
+elwb_sched_register_nodes(void)
+{
   /* NOTE: node IDs must be sorted in increasing order */
 #ifdef ELWB_CONF_SCHED_NODE_LIST
   const uint16_t node_ids[] = { ELWB_CONF_SCHED_NODE_LIST };
   uint16_t cnt = sizeof(node_ids) / 2;
   uint16_t i;
-  printf(" %u source nodes registered: ", cnt);
+  DEBUG_PRINT_INFO("%u source nodes registered:", cnt);
   for(i = 0; i < cnt; i++) {
     elwb_sched_add_node(node_ids[i]);
-    printf("%u", node_ids[i]);
+    char buffer[8];       /* node IDs are 5 characters at most (16 bits) */
+    snprintf(buffer, 8, "%u ", node_ids[i]);
+    debug_print_buffer_put(buffer);
   }
-  printf("\r\n");
+  debug_print_buffer_put("\r\n");
 #endif /* ELWB_CONF_SCHED_NODE_LIST */
-  
-  return ELWB_SCHED_HDR_LEN;/* empty schedule, no slots allocated yet */
 }
 /*---------------------------------------------------------------------------*/
 uint16_t 

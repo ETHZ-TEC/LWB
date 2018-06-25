@@ -30,38 +30,29 @@
  * Author:  Reto Da Forno
  */
 
-/* only to include project files files and define global/external variables
- * do not store any configuration in this file */
-
 #ifndef __ELWB_H__
 #define __ELWB_H__
 
-/* includes */
 
 #include "contiki.h"
 
 
 /* --------------- START OF CONFIG (default values) ------------------------ */
 
-#if ELWB_CONF_HEADER_LEN != 0
-#error "ELWB_CONF_HEADER_LEN must be set to 0!"
-#endif /* ELWB_CONF_HEADER_LEN */
+/* max. packet length */
+#ifndef ELWB_CONF_MAX_PKT_LEN
+#define ELWB_CONF_MAX_PKT_LEN     126
+#endif /* ELWB_CONF_MAX_PKT_LEN */
 
-/* expected packet length of a slot request */
-#ifndef ELWB_CONF_SRQ_PKT_LEN
-#define ELWB_CONF_SRQ_PKT_LEN     2 
-#endif /* ELWB_CONF_SRQ_PKT_LEN */
-
+/* use the external memory to store the input/output queue? (requires FRAM) */
+#ifndef ELWB_CONF_USE_XMEM
+#define ELWB_CONF_USE_XMEM        0
+#endif /* ELWB_CONF_USE_XMEM */
 
 /* set to 1 to directly forward all received messages to BOLT */
 #ifndef ELWB_CONF_WRITE_TO_BOLT
 #define ELWB_CONF_WRITE_TO_BOLT   0
 #endif /* ELWB_CONF_WRITE_TO_BOLT */
-
-/* guard time used for the wakeup before the round (LF timer) */
-#ifndef ELWB_CONF_T_GUARD_LF
-#define ELWB_CONF_T_GUARD_LF      (ELWB_CONF_T_GUARD / RTIMER_HF_LF_RATIO)
-#endif /* ELWB_CONF_T_GUARD_LF */
 
 /* by default, forward all received packets to the app task on the source nodes
  * that originated from the host (or ID 0) */
@@ -73,64 +64,96 @@
 #endif /* ELWB_CONF_SRC_PKT_FILTER */
 
 #ifndef ELWB_CONF_MAX_SLOTS_HOST
-#define ELWB_CONF_MAX_SLOTS_HOST    (ELWB_CONF_MAX_DATA_SLOTS / 2)
+#define ELWB_CONF_MAX_SLOTS_HOST  (ELWB_CONF_MAX_DATA_SLOTS / 2)
 #endif /* ELWB_CONF_MAX_SLOTS_HOST */
 
-/* slack time for schedule computation, in HF ticks */
-#ifndef ELWB_CONF_SCHED_COMP_TIME
-#define ELWB_CONF_SCHED_COMP_TIME   (RTIMER_SECOND_HF / 50)          /* 20ms */
-#endif /* ELWB_CONF_SCHED_COMP_TIME */
-
-#ifndef ELWB_CONF_SCHED_FAIR
-#define ELWB_CONF_SCHED_FAIR      1
-#endif /* ELWB_CONF_SCHED_FAIR */
-
-#ifndef ELWB_CONF_SCHED_COMPRESS
-#define ELWB_CONF_SCHED_COMPRESS  1
-#endif /* ELWB_CONF_SCHED_COMPRESS */
-
-#define ELWB_CONF_LF_RTIMER_ID    RTIMER_LF_1
-#define ELWB_CONF_RTIMER_ID       RTIMER_HF_1
-
-#ifndef ELWB_CONF_USE_XMEM
-#define ELWB_CONF_USE_XMEM        0
-#endif /* ELWB_CONF_USE_XMEM */
-
-#ifndef ELWB_CONF_MAX_PKT_LEN
-#define ELWB_CONF_MAX_PKT_LEN     126
-#endif /* ELWB_CONF_MAX_PKT_LEN */
-
+/* duration of a schedule slot in HF ticks, if not defined, the minimum
+ * required slot time is calculated based on the network N_HOPS and N_TX */
 #ifndef ELWB_CONF_T_SCHED
 #define ELWB_CONF_T_SCHED         ELWB_T_SLOT_MIN(ELWB_CONF_MAX_PKT_LEN + \
                                                   GLOSSY_MAX_HEADER_LEN)
 #endif /* ELWB_CONF_T_SCHED */
-  
+
+/* duration of a data slot in HF ticks, if not defined, the minimum required
+ * slot time is calculated based on the network N_HOPS and N_TX */
 #ifndef ELWB_CONF_T_DATA
 #define ELWB_CONF_T_DATA          ELWB_T_SLOT_MIN(ELWB_CONF_MAX_PKT_LEN + \
                                                   GLOSSY_MAX_HEADER_LEN)
 #endif /* ELWB_CONF_T_DATA */
 
+/* duration of a contention slot in HF ticks */
+#ifndef ELWB_CONF_T_CONT
+#define ELWB_CONF_T_CONT          (RTIMER_SECOND_HF / 200)            /* 5ms */
+#endif /* ELWB_CONF_T_CONT */
+
+/* duration of a data ACK slot in HF ticks */
+#ifndef ELWB_CONF_T_DACK
+#define ELWB_CONF_T_DACK          (ELWB_CONF_T_CONT * 2)
+#endif /* ELWB_CONF_T_DACK */
+
+/* gap time between 2 slots in HF ticks */
+#ifndef ELWB_CONF_T_GAP
+#define ELWB_CONF_T_GAP           (RTIMER_SECOND_HF / 500)            /* 2ms */
+#endif /* ELWB_CONF_T_GAP */
+
+/* guard time before RX slots in HF ticks */
+#ifndef ELWB_CONF_T_GUARD
+#define ELWB_CONF_T_GUARD         (RTIMER_SECOND_HF / 4000)        /* 0.25ms */
+#endif /* ELWB_CONF_T_GUARD */
+
+/* guard time before a round in LF ticks */
+#ifndef ELWB_CONF_T_GUARD_LF
+#define ELWB_CONF_T_GUARD_LF      (RTIMER_SECOND_LF / 1000)           /* 1ms */
+#endif /* ELWB_CONF_T_GUARD_LF */
+
+/* time reserved for the preprocess task (before a round) in LF ticks */
+#ifndef ELWB_CONF_T_PREPROCESS_LF
+#define ELWB_CONF_T_PREPROCESS_LF 0                          /* 0 = disabled */
+#endif /* ELWB_CONF_T_PREPROCESS_LF */
+
+/* slack time for schedule computation, in HF ticks */
+#ifndef ELWB_CONF_SCHED_COMP_TIME
+#define ELWB_CONF_SCHED_COMP_TIME (RTIMER_SECOND_HF / 50)            /* 20ms */
+#endif /* ELWB_CONF_SCHED_COMP_TIME */
+
+/* use a 'fair' scheduler which tries to assign slots to all nodes */
+#ifndef ELWB_CONF_SCHED_FAIR
+#define ELWB_CONF_SCHED_FAIR      1
+#endif /* ELWB_CONF_SCHED_FAIR */
+
+/* compress the schedule? */
+#ifndef ELWB_CONF_SCHED_COMPRESS
+#define ELWB_CONF_SCHED_COMPRESS  1
+#endif /* ELWB_CONF_SCHED_COMPRESS */
+
+/* timers to use for the eLWB task */
+#define ELWB_CONF_LF_RTIMER_ID    RTIMER_LF_1
+#define ELWB_CONF_RTIMER_ID       RTIMER_HF_1
+
 /* --------------- END OF CONFIG, do not change values below --------------- */
 
-#define ELWB_PERIOD_SCALE       100
-#define ELWB_REQ_PKT_LEN        2
-#define ELWB_SCHED_PERIOD_MAX   (65535 / ELWB_PERIOD_SCALE)
+#define ELWB_PERIOD_SCALE         100
+#define ELWB_REQ_PKT_LEN          2
+#define ELWB_SCHED_PERIOD_MAX     (65535 / ELWB_PERIOD_SCALE)
 
-#define ELWB_T_HOP(len)         ((RTIMER_SECOND_HF * \
-                                 (3 + 24 + 192 + 192 + ((1000000 * \
-                                 (len) * 8) / RF_CONF_TX_BITRATE))) \
-                                  / 1000000)
-#define ELWB_T_SLOT_MIN(len)    ((ELWB_CONF_MAX_HOPS + \
-                                 (2 * ELWB_CONF_TX_CNT_DATA) - 2) * \
-                                 ELWB_T_HOP(len) + (RTIMER_SECOND_HF / 4000))
+#define ELWB_T_REF_OFS            3822 /* measured with logic analyzer */
+
+#define ELWB_T_HOP(len)           ((RTIMER_SECOND_HF * \
+                                   (3 + 24 + 192 + 192 + ((1000000 * \
+                                   (len) * 8) / RF_CONF_TX_BITRATE))) \
+                                    / 1000000)
+#define ELWB_T_SLOT_MIN(len)      ((ELWB_CONF_N_HOPS + \
+                                   (2 * ELWB_CONF_N_TX_DATA) - 2) * \
+                                   ELWB_T_HOP(len) + (RTIMER_SECOND_HF / 4000))
 
 #ifndef RF_CONF_MAX_PKT_LEN
-#define RF_CONF_MAX_PKT_LEN     (ELWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
+#define RF_CONF_MAX_PKT_LEN       (ELWB_CONF_MAX_PKT_LEN + \
+                                   GLOSSY_MAX_HEADER_LEN)
 #endif /* RF_CONF_MAX_PKT_LEN */
 
 /*---------------------------------------------------------------------------*/
 
-/* parameter / error check */
+/* parameter sanity checks */
 
 #if RF_CONF_MAX_PKT_LEN < (LWB_CONF_MAX_PKT_LEN + GLOSSY_MAX_HEADER_LEN)
 #error "LWB_CONF_MAX_PKT_LEN is too big"
@@ -169,6 +192,7 @@
 #endif
 
 #if ELWB_CONF_SCHED_FAIR
+  /* make sure #slots is <= 100 to prevent an overflow in the calculations */
   #if ELWB_CONF_MAX_DATA_SLOTS > 100
   #error "ELWB_CONF_MAX_DATA_SLOTS > 100 not allowed"
   #endif
@@ -195,23 +219,20 @@
 
 /* structs and typedefs */
 
+#define ELWB_STATS_LEN  22
 typedef struct {
-  uint8_t  relay_cnt;
-  uint8_t  unsynced_cnt;
   uint8_t  bootstrap_cnt;
+  uint8_t  unsynced_cnt;
   uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
-  uint8_t  reset_cnt;
-  int8_t   glossy_snr;  /* SNR measured in last schedule slot */
+  uint8_t  relay_cnt;
+  int16_t  glossy_snr;  /* SNR measured in last schedule slot */
   int16_t  drift;
-  uint16_t pck_cnt;     /* total number of received packets */
-  uint16_t t_sched_max; /* max. time needed to calc new schedule */
-  uint16_t t_proc_max;  /* max. time needed to process rcvd data pkts */
-  uint32_t t_slot_last; /* last slot assignment (in seconds) */
-  uint32_t rx_total;    /* total amount of received bytes (payload) */
+  uint16_t pkt_rcv;     /* total number of received packets */
+  uint16_t pkt_snd;     /* total number of sent data packets */
+  uint16_t pkt_ack;     /* not acknowledged data packets */
+  uint16_t pkt_fwd;     /* packets forwarded to the App task */
   uint16_t rxbuf_drop;  /* packets dropped due to input buffer full */
   uint16_t txbuf_drop;  /* packets dropped due to output buffer full */
-  uint32_t pkts_nack;   /* not acknowledged data packets */
-  uint32_t pkts_sent;   /* total number of sent data packets */
   uint16_t load;        /* bandwidth utilization */
 } elwb_stats_t;
 
@@ -248,6 +269,7 @@ uint64_t elwb_get_timestamp(void);
 const elwb_stats_t * const elwb_get_stats(void);
 
 uint16_t elwb_sched_init(elwb_schedule_t* sched);
+void     elwb_sched_register_nodes(void);
 void     elwb_sched_process_req(uint16_t id, 
                                 uint8_t n_pkts);
 uint16_t elwb_sched_compute(elwb_schedule_t * const sched,

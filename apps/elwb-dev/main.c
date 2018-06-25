@@ -196,7 +196,7 @@ PROCESS_THREAD(app_post, ev, data)
   
   /* init the ADC */
   adc_init();
-  REFCTL0 &= ~REFON;             /* shut down REF module to save power */
+  ADC_REFOSC_OFF;     /* shut down REF module to save power */
 
   /* start the preprocess and LWB threads */
   elwb_start(&app_pre, &app_post);
@@ -215,7 +215,7 @@ PROCESS_THREAD(app_post, ev, data)
     APP_TASK_INACTIVE;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     APP_TASK_ACTIVE;
-        
+    
     /* --- process all packets rcvd from the network (forward to BOLT) --- */
     uint16_t rcvd = 0,
              forwarded = 0;
@@ -229,13 +229,17 @@ PROCESS_THREAD(app_post, ev, data)
       DEBUG_PRINT_INFO("%u msg rcvd from network, %u forwarded", 
                        rcvd, forwarded);
     }
-      
+    
     /* generate a node info message if necessary (must be here) */
     if(!node_info_sent) {
   #if !IS_HOST
-      if(elwb_get_time(0)) { 
+      if(elwb_get_time(0)) {
   #else /* !IS_HOST */
       if(utc_time) {
+        /* register all the nodes defined in ELWB_CONF_SCHED_NODE_LIST */
+    #if ELWB_CONF_SCHED_NODE_LIST
+        elwb_sched_register_nodes();
+    #endif /* ELWB_CONF_SCHED_NODE_LIST */
   #endif /* !IS_HOST */
         send_node_info();
         node_info_sent = 1;
@@ -251,7 +255,7 @@ PROCESS_THREAD(app_post, ev, data)
         last_health_pkt = div;
       }
     }
-        
+    
     /* --- poll the debug task --- */
     debug_print_poll();
     process_poll(&app_post);  /* poll self to run again after the debug task */

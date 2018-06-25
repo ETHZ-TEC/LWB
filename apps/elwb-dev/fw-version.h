@@ -33,14 +33,31 @@
 #ifndef __FW_VERSION_H__
 #define __FW_VERSION_H__
 
-/* current FW version (8 bits for major version, 8 bits for minor) */
-#define FW_VERSION      0x0009
-#define FW_NAME         "elwb-dev"     /* name of the application (8 bytes) */
+/* current FW version (A = major, B = minor, C = patchlevel)  */
+#define FW_VERSION      10000           /* in decimal ABBCC */
+#define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0 (release candidate, 2018-06-25):
+- change: elwb_sched_register_nodes() added to make better use of the define
+          ELWB_CONF_SCHED_NODE_LIST
+- bugfix: issue with D-ACK payload misalignment solved
+- change: handling of t_ref on source node when schedule missed
+- change: elwb_process removed (not needed as a separate process)
+- bugfix: xmem_task removed, reading/writing from/to the FRAM is now handled
+          within the interrupt routine (will not work with FRAM_CONF_USE_DMA!)
+- bugfix: issue with rt->time for SEND_SCHEDULE on host node fixed
+- bugfix: check for node ID in D-ACK slot removed and requeue all packets
+          if D-ACK missed (function fifo_elem_addr_rel introduced)
+- change: elwb_stats_t struct adjusted, pkt_snd and pkt_ack added, rx_total and
+          req_cnt removed
+- change: ELWB_CONF_T_DACK introduced to increase the slot size for data ACKs
+- change: default parameters moved from config.h into elwb.h, unused defines
+          removed and more comments added / minor cleanup
 
 Version 0.9 (bugfix update, 2018-06-20):
 - change: broadcast reset command doesn't affect the host node anymore

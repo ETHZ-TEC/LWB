@@ -44,18 +44,18 @@ void
 event_write(event_level_t lvl, dpp_event_type_t type, uint32_t val)
 {
   if(event_tgt == EVENT_TARGET_UART) {
-    char tmp[32];
-    snprintf(tmp, 32, "event: 0x%02x, code: 0x%02lx", type, val);
+    char tmp[33];
+    snprintf(tmp, 33, "event: 0x%02x, code: 0x%02lx", type, val);
     DEBUG_PRINT_MSG(0, (debug_level_t)lvl, tmp);
     
-  } else { 
+  } else {
     dpp_event_t event;
     event.type = type;
     event.value = val;
 
     if(event_tgt == EVENT_TARGET_BOLT) {
-      DEBUG_PRINT_VERBOSE("event msg sent to BOLT");
       send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_EVENT, (uint8_t*)&event, 0, 1);
+      DEBUG_PRINT_VERBOSE("event msg sent to BOLT");
     } else if (event_tgt == EVENT_TARGET_LWB) {
       send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_EVENT, (uint8_t*)&event, 0, 0);
       DEBUG_PRINT_VERBOSE("event msg sent to LWB");
