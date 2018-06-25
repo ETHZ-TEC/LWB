@@ -134,10 +134,15 @@
 uint8_t bolt_init(void);
 
 /**
-B * @return 1 if BOLT is active/ready (= responds to a write request) and
+ * @return 1 if BOLT is active/ready (= responds to a write request) and
  * 0 otherwise
  */
 uint8_t bolt_status(void);
+
+/**
+ * @brief flush the BOLT queue (drop all messages)
+ */
+void bolt_flush(void);
 
 /**
  * @brief read a message from Bolt

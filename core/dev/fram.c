@@ -280,7 +280,7 @@ fram_alloc(uint16_t size)
            size);
     return FRAM_ALLOC_ERROR;
   }
-  printf("FRAM allocated (0x%04lx, %ub)\r\n", fram_curr_offset, size);
+  printf(" FRAM allocated (0x%04lx, %ub)\r\n", fram_curr_offset, size);
   fram_curr_offset += size;
   fram_num_alloc_blocks++;
   return addr;
