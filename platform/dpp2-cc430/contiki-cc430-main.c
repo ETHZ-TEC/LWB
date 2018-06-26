@@ -213,7 +213,7 @@ main(int argc, char **argv)
       /* re-enable interrupts and go to sleep atomically */
       ENERGEST_OFF(ENERGEST_TYPE_CPU);
       DCSTAT_CPU_OFF;
-#if WATCHDOG_CONF_ON && !WATCHDOG_CONF_RESET_ON_TA1IFG
+#if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
       /* no need to stop the watchdog in the low-power mode if it is reset
        * within the timer update interrupt (which occurs every 2 seconds) */
       watchdog_stop();
@@ -221,7 +221,7 @@ main(int argc, char **argv)
       /* LPM3 */
       __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
       __no_operation();
-#if WATCHDOG_CONF_ON && !WATCHDOG_CONF_RESET_ON_TA1IFG
+#if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
       watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
       DCSTAT_CPU_ON;

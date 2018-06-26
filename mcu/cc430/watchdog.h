@@ -52,6 +52,15 @@
 #define WATCHDOG_CONF_RESET_ON_TA1IFG    1
 #endif /* WATCHDOG_CONF_RESET_ON_TA1IFG */
 
+#ifndef WATCHDOG_CONF_STOP_IN_LPM
+ #if WATCHDOG_CONF_RESET_ON_TA1IFG
+ #define WATCHDOG_CONF_STOP_IN_LPM        0
+ sdfs
+ #else /* WATCHDOG_CONF_RESET_ON_TA1IFG */
+ #define WATCHDOG_CONF_STOP_IN_LPM        1
+ #endif /* WATCHDOG_CONF_RESET_ON_TA1IFG */
+#endif /* WATCHDOG_CONF_STOP_IN_LPM */
+
 /**
  * @brief sets the clock source (ACLK) and divider
  * @note divider: WDTIS_3 = 512k, WDTIS_4 = 32k
@@ -60,6 +69,13 @@ static inline void
 watchdog_init(void)
 {
   WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_3;
+}
+
+static inline void
+watchdog_interrupt_enable(void)
+{
+  WDTCTL  = WDTCTL_L + WDTPW + WDTTMSEL; /* interval timer mode */
+  SFRIE1 |= WDTIE;
 }
 
 /**
