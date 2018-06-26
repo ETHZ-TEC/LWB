@@ -347,6 +347,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   }
   rf1a_set_header_len_rx(GLOSSY_HEADER_LEN(g.header.pkt_type));
   
+  volatile uint16_t timeout;
   if(IS_INITIATOR()) {
     /* Glossy initiator */
     if(GET_SYNC(g.header.pkt_type) == GLOSSY_UNKNOWN_SYNC ||
@@ -379,7 +380,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     {
       /* wait after entering RX mode before reading RSSI (see swra114d.pdf)  */
       //__delay_cycles(MCLK_SPEED / 3000);                   /* wait 0.33 ms */
-      volatile uint16_t timeout = 400;             /* ~400us @13MHz (MSP430) */
+      timeout = 400;                               /* ~400us @13MHz (MSP430) */
       while(!(RF1AIN & BIT1) && timeout) timeout--;   /* wait for RSSI valid */
       if(timeout) {
         g.stats.last_flood_rssi_noise = rf1a_get_rssi();      /* noise floor */
@@ -392,8 +393,9 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   /* note: RF_RDY bit must be cleared by the radio core before entering LPM
    * after a transition from idle to RX or TX. Either poll the status of the
    * radio core (SNOP strobe) or read the GDOx signal assigned to RF_RDY */
-  while(RF1AIN & BIT0);    /* check GDO0 signal (added by rdaforno) */
-      
+  timeout = 400;                                   /* ~400us @13MHz (MSP430) */
+  while((RF1AIN & BIT0) && timeout) timeout--;          /* check GDO0 signal */
+  
   GLOSSY_STARTED;
 }
 /*---------------------------------------------------------------------------*/
