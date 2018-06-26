@@ -302,29 +302,26 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   GLOSSY_DISABLE_INTERRUPTS;
 
   /* reset the data structure */
-  g.active = 1;
-  g.initiator_id = initiator_id;
-  g.payload = payload;
-  g.payload_len = payload_len;
-  g.n_rx = 0;
-  g.n_tx = 0;
+  g.active            = 1;
+  g.initiator_id      = initiator_id;
+  g.payload           = payload;
+  g.payload_len       = payload_len;
+  g.n_rx              = 0;
+  g.n_tx              = 0;
   g.relay_cnt_last_rx = 0;
   g.relay_cnt_last_tx = 0;
-  g.t_ref_updated = 0;
-  g.T_slot_sum = 0;
-  g.n_T_slot = 0;
+  g.t_ref_updated     = 0;
+  g.T_slot_sum        = 0;
+  g.n_T_slot          = 0;
 
 #if GLOSSY_CONF_COLLECT_STATS
-  g.stats.last_flood_relay_cnt = 0;
+  g.stats.last_flood_relay_cnt    = 0;
   g.stats.last_flood_n_rx_started = 0;
-  g.stats.last_flood_n_rx_fail = 0;
-  g.stats.already_counted = 0;
-  g.stats.last_flood_rssi_sum = 0;
-  g.stats.last_flood_rssi_noise = 0;
-  if(sync == GLOSSY_WITH_SYNC){
-    g.stats.last_flood_t_to_rx = 0;
-    g.stats.last_flood_duration = rtimer_now_hf();
-  }
+  g.stats.last_flood_n_rx_fail    = 0;
+  g.stats.last_flood_rssi_sum     = 0;
+  g.stats.last_flood_t_to_rx      = 0;
+  g.stats.last_flood_duration     = rtimer_now_hf();
+  g.stats.already_counted         = 0;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
   /* prepare the Glossy header, with the information known so far */
@@ -376,11 +373,17 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     DCSTAT_RFRX_ON;
 #if GLOSSY_CONF_COLLECT_STATS
     /* measure the channel noise (but only if waiting for the schedule */
-    if(sync == GLOSSY_WITH_SYNC) {
+  #if !GLOSSY_CONF_ALWAYS_SAMPLE_NOISE
+    if(sync == GLOSSY_WITH_SYNC)
+  #endif /* GLOSSY_CONF_ALWAYS_SAMPLE_NOISE */
+    {
       /* wait after entering RX mode before reading RSSI (see swra114d.pdf)  */
       //__delay_cycles(MCLK_SPEED / 3000);                   /* wait 0.33 ms */
-      while(!(RF1AIN & BIT1));              /* wait for RSSI to become valid */
-      g.stats.last_flood_rssi_noise = rf1a_get_rssi();        /* noise floor */
+      volatile uint16_t timeout = 400;             /* ~400us @13MHz (MSP430) */
+      while(!(RF1AIN & BIT1) && timeout) timeout--;   /* wait for RSSI valid */
+      if(timeout) {
+        g.stats.last_flood_rssi_noise = rf1a_get_rssi();      /* noise floor */
+      }
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   }
@@ -629,7 +632,7 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
 #if GLOSSY_CONF_COLLECT_STATS
   g.stats.already_counted = 0;
   g.stats.pkt_cnt++;
-  if(!g.stats.last_flood_n_rx_started && WITH_SYNC()) {
+  if(!g.stats.last_flood_n_rx_started) {
     g.stats.last_flood_t_to_rx = *timestamp - g.stats.last_flood_duration;
   }
   g.stats.last_flood_n_rx_started++;

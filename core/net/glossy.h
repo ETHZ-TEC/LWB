@@ -66,6 +66,13 @@
 #define GLOSSY_CONF_COLLECT_STATS               1
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
+/* only effective if glossy stats are enabled */
+#ifndef GLOSSY_CONF_ALWAYS_SAMPLE_NOISE
+/* set to 1 to sample the noise floor (RSSI) in each flood; if set to 0, glossy
+ * will only sample the noise in a schedule slot (with sync) */
+#define GLOSSY_CONF_ALWAYS_SAMPLE_NOISE         0
+#endif /* GLOSSY_CONF_ALWAYS_SAMPLE_NOISE */
+
 /* max. header length (with sync) */
 #define GLOSSY_MAX_HEADER_LEN                   2
 
