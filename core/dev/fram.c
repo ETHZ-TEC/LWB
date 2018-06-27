@@ -337,22 +337,23 @@ inline void xmem_wait_until_ready(void)
 #endif
 
 /*---------------------------------------------------------------------------*/
+/* CRC-16-IBM, CRC-16-ANSI */
 uint16_t 
 crc16(const uint8_t* data, uint8_t num_bytes, uint16_t init_value) 
 {
-  uint16_t crc  = init_value;
+  uint16_t crc = init_value;
   while(num_bytes) {
     /* use of 16-bit local variables is faster than 8-bit! */
-    uint16_t ch = *data;
-    uint16_t bit = 0;
-    while(bit < 8) {
+    uint16_t ch  = *data;
+    uint16_t bit = 8;
+    while(bit) {
       if((crc & 1) ^ (ch & 1)) {
-        crc = (crc >> 1) ^ 0xa001;    /* mask is 0xa001*/
+        crc = (crc >> 1) ^ 0xa001;  /* mask is 0xa001*/
       } else {
         crc >>= 1;
       }
       ch >>= 1; 
-      bit += 1;
+      bit--;
     }
     data++;
     num_bytes--;
