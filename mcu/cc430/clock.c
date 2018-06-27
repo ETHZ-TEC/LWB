@@ -111,7 +111,7 @@ clock_init(void)
   
   /* enable oscillator fault interrupt (NMI) as well as vacant memory access
    * interrupt (VMAIE) and flash controller access violation int. (ACCVIE) */
-  SFRIE1 = OFIE | VMAIE | ACCVIE;
+  SFRIE1 |= OFIE | VMAIE | ACCVIE;
 }
 /*---------------------------------------------------------------------------*/
 ISR(UNMI, unmi_interrupt)       /* user non-maskable interrupts */

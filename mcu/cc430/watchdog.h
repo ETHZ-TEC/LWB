@@ -49,8 +49,12 @@
 
 /* reset the watchdog counter during a TA1 timer overflow/update */
 #ifndef WATCHDOG_CONF_RESET_ON_TA1IFG
-#define WATCHDOG_CONF_RESET_ON_TA1IFG    1
+#define WATCHDOG_CONF_RESET_ON_TA1IFG     1
 #endif /* WATCHDOG_CONF_RESET_ON_TA1IFG */
+
+#ifndef WATCHDOG_CONF_TIMER_MODE
+#define WATCHDOG_CONF_TIMER_MODE          0
+#endif /* WATCHDOG_CONF_TIMER_MODE */
 
 #ifndef WATCHDOG_CONF_STOP_IN_LPM
  #if WATCHDOG_CONF_RESET_ON_TA1IFG
@@ -60,6 +64,17 @@
  #endif /* WATCHDOG_CONF_RESET_ON_TA1IFG */
 #endif /* WATCHDOG_CONF_STOP_IN_LPM */
 
+
+/**
+ * @brief configure the watchdog in interval timer mode (interrupt enabled!)
+ */
+static inline void
+watchdog_interrupt_enable(void)
+{
+  WDTCTL  = WDTCTL_L + WDTPW + WDTTMSEL; /* interval timer mode */
+  SFRIE1 |= WDTIE;
+}
+
 /**
  * @brief sets the clock source (ACLK) and divider
  * @note divider: WDTIS_3 = 512k, WDTIS_4 = 32k
@@ -68,13 +83,9 @@ static inline void
 watchdog_init(void)
 {
   WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_3;
-}
-
-static inline void
-watchdog_interrupt_enable(void)
-{
-  WDTCTL  = WDTCTL_L + WDTPW + WDTTMSEL; /* interval timer mode */
-  SFRIE1 |= WDTIE;
+#if WATCHDOG_CONF_TIMER_MODE
+  watchdog_interrupt_enable();
+#endif /* WATCHDOG_CONF_TIMER_MODE */
 }
 
 /**
@@ -115,14 +126,6 @@ watchdog_periodic(void)
   WDTCTL = (WDTCTL_L | WDTCNTCL) + WDTPW;
 }
 
-/**
- * @brief trigger a reset with a password violation error
- */
-static inline void
-watchdog_reboot(void)
-{
-  WDTCTL = 0;
-}
 
 #endif /* __WATCHDOG_H__ */
 
