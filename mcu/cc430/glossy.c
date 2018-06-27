@@ -448,16 +448,13 @@ glossy_stop(void)
 
 #if GLOSSY_CONF_COLLECT_STATS
     /* stats */
-    if(WITH_SYNC()) {
-      g.stats.last_flood_duration = rtimer_now_hf() - 
-                                    g.stats.last_flood_duration;
-    }
+    g.stats.last_flood_duration = rtimer_now_hf() - 
+                                  g.stats.last_flood_duration;
     if(!IS_INITIATOR()) {
       /* only count if not initiator! */
       if(g.stats.last_flood_n_rx_started) {
         /* only count it as flood if at least the start of a packet was
-         * detected (otherwise e.g. contention slots would be treated as
-         * failed floods!) */
+         * detected */
         g.stats.flood_cnt++;
       }
       if(g.n_rx) {
