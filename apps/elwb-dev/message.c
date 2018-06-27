@@ -469,12 +469,10 @@ send_lwb_health(void)
   msg_tx.lwb_health.sleep_cnt     = stats->sleep_cnt;
   msg_tx.lwb_health.bootstrap_cnt = stats->bootstrap_cnt;
   msg_tx.lwb_health.fsr           = glossy_get_fsr();
-  msg_tx.lwb_health.t_to_rx       = (uint16_t)(glossy_get_t_to_first_rx()  *
-                                               100 / 325);
-  msg_tx.lwb_health.t_flood       = (uint16_t)(glossy_get_flood_duration() *
-                                               100 / 325);
-  msg_tx.lwb_health.n_tx          = glossy_get_n_tx();
-  msg_tx.lwb_health.n_rx          = glossy_get_n_rx();
+  msg_tx.lwb_health.t_to_rx       = stats->glossy_t_to_rx;
+  msg_tx.lwb_health.t_flood       = stats->glossy_t_flood;
+  msg_tx.lwb_health.n_tx          = stats->glossy_n_tx;
+  msg_tx.lwb_health.n_rx          = stats->glossy_n_rx;
   msg_tx.lwb_health.n_hops        = stats->relay_cnt;
   if(stats->relay_cnt > max_hops) {
     max_hops = stats->relay_cnt;

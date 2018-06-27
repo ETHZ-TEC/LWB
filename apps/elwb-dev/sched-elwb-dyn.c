@@ -236,7 +236,7 @@ elwb_sched_uncompress(uint8_t* compressed_data, uint8_t n_slots)
     uint16_t l = run_info & ((1 << l_bits) - 1);
     uint8_t i;
     /* generate the slots */
-    for(i = 0; i < l + 1; i++) {
+    for(i = 0; (i < l + 1) && (slot_idx < n_slots); i++) {
       /* add the offset to the previous slot */
       slots_buffer[slot_idx] = slots_buffer[slot_idx - 1] + d;
       slot_idx++;
@@ -511,6 +511,9 @@ elwb_sched_compute(elwb_schedule_t * const sched,
     ELWB_SCHED_SET_STATE_IDLE(sched);  /* will be used by source nodes */
   }
   
+  /* increment the timestamp */
+  sched->time = time / ELWB_PERIOD_SCALE;
+  
   uint8_t compressed_size;
 #if ELWB_CONF_SCHED_COMPRESS
   compressed_size = elwb_sched_compress((uint8_t*)sched->slot, 
@@ -522,8 +525,13 @@ elwb_sched_compute(elwb_schedule_t * const sched,
   compressed_size = n_slots_assigned * 2;
 #endif /* ELWB_CONF_SCHED_COMPRESS */
   
-  /* increment the timestamp */
-  sched->time = time / ELWB_PERIOD_SCALE;
+  compressed_size += ELWB_SCHED_HDR_LEN;  /* add header length */
+  
+#if ELWB_CONF_SCHED_CRC
+  uint16_t crc = crc16((uint8_t*)sched, compressed_size, 0);
+  memcpy((uint8_t*)sched + compressed_size, &crc, 2);
+  compressed_size += 2;
+#endif /* ELWB_CONF_SCHED_CRC */
      
   /* log the parameters of the new schedule */
   DEBUG_PRINT_VERBOSE("schedule updated (s=%u T=%u0 n=%u|%u l=%u)", 
@@ -531,7 +539,7 @@ elwb_sched_compute(elwb_schedule_t * const sched,
                       n_slots_assigned, sched->n_slots >> 13, 
                       compressed_size);
   
-  return compressed_size + ELWB_SCHED_HDR_LEN;
+  return compressed_size;
 }
 /*---------------------------------------------------------------------------*/
 uint16_t 

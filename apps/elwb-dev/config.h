@@ -56,7 +56,7 @@
 
 /* --- Radio config --- */
 
-#define ELWB_CONF_RF_CH_PRIMARY         10 //8            /* CH10 = 870MHz */
+#define ELWB_CONF_RF_CH_PRIMARY         10 //8              /* CH10 = 870MHz */
 #define ELWB_CONF_RF_CH_SECONDARY       10
 #define RF_CONF_TX_CH                   ELWB_CONF_RF_CH_PRIMARY
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
@@ -67,7 +67,12 @@
 
 #define ELWB_CONF_N_HOPS                3
 #if IS_HOST
-#define ELWB_CONF_SCHED_NODE_LIST       21001, 21002, 21003, 21004, 21005, 21006, 21007, 21008, 21009, 21010, 21011, 21012, 21013, 21014, 21015, 21016, 21017, 21018, 21019, 21020, 21021, 21022, 21023, 21024, 21025, 21026  /* predefined list of nodes */
+#define ELWB_CONF_SCHED_NODE_LIST       21001, 21002, 21003, 21004, 21005, \
+                                        21006, 21007, 21008, 21009, 21010, \
+                                        21011, 21012, 21013, 21014, 21015, \
+                                        21016, 21017, 21018, 21019, 21020, \
+                                        21021, 21022, 21023, 21024, 21025, \
+                                        21026    /* predefined list of nodes */
 #endif /* IS_HOST */
 
 

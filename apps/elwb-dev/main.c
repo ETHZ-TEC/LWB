@@ -178,7 +178,7 @@ AUTOSTART_PROCESSES(&app_post);
 PROCESS_THREAD(app_post, ev, data) 
 {
   PROCESS_BEGIN();
-
+  
   /* compile time checks */
   if(sizeof(dpp_message_t) != DPP_MSG_PKT_LEN) {
     DEBUG_PRINT_FATAL("invalid DPP message size");
@@ -188,6 +188,8 @@ PROCESS_THREAD(app_post, ev, data)
   /* --- initialization --- */
   
   static uint8_t node_info_sent = 0;
+  
+  APP_TASK_ACTIVE;
   
   /* init FW updater if required */
 #if FW_UPDATE_CONF_ON

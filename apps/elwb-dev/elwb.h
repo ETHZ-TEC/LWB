@@ -126,6 +126,17 @@
 #define ELWB_CONF_SCHED_COMPRESS  1
 #endif /* ELWB_CONF_SCHED_COMPRESS */
 
+/* append CRC to the schedule? */
+#ifndef ELWB_CONF_SCHED_CRC
+#define ELWB_CONF_SCHED_CRC       0
+#endif /* ELWB_CONF_SCHED_ADD_CRC */
+
+/* allow preemption of the eLWB task, which runs in an interrupt context
+ * (-> enables interrupt nesting) */
+#ifndef ELWB_CONF_PREEMPTION
+#define ELWB_CONF_PREEMPTION      0
+#endif /* ELWB_CONF_PREEMPTION */
+
 /* timers to use for the eLWB task */
 #define ELWB_CONF_LF_RTIMER_ID    RTIMER_LF_1
 #define ELWB_CONF_RTIMER_ID       RTIMER_HF_1
@@ -134,6 +145,7 @@
 
 #define ELWB_PERIOD_SCALE         100
 #define ELWB_REQ_PKT_LEN          2
+#define ELWB_SCHED_CRC_LEN        (ELWB_CONF_SCHED_CRC ? 2 : 0)
 #define ELWB_SCHED_PERIOD_MAX     (65535 / ELWB_PERIOD_SCALE)
 
 #define ELWB_T_REF_OFS            3822 /* measured with logic analyzer */
@@ -219,14 +231,18 @@
 
 /* structs and typedefs */
 
-#define ELWB_STATS_LEN  22
+#define ELWB_STATS_LEN  26
 typedef struct {
-  uint8_t  bootstrap_cnt;
-  uint8_t  unsynced_cnt;
+  uint8_t  bootstrap_cnt;  /* #times bootstrap state was entered */
+  uint8_t  unsynced_cnt;   /* #times a schedule was missed */
   uint8_t  sleep_cnt;   /* #times node went into LPM due to rf silence */
-  uint8_t  relay_cnt;
+  uint8_t  relay_cnt;   /* relay counter of first received packet */
   int16_t  glossy_snr;  /* SNR measured in last schedule slot */
-  int16_t  drift;
+  uint16_t glossy_t_to_rx; /* time from glossy_start() to packet start in ms */
+  uint16_t glossy_t_flood; /* flood duration in ms */
+  uint8_t  glossy_n_tx; /* # packet retransmissions */
+  uint8_t  glossy_n_rx; /* # packet receptions */
+  int16_t  drift;       /* current estimated drift in ppm */
   uint16_t pkt_rcv;     /* total number of received packets */
   uint16_t pkt_snd;     /* total number of sent data packets */
   uint16_t pkt_ack;     /* not acknowledged data packets */
@@ -237,15 +253,16 @@ typedef struct {
 } elwb_stats_t;
 
 #define ELWB_SCHED_HDR_LEN   8
-#define ELWB_SCHED_MAX_SLOTS ((ELWB_CONF_MAX_PKT_LEN - ELWB_SCHED_HDR_LEN) / 2)
+#define ELWB_SCHED_MAX_SLOTS ((ELWB_CONF_MAX_PKT_LEN - ELWB_SCHED_HDR_LEN - \
+                               ELWB_SCHED_CRC_LEN) / 2)
 /* note: ELWB_SCHED_MAX_SLOTS != ELWB_CONF_MAX_DATA_SLOTS */
-typedef struct {    
+typedef struct {
   uint32_t time;
   uint16_t period;
     /* store num. of data slots and last two bits to indicate whether there is
     * a contention or an s-ack slot in this round */
   uint16_t n_slots;
-  uint16_t slot[ELWB_SCHED_MAX_SLOTS];
+  uint16_t slot[ELWB_SCHED_MAX_SLOTS + ELWB_SCHED_CRC_LEN];
 } elwb_schedule_t;
 
 /*---------------------------------------------------------------------------*/

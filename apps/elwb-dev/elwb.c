@@ -85,12 +85,17 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
   #define ELWB_TASK_RESUMED        PIN_CLR(ELWB_CONF_TASK_ACT_PIN); \
                                    PIN_SET(ELWB_CONF_TASK_ACT_PIN)
   #define ELWB_TASK_SUSPENDED      PIN_CLR(ELWB_CONF_TASK_ACT_PIN)
-#else
+#else /* ELWB_CONF_TASK_ACT_PIN */
   #define ELWB_TASK_RESUMED
   #define ELWB_TASK_SUSPENDED
-#endif
+#endif /* ELWB_CONF_TASK_ACT_PIN */
+#if ELWB_CONF_PREEMPTION
+  #define ELWB_ENABLE_PREEMPTION   { __eint(); __nop(); }
+#else /* ELWB_CONF_PREEMPTION */
+  #define ELWB_ENABLE_PREEMPTION
+#endif /* ELWB_CONF_PREEMPTION */
 /*---------------------------------------------------------------------------*/
-#define ELWB_DATA_RCVD             (glossy_get_n_rx() > 0) 
+#define ELWB_DATA_RCVD             (glossy_get_n_rx() > 0)
 /*---------------------------------------------------------------------------*/
 #define ELWB_SEND_SCHED() \
 {\
@@ -131,6 +136,7 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
   ELWB_TASK_SUSPENDED;\
   PT_YIELD(&elwb_pt);\
   ELWB_TASK_RESUMED;\
+  ELWB_ENABLE_PREEMPTION; \
 }
 /* same as ELWB_WAIT_UNTIL, but use the LF timer to schedule the wake-up */
 #define ELWB_LF_WAIT_UNTIL(time) \
@@ -139,6 +145,7 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
   ELWB_TASK_SUSPENDED;\
   PT_YIELD(&elwb_pt);\
   ELWB_TASK_RESUMED;\
+  ELWB_ENABLE_PREEMPTION; \
 }
 #define ELWB_BEFORE_DEEPSLEEP     BEFORE_DEEPSLEEP
 #define ELWB_AFTER_DEEPSLEEP      AFTER_DEEPSLEEP
@@ -155,7 +162,6 @@ static uint32_t           t_preprocess;
 static uint32_t           t_slot;
 static uint32_t           t_slot_ofs;
 static uint16_t           glossy_payload[(ELWB_CONF_MAX_PKT_LEN + 1) / 2];
-static uint8_t            schedule_len;
 static uint8_t            payload_len;
 static const void*        elwb_cb;
 #if !ELWB_CONF_USE_XMEM
@@ -349,13 +355,15 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
   static rtimer_clock_t t_start;
   static rtimer_clock_t t_start_lf;
   static uint16_t curr_period = 0;
+  static uint8_t  schedule_len;
 #if ELWB_CONF_DATA_ACK
   static uint8_t  data_ack[(ELWB_CONF_MAX_DATA_SLOTS + 7) / 8] = { 0 };
 #endif /* ELWB_CONF_DATA_ACK */
   
   PT_BEGIN(&elwb_pt);
 
-  elwb_cb = elwb_thread_host;
+  elwb_cb      = elwb_thread_host;
+  schedule_len = elwb_sched_init(&schedule);
    
   while(1) {
   
@@ -380,17 +388,23 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
     ELWB_SEND_SCHED();
    
     if(ELWB_SCHED_IS_FIRST(&schedule)) {
-      stats.glossy_snr = glossy_get_rssi(); /* use this field */
-      stats.relay_cnt  = glossy_get_relay_cnt_first_rx();
-      global_time      = schedule.time;
-      last_synced_hf   = t_start;
-      last_synced_lf   = t_start_lf;
+      /* sync point */
+      global_time    = schedule.time;
+      last_synced_hf = t_start;
+      last_synced_lf = t_start_lf;
+      /* collect some stats */
+      stats.glossy_snr     = glossy_get_rssi();   /* use RSSI instead of SNR */
+      stats.relay_cnt      = glossy_get_relay_cnt_first_rx();
+      stats.glossy_t_to_rx = glossy_get_t_to_first_rx() * 100 / 325;
+      stats.glossy_t_flood = glossy_get_flood_duration() * 100 / 325;
+      stats.glossy_n_rx    = glossy_get_n_rx();
+      stats.glossy_n_tx    = glossy_get_n_tx();
     }
     t_slot_ofs = (ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP);
     
   #if ELWB_CONF_USE_XMEM
     /* put the external memory back into active mode (takes ~500us) */
-    xmem_wakeup();    
+    xmem_wakeup();
   #endif /* ELWB_CONF_USE_XMEM */
 
     /* --- DATA SLOTS --- */
@@ -604,6 +618,12 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     
     rt->time = rtimer_now_hf();            /* overwrite LF with HF timestamp */
     
+  #if ELWB_CONF_USE_XMEM
+    /* xmem_wakeup() -> instead of waiting 500us, just pull CTRL line low */
+    PIN_CLR(FRAM_CONF_CTRL_PIN);
+    PIN_SET(FRAM_CONF_CTRL_PIN);
+  #endif /* ELWB_CONF_USE_XMEM */
+    
     /* --- RECEIVE SCHEDULE --- */
     
     payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
@@ -616,6 +636,9 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         DEBUG_PRINT_MSG_NOW(elwb_syncstate_to_string[BOOTSTRAP]);
         /* synchronize first! wait for the first schedule... */
         do {
+  #if WATCHDOG_CONF_ON && !WATCHDOG_CONF_RESET_ON_TA1IFG
+          watchdog_reset();
+  #endif /* WATCHDOG_CONF_ON */
           ELWB_RCV_SCHED();
         } while(!glossy_is_t_ref_updated() && ((rtimer_now_hf() -
                 bootstrap_started) < ELWB_CONF_T_SILENT));
@@ -641,16 +664,25 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     } else {
       ELWB_RCV_SCHED();
     }
-    /* collect some stats of the schedule flood */
-    stats.glossy_snr = glossy_get_snr();       /* get SNR of schedule packet */
-
-  #if ELWB_CONF_USE_XMEM
-    /* put the external memory back into active mode (takes ~500us) */
-    xmem_wakeup();
-  #endif /* ELWB_CONF_USE_XMEM */
-
+    
     /* schedule received? */
     if(glossy_is_t_ref_updated()) {
+  #if ELWB_CONF_SCHED_CRC
+      /* check the CRC */
+      payload_len = glossy_get_payload_len();
+      uint16_t calc_crc = crc16((uint8_t*)&schedule, payload_len - 2, 0);
+      uint16_t pkt_crc;
+      memcpy(&pkt_crc, (uint8_t*)&schedule + payload_len - 2, 2);
+      if(calc_crc != pkt_crc) {
+        /* not supposed to happend, all we can do now is go back to bootstrap
+         * since the previous (valid schedule has been overwritten with a
+         * corrupted one */
+        EVENT_ERROR(EVENT_CC430_RADIO_ERROR, 0);
+        DEBUG_PRINT_MSG_NOW("ERROR invalid eLWB schedule CRC!");
+        sync_state = BOOTSTRAP;
+        continue;
+      }
+  #endif /* ELWB_CONF_SCHED_CRC */
       /* update the sync state machine */
       sync_state = next_state[EVT_SCHED_RCVD][sync_state];
       /* HF timestamp of 1st RX, subtract const offset to align src and host */
@@ -660,6 +692,19 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
       if(ELWB_SCHED_IS_FIRST(&schedule)) {
+        /* only update the timestamp during the idle period */
+        period_idle = schedule.period;
+        global_time = schedule.time;
+        last_synced_lf = t_ref_lf;
+        last_synced_hf = t_ref;
+        
+        /* collect some stats of the schedule flood */
+        stats.relay_cnt      = glossy_get_relay_cnt_first_rx();
+        stats.glossy_snr     = glossy_get_snr();
+        stats.glossy_t_to_rx = glossy_get_t_to_first_rx() * 100 / 325;
+        stats.glossy_t_flood = glossy_get_flood_duration() * 100 / 325;
+        stats.glossy_n_rx    = glossy_get_n_rx();
+        stats.glossy_n_tx    = glossy_get_n_tx();
         /* do some basic drift estimation: measured elapsed time minus
          * effective elapsed time (given by host) */
         uint16_t elapsed_time = (uint16_t)(schedule.time - global_time);
@@ -670,14 +715,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         if(drift < 100 && drift > -100) {
           stats.drift = (stats.drift + drift) / 2;
         }
-        /* only update the timestamp during the idle period */
-        period_idle = schedule.period;
-        global_time = schedule.time;
-        last_synced_lf = t_ref_lf;
-        last_synced_hf = t_ref;
       }
-      stats.relay_cnt = glossy_get_relay_cnt_first_rx();
-
     } else {
       /* update the sync state machine */
       sync_state = next_state[EVT_SCHED_MISSED][sync_state];
@@ -704,9 +742,18 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     if(sync_state == SYNCED) {
       
     #if ELWB_CONF_SCHED_COMPRESS
+      /* uncompress the schedule */
       elwb_sched_uncompress((uint8_t*)schedule.slot, 
                             ELWB_SCHED_N_SLOTS(&schedule));
     #endif /* ELWB_CONF_SCHED_COMPRESS */
+      
+      /* sanity check (mustn't exceed the compile-time fixed max. # slots!) */
+      if(ELWB_SCHED_N_SLOTS(&schedule) > ELWB_SCHED_MAX_SLOTS) {
+        DEBUG_PRINT_ERROR("n_slots exceeds limit!");
+        EVENT_ERROR(EVENT_CC430_MEM_OVERFLOW, 1);
+        ELWB_SCHED_CLR_SLOTS(&schedule);
+        schedule.n_slots += ELWB_SCHED_MAX_SLOTS;
+      }
       
       static uint16_t i;
       t_slot_ofs = (ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP); 
@@ -747,12 +794,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
               }
               ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
               ELWB_SEND_PACKET();
-              /* TODO remove */
-              /*if((glossy_payload[1] & 0xff) == DPP_MSG_TYPE_GEOPHONE_ACQ) {
-                uint16_t id;
-                memcpy(&id, (((uint8_t*)glossy_payload) + payload_len - 6), 2);
-                DEBUG_PRINT_MSG_NOW("%u", id);
-              }*/
               DEBUG_PRINT_VERBOSE("packet sent (%ub)", payload_len);
             } else {
               DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
@@ -823,14 +864,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           first_slot  = 0xff;
           num_slots   = 0;
         }
-        /* DEBUG */
-        /*if(ELWB_DATA_RCVD) {
-          DEBUG_PRINT_INFO("D-ACK rcvd (%ub)", payload_len);
-          for (i = 0; i < ELWB_SCHED_N_SLOTS(&schedule); i++) {
-            DEBUG_PRINT_MSG_NOW("slot %u: %u %u", i + 1, schedule.slot[i], 
-             (*((uint8_t*)glossy_payload + (i >> 3)) & (1 << (i & 0x07))) > 0);
-          }
-        }*/
         t_slot_ofs += (ELWB_CONF_T_DACK + ELWB_CONF_T_GAP);
       }
   #endif /* ELWB_CONF_DATA_ACK */
@@ -958,26 +991,20 @@ elwb_start(struct process *pre_elwb_proc, struct process *post_elwb_proc)
   PIN_CLR(ELWB_CONF_TASK_ACT_PIN);
 #endif /* ELWB_CONF_TASK_ACT_PIN */
   
-  PT_INIT(&elwb_pt); /* initialize the protothread */
-
-#if IS_HOST
-  /* compute initial schedule */
-  schedule_len = elwb_sched_init(&schedule);
-#else /* IS_HOST */
   memset(&schedule, 0, sizeof(schedule));
-#endif /* IS_HOST */
+  
+  PT_INIT(&elwb_pt); /* initialize the protothread */
 
   /* start in 50ms (use LF timer), gives other task enough time to init */
   rtimer_clock_t t_wakeup = rtimer_now_lf() + RTIMER_SECOND_LF / 20;
-  rtimer_id_t    rt_id    = ELWB_CONF_LF_RTIMER_ID;
 #if IS_HOST
   /* update the global time and wait for the next full second */
   schedule.time = ((t_wakeup + RTIMER_SECOND_LF) / RTIMER_SECOND_LF);
   elwb_sched_set_time(schedule.time);
   t_wakeup = (rtimer_clock_t)schedule.time * RTIMER_SECOND_LF;
-  rtimer_schedule(rt_id, t_wakeup, 0, elwb_thread_host);
+  rtimer_schedule(ELWB_CONF_LF_RTIMER_ID, t_wakeup, 0, elwb_thread_host);
 #else /* IS_HOST */
-  rtimer_schedule(rt_id, t_wakeup, 0, elwb_thread_src);
+  rtimer_schedule(ELWB_CONF_LF_RTIMER_ID, t_wakeup, 0, elwb_thread_src);
 #endif /* IS_HOST */
 }
 /*---------------------------------------------------------------------------*/
