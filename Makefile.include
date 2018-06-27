@@ -2,15 +2,13 @@ ifndef CONTIKI
   ${error CONTIKI not defined! You must specify where CONTIKI resides}
 endif
 
-#ifeq ($(MAKECMDGOALS),upload)
-#ifndef NODE_ID
-#  ${error Please specify a value for NODE_ID}
-#endif
-#EXEFILE_ID = $(CONTIKI_PROJECT)-$(NODE_ID).exe
-#HEXFILE_ID = $(CONTIKI_PROJECT)-$(NODE_ID).hex
-#endif
+STACKSIZE ?= 500
 
-
+ifndef NODE_ID
+  ifdef node_id
+    NODE_ID=$(node_id)
+  endif
+endif
 
 ifndef TARGET 
   ifdef target
@@ -52,7 +50,6 @@ else
   ${error unknown TARGET}
 endif
 
-#$(info MCUFOLDER = $(MCUFOLDER), Platform = $(PLATFORM))
 
 EXEFILE = $(CONTIKI_PROJECT).exe
 HEXFILE = $(CONTIKI_PROJECT).hex
@@ -132,12 +129,13 @@ $(EXEFILE): $(OBJS)
 	@msp430-objcopy $(EXEFILE) -O ihex $(HEXFILE)
 	@msp430-objdump -d $(EXEFILE) > $(DISFILE)
 	@msp430-size $(EXEFILE)
+	@msp430-size elwb-dev.exe | tail -1 | awk '{if ($$2 + $$3 > (4096 - $(STACKSIZE))) { print "WARNING: only " 4096 - ($$2 + $$3) " bytes remaining for the stack!" } }'
+
 
 ifneq ($(MAKECMDGOALS),clean)
 -include ${addprefix $(OBJDIR)/,$(CORESRCS:.c=.d) $(PLATSRCS:.c=.d) $(SRCS:.c=.d)}
 endif
 
-### See http://make.paulandlesley.org/autodep.html#advanced
 
 define FINALIZE_DEPENDENCY
 cp $(@:.o=.d) $(@:.o=.$$$$); \
@@ -150,11 +148,29 @@ $(OBJDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -DAUTOSTART_ENABLE -MMD -c $< -o $@
 	@$(FINALIZE_DEPENDENCY)
 
-#upload: $(EXEFILE)
-#	@$(TOOLSDIR)/tos-set-symbols --exe --objcopy msp430-objcopy --objdump msp430-objdump $(EXEFILE) $(EXEFILE_ID) TOS_NODE_ID=$(NODE_ID)
-#	@msp430-objcopy $(EXEFILE_ID) -O ihex $(HEXFILE_ID)
-#	@mspdebug uif -j -d /dev/tty.TIVCP3410f* "prog $(HEXFILE_ID)"
-#	@rm -f $(EXEFILE_ID) $(HEXFILE_ID)
+
+check-env:
+ifndef LD_LIBRARY_PATH
+	$(error LD_LIBRARY_PATH is undefined)
+endif
+
+
+upload: $(EXEFILE) check-env
+ifdef NODE_ID
+	@tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(EXEFILE) $(HEXFILE) TOS_NODE_ID=$(NODE_ID)
+else
+	@msp430-objcopy $(EXEFILE) -O ihex $(HEXFILE)
+endif
+	@mspdebug tilib "prog $(HEXFILE)" --allow-fw-update
+
+
+verify: check-env
+	@mspdebug tilib "verify $(HEXFILE)"
+
+
+check-stack:
+	@msp430-size elwb-dev.exe | tail -1 | awk '{if ($$2 + $$3 > (4096 - $(STACKSIZE))) { print "WARNING: only " 4096 - ($$2 + $$3) " bytes remaining for the stack!" } else { print "OK" } }'
+
 
 .PHONY: clean
 
