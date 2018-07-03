@@ -50,7 +50,7 @@
   #define DEBUG_PRINT_UART_DISABLE    uart_enable(0)
 #else /* DEBUG_PRINT_CONF_DISABLE_UART */
   #define DEBUG_PRINT_UART_ENABLE
-  #define DEBUG_PRINT_UART_DISABLE
+  #define DEBUG_PRINT_UART_DISABLE    while(UART_ACTIVE)
 #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
 /*---------------------------------------------------------------------------*/
 struct printbuf

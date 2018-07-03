@@ -241,7 +241,7 @@
   UART_ENABLE; \
   uint8_t pos = 16; \
   uint16_t addr = (uint16_t)&pos; /* or use: READ_SP */\
-  while (pos) { \
+  while(pos) { \
       pos = pos - 4; \
       uint8_t c = ((addr >> pos) & 0x000f); \
       if (c > 9) { c += ('a' - '0' - 10); } \
@@ -255,7 +255,7 @@
   UART_ENABLE; \
   uint16_t div = 1000; \
   uint16_t addr = 0x2c00 - (uint16_t)&div; /* or use: READ_SP */ \
-  while (div) { \
+  while(div) { \
       uint8_t c = addr/div; \
       putchar('0' + c); \
       addr -= c * div; \
