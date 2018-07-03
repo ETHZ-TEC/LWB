@@ -50,6 +50,12 @@
 
 #include "spi.h"
 
+
+#ifndef DMA_CONF_ENABLE
+#define DMA_CONF_ENABLE                 1
+#endif /* DMA_CONF_ENABLE */
+
+
 #define DMA_NUM_CHANNELS                3
 
 /**

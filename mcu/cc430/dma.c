@@ -40,6 +40,7 @@
 #include "contiki.h"
 #include "platform.h"
 
+#if DMA_CONF_ENABLE
 /*---------------------------------------------------------------------------*/
 #define DMA_DISABLE_RX                  (DMA0CTL &= ~(DMAEN))
 #define DMA_ENABLE_RX                   (DMA0CTL |= DMAEN)
@@ -222,3 +223,4 @@ ISR(DMA, dma_interrupt)
   DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
+#endif /* DMA_CONF_ENABLE */

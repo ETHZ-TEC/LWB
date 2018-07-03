@@ -100,11 +100,13 @@ bolt_init(void)
 
   /* configure timer to capture the timestamp on rising edge of pin 2.1
      (do NOT enable interrupts!) */
-  rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);              
+  rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
+ #if BOLT_CONF_USE_DMA
   /* use the DMA to take a snapshot of the 64-bit sw timer extension */
   dma_config_timer(BOLT_CONF_TIMEREQ_DMATRG,
                    rtimer_swext_addr(BOLT_CONF_TIMEREQ_TIMERID),
                    (uint16_t)&rtimer_ext, 8);
+ #endif /* BOLT_CONF_USE_DMA */
 #endif
   
   if(bolt_status()) {
@@ -126,13 +128,17 @@ bolt_set_timereq_callback(void (*func)(void))
   if(!func) {
     /* remove the callback = switch to polling mode (utilize the DMA) */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, 0);
+  #if BOLT_CONF_USE_DMA
     /* use the DMA to take a snapshot of the 64-bit sw timer extension */
     dma_config_timer(BOLT_CONF_TIMEREQ_DMATRG,
                      rtimer_swext_addr(BOLT_CONF_TIMEREQ_TIMERID),
                      (uint16_t)&rtimer_ext, 8);
+  #endif /* BOLT_CONF_USE_DMA */
   } else {
     /* set the rtimer callback function */
+  #if BOLT_CONF_USE_DMA
     dma_enable_timer(0);
+  #endif /* BOLT_CONF_USE_DMA */
     rtimer_wait_for_event(BOLT_CONF_TIMEREQ_TIMERID, (rtimer_callback_t)func);
     /* configure the time request pin for port interrupt
      * (default is 'pulldown resistor' and 'trigger on rising edge') */
