@@ -269,7 +269,8 @@ PROCESS_THREAD(app_post, ev, data)
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */
     BEFORE_DEEPSLEEP();
-  } /* --- end of application main loop --- */
+  } 
+  /* --- end of application main loop --- */
 
   PROCESS_END();
 }

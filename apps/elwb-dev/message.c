@@ -327,19 +327,13 @@ send_timestamp(int64_t captured)
   
   /* timestamp request: calculate the timestamp and send it over BOLT */
   /* only send a timestamp if the node is connected to the eLWB */
-  rtimer_clock_t local_t_rx = 0;
+  rtimer_clock_t local_t_rx = 0;  /* in LF ticks */
   uint64_t elwb_time_secs = elwb_get_time(&local_t_rx);
   if(elwb_time_secs > 0) {
-    /* convert to LF ticks */
-    rtimer_clock_t lf, hf;
-    rtimer_now(&hf, &lf);
-    local_t_rx = lf - (hf - local_t_rx) * RTIMER_SECOND_LF /RTIMER_SECOND_HF;
-    /* if captured before last ref time update, then diff is > 0 and thus 
-     * network time needs to be decreased by the difference */
-    int64_t diff = (local_t_rx - captured);   /* in clock ticks */
+    /* get elapsed time in LF ticks and convert it to us */
+    int64_t diff = ((int64_t)local_t_rx - captured) * 1000000/RTIMER_SECOND_LF;
     /* local t_rx is in clock ticks */
-    msg_tx.timestamp = elwb_time_secs * 1000000 - 
-                        diff * 1000000 / RTIMER_SECOND_LF;
+    msg_tx.timestamp = elwb_time_secs * 1000000 - diff;
   }
   /* send message over BOLT */
   send_msg(node_id, DPP_MSG_TYPE_TIMESYNC, 0, 0, 1);
@@ -375,8 +369,9 @@ send_node_health(void)
 {
   static uint8_t  tx_dropped_last = 0,
                   rx_dropped_last = 0;
-  static uint16_t rx_cnt_last = 0;
-  static uint16_t max_stack_size = 0;
+  static uint16_t rx_cnt_last     = 0;
+  static uint16_t max_stack_size  = 0;
+  
   const elwb_stats_t* stats = elwb_get_stats();
 
   /* collect ADC values */

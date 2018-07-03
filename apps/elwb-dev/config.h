@@ -42,7 +42,7 @@
 /* --- Node and component ID --- */
 
 /* uncomment NODE_ID to compile FW image for the host node */
-#define NODE_ID                         HOST_ID
+//#define NODE_ID                         HOST_ID
 #define HOST_ID                         16 //6
 
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
@@ -80,6 +80,7 @@
 
 #define ELWB_CONF_SCHED_PERIOD_IDLE     15            /* period T in seconds */
 #define ELWB_CONF_SCHED_PERIOD_MIN      3        /* min. allowed period in s */
+#define ELWB_CONF_SCHED_CRC             1          /* append CRC to schedule */
 #define ELWB_CONF_SCHED_NODE_TIMEOUT    3600        /* remove node after x s */
 #define ELWB_CONF_MAX_DATA_SLOTS        40    /* max. # data slots per round */
 #define ELWB_CONF_MAX_N_NODES           40        /* max. # nodes in network */
@@ -97,11 +98,11 @@
                                        but not required if forwarded to BOLT */
 #else /* IS_HOST */
  #if ELWB_CONF_USE_XMEM
-  #define ELWB_CONF_OUT_BUFFER_SIZE     5 /* = max #pkts a src node can send */
+  #define ELWB_CONF_OUT_BUFFER_SIZE     10 /* = max #pkts a src node can snd */
   #define ELWB_CONF_IN_BUFFER_SIZE      10 /* = max #pkts a src node can rcv */
  #else /* ELWB_CONF_USE_XMEM */
-  #define ELWB_CONF_OUT_BUFFER_SIZE     5 /* = max #pkts a src node can send */
-  #define ELWB_CONF_IN_BUFFER_SIZE      3  /* = max #pkts a src node can rcv */   
+  #define ELWB_CONF_OUT_BUFFER_SIZE     6 /* = max #pkts a src node can send */
+  #define ELWB_CONF_IN_BUFFER_SIZE      4  /* = max #pkts a src node can rcv */
  #endif /* ELWB_CONF_USE_XMEM */
 #endif /* IS_HOST */
 /* timings */

@@ -61,40 +61,40 @@
 void
 dump_debug_info(uint16_t stack_addr)
 {
-  /* re-enable the HFXT, required for UART (only change necessary settings!) */
-  uint16_t xt2_off = UCSCTL6 & XT2OFF;
-  if(xt2_off) {
-    SFRIE1  &= ~OFIE;
-    ENABLE_XT2();
-    WAIT_FOR_OSC();
-    UCSCTL4  = SELA | SELS | SELM;
-    UCSCTL7  = 0;
-    WAIT_FOR_OSC();
-    SFRIE1  |= OFIE;
-    P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
-  }
-
-  /* 
-   * collect and print debugging info:
+  /* collect and print debugging info:
    * - stack address / size
    * - return address and status register before ISR (last 4 bytes on stack)
    * - whether or not timers are still running and CCR interrupts enabled
    * - state of the global/static variables
    * - some registers, e.g. enabled peripherals
    */
+  uint16_t xt2_off  = (UCSCTL6 & XT2OFF) > 0;
+  uint16_t ta0_ctl  = TA0CTL;
+  uint16_t ta1_ctl  = TA1CTL;
+  uint8_t  uca0_ctl = UCA0CTL1;
+  uint8_t  ucb0_ctl = UCB0CTL1;
+  rtimer_clock_t now_lf = rtimer_now_lf();
+  rtimer_clock_t now_hf = rtimer_now_hf();
 
-  rtimer_clock_t lwb_next_exp_hf = 0;
-  uint8_t lwb_hf_scheduled = rtimer_next_expiration(LWB_CONF_RTIMER_ID,
-                                                    &lwb_next_exp_hf);
-  rtimer_clock_t lwb_next_exp_lf = 0;
-  uint8_t lwb_lf_scheduled = rtimer_next_expiration(LWB_CONF_LF_RTIMER_ID,
-                                                    &lwb_next_exp_lf);
+  rtimer_clock_t next_exp_hf = 0;
+  uint8_t hf_scheduled = rtimer_next_expiration(ELWB_CONF_RTIMER_ID,
+                                                &next_exp_hf);
+  rtimer_clock_t next_exp_lf = 0;
+  uint8_t lf_scheduled = rtimer_next_expiration(ELWB_CONF_LF_RTIMER_ID,
+                                                &next_exp_lf);
 
   uint8_t gpio_state = ((PIN_GET(COM_GPIO1) > 0) << 2) |
                        ((PIN_GET(COM_GPIO2) > 0) << 1) |
                        (PIN_GET(COM_GPIO3) > 0);
   
-  uint8_t uca0_ctrl = UCA0CTL1;   /* read before enabling UART */
+  /* re-enable the HFXT, required for UART (only change necessary settings!) */
+  AFTER_DEEPSLEEP();
+  
+  /* wait until there is a falling edge on P1.5 (UART RXD) */
+  P1DIR &= ~BIT5;
+  P1OUT |= BIT5;
+  P1REN |= BIT5;
+  while (P1IN & BIT5);
   
   /* status register bits:
    * 8 = 0x100 = arithmetic overflow
@@ -120,26 +120,24 @@ dump_debug_info(uint16_t stack_addr)
          "TA1CTL:       0x%04x (LFXT)\r\n"
          "rtimer LF:    %llu\r\n"
          "rtimer HF:    %llu\r\n"
-         "LWB timer LF: %llu (%u, %u)\r\n"
-         "LWB timer HF: %llu (%u, %u)\r\n"
+         "LWB timer LF: %llu (%u)\r\n"
+         "LWB timer HF: %llu (%u)\r\n"
          "Glossy state: %u\r\n"
          "GPIO state:   0x%02x\r\n",
               SRAM_END - stack_addr + 1, 
               *(volatile uint16_t*)(stack_addr + 2),
               *(volatile uint16_t*)(stack_addr),
-              uca0_ctrl,
-              UCB0CTL1,
+              uca0_ctl,
+              ucb0_ctl,
               xt2_off,
-              TA0CTL,
-              TA1CTL,
-              rtimer_now_lf(), 
-              rtimer_now_hf(),
-              lwb_next_exp_lf,
-              (*(&TA1CCTL0 + ELWB_CONF_LF_RTIMER_ID - RTIMER_LF_0) & CCIE) > 0,
-              lwb_lf_scheduled,
-              lwb_next_exp_hf,
-              (*(&TA0CCTL0 + ELWB_CONF_RTIMER_ID) & CCIE) > 0,
-              lwb_hf_scheduled,
+              ta0_ctl,
+              ta1_ctl,
+              now_lf,
+              now_hf,
+              next_exp_lf,
+              lf_scheduled,
+              next_exp_hf,
+              hf_scheduled,
               glossy_is_active(),
               gpio_state);
   printf("\r\nSRAM dump:");
@@ -155,15 +153,18 @@ dump_debug_info(uint16_t stack_addr)
   printf("\r\n-------------------------------------------------------\r\n");
 }
 /*---------------------------------------------------------------------------*/
+ISR(PORT1, port1_interrupt)
+{
+  AFTER_DEEPSLEEP();
+  DEBUG_PRINT_MSG_NOW("P1 ISR");
+  P1IFG &= ~BIT5;
+}
+/*---------------------------------------------------------------------------*/
 #if WATCHDOG_CONF_TIMER_MODE
 ISR(WDT, wdt_interrupt)
 {
   watchdog_stop();
   LED_ON(LED_ERROR);
-  P1DIR &= ~BIT5;
-  P1OUT |= BIT5;
-  P1REN |= BIT5;
-  while (P1IN & BIT5);
   
   /* see lwb.dis file! (pushm #4 = 4x 16-bit register is pushed onto stack) */
   #define REGISTER_BYTES_ON_STACK       (8)

@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10001           /* in decimal ABBCC */
+#define FW_VERSION      10002           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
@@ -42,15 +42,27 @@
 Revision History
 ----------------
 
-Version 1.0001 (--- IN DEVELOPMENT ---):
+Version 1.0002 (2018-07-03);
+- change: rtimer period changed to 32-bit to reduce runtime and memory usage
+- bugfix: potential invalid timestamp issue fixed, elwb_get_time() now returns
+          the LF timestamp, last_synced_hf removed
+- change: clear pending radio interrupts after module has entered sleep state
+- change: DMA_CONF_ENABLE define added to explicitly exclude DMA code; in BOLT
+          code for timereq callback, DMA is only used if BOLT_CONF_USE_DMA is 1
+- bugfix: wrong guard time used for slot duration for schedule reception
+- change: calculation of t_to_rx stats value improved
+- change: eLWB buffer size increased
+- change: FRAM wakeup removed from eLWB, moved into platform.h (FRAM_WAKEUP)
+
+Version 1.0001 (2018-06-27):
 - feature: new flag ELWB_CONF_PREEMPTION added to enable task preemption
 - change: debug.c added
 - change: xmem_wakeup() replaced by a simple control pin toggling
 - change: sanitiy check for n_slots added on source nodes to prevent potential
           memory overflow
 - change: new defines/config added to watchdog.h
-- feature: ELWB_CONF_SCHED_CRC define added, by default a CRC is appended to the
-           schedule, source nodes check the CRC
+- feature: ELWB_CONF_SCHED_CRC define added, by default a CRC is appended to 
+           the schedule, source nodes check the CRC
 - change: minor changes on how the stats about Glossy are collected and new
           define GLOSSY_CONF_ALWAYS_SAMPLE_NOISE introduced in glossy.h
 - bugfix: due to invalid pin configuration in BEFORE_DEEPSLEEP, an extra zero

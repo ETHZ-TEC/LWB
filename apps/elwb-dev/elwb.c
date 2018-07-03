@@ -108,7 +108,8 @@ static const char* elwb_syncstate_to_string[NUM_OF_SYNC_STATES] = {
 {\
   glossy_start(GLOSSY_UNKNOWN_INITIATOR, (uint8_t *)&schedule, payload_len, \
                ELWB_CONF_N_TX_SCHED, GLOSSY_WITH_SYNC, GLOSSY_WITH_RF_CAL);\
-  ELWB_WAIT_UNTIL(rt->time + ELWB_CONF_T_SCHED + ELWB_CONF_T_GUARD);\
+  ELWB_WAIT_UNTIL(rt->time + ELWB_CONF_T_SCHED + \
+                  ELWB_CONF_T_GUARD_LF * RTIMER_HF_LF_RATIO);\
   glossy_stop();\
 }
 #define ELWB_SEND_PACKET() \
@@ -155,7 +156,6 @@ static struct process*    post_proc;
 static struct process*    pre_proc;
 static elwb_schedule_t    schedule;      /* use standard LWB schedule struct */
 static elwb_stats_t       stats = { 0 };
-static rtimer_clock_t     last_synced_hf;
 static rtimer_clock_t     last_synced_lf;
 static uint32_t           global_time;
 static uint32_t           t_preprocess;
@@ -333,7 +333,7 @@ uint32_t
 elwb_get_time(rtimer_clock_t* reception_time)
 {
   if(reception_time) {
-    *reception_time = last_synced_hf;
+    *reception_time = last_synced_lf;
   }
   return global_time;
 }
@@ -390,7 +390,6 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
     if(ELWB_SCHED_IS_FIRST(&schedule)) {
       /* sync point */
       global_time    = schedule.time;
-      last_synced_hf = t_start;
       last_synced_lf = t_start_lf;
       /* collect some stats */
       stats.glossy_snr     = glossy_get_rssi();   /* use RSSI instead of SNR */
@@ -402,11 +401,6 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
     }
     t_slot_ofs = (ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP);
     
-  #if ELWB_CONF_USE_XMEM
-    /* put the external memory back into active mode (takes ~500us) */
-    xmem_wakeup();
-  #endif /* ELWB_CONF_USE_XMEM */
-
     /* --- DATA SLOTS --- */
     
     if(ELWB_SCHED_HAS_SLOTS(&schedule)) {
@@ -618,12 +612,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     
     rt->time = rtimer_now_hf();            /* overwrite LF with HF timestamp */
     
-  #if ELWB_CONF_USE_XMEM
-    /* xmem_wakeup() -> instead of waiting 500us, just pull CTRL line low */
-    PIN_CLR(FRAM_CONF_CTRL_PIN);
-    PIN_SET(FRAM_CONF_CTRL_PIN);
-  #endif /* ELWB_CONF_USE_XMEM */
-    
     /* --- RECEIVE SCHEDULE --- */
     
     payload_len = GLOSSY_UNKNOWN_PAYLOAD_LEN;
@@ -632,8 +620,8 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         schedule.n_slots = 0;   /* reset */
         stats.bootstrap_cnt++;
         static rtimer_clock_t bootstrap_started;
-        bootstrap_started = rtimer_now_hf();
         DEBUG_PRINT_MSG_NOW(elwb_syncstate_to_string[BOOTSTRAP]);
+        bootstrap_started = rtimer_now_hf();
         /* synchronize first! wait for the first schedule... */
         do {
   #if WATCHDOG_CONF_ON && !WATCHDOG_CONF_RESET_ON_TA1IFG
@@ -696,7 +684,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         period_idle = schedule.period;
         global_time = schedule.time;
         last_synced_lf = t_ref_lf;
-        last_synced_hf = t_ref;
         
         /* collect some stats of the schedule flood */
         stats.relay_cnt      = glossy_get_relay_cnt_first_rx();
@@ -970,9 +957,9 @@ elwb_start(struct process *pre_elwb_proc, struct process *post_elwb_proc)
          ELWB_CONF_N_HOPS);
   /* ceil the values (therefore + RTIMER_SECOND_HF / 1000 - 1) */
   printf(" slots [ms]: sched=%u data=%u cont=%u\r\n",
-   (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_SCHED + (RTIMER_SECOND_HF / 1000 - 1)),
-   (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_DATA + (RTIMER_SECOND_HF / 1000 - 1)),
-   (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_CONT + (RTIMER_SECOND_HF / 1000 - 1)));
+         (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_SCHED),
+         (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_DATA),
+         (uint16_t)RTIMER_HF_TO_MS(ELWB_CONF_T_CONT));
   
 #if !ELWB_CONF_USE_XMEM
   /* pass the start addresses of the memory blocks holding the queues */
