@@ -150,8 +150,9 @@ uart_enable(uint8_t enable)
   }    
 }
 /*---------------------------------------------------------------------------*/
+#if UART_CONF_RX_INTERRUPT || UART_CONF_TX_INTERRUPT
 /* the interrupt handler could also be defined elsewhere... */
-ISR(USCI_A0, uart0_rx_interrupt) 
+ISR(USCI_A0, uart_interrupt) 
 {
   DEBUG_ISR_ENTRY;
   DCSTAT_CPU_ON;
@@ -186,4 +187,5 @@ ISR(USCI_A0, uart0_rx_interrupt)
   DCSTAT_CPU_OFF;
   DEBUG_ISR_EXIT;
 }
+#endif /* UART_CONF_RX_INTERRUPT || UART_CONF_TX_INTERRUPT */
 /*---------------------------------------------------------------------------*/

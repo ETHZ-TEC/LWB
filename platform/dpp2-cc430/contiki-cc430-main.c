@@ -167,7 +167,6 @@ main(int argc, char **argv)
 #endif /* SVS_CONF_ON */
 
   process_init();
-  //process_start(&etimer_process, NULL);
 
   random_init(node_id * TA0R);
 #if UART_CONF_RX_INTERRUPT
