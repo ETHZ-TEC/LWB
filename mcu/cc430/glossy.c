@@ -320,7 +320,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   g.stats.last_flood_n_rx_fail    = 0;
   g.stats.last_flood_rssi_sum     = 0;
   g.stats.last_flood_t_to_rx      = 0;
-  g.stats.last_flood_duration     = rtimer_now_hf();
+  g.stats.last_flood_duration     = 0;
   g.stats.already_counted         = 0;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
@@ -358,11 +358,14 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
       DEBUG_PRINT_ERROR("invalid parameters, Glossy stopped");
       glossy_stop();
       return;
-    } 
+    }
     /* start the first transmission */
     g.t_timeout = rtimer_now_hf() + TIMEOUT_EXTRA_TICKS;
     rf1a_start_tx();
     DCSTAT_RFTX_ON;
+#if GLOSSY_CONF_COLLECT_STATS
+    g.stats.last_flood_duration = rtimer_now_hf();
+#endif /* GLOSSY_CONF_COLLECT_STATS */
     rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                           GLOSSY_HEADER_LEN(g.header.pkt_type),
                           (uint8_t *)g.payload, g.payload_len);
@@ -373,6 +376,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     rf1a_start_rx();
     DCSTAT_RFRX_ON;
 #if GLOSSY_CONF_COLLECT_STATS
+    g.stats.last_flood_duration = rtimer_now_hf();
     /* measure the channel noise (but only if waiting for the schedule */
   #if !GLOSSY_CONF_ALWAYS_SAMPLE_NOISE
     if(sync == GLOSSY_WITH_SYNC)
@@ -393,7 +397,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   /* note: RF_RDY bit must be cleared by the radio core before entering LPM
    * after a transition from idle to RX or TX. Either poll the status of the
    * radio core (SNOP strobe) or read the GDOx signal assigned to RF_RDY */
-  timeout = 400;                                   /* ~400us @13MHz (MSP430) */
+  timeout = 500;                                   /* ~500us @13MHz (MSP430) */
   while((RF1AIN & BIT0) && timeout) timeout--;          /* check GDO0 signal */
   
   GLOSSY_STARTED;
@@ -403,24 +407,21 @@ uint8_t
 glossy_stop(void)
 {
   if(g.active) {
-    /* if RX is ongoing, then wait */
-    //while(rf1a_is_busy());
-    
     /* stop the timeout */
     rtimer_stop(GLOSSY_CONF_RTIMER_ID);
     /* flush both RX FIFO and TX FIFO and go to sleep */
     rf1a_flush_rx_fifo();
     rf1a_flush_tx_fifo();
-    rf1a_clear_pending_interrupts();
     /* important: if the radio is put into sleep mode, the patable must be 
      * re-configured! see CC1101 datasheet p.33 */
     rf1a_go_to_sleep();
-    GLOSSY_RX_STOPPED;
-    GLOSSY_TX_STOPPED;
-    GLOSSY_STOPPED;
+    rf1a_clear_pending_interrupts();
     DCSTAT_RF_OFF;
     DCSTAT_RFTX_OFF;
     DCSTAT_RFRX_OFF;
+    GLOSSY_RX_STOPPED;
+    GLOSSY_TX_STOPPED;
+    GLOSSY_STOPPED;
     g.active = 0;
 
     if(g.t_ref_updated) {

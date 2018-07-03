@@ -168,7 +168,7 @@ typedef enum {
 typedef struct rtimer {
   rtimer_clock_t time;    /* if state = RTIMER_SCHEDULED: next expiration time;
                              otherwise: last expiration time */
-  rtimer_clock_t period;  /* if period = 0: one-shot timer; otherwise: timer
+  uint32_t period;        /* if period = 0: one-shot timer; otherwise: timer
                              period in clock ticks */
   rtimer_callback_t func; /* callback function to execute when the rtimer
                              expires */
@@ -193,7 +193,7 @@ void rtimer_init(void);
  */
 void rtimer_schedule(rtimer_id_t timer,
                      rtimer_clock_t start,
-                     rtimer_clock_t period,
+                     uint32_t period,
                      rtimer_callback_t func);
 
 /**

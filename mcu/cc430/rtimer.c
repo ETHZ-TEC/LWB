@@ -50,7 +50,6 @@ static rtimer_t rt[NUM_OF_RTIMERS];     /* rtimer structs */
 volatile rtimer_clock_t ta0_sw_ext;     /* SW extension for timer A0 */
 volatile rtimer_clock_t ta1_sw_ext;
 #define MAX_TICKS (~((clock_time_t)0) / 2)
-static volatile clock_time_t count = 0;
 /*---------------------------------------------------------------------------*/
 static inline void
 update_rtimer_state(uint16_t timer)
@@ -158,7 +157,7 @@ rtimer_init(void)
 void
 rtimer_schedule(rtimer_id_t timer,
                 rtimer_clock_t start,
-                rtimer_clock_t period,
+                uint32_t period,
                 rtimer_callback_t func)
 {
   if((timer < NUM_OF_RTIMERS) && (rt[timer].state != RTIMER_SCHEDULED)) {
@@ -342,7 +341,7 @@ rtimer_now_lf_hw(void)
      * (necessary because clock sources of the CPU and TA1 are different) */
     hw1 = TA1R;
     hw2 = TA1R;
-  } while (hw1 != hw2);
+  } while(hw1 != hw2);
   return hw1;
 }
 /*---------------------------------------------------------------------------*/
@@ -395,20 +394,22 @@ rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
       hw_hf = TA0R;
       hw_lf = TA1R;
       hw_lf2 = TA1R;
+      /* majority vote required since CPU and TA1 are clocked from different
+       * sources */
       if(hw_lf != hw_lf2) { 
         continue;
       }
       if((TA0CTL & TAIFG) && (sw_hf == ta0_sw_ext)) {
-          /* in the meantime there has been an overflow of the HW timer: */
-          /* manually increment the SW extension and recapture all values */
-          sw_hf++;
-          continue;        
+        /* in the meantime there has been an overflow of the HW timer: */
+        /* manually increment the SW extension and recapture all values */
+        sw_hf++;
+        continue;
       }
       if((TA1CTL & TAIFG) && (sw_lf == ta1_sw_ext)) {
-          /* in the meantime there has been an overflow of the HW timer: */
-          /* manually increment the SW extension and recapture all values */
-          sw_lf++;
-          continue;
+        /* in the meantime there has been an overflow of the HW timer: */
+        /* manually increment the SW extension and recapture all values */
+        sw_lf++;
+        continue;
       }
       break;
     }
@@ -420,7 +421,7 @@ rtimer_now(rtimer_clock_t* const hf_val, rtimer_clock_t* const lf_val)
     /* only enable interrupts if the GIE bit was set before! otherwise ISR
      * nesting will be enabled if rtimer_now_hf() is called from an ISR! */
     if(interrupt_enabled) {
-        __eint(); __nop();
+      __eint(); __nop();
     }
   }
 }
@@ -442,17 +443,6 @@ rtimer_next_expiration(rtimer_id_t timer, rtimer_clock_t* exp_time)
      return (rt[timer].state == RTIMER_SCHEDULED);
    }
    return 0;
-}
-/*---------------------------------------------------------------------------*/
-clock_time_t
-clock_time(void)
-{
-  clock_time_t t1, t2;
-  do {
-    t1 = count;
-    t2 = count;
-  } while(t1 != t2);
-  return t1;
 }
 /*---------------------------------------------------------------------------*/
 /* Timer A0, CCR0 interrupt service routine */
@@ -494,8 +484,6 @@ ISR(TIMER0_A1, timer0_a1_interrupt)
   case TA0IV_TA0IFG:
     /* overflow of timer A0: increment its software extension */
     ta0_sw_ext++;
-    /* increment also the etimer count */
-    count++;
     /* update the LF timer if necessary */
   #if !RTIMER_CONF_LF_UPDATE_INT
     RTIMER_LF_HANDLE_OVF();
@@ -515,7 +503,7 @@ ISR(TIMER1_A0, timer1_a0_interrupt)
   DEBUG_ISR_ENTRY;
   DCSTAT_CPU_ON;
   ENERGEST_ON(ENERGEST_TYPE_CPU);
-  
+
   RTIMER_LF_CALLBACK(RTIMER_LF_0);
 
   ENERGEST_OFF(ENERGEST_TYPE_CPU);
