@@ -205,8 +205,10 @@
   //#define DEBUG_PRINT_CONF_USE_XMEM 1
   //#endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #define FRAM_SLEEP                fram_sleep()
+  #define FRAM_WAKEUP               fram_wakeup()
 #else /* FRAM_CONF_ON */
   #define FRAM_SLEEP
+  #define FRAM_WAKEUP
 #endif /* FRAM_CONF_ON */
 
 #if BOLT_CONF_ON
@@ -232,6 +234,10 @@
   #define BOLT_CONF_TIMEREQ_CCR     TA1CCR0
  #endif /* BOLT_CONF_TIMEREQ_HF_MODE */
 #endif /* BOLT_CONF_ON */
+
+#if !BOLT_CONF_USE_DMA && !FRAM_CONF_USE_DMA
+#define DMA_CONF_ENABLE             0
+#endif
 
 /* specify what needs to be done every time before UART is enabled */
 #define UART_BEFORE_ENABLE {\
@@ -259,25 +265,27 @@
                               SFRIE1  |= OFIE; \
                               TA0CTL  |= MC_2; \
                               P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
-                                          BIT6 | BIT7); \
-                            }
+                                          BIT6); \
+                              P1REN    = 0; /* disable pullup */ \
+                            } \
+                            FRAM_WAKEUP; /* takes ~0.5ms! */
 /* note: errata PMM11 should not affect this clock config; MCLK is sourced from
  * DCO, but DCO is not running at >4MHz and clock divider is 2 */
 
 /* disable all peripherals, reconfigure the GPIOs and disable XT2 */
 #define BEFORE_DEEPSLEEP()  {\
                               FRAM_SLEEP; \
-                              TA0CTL &= ~MC_3; /* stop TA0 */\
+                              TA0CTL  &= ~MC_3; /* stop TA0 */\
                               PIN_CLR(MUX_SEL_PIN); \
-                              P1SEL = 0; /* reconfigure GPIOs */\
+                              P1DIR    = (BIT2 | BIT3 | BIT4 | BIT6); \
+                              P1OUT    = (BIT6); \
+                              P1SEL    = 0; /* reconfigure GPIOs */ \
                               /* DPP has a pullup on P1.5! */\
-                              P1DIR = (BIT2 | BIT3 | BIT4 | BIT6 | BIT7); \
-                              P1OUT = 0; \
                               /* set clock source to DCO (3.25MHz) */\
-                              UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | \
-                                        SELM__DCOCLKDIV; \
+                              UCSCTL4  = SELA__XT1CLK | SELS__DCOCLKDIV | \
+                                         SELM__DCOCLKDIV; \
                               UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
-                              UCSCTL7  = 0; \
+                              UCSCTL7  = 0; /* errata UCS11 */ \
                               DISABLE_XT2(); \
                             }
 

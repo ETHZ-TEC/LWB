@@ -40,57 +40,50 @@ volatile uint16_t node_id;
 //#endif /* NODE_ID */
 uint16_t rst_flag;        /* make it global to be accessible by the app task */
 /*---------------------------------------------------------------------------*/
-void
-print_processes(struct process *const processes[])
-{
-  uart_enable(1);
-  printf("Starting");
-  while(*processes != NULL) {
-    printf(" '%s'", (*processes)->name);
-    processes++;
-  }
-  printf("\r\n");
-}
-/*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
 print_device_info(void)
 {
   const char* rst_source[14] = { "BOR", "nRST", "SWBOR", "SECV", "SVS", "SVM",
                                  "SWPOR", "WDT", "WDTPW", "KEYV", "PLLUL",
-                                 "PERF", "PMMKEY", "Unknown" };
+                                 "PERF", "PMMKEY", "?" };
   uint8_t idx;
-  /* 
-   * note: this device does not offer an LPMx.5 mode, therefore there's no
-   * corresponding reset source
-   */
-  rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
   /* when the PMM causes a reset, a value is generated in the system reset
-     interrupt vector generator register (SYSRSTIV), corresponding to the
-     source of the reset */
+     interrupt vector generator register (SYSRSTIV)
+     reset sources 2 - 10 generate a BOR, 12 - 20 a POR and 22 - 32 a PUC */
   switch(rst_flag) {
-    case SYSRSTIV_BOR:      idx = 0;  break;
-    case SYSRSTIV_RSTNMI:   idx = 1;  break;
-    case SYSRSTIV_DOBOR:    idx = 2;  break;
-    case SYSRSTIV_SECYV:    idx = 3;  break;
-    case SYSRSTIV_SVSL:
-    case SYSRSTIV_SVSH:     idx = 4;  break;
-    case SYSRSTIV_SVML_OVP:
-    case SYSRSTIV_SVMH_OVP: idx = 5;  break;
-    case SYSRSTIV_DOPOR:    idx = 6;  break;
-    case SYSRSTIV_WDTTO:    idx = 7;  break;
-    case SYSRSTIV_WDTKEY:   idx = 8;  break;
-    case SYSRSTIV_KEYV:     idx = 9;  break; /* flash password violation */
-    case SYSRSTIV_PLLUL:    idx = 10; break;
-    case SYSRSTIV_PERF:     idx = 11; break;
-    case SYSRSTIV_PMMKEY:   idx = 12; break;
+    case SYSRSTIV_BOR:      idx = 0;  break; /* 2 brownout reset */
+    case SYSRSTIV_RSTNMI:   idx = 1;  break; /* 4 reset pin */
+    case SYSRSTIV_DOBOR:    idx = 2;  break; /* 6 software BOR */
+    case SYSRSTIV_SECYV:    idx = 3;  break; /* 10 security violation */
+    case SYSRSTIV_SVSL:                      /* 12 supply voltage supervisor */
+    case SYSRSTIV_SVSH:     idx = 4;  break; /* 14 supply voltage supervisor */
+    case SYSRSTIV_SVML_OVP:                  /* 16 */
+    case SYSRSTIV_SVMH_OVP: idx = 5;  break; /* 18 */
+    case SYSRSTIV_DOPOR:    idx = 6;  break; /* 20 (software reset) */
+    case SYSRSTIV_WDTTO:    idx = 7;  break; /* 22 watchdog timeout */
+    case SYSRSTIV_WDTKEY:   idx = 8;  break; /* 24 watchdog PW violation */
+    case SYSRSTIV_KEYV:     idx = 9;  break; /* 26 flash password violation */
+    case SYSRSTIV_PLLUL:    idx = 10; break; /* 28 */
+    case SYSRSTIV_PERF:     idx = 11; break; /* 30 peripheral area fetch */
+    case SYSRSTIV_PMMKEY:   idx = 12; break; /* 32 PMM PW violation */
     default:                idx = 13; break;
   }
-  printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFirmware: %u.%02u " \
-         __DATE__ "\r\n", rst_source[idx], FW_VERSION >> 8, FW_VERSION & 0xff);
+  uint16_t major = FW_VERSION / 10000;
+  printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFW: %u.%02u " \
+         __DATE__ "\r\n", rst_source[idx], major, FW_VERSION - (10000* major));
 
   /* note: KEYV indicates an incorrect FCTLx password was written to any flash
    * control register and generates a PUC when set. */
+}
+/*---------------------------------------------------------------------------*/
+void
+bsl_entry(void)
+{
+  PIN_CFG_OUT(LED_STATUS);
+  PIN_SET(LED_STATUS);
+  ((void (*)())0x1000)();
+  __nop();
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -102,20 +95,25 @@ main(int argc, char **argv)
 #else
   watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
+  
+  rst_flag = SYSRSTIV;    /* read reset flag */
+  if(rst_flag == SYSRSTIV_DOBOR) {
+    bsl_entry();          /* enter bootstrap loader if software BOR detected */
+  }
 
   /* initialize hardware */
 
   /* set default configuration for all GPIOs (output low) */
   /* keep P1.5/P1.6 (UART) and BOLT IND/TRQ pins configured as inputs */
-  P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT7);
   PORT_CLR_I(1);
-  P2DIR = (BIT0 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+  P1DIR = (BIT0 | BIT2 | BIT3 | BIT4 | BIT7);
   PORT_CLR_I(2);
-  PORT_CFG_OUT_I(3);
+  P2DIR = (BIT0 | BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
   PORT_CLR_I(3);
-  PORT_CFG_OUT_I(J);
+  PORT_CFG_OUT_I(3);
   PORT_CLR_I(J);
-  
+  PORT_CFG_OUT_I(J);
+
   /* board-specific GPIO config */
   
 #ifdef MUX_SEL_PIN
@@ -123,6 +121,9 @@ main(int argc, char **argv)
   PIN_CFG_OUT(MUX_SEL_PIN);
   PIN_SET(MUX_SEL_PIN);
 #endif 
+  
+  /* enable status LED to indicate start of init routine */
+  PIN_SET(LED_STATUS);
 
   /* pin mappings */
 #ifdef RF_GDO0_PIN
@@ -148,9 +149,12 @@ main(int argc, char **argv)
   rtimer_init();
   uart_init();
   uart_enable(1);
+#if UART_CONF_RX_INTERRUPT
   uart_set_input_handler(serial_line_input_byte);
+#endif /* UART_CONF_RX_INTERRUPT */
+
   print_device_info();
-    
+
 #if RF_CONF_ON
   /* init the radio module and set the parameters */
   rf1a_init();
@@ -181,27 +185,30 @@ main(int argc, char **argv)
 #endif /* SVS_CONF_ON */
 
   process_init();
-  process_start(&etimer_process, NULL);
 
   random_init(node_id * TA0R);
+#if UART_CONF_RX_INTERRUPT
   serial_line_init();
+#endif /* UART_CONF_RX_INTERRUPT */
   /* note: do not start the debug process here */
 
+#if ENERGEST_CONF_ON
   energest_init();
   ENERGEST_ON(ENERGEST_TYPE_CPU);
   DCSTAT_CPU_ON;
+#endif /* ENERGEST_CONF_ON */
 
 #if NULLMAC_CONF_ON
   nullmac_init();
 #endif /* NULLMAC_CONF_ON */
   
   /* start processes */
-  print_processes(autostart_processes);
   autostart_start(autostart_processes);
   debug_print_init();
   /* note: start debug process as last due to process_poll() execution order */
   
-  PIN_CLR(LED_STATUS);     /* init done */
+  /* disable status LED to indicate successful termination of init routine */
+  PIN_CLR(LED_STATUS);
 
   while(1) {
     int r;
@@ -223,7 +230,7 @@ main(int argc, char **argv)
       /* re-enable interrupts and go to sleep atomically */
       ENERGEST_OFF(ENERGEST_TYPE_CPU);
       DCSTAT_CPU_OFF;
-#if WATCHDOG_CONF_ON && !WATCHDOG_CONF_RESET_ON_TA1IFG
+#if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
       /* no need to stop the watchdog in the low-power mode if it is reset
        * within the timer update interrupt (which occurs every 2 seconds) */
       watchdog_stop();
@@ -231,7 +238,7 @@ main(int argc, char **argv)
       /* LPM3 */
       __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
       __no_operation();
-#if WATCHDOG_CONF_ON && !WATCHDOG_CONF_RESET_ON_TA1IFG
+#if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
       watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
       DCSTAT_CPU_ON;

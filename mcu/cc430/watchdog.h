@@ -77,7 +77,7 @@ watchdog_interrupt_enable(void)
 
 /**
  * @brief sets the clock source (ACLK) and divider
- * @note divider: WDTIS_3 = 512k, WDTIS_4 = 32k
+ * @note divider: WDTIS_2 (4min), WDTIS_3 (16s), WDTIS_4 (1s)
  */
 static inline void
 watchdog_init(void)

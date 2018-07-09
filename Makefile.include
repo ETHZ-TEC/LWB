@@ -129,7 +129,7 @@ $(EXEFILE): $(OBJS)
 	@msp430-objcopy $(EXEFILE) -O ihex $(HEXFILE)
 	@msp430-objdump -d $(EXEFILE) > $(DISFILE)
 	@msp430-size $(EXEFILE)
-	@msp430-size elwb-dev.exe | tail -1 | awk '{if ($$2 + $$3 > (4096 - $(STACKSIZE))) { print "WARNING: only " 4096 - ($$2 + $$3) " bytes remaining for the stack!" } }'
+	@msp430-size $(EXEFILE) | tail -1 | awk '{if ($$2 + $$3 > (4096 - $(STACKSIZE))) { print "WARNING: only " 4096 - ($$2 + $$3) " bytes remaining for the stack!" } }'
 
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -169,7 +169,7 @@ verify: check-env
 
 
 check-stack:
-	@msp430-size elwb-dev.exe | tail -1 | awk '{if ($$2 + $$3 > (4096 - $(STACKSIZE))) { print "WARNING: only " 4096 - ($$2 + $$3) " bytes remaining for the stack!" } else { print "OK" } }'
+	@msp430-size $(EXEFILE) | tail -1 | awk '{if ($$2 + $$3 > (4096 - $(STACKSIZE))) { print "WARNING: only " 4096 - ($$2 + $$3) " bytes remaining for the stack!" } else { print "OK" } }'
 
 
 .PHONY: clean
