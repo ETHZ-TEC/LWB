@@ -105,6 +105,9 @@ elwb_node_list_t nodes_mem[ELWB_CONF_MAX_N_NODES];
 #define GET_L_BITS()       (compressed_data[2] & 0x07)  
 #define SET_D_L_BITS(d, l) (compressed_data[2] = ((d) << 3) | ((l) & 0x07))
 #define COMPR_SLOT(a)      (compressed_data[3 + (a)])
+#ifndef MIN
+#define MIN(x, y)          ((x) < (y) ? (x) : (y))
+#endif /* MIN */
 /*---------------------------------------------------------------------------*/
 static inline uint8_t 
 get_min_bits(uint16_t a) 
@@ -333,7 +336,7 @@ elwb_sched_process_req(uint16_t id,
   /* check if node already exists */
   for(node = list_head(nodes_list); node != 0; node = node->next) {
     if(id == node->id) {
-      node->n_pkts = n_pkts;
+      node->n_pkts = MIN(n_pkts, ELWB_CONF_MAX_DATA_SLOTS);
       node->t_last_req = (time / ELWB_PERIOD_SCALE);
       return;
     }

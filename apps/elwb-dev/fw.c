@@ -140,7 +140,6 @@ fw_process_msg(dpp_message_t* msg)
     if(msg->header.payload_len != (6 + DPP_FW_BLOCK_SIZE)) {
       return FAILED;
     }
-    DEBUG_PRINT_INFO("processing FW block %u", msg->firmware.data.ofs);
     return fw_store_data(&msg->firmware);
 
   case DPP_FW_TYPE_CHECK:
@@ -173,6 +172,7 @@ fw_store_data(const dpp_fw_t* fwpkt)
     memset(&fwinfo, 0, sizeof(fw_info_t));
     fwinfo.state     = FW_STATE_RECEIVING;
     fwinfo.version   = fwpkt->version;
+    DEBUG_PRINT_INFO("new FW version, current FW cleared");
   }
   if(fwinfo.state == FW_STATE_READY) {
     return SUCCESS; /* no need to continue, we already have all data */
@@ -190,6 +190,8 @@ fw_store_data(const dpp_fw_t* fwpkt)
     /* mark the block as 'existing' */
     fwinfo.blocks[blkid >> 3] |= bitmask;
     fwinfo.block_cnt++;
+    
+    DEBUG_PRINT_INFO("FW block %u processed", fwpkt->data.ofs);
   }
   return SUCCESS;
 }
@@ -208,7 +210,8 @@ fw_verify(const dpp_fw_t* fwpkt)
     /* first, check whether all blocks are in the memory */
     if(fwinfo.block_cnt < FW_FILE_BLOCK_CNT) {
       fw_request_data();
-      EVENT_INFO(EVENT_CC430_FW_PROGRESS, ((uint32_t)fwinfo.block_cnt * 100 / FW_FILE_BLOCK_CNT));      
+      EVENT_INFO(EVENT_CC430_FW_PROGRESS,
+                 ((uint32_t)fwinfo.block_cnt * 100 / FW_FILE_BLOCK_CNT));
       return FAILED;
     }
     /* data is in place, verify checksum */
@@ -223,7 +226,8 @@ fw_verify(const dpp_fw_t* fwpkt)
       num_blocks--;
     }
     if(fwinfo.data_crc != crc) {
-      DEBUG_PRINT_ERROR("invalid FW file CRC");
+      DEBUG_PRINT_ERROR("invalid FW file CRC (%lx vs %lx)", crc, 
+                                                            fwinfo.data_crc);
       fwinfo.state = FW_STATE_INIT;  /* drop all FW info and data */
       return FAILED;
     }

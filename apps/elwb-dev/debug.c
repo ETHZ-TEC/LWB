@@ -153,12 +153,16 @@ dump_debug_info(uint16_t stack_addr)
   printf("\r\n-------------------------------------------------------\r\n");
 }
 /*---------------------------------------------------------------------------*/
+#if DEBUG_CONF_P1INT_EN
 ISR(PORT1, port1_interrupt)
 {
   AFTER_DEEPSLEEP();
-  DEBUG_PRINT_MSG_NOW("P1 ISR");
+  DEBUG_PRINT_MSG_NOW("entering BSL...");
   P1IFG &= ~BIT5;
+  
+  PMM_TRIGGER_BOR;
 }
+#endif /* DEBUG_CONF_P1INT_EN */
 /*---------------------------------------------------------------------------*/
 #if WATCHDOG_CONF_TIMER_MODE
 ISR(WDT, wdt_interrupt)

@@ -48,11 +48,6 @@ print_device_info(void)
                                  "SWPOR", "WDT", "WDTPW", "KEYV", "PLLUL",
                                  "PERF", "PMMKEY", "?" };
   uint8_t idx;
-  /* 
-   * note: this device does not offer an LPMx.5 mode, therefore there's no
-   * corresponding reset source
-   */
-  rst_flag = SYSRSTIV; /* flag is automatically cleared by reading it */
   /* when the PMM causes a reset, a value is generated in the system reset
      interrupt vector generator register (SYSRSTIV)
      reset sources 2 - 10 generate a BOR, 12 - 20 a POR and 22 - 32 a PUC */
@@ -82,6 +77,15 @@ print_device_info(void)
    * control register and generates a PUC when set. */
 }
 /*---------------------------------------------------------------------------*/
+void
+bsl_entry(void)
+{
+  PIN_CFG_OUT(LED_STATUS);
+  PIN_SET(LED_STATUS);
+  ((void (*)())0x1000)();
+  __nop();
+}
+/*---------------------------------------------------------------------------*/
 int
 main(int argc, char **argv)
 {
@@ -91,6 +95,11 @@ main(int argc, char **argv)
 #else
   watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
+  
+  rst_flag = SYSRSTIV;    /* read reset flag */
+  if(rst_flag == SYSRSTIV_DOBOR) {
+    bsl_entry();          /* enter bootstrap loader if software BOR detected */
+  }
 
   /* initialize hardware */
 

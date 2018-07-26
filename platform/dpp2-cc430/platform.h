@@ -187,8 +187,10 @@
   //#define DEBUG_PRINT_CONF_USE_XMEM 1
   //#endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #define FRAM_SLEEP                fram_sleep()
+  #define FRAM_WAKEUP               fram_wakeup()
 #else /* FRAM_CONF_ON */
   #define FRAM_SLEEP
+  #define FRAM_WAKEUP
 #endif /* FRAM_CONF_ON */
 
 #if BOLT_CONF_ON
@@ -215,6 +217,10 @@
  #endif /* BOLT_CONF_TIMEREQ_HF_MODE */
 #endif /* BOLT_CONF_ON */
 
+#if !BOLT_CONF_USE_DMA && !FRAM_CONF_USE_DMA
+#define DMA_CONF_ENABLE             0
+#endif
+
 /* specify what needs to be done every time before UART is enabled */
 #define UART_BEFORE_ENABLE          /* nothing to be done */
 
@@ -227,6 +233,8 @@
 
 #define UART_ACTIVE             (UCA0STAT & UCBUSY)
 
+/* note: P1.5 (BIT5) is the UART RXD pin, not used by default, therefore not
+ *       reconfigured in peripheral module function mode */
 #define AFTER_DEEPSLEEP()       if(UCSCTL6 & XT2OFF) { \
                                   SFRIE1  &= ~OFIE; \
                                   ENABLE_XT2(); \
@@ -237,10 +245,11 @@
                                   UCSCTL7  = 0; /* errata UCS11 */ \
                                   SFRIE1  |= OFIE; \
                                   TA0CTL  |= MC_2; \
-                                  P1SEL    = (BIT2 | BIT3 | BIT4 | BIT5 | \
+                                  P1SEL    = (BIT2 | BIT3 | BIT4 |  \
                                               BIT6); \
                                   P1REN    = 0; /* disable pullup */ \
-                                }
+                                } \
+                                FRAM_WAKEUP; /* takes ~0.5ms! */
 /* note: errata PMM11 should not affect this clock config; MCLK is sourced from
  * DCO, but DCO is not running at >4MHz and clock divider is 2 */
 
@@ -254,9 +263,9 @@
                                   P1SEL    = 0; /* reconfigure GPIOs */ \
                                   /* set clock source to DCO (3.25MHz) */\
                                   UCSCTL4  = SELA__XT1CLK | SELS__DCOCLKDIV | \
-                                            SELM__DCOCLKDIV; \
+                                             SELM__DCOCLKDIV; \
                                   UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
-                                  UCSCTL7  = 0; \
+                                  UCSCTL7  = 0; /* errata UCS11 */ \
                                   DISABLE_XT2(); \
                                 }
 

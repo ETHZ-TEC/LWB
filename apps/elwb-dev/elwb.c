@@ -188,8 +188,9 @@ elwb_requeue_pkt(uint32_t pkt_addr)
     memcpy((uint8_t*)(uint16_t)new_pkt_addr, (uint8_t*)(uint16_t)pkt_addr, 
            sizeof(elwb_queue_elem_t));
 #else /* ELWB_CONF_USE_XMEM */
-    xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer);
-    xmem_write(new_pkt_addr, xmem_buffer.len + 1, (uint8_t*)&xmem_buffer);
+    if(xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer)){
+      xmem_write(new_pkt_addr, xmem_buffer.len + 1, (uint8_t*)&xmem_buffer);
+    }
 #endif /* ELWB_CONF_USE_XMEM */
     DEBUG_PRINT_VERBOSE("packet requeued");
   } else {
@@ -243,8 +244,10 @@ elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
     memcpy(out_data, next_msg->data, next_msg->len);
     *out_len = next_msg->len;
 #else /* ELWB_CONF_USE_XMEM */
-    xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer);
-    memcpy(out_data, xmem_buffer.data, xmem_buffer.len);
+    xmem_buffer.len = 0;
+    if(xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer)){
+      memcpy(out_data, xmem_buffer.data, xmem_buffer.len);
+    }
     *out_len = xmem_buffer.len;
 #endif /* ELWB_CONF_USE_XMEM */
     return 1;
@@ -298,6 +301,7 @@ elwb_rcv_pkt(uint8_t* out_data)
     memcpy(out_data, next_msg->data, next_msg->len);
     return next_msg->len;
 #else /* ELWB_CONF_USE_XMEM */
+    xmem_buffer.len = 0;
     if(!xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), 
                   (uint8_t*)&xmem_buffer)) {
       return 0;

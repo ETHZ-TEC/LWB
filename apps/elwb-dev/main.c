@@ -141,15 +141,18 @@ PROCESS_THREAD(app_pre, ev, data)
     
     /* --- read messages from BOLT --- */
     uint16_t read = 0,
-             forwarded = 0;
+             forwarded = 0,
+             max_read = 30;
     while(BOLT_DATA_AVAILABLE &&
-          (elwb_get_send_buffer_state() < ELWB_CONF_OUT_BUFFER_SIZE)) {
+          (elwb_get_send_buffer_state() < ELWB_CONF_OUT_BUFFER_SIZE) &&
+          max_read) {
       if(bolt_read((uint8_t*)&msg_rx)) {
         if(!process_message(&msg_rx, 1)) {
           forwarded++;
         }
         read++;
       } /* else: invalid message received from BOLT */
+      max_read--;
     }
     if(read) {
       DEBUG_PRINT_INFO("%u msg read from BOLT, %u forwarded", 
@@ -180,14 +183,22 @@ PROCESS_THREAD(app_post, ev, data)
   PROCESS_BEGIN();
   
   /* compile time checks */
-  if(sizeof(dpp_message_t) != DPP_MSG_PKT_LEN) {
-    DEBUG_PRINT_FATAL("invalid DPP message size");
+  if(sizeof(dpp_message_t) != DPP_MSG_PKT_LEN || 
+     sizeof(config_t) != NVCFG_CONF_BLOCK_SIZE) {
+    DEBUG_PRINT_FATAL("dpp_message_t or config_t is invalid");
   }
   DEBUG_PRINT_MSG_NOW("Process '%s' started", app_post.name);
   
   /* --- initialization --- */
   
   static uint8_t node_info_sent = 0;
+  
+#if DEBUG_CONF_P1INT_EN
+  P1SEL &= ~BIT5;
+  P1IES |= BIT5;
+  P1IFG &= ~BIT5;
+  P1IE  |= BIT5;
+#endif /* DEBUG_CONF_P1INT_EN */
   
   APP_TASK_ACTIVE;
   

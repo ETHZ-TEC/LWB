@@ -67,12 +67,12 @@
 
 #define ELWB_CONF_N_HOPS                3
 #if IS_HOST
-#define ELWB_CONF_SCHED_NODE_LIST       21001, 21002, 21003, 21004, 21005, \
+/*#define ELWB_CONF_SCHED_NODE_LIST       21001, 21002, 21003, 21004, 21005, \
                                         21006, 21007, 21008, 21009, 21010, \
                                         21011, 21012, 21013, 21014, 21015, \
                                         21016, 21017, 21018, 21019, 21020, \
                                         21021, 21022, 21023, 21024, 21025, \
-                                        21026    /* predefined list of nodes */
+                                        21026*/    /* predefined list of nodes */
 #endif /* IS_HOST */
 
 
@@ -169,6 +169,7 @@
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
                                          /* -> .bss + .dec size */
+#define DEBUG_CONF_P1INT_EN             0
 #define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2

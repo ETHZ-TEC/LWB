@@ -34,13 +34,19 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10002           /* in decimal ABBCC */
+#define FW_VERSION      10003           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0003 (2018-07-23):
+- change: max #packets that are read from the BOLT queue per round limited
+- change: more checks added for xmem_read() in elwb.c
+- change: limit for max #slots per request added to scheduler
+- change: jump into BSL if reset flag SWBOR detected
 
 Version 1.0002 (2018-07-03);
 - change: rtimer period changed to 32-bit to reduce runtime and memory usage
