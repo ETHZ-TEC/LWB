@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -29,6 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Federico Ferrari
+ *          Reto Da Forno
  */
 
 /**
@@ -45,15 +45,36 @@
 #ifndef __RF1A_H__
 #define __RF1A_H__
 
-#ifndef RF_CONF_ON
-#define RF_CONF_ON              1       /* RF module enabled by default */
-#endif /* RF_CONF_ON */
 
-#if RF_CONF_ON
+/* standard TX power values */
+typedef enum {
+  RF1A_TX_POWER_MINUS_30_dBm = 0x0,
+  RF1A_TX_POWER_MINUS_12_dBm = 0x1,
+  RF1A_TX_POWER_MINUS_6_dBm = 0x2,
+  RF1A_TX_POWER_0_dBm = 0x3,
+  RF1A_TX_POWER_PLUS_10_dBm = 0x4,
+  RF1A_TX_POWER_MAX = 0x5,
+  N_TX_POWER_LEVELS
+} rf1a_tx_powers_t;
+
+/* possible off modes where the radio switches at the end of RX or TX */
+typedef enum {
+  RF1A_OFF_MODE_IDLE = 0x0,
+  RF1A_OFF_MODE_FSTXON = 0x1,
+  RF1A_OFF_MODE_TX = 0x2,
+  RF1A_OFF_MODE_RX = 0x3
+} rf1a_off_modes_t;
+
+/* possible calibration modes */
+typedef enum {
+  RF1A_CALIBRATION_MODE_MANUAL = 0x0,
+  RF1A_CALIBRATION_MODE_AUTOMATIC_FROM_IDLE = 0x1,
+  RF1A_CALIBRATION_MODE_AUTOMATIC_TO_IDLE = 0x2,
+  RF1A_CALIBRATION_MODE_AUTOMATIC_EVERY_FOURTH_TO_IDLE = 0x3
+} rf1a_calibration_modes_t;
 
 
-#include "rf1a-core.h"
-#include "contiki-conf.h"
+extern const int8_t rf1a_tx_power_val[N_TX_POWER_LEVELS];
 
 
 /* reception started callback */
@@ -170,8 +191,6 @@ void rf1a_set_calibration_mode(rf1a_calibration_modes_t mode);
 
 /* clear any pending interrupts */
 void rf1a_clear_pending_interrupts(void);
-
-#endif /* RF_CONF_ON */
 
 /**
  * @}
