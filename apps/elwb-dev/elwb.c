@@ -684,11 +684,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       rtimer_now(&hf_now, &t_ref_lf);
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
       if(ELWB_SCHED_IS_FIRST(&schedule)) {
-        /* only update the timestamp during the idle period */
-        period_idle = schedule.period;
-        global_time = schedule.time;
-        last_synced_lf = t_ref_lf;
-        
         /* collect some stats of the schedule flood */
         stats.relay_cnt      = glossy_get_relay_cnt_first_rx();
         stats.glossy_snr     = glossy_get_snr();
@@ -706,6 +701,10 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         if(drift < 100 && drift > -100) {
           stats.drift = (stats.drift + drift) / 2;
         }
+        /* only update the timestamp during the idle period */
+        period_idle = schedule.period;
+        global_time = schedule.time;
+        last_synced_lf = t_ref_lf;
       }
     } else {
       /* update the sync state machine */

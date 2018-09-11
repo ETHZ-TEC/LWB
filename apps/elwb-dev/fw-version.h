@@ -34,13 +34,18 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10003           /* in decimal ABBCC */
+#define FW_VERSION      10004           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0004 (2018-09-11):
+- bugfix: value for drift in LWB health was always zero
+- change: in rf1a, timeouts added to WAIT_UNTIL macros to avoid potential
+          lockup conditions
 
 Version 1.0003 (2018-07-23):
 - change: max #packets that are read from the BOLT queue per round limited
