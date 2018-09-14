@@ -82,6 +82,7 @@
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 125)    /* 8ms */
 #define LWB_CONF_TX_CNT_SCHED           3
 #define LWB_CONF_TX_CNT_DATA            3
+#define LWB_CONF_T_SCHED2_START         RTIMER_SECOND_HF
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
