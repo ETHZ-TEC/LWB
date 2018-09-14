@@ -1,30 +1,32 @@
 #!/bin/sh
-
-# define the root of the Contiki source tree (relative to this directory), the application name 
-# and the system-wide Contiki makefile, which contains the definitions of the Contiki core system 
-# and points out to the specific Makefile of our target platform. Makefile.include must always be 
-# located in the root folder of the Contiki source tree.
 CONTIKI = ../..
-CONTIKI_PROJECT = lwb
+CONTIKI_PROJECT = lwb-test
+DESCRIPTION ?= LWB Test app
 
 SRCS = ${shell find . -maxdepth 1 -type f -name "*.[c]" -printf "%f "}
 
-ifndef $(node_id)
-    node_id = 0
-endif
+TARGET ?= dpp
+
+TESTDURATION ?= 120
+
+FLOCKLABTOOLS = ./
+XMLTEMPLATE = flocklab-$(TARGET)-template.xml
+XMLFILE = flocklab-$(TARGET).xml
 
 include $(CONTIKI)/Makefile.include
 
-flocklab:
-# embed image
-	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).b64
-	@sed -i -n '1h;1!H;$${ g;s/<data>[^<]*<\/data>/<datacc430>\n<\/data>/;p}' flocklab-dpp.xml
-	@sed '/<datacc430>/r $(CONTIKI_PROJECT).b64' -i flocklab-dpp.xml
-	@sed -i 's/<datacc430>/<data>/' flocklab-dpp.xml
-	@rm $(CONTIKI_PROJECT).b64
-	
-upload: 
-	tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(CONTIKI_PROJECT).exe $(CONTIKI_PROJECT).hex TOS_NODE_ID=$(node_id)
-	@export LD_LIBRARY_PATH="/home/$(USER)/ti/ccsv6/ccs_base/DebugServer/drivers/"
-	@mspdebug tilib "prog $(CONTIKI_PROJECT).hex" --allow-fw-update
+
+flocklab_xml:
+	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).$(TARGET).b64
+	@sed -n '1h;1!H;$${ g;s/<data>[^<]*<\/data>/<data_new>\n<\/data>/;p}' $(FLOCKLABTOOLS)$(XMLTEMPLATE) > $(XMLFILE)
+	@sed -i '/<data_new>/r $(CONTIKI_PROJECT).$(TARGET).b64' $(XMLFILE)
+	@sed -i 's/<data_new>/<data>/' $(XMLFILE)
+	@sed -i 's/<name>Name<\/name>/<name>$(CONTIKI_PROJECT)<\/name>/' $(XMLFILE)
+	@sed -i 's/<description>Description<\/description>/<description>$(DESCRIPTION) \($(TARGET)\)<\/description>/' $(XMLFILE)
+	@sed -i 's/<durationSecs>[^<]*<\/durationSecs>/<durationSecs>$(TESTDURATION)<\/durationSecs>/' $(XMLFILE)
+	@rm $(CONTIKI_PROJECT).$(TARGET).b64
+
+flocklab_test: flocklab_xml
+	flocklab -c $(XMLFILE)
+
 

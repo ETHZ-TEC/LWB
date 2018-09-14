@@ -237,10 +237,8 @@ static inline char
 timeout_expired(rtimer_t *rt)
 {
   if(!rf1a_is_busy()) {
-    DCSTAT_RFRX_OFF;
     /* we are not receiving anything: retransmit the packet */
     rf1a_start_tx();
-    DCSTAT_RFTX_ON;
     g.header.relay_cnt = g.relay_cnt_timeout;
     rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                           GLOSSY_HEADER_LEN(g.header.pkt_type),
@@ -295,6 +293,7 @@ void
 glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
              uint8_t n_tx_max, glossy_sync_t sync, glossy_rf_cal_t rf_cal)
 {
+  GLOSSY_STARTED;
   DEBUG_PRINT_VERBOSE("Glossy started: in=%u, pl=%u, n=%u, s=%u", initiator_id,
                       payload_len, n_tx_max, sync);
 
@@ -362,7 +361,6 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     /* start the first transmission */
     g.t_timeout = rtimer_now_hf() + TIMEOUT_EXTRA_TICKS;
     rf1a_start_tx();
-    DCSTAT_RFTX_ON;
 #if GLOSSY_CONF_COLLECT_STATS
     g.stats.last_flood_duration = rtimer_now_hf();
 #endif /* GLOSSY_CONF_COLLECT_STATS */
@@ -374,7 +372,6 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   } else {
     /* Glossy receiver */
     rf1a_start_rx();
-    DCSTAT_RFRX_ON;
 #if GLOSSY_CONF_COLLECT_STATS
     g.stats.last_flood_duration = rtimer_now_hf();
     /* measure the channel noise (but only if waiting for the schedule */
@@ -392,15 +389,11 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   }
-  DCSTAT_RF_ON;
-
   /* note: RF_RDY bit must be cleared by the radio core before entering LPM
    * after a transition from idle to RX or TX. Either poll the status of the
    * radio core (SNOP strobe) or read the GDOx signal assigned to RF_RDY */
   timeout = 500;                                   /* ~500us @13MHz (MSP430) */
   while((RF1AIN & BIT0) && timeout) timeout--;          /* check GDO0 signal */
-  
-  GLOSSY_STARTED;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -416,9 +409,7 @@ glossy_stop(void)
      * re-configured! see CC1101 datasheet p.33 */
     rf1a_go_to_sleep();
     rf1a_clear_pending_interrupts();
-    DCSTAT_RF_OFF;
-    DCSTAT_RFTX_OFF;
-    DCSTAT_RFRX_OFF;
+
     GLOSSY_RX_STOPPED;
     GLOSSY_TX_STOPPED;
     GLOSSY_STOPPED;
@@ -678,7 +669,6 @@ rf1a_cb_header_received(rtimer_clock_t *timestamp, uint8_t *header,
 void
 rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
 {
-  DCSTAT_RFRX_OFF;
   GLOSSY_RX_STOPPED;
   
   /* enable timer overflow / update interrupt (since we are in an interrupt
@@ -709,7 +699,6 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
        (g.n_tx < GET_N_TX_MAX(g.header.pkt_type))) {
       /* if n_tx_max is either unknown or not yet reached, transmit the
        * packet */
-      DCSTAT_RFTX_ON;
       rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                             GLOSSY_HEADER_LEN(g.header.pkt_type),
                             payload, g.payload_len);
@@ -775,7 +764,6 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
 void
 rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
 {
-  DCSTAT_RFTX_OFF;
   GLOSSY_TX_STOPPED;
 
   g.t_tx_stop = *timestamp;
@@ -806,7 +794,6 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
 #if GLOSSY_CONF_RETRANSMISSION_TIMEOUT
   else {
     /* radio switches automatically to RX mode */
-    DCSTAT_RFRX_ON;
     if((IS_INITIATOR()) && (g.n_rx == 0)) {
       /* we are the initiator and we still have not received any packet:
        * schedule the timeout */
@@ -819,7 +806,6 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
 void
 rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
 {
-  DCSTAT_RFRX_OFF;
   GLOSSY_RX_STOPPED;
   /* RX has failed due to invalid CRC or invalid Glossy header */
 #if GLOSSY_CONF_COLLECT_STATS
@@ -836,15 +822,12 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
   if(g.active) {
     rf1a_flush_rx_fifo();
     rf1a_start_rx();
-    DCSTAT_RFRX_ON;
   }
 }
 /*---------------------------------------------------------------------------*/
 void
 rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
 {
-  DCSTAT_RFTX_OFF;
-  DCSTAT_RFRX_OFF;
   GLOSSY_RX_STOPPED;
   GLOSSY_TX_STOPPED;
 
@@ -862,7 +845,6 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
     rf1a_flush_rx_fifo();
     rf1a_flush_tx_fifo();
     rf1a_start_rx();
-    DCSTAT_RFRX_ON;
   }
 }
 /*---------------------------------------------------------------------------*/

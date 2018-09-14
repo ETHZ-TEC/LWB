@@ -319,8 +319,8 @@
 #include "flash.h"
 #include "gpio.h"
 #include "pmm.h"
-#include "rf1a.h"        /* RF1A config must be included BEFORE rf1a.h */
 #include "rtimer.h"
+#include "rf1a.h"        /* RF1A config must be included BEFORE rf1a.h */
 #include "spi.h"
 #include "uart.h"
 #include "usci.h"

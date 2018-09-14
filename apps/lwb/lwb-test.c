@@ -58,59 +58,59 @@ PROCESS(app_process, "Application Task");
 AUTOSTART_PROCESSES(&app_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data) 
-{ 
+{
+  static uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN];
   static uint8_t stream_state = 0;
-  
+
   PROCESS_BEGIN();
-            
+
   /* start the LWB thread */
   lwb_start(0, &app_process);
-  
+
   /* main loop of this application task */
   while(1) {
     /* the app task should not do anything until it is explicitly granted 
      * permission (by receiving a poll event) by the LWB task */
+    TASK_SUSPENDED;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     TASK_ACTIVE;      /* application task runs now */
-    
+
     if(HOST_ID == node_id) {
-      /* we are the host */
-      /* print out the received data */
-      uint8_t pkt_buffer[LWB_CONF_MAX_DATA_PKT_LEN];
-      uint16_t sender_id;
-      while(1) {
-        uint8_t pkt_len = lwb_rcv_pkt(pkt_buffer, &sender_id, 0);
-        if(pkt_len) {
-          /* use DEBUG_PRINT_MSG_NOW to prevent a queue overflow */
-          DEBUG_PRINT_MSG_NOW("data packet received from node %u",
-                              sender_id);
-        } else {
-          break;
-        }
-      } 
+      /* we are the host: read the received data packets */
+      uint16_t cnt = 0;
+      uint16_t pkt_len;
+      do {
+        cnt++;
+        pkt_len = lwb_rcv_pkt(pkt_buffer, 0, 0);
+      } while(pkt_len);
+      DEBUG_PRINT_INFO("rcvd packets: %u, CPU DC: %u, RF DC: %u",
+                       cnt - 1, DCSTAT_CPU_DC, DCSTAT_RF_DC);
+
     } else {
       /* we are a source node */
       if(stream_state != LWB_STREAM_STATE_ACTIVE) {
         stream_state = lwb_stream_get_state(1);
         if(stream_state == LWB_STREAM_STATE_INACTIVE) {
-          /* request a stream with ID 1 and an IPI (inter packet interval) 
-           * of 10 seconds */
-          lwb_stream_req_t my_stream = { node_id, 0, 1, 10 };
+          /* request a stream */
+          lwb_stream_req_t my_stream = { node_id, 0, 1, SOURCE_IPI };
           if(!lwb_request_stream(&my_stream, 0)) {
             DEBUG_PRINT_ERROR("stream request failed");
           }
         }
       } else {
-        /* generate a dummy packet */
-        uint16_t data = 0xaaaa;
-        if(!lwb_send_pkt(0, 1, (uint8_t*)&data, 2)) {
-          DEBUG_PRINT_WARNING("out queue full, packet dropped");
-        } /* else: data packet successfully passed to the LWB */
+        /* keep the output buffer filled, generate a dummy packets */
+        memset(pkt_buffer, 0xaa, LWB_CONF_MAX_DATA_PKT_LEN - 3);
+        uint16_t cnt = 0;
+        while(lwb_send_pkt(0, 1, pkt_buffer,
+                           LWB_CONF_MAX_DATA_PKT_LEN - 3)) cnt++;
+        if(cnt) {
+          DEBUG_PRINT_INFO("%u LWB packets created", cnt);
+        }
       }
+      DEBUG_PRINT_INFO("CPU DC: %u, RF DC: %u",
+                       DCSTAT_CPU_DC,
+                       DCSTAT_RF_DC);
     }
-    /* IMPORTANT: This process must not run for more than a few hundred
-     * milliseconds in order to enable proper operation of the LWB */
-    
     /* since this process is only executed at the end of an LWB round, we 
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */
@@ -118,7 +118,6 @@ PROCESS_THREAD(app_process, ev, data)
     LWB_BEFORE_DEEPSLEEP();
 #endif /* LWB_CONF_USE_LF_FOR_WAKEUP */
     
-    TASK_SUSPENDED;
   }
 
   PROCESS_END();

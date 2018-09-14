@@ -39,11 +39,13 @@
 
 #define FLOCKLAB                             /* uncomment to run on FlockLAB */
 #define HOST_ID                         1
+#define NUM_NODES                       30
+#define SOURCE_IPI                      4    /* seconds */
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
-  #define RF_CONF_TX_POWER              RF1A_TX_POWER_MINUS_6_dBm //0_dBm 
-  #define RF_CONF_TX_CH                 5      /* approx. 869 MHz */   
+  #define GMW_CONF_RF_TX_POWER          GMW_RF_TX_POWER_PLUS_10_dBm
+  #define RF_CONF_TX_CH                 5      /* approx. 869 MHz */
   #define GLOSSY_START_PIN              FLOCKLAB_LED1
   #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT2
   #define RF_GDO2_PIN                   FLOCKLAB_INT1
@@ -58,13 +60,28 @@
 #endif /* FLOCKLAB */
 
 /* LWB configuration */
-#define LWB_SCHED_STATIC                         /* use the static scheduler */
-#define LWB_CONF_SCHED_PERIOD_IDLE      10       /* define the period length */
-#define LWB_CONF_OUT_BUFFER_SIZE        2
+#define LWB_SCHED_MIN_ENERGY             /* use the minimum energy scheduler */
+//#define LWB_SCHED_STATIC                       /* use the static scheduler */
+#define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */
+#define LWB_CONF_SCHED_PERIOD_MIN       2
+#define LWB_CONF_SCHED_PERIOD_MAX       15
+#define LWB_CONF_OUT_BUFFER_SIZE        4
+#define LWB_CONF_IN_BUFFER_SIZE         4
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
-#define LWB_CONF_MAX_PKT_LEN            50
-#define LWB_CONF_MAX_DATA_PKT_LEN       32
-#define LWB_CONF_MAX_DATA_SLOTS         20
+#define LWB_CONF_MAX_PKT_LEN            80
+#define LWB_CONF_MAX_DATA_PKT_LEN       15
+#define LWB_CONF_MAX_DATA_SLOTS         NUM_NODES
+
+#define LWB_CONF_T_SCHED                (RTIMER_SECOND_HF / 40)     /* 25ms */
+#define LWB_CONF_T_DATA                 (RTIMER_SECOND_HF / 50)     /* 20ms */
+#define LWB_CONF_T_GUARD_1              (RTIMER_SECOND_HF / 1000)   /* 1ms */
+#define LWB_CONF_T_GUARD_2              (RTIMER_SECOND_HF / 1000)
+#define LWB_CONF_T_GUARD_3              (RTIMER_SECOND_HF / 1000)
+#define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 2000)   /* 0.5ms */
+#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 250)    /* 4ms */
+#define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 125)    /* 8ms */
+#define LWB_CONF_TX_CNT_SCHED           3
+#define LWB_CONF_TX_CNT_DATA            3
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO

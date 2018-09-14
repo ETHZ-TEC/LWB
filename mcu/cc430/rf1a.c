@@ -518,17 +518,26 @@ energest_off_mode(rf1a_off_modes_t off_mode)
     ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
     ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
     ENERGEST_ON_AT_TIME(ENERGEST_TYPE_IDLE);
+    DCSTAT_RFRX_OFF;
+    DCSTAT_RFTX_OFF;
+    DCSTAT_RF_OFF;
     break;
   case RF1A_OFF_MODE_RX:
     ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
     ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
     ENERGEST_ON_AT_TIME(ENERGEST_TYPE_LISTEN);
+    DCSTAT_RFTX_OFF;
+    DCSTAT_RF_ON;
+    DCSTAT_RFRX_ON;
     break;
   case RF1A_OFF_MODE_TX:
   case RF1A_OFF_MODE_FSTXON:
     ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
     ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
     ENERGEST_ON_AT_TIME(ENERGEST_TYPE_TRANSMIT);
+    DCSTAT_RFRX_OFF;
+    DCSTAT_RF_ON;
+    DCSTAT_RFTX_ON;
     break;
   }
 }
@@ -605,10 +614,6 @@ void
 rf1a_reset(void)
 {
   /* NOTE: the radio goes to the SLEEP state (see 25.3.1) */
-  SET_ENERGEST_TIME();
-  ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
-  ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
-  ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
   /* issue the SRES command strobe */
   strobe(RF_SRES, 1);
   /* issue the SNOP command strobe */
@@ -619,6 +624,14 @@ rf1a_reset(void)
   header_len_rx = 0;
 
   rf1a_state = NO_RX_TX;
+
+  SET_ENERGEST_TIME();
+  ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
+  ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
+  ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_OFF;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
@@ -670,6 +683,9 @@ rf1a_go_to_sleep(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_OFF;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -687,6 +703,9 @@ rf1a_go_to_idle(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
   ENERGEST_ON_AT_TIME(ENERGEST_TYPE_IDLE);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_OFF;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -704,6 +723,9 @@ rf1a_manual_calibration(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
   ENERGEST_ON_AT_TIME(ENERGEST_TYPE_IDLE);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_OFF;
 
   /* then issue the SCAL command strobe */
   strobe(RF_SCAL, 1);
@@ -742,6 +764,9 @@ rf1a_flush_rx_fifo(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
   ENERGEST_ON_AT_TIME(ENERGEST_TYPE_IDLE);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_OFF;
 
   /* then issue the SFRX command strobe */
   strobe(RF_SFRX, 1);
@@ -762,6 +787,9 @@ rf1a_flush_tx_fifo(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
   ENERGEST_ON_AT_TIME(ENERGEST_TYPE_IDLE);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_OFF;
 
   /* then issue the SFTX command strobe */
   strobe(RF_SFTX, 0);
@@ -774,6 +802,9 @@ rf1a_start_rx(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_TRANSMIT);
   ENERGEST_ON_AT_TIME(ENERGEST_TYPE_LISTEN);
+  DCSTAT_RFTX_OFF;
+  DCSTAT_RF_ON;
+  DCSTAT_RFRX_ON;
 
   /* issue the SRX command strobe */
   strobe(RF_SRX, 1);
@@ -786,6 +817,9 @@ rf1a_start_tx(void)
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_IDLE);
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);
   ENERGEST_ON_AT_TIME(ENERGEST_TYPE_TRANSMIT);
+  DCSTAT_RFRX_OFF;
+  DCSTAT_RF_ON;
+  DCSTAT_RFTX_ON;
 
   /* issue the STX command strobe */
   strobe(RF_STX, 0);
@@ -1044,7 +1078,7 @@ ISR(CC1101, radio_interrupt)
         break;
       }
     } else {
-      /* Errata RF1A5: only proceed if input signal is low (added by rdaforno)
+      /* Errata RF1A5: only proceed if input signal is low
        * -> removed, seems to cause problems! */
       //if(RF1AIN & BIT9) { break; }
       
