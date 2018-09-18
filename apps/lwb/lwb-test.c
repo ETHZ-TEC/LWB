@@ -107,7 +107,9 @@ PROCESS_THREAD(app_process, ev, data)
           DEBUG_PRINT_INFO("%u LWB packets created", cnt);
         }
       }
-      DEBUG_PRINT_INFO("CPU DC: %u, RF DC: %u",
+      DEBUG_PRINT_INFO("FSR: %u, PER: %u, CPU DC: %u, RF DC: %u",
+                       glossy_get_fsr(),
+                       glossy_get_per(),
                        DCSTAT_CPU_DC,
                        DCSTAT_RF_DC);
     }

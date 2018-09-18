@@ -66,7 +66,7 @@
 #define LWB_CONF_SCHED_PERIOD_MIN       2
 #define LWB_CONF_SCHED_PERIOD_MAX       15
 #define LWB_CONF_OUT_BUFFER_SIZE        4
-#define LWB_CONF_IN_BUFFER_SIZE         4
+#define LWB_CONF_IN_BUFFER_SIZE         NUM_NODES
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0
 #define LWB_CONF_MAX_PKT_LEN            80
 #define LWB_CONF_MAX_DATA_PKT_LEN       15
@@ -78,11 +78,13 @@
 #define LWB_CONF_T_GUARD_2              (RTIMER_SECOND_HF / 1000)
 #define LWB_CONF_T_GUARD_3              (RTIMER_SECOND_HF / 1000)
 #define LWB_CONF_T_GUARD                (RTIMER_SECOND_HF / 2000)   /* 0.5ms */
-#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 250)    /* 4ms */
+#define LWB_CONF_T_GAP                  (RTIMER_SECOND_HF / 200)    /* 5ms */
 #define LWB_CONF_T_CONT                 (RTIMER_SECOND_HF / 125)    /* 8ms */
 #define LWB_CONF_TX_CNT_SCHED           3
 #define LWB_CONF_TX_CNT_DATA            3
 #define LWB_CONF_T_SCHED2_START         RTIMER_SECOND_HF
+
+#define DCSTAT_CONF_ON                  1
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
