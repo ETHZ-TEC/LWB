@@ -240,10 +240,16 @@ inline uint8_t rtimer_update_enabled();
 rtimer_clock_t rtimer_now_hf(void);
 
 /**
- * @brief get the current timer value of TA1 (low frequency)
- * @return timer value in timer clock ticks (timestamp)
+ * @brief get the current timer value of TA1 (low frequency) with extension
+ * @return 64-bit timer value in timer clock ticks (timestamp)
  */
 rtimer_clock_t rtimer_now_lf(void);
+
+/**
+ * @brief get the current hardware timer value of TA1 (low frequency)
+ * @return 16-bit timer register value
+ */
+uint16_t rtimer_now_lf_hw(void);
 
 /**
  * @brief get the current timer value of both, the high and low frequency

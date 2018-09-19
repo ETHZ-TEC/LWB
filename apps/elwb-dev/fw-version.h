@@ -42,6 +42,9 @@
 Revision History
 ----------------
 
+Version 1.0005 (--- develop ---):
+- bugfix: error in DC stats fixed
+
 Version 1.0004 (2018-09-11):
 - bugfix: value for drift in LWB health was always zero
 - change: in rf1a, timeouts added to WAIT_UNTIL macros to avoid potential

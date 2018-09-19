@@ -30,56 +30,162 @@
  * Author:  Reto Da Forno
  */
 
-/* Duty cycle statistics: a minimal implementation of ENERGEST for CPU and
- * RF duty cycle with reduced overhead and accuracy.
+/*
+ * Duty cycle statistics: a minimal implementation of ENERGEST for CPU and
+ * RF duty cycle with reduced overhead and some limitations:
+ * - Will only work if the active cycles are < 2s (= 1 timer period @ 32kHz)
+ * - Rollover will occur after 2^32 ticks of activity (~ 1.5 days)
+ * - Requires rtimer-ext.h
+ * Optimized for 16-bit CPU architecture. Requires only 34B of heap memory.
  *
  * The duty cycle value is between 0 (no load) and 10000 (full load).
  */
 
-#ifndef __DC_STAT_H__
-#define __DC_STAT_H__
+#ifndef DC_STAT_H_
+#define DC_STAT_H_
 
 
 #ifndef DCSTAT_CONF_ON
-#define DCSTAT_CONF_ON    0
+#define DCSTAT_CONF_ON          0
 #endif /* DCSTAT_CONF_ON */
-
 
 #if DCSTAT_CONF_ON
 
-#define DCSTAT_CPU_ON   dcstat_cpu_on()
-#define DCSTAT_CPU_OFF  dcstat_cpu_off()
-#define DCSTAT_CPU_DC   dcstat_get_cpu_dc()
+/* rtimer value (64 bits) */
+#ifndef DCSTAT_RTIMER_NOW
+#define DCSTAT_RTIMER_NOW()     rtimer_now_lf()
+#endif /* DCSTAT_RTIMER_NOW */
 
-#define DCSTAT_RF_ON    dcstat_rf_on()
-#define DCSTAT_RF_OFF   dcstat_rf_off()
-#define DCSTAT_RF_DC    dcstat_get_rf_dc()
+/* HW timer value (16 bits) */
+#ifndef DCSTAT_RTIMER_NOW_HW
+#define DCSTAT_RTIMER_NOW_HW()  rtimer_now_lf_hw()
+#endif /* DCSTAT_RTIMER_NOW_HW */
 
-#define DCSTAT_RFTX_ON  dcstat_rf_tx_on()
-#define DCSTAT_RFTX_OFF dcstat_rf_tx_off()
-#define DCSTAT_RFTX_DC  dcstat_get_rf_tx_dc()
+/* define default (dummy) hooks / actions */
+#ifdef DCSTAT_CPU_ON_PIN
+#define DCSTAT_CPU_ON_ACT       PIN_SET(DCSTAT_CPU_ON_PIN)
+#define DCSTAT_CPU_OFF_ACT      PIN_CLR(DCSTAT_CPU_ON_PIN)
+#else /* DCSTAT_CPU_ON_PIN */
+#define DCSTAT_CPU_ON_ACT
+#define DCSTAT_CPU_OFF_ACT
+#endif /* DCSTAT_CPU_ON_PIN */
 
-#define DCSTAT_RFRX_ON  dcstat_rf_rx_on()
-#define DCSTAT_RFRX_OFF dcstat_rf_rx_off()
-#define DCSTAT_RFRX_DC  dcstat_get_rf_rx_dc()
+#ifdef DCSTAT_RF_ON_PIN
+#define DCSTAT_RF_ON_ACT        PIN_SET(DCSTAT_RF_ON_PIN)
+#define DCSTAT_RF_OFF_ACT       PIN_CLR(DCSTAT_RF_ON_PIN)
+#else /* DCSTAT_RF_ON_PIN */
+#define DCSTAT_RF_ON_ACT
+#define DCSTAT_RF_OFF_ACT
+#endif /* DCSTAT_RF_ON_PIN */
 
-#define DCSTAT_RESET    dcstat_reset()
+#ifdef DCSTAT_RF_TX_ON_PIN
+#define DCSTAT_RF_TX_ON_ACT     PIN_SET(DCSTAT_RF_TX_ON_PIN)
+#define DCSTAT_RF_TX_OFF_ACT    PIN_CLR(DCSTAT_RF_TX_ON_PIN)
+#else /* DCSTAT_RF_TX_ON_PIN */
+#define DCSTAT_RF_TX_ON_ACT
+#define DCSTAT_RF_TX_OFF_ACT
+#endif /* DCSTAT_RF_TX_ON_PIN */
 
-void dcstat_cpu_on(void);
-void dcstat_cpu_off(void);
-void dcstat_rf_on(void);
-void dcstat_rf_off(void);
-void dcstat_rf_tx_on(void);
-void dcstat_rf_tx_off(void);
-void dcstat_rf_rx_on(void);
-void dcstat_rf_rx_off(void);
-uint16_t dcstat_get_cpu_dc(void);
-uint16_t dcstat_get_rf_dc(void);
-uint16_t dcstat_get_rf_tx_dc(void);
-uint16_t dcstat_get_rf_rx_dc(void);
-void dcstat_reset(void);
+#ifdef DCSTAT_RF_RX_ON_PIN
+#define DCSTAT_RF_RX_ON_ACT    PIN_SET(DCSTAT_RF_RX_ON_PIN)
+#define DCSTAT_RF_RX_OFF_ACT   PIN_CLR(DCSTAT_RF_RX_ON_PIN)
+#else /* DCSTAT_RF_RX_ON_PIN */
+#define DCSTAT_RF_RX_ON_ACT
+#define DCSTAT_RF_RX_OFF_ACT
+#endif /* DCSTAT_RF_RX_ON_PIN */
 
-#else /* DCCALC_CONF_ON */
+#define DCSTAT_CPU_ON   { \
+    if(dc_stat_isr == 0) { \
+      dc_stat_starttime_cpu = (uint16_t)DCSTAT_RTIMER_NOW_HW(); \
+      DCSTAT_CPU_ON_ACT; \
+    } \
+    dc_stat_isr++; \
+  }
+
+#define DCSTAT_CPU_OFF  { \
+    if(dc_stat_isr == 1) { \
+      dc_stat_sum_cpu += (uint16_t)(DCSTAT_RTIMER_NOW_HW() - dc_stat_starttime_cpu); \
+      DCSTAT_CPU_OFF_ACT; \
+    } \
+    if(dc_stat_isr) { \
+      dc_stat_isr--; \
+    } \
+  }
+#define DCSTAT_CPU_DC   (uint16_t)(dc_stat_sum_cpu / ((DCSTAT_RTIMER_NOW() - dc_stat_resettime) / 10000))
+
+#define DCSTAT_RF_ON    { \
+    if(!dc_stat_starttime_rf) { \
+      dc_stat_starttime_rf = (uint16_t)DCSTAT_RTIMER_NOW_HW(); \
+    } \
+    DCSTAT_RF_ON_ACT; \
+  }
+
+#define DCSTAT_RF_OFF   { \
+    if(dc_stat_starttime_rf) { \
+      dc_stat_sum_rf += (uint16_t)(DCSTAT_RTIMER_NOW_HW() - dc_stat_starttime_rf); \
+      dc_stat_starttime_rf = 0; \
+    } \
+    DCSTAT_RF_OFF_ACT; \
+  }
+
+#define DCSTAT_RF_DC    (uint16_t)(dc_stat_sum_rf / ((DCSTAT_RTIMER_NOW() - dc_stat_resettime) / 10000))
+
+#define DCSTAT_RFTX_ON  { \
+    if(!dc_stat_starttime_rf_tx) { \
+      dc_stat_starttime_rf_tx = (uint16_t)DCSTAT_RTIMER_NOW_HW(); \
+    } \
+    DCSTAT_RF_TX_ON_ACT; \
+  }
+
+#define DCSTAT_RFTX_OFF { \
+    if(dc_stat_starttime_rf_tx) { \
+      dc_stat_sum_rf_tx += (uint16_t)(DCSTAT_RTIMER_NOW_HW() - dc_stat_starttime_rf_tx); \
+      dc_stat_starttime_rf_tx = 0; \
+    } \
+    DCSTAT_RF_TX_OFF_ACT; \
+  }
+
+#define DCSTAT_RFTX_DC  (uint16_t)(dc_stat_sum_rf_tx / ((DCSTAT_RTIMER_NOW() - dc_stat_resettime) / 10000))
+
+#define DCSTAT_RFRX_ON  { \
+    if(!dc_stat_starttime_rf_rx) { \
+      dc_stat_starttime_rf_rx = (uint16_t)DCSTAT_RTIMER_NOW_HW(); \
+    } \
+    DCSTAT_RF_RX_ON_ACT; \
+  }
+
+#define DCSTAT_RFRX_OFF { \
+    if(dc_stat_starttime_rf_rx) { \
+      dc_stat_sum_rf_rx += (uint16_t)(DCSTAT_RTIMER_NOW_HW() - dc_stat_starttime_rf_rx); \
+      dc_stat_starttime_rf_rx = 0; \
+    } \
+    DCSTAT_RF_RX_OFF_ACT; \
+  }
+
+#define DCSTAT_RFRX_DC  (uint16_t)(dc_stat_sum_rf_rx / ((DCSTAT_RTIMER_NOW() - dc_stat_resettime) / 10000))
+
+#define DCSTAT_RESET    { \
+    dc_stat_sum_cpu   = 0; \
+    dc_stat_sum_rf    = 0; \
+    dc_stat_sum_rf_tx = 0; \
+    dc_stat_sum_rf_rx = 0; \
+    dc_stat_resettime = DCSTAT_RTIMER_NOW(); \
+    dc_stat_isr       = 0; \
+  }
+
+extern uint16_t dc_stat_starttime_cpu;
+extern uint16_t dc_stat_starttime_rf;
+extern uint16_t dc_stat_starttime_rf_tx;
+extern uint16_t dc_stat_starttime_rf_rx;
+extern uint32_t dc_stat_sum_cpu;
+extern uint32_t dc_stat_sum_rf;
+extern uint32_t dc_stat_sum_rf_tx;
+extern uint32_t dc_stat_sum_rf_rx;
+extern uint64_t dc_stat_resettime;
+extern uint16_t dc_stat_isr;
+
+
+#else /* DCSTAT_CONF_ON */
 
 #define DCSTAT_CPU_ON
 #define DCSTAT_CPU_OFF
@@ -89,17 +195,17 @@ void dcstat_reset(void);
 #define DCSTAT_RF_OFF
 #define DCSTAT_RF_DC    0
 
-#define DCSTAT_RFTX_ON  
-#define DCSTAT_RFTX_OFF 
+#define DCSTAT_RFTX_ON
+#define DCSTAT_RFTX_OFF
 #define DCSTAT_RFTX_DC  0
 
-#define DCSTAT_RFRX_ON  
-#define DCSTAT_RFRX_OFF 
+#define DCSTAT_RFRX_ON
+#define DCSTAT_RFRX_OFF
 #define DCSTAT_RFRX_DC  0
 
 #define DCSTAT_RESET
 
-#endif /* DCCALC_CONF_ON */
+#endif /* DCSTAT_CONF_ON */
 
 
-#endif /* __DC_STAT_H__ */
+#endif /* DC_STAT_H_ */

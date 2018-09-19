@@ -332,7 +332,7 @@ rtimer_now_hf(void)
   return time;
 }
 /*---------------------------------------------------------------------------*/
-static uint16_t
+uint16_t
 rtimer_now_lf_hw(void)
 {
   uint16_t hw1, hw2;

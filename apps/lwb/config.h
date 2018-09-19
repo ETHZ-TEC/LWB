@@ -47,8 +47,8 @@
   #define GMW_CONF_RF_TX_POWER          GMW_RF_TX_POWER_PLUS_10_dBm
   #define RF_CONF_TX_CH                 5      /* approx. 869 MHz */
   #define GLOSSY_START_PIN              FLOCKLAB_LED1
-  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT2
   #define RF_GDO2_PIN                   FLOCKLAB_INT1
+  #define LWB_CONF_TASK_ACT_PIN         FLOCKLAB_INT2
   #define DEBUG_PRINT_CONF_TASK_ACT_PIN FLOCKLAB_INT2
   #define APP_TASK_ACT_PIN              FLOCKLAB_INT2
   /* note: FLOCKLAB_LED2 should not be used */
@@ -88,6 +88,9 @@
 
 /* debug config */
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
+#define DEBUG_PRINT_CONF_USE_RINGBUFFER 1
+#define DEBUG_PRINT_CONF_BUFFER_SIZE    512  /* debug print buffer size in b */
+#define DEBUG_PRINT_CONF_MSG_LEN        100 /* max debug msg length per line */
 //#define DEBUG_CONF_ISR_INDICATOR      1           /* indicate CPU activity */
 //#define DEBUG_CONF_ISR_IND_PIN        COM_MCU_INT2      /* show interrupts */
 

@@ -83,8 +83,13 @@ PROCESS_THREAD(app_process, ev, data)
         cnt++;
         pkt_len = lwb_rcv_pkt(pkt_buffer, 0, 0);
       } while(pkt_len);
-      DEBUG_PRINT_INFO("rcvd packets: %u, CPU DC: %u, RF DC: %u",
-                       cnt - 1, DCSTAT_CPU_DC, DCSTAT_RF_DC);
+      DEBUG_PRINT_INFO("rcvd packets: %u, FSR: %u, PER: %u", // CPU DC: %u, RF DC: %u",
+                       cnt - 1,
+                       glossy_get_fsr(),
+                       glossy_get_per() /*,
+                       DCSTAT_CPU_DC,
+                       DCSTAT_RF_DC */);
+      DEBUG_PRINT_INFO("Radio DC: %u.%02u", DCSTAT_RF_DC/100, DCSTAT_RF_DC%100);
 
     } else {
       /* we are a source node */
@@ -107,11 +112,12 @@ PROCESS_THREAD(app_process, ev, data)
           DEBUG_PRINT_INFO("%u LWB packets created", cnt);
         }
       }
-      DEBUG_PRINT_INFO("FSR: %u, PER: %u, CPU DC: %u, RF DC: %u",
+      DEBUG_PRINT_INFO("FSR: %u, PER: %u", // CPU DC: %u, RF DC: %u",
                        glossy_get_fsr(),
-                       glossy_get_per(),
+                       glossy_get_per() /*,
                        DCSTAT_CPU_DC,
-                       DCSTAT_RF_DC);
+                       DCSTAT_RF_DC*/);
+      DEBUG_PRINT_INFO("Radio DC: %u.%02u", DCSTAT_RF_DC/100, DCSTAT_RF_DC%100);
     }
     /* since this process is only executed at the end of an LWB round, we 
      * can now configure the MCU for minimal power dissipation for the idle
