@@ -54,6 +54,7 @@ endif
 EXEFILE = $(CONTIKI_PROJECT).exe
 HEXFILE = $(CONTIKI_PROJECT).hex
 DISFILE = $(CONTIKI_PROJECT).dis
+XMLFILE = $(CONTIKI_PROJECT)-$(TARGET).xml
 
 COREDIR = $(CONTIKI)/core
 SYSDIR  = $(COREDIR)/sys
@@ -175,6 +176,5 @@ check-stack:
 .PHONY: clean
 
 clean:
-	@rm -rf $(OBJDIR) *~ $(CONTIKI)/*~ $(COREDIR)/*~ $(SYSDIR)/*~ $(DEVDIR)/*~ $(LIBDIR)/*~ $(PLATDIR)/*~ $(CPUDIR)/*~
-	
-	
+	@rm -rf $(OBJDIR) $(EXEFILE) $(HEXFILE) $(DISFILE) $(XMLFILE)
+
