@@ -40,7 +40,7 @@
 #define FLOCKLAB                             /* uncomment to run on FlockLAB */
 #define HOST_ID                         1
 #define NUM_NODES                       30
-#define SOURCE_IPI                      4    /* seconds */
+#define SOURCE_IPI                      30   /* seconds */
 
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
@@ -64,7 +64,7 @@
 //#define LWB_SCHED_STATIC                       /* use the static scheduler */
 #define LWB_CONF_SCHED_PERIOD_IDLE      5        /* define the period length */
 #define LWB_CONF_SCHED_PERIOD_MIN       2
-#define LWB_CONF_SCHED_PERIOD_MAX       15
+#define LWB_CONF_SCHED_PERIOD_MAX       30
 #define LWB_CONF_OUT_BUFFER_SIZE        4
 #define LWB_CONF_IN_BUFFER_SIZE         NUM_NODES
 #define LWB_CONF_USE_LF_FOR_WAKEUP      0

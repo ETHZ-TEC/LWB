@@ -52,7 +52,13 @@
  * include MCU definitions
  */
 
+#ifdef CC430F5137
+#include <cc430f5137.h>
+#define MCU_DESC                    "CC430F5137"
+#else /* CC430F5137 */
 #include <cc430f5147.h>
+#define MCU_DESC                    "CC430F5147"
+#endif /* CC430F5137 */
 
 /* compiler info */
 #if defined(__GNUC__)
@@ -75,7 +81,6 @@
 #define COMPILER_VERSION            __TI_COMPILER_VERSION__
 #endif
 
-#define MCU_DESC                    "CC430F5147"
 #define SRAM_START                  0x1c00
 #define SRAM_END                    0x2bff        /* last valid byte in SRAM */
 #define SRAM_SIZE                   4096          /* starting at 0x1C00 */

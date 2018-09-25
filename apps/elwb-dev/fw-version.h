@@ -44,11 +44,14 @@ Revision History
 
 Version 1.0005 (--- develop ---):
 - bugfix: error in DC stats fixed
+- change: defines for Glossy adjusted (enums replaced by defines, now only
+          with_sync or without_sync) + parameter for constant setup time added
+          (GLOSSY_CONF_SETUPTIME_WITH_SYNC)
 
 Version 1.0004 (2018-09-11):
 - bugfix: value for drift in LWB health was always zero
 - change: in rf1a, timeouts added to WAIT_UNTIL macros to avoid potential
-          lockup conditions
+          lockup conditions + cleanup (rf1a-core.h removed)
 
 Version 1.0003 (2018-07-23):
 - change: max #packets that are read from the BOLT queue per round limited

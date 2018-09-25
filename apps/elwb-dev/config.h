@@ -43,7 +43,7 @@
 
 /* uncomment NODE_ID to compile FW image for the host node */
 //#define NODE_ID                         HOST_ID
-#define HOST_ID                         16 //6
+#define HOST_ID                         1
 
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 #define IS_HOST                         (NODE_ID == HOST_ID)
@@ -51,7 +51,12 @@
 
 /* --- External memory (FRAM) --- */
 
-#define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
+#define FRAM_CONF_ON                    0   /* enable if FRAM chip installed */
+
+
+/* --- MCU --- */
+
+#define CC430F5137
 
 
 /* --- Radio config --- */
@@ -86,7 +91,7 @@
 #define ELWB_CONF_MAX_N_NODES           40        /* max. # nodes in network */
 #define ELWB_CONF_DATA_ACK              1  /* use data ACKs from src to host */
 /* packet and buffer size */
-#define ELWB_CONF_MAX_PKT_LEN           (128 - 2)     /* subtract Glossy hdr */
+#define ELWB_CONF_MAX_PKT_LEN           (128 - GLOSSY_MAX_HEADER_LEN)
 #define ELWB_CONF_USE_XMEM              FRAM_CONF_ON      /* if FRAM enabled */
 #if IS_HOST
  #if ELWB_CONF_USE_XMEM
@@ -127,7 +132,9 @@
 #define LWB_VERSION                     0       /* exclude default LWB impl. */
 
 /* Glossy */
-#define GLOSSY_COMMON_HEADER            0xc0
+#define GLOSSY_CONF_HEADER_BYTE         0xc0
+#define GLOSSY_CONF_PAYLOAD_LEN         128
+#define GLOSSY_CONF_SETUPTIME_WITH_SYNC 0
 
 
 /* --- BOLT config --- */

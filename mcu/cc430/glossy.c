@@ -56,28 +56,40 @@
  * theoretical value (value in clock ticks) */
 #define T_SLOT_TOLERANCE      10
 
-#ifndef GLOSSY_COMMON_HEADER
-#define GLOSSY_COMMON_HEADER  0x80
-#endif /* GLOSSY_COMMON_HEADER */
+#define GLOSSY_MAX_PACKET_LEN (GLOSSY_CONF_PAYLOAD_LEN + GLOSSY_MAX_HEADER_LEN)
 
-#define SET_PKT_TYPE(pkt_type, sync, n_tx_max) \
-  (pkt_type = GLOSSY_COMMON_HEADER | ((sync) & 0x30) | ((n_tx_max) & 0x0f))
-#define SET_SYNC(pkt_type, sync) \
-  (pkt_type = ((pkt_type) & 0xcf) | ((sync) & 0x30))
+#define GLOSSY_HEADER_BYTE_MASK   0xe0    /* 3 bits */
+#define GLOSSY_HEADER_SYNC_MASK   0x10    /* 1 bit */
+#define GLOSSY_HEADER_N_TX_MASK   0x0f    /* 4 bits */
+#define GLOSSY_COMMON_HEADER      (GLOSSY_CONF_HEADER_BYTE & \
+                                   GLOSSY_HEADER_BYTE_MASK)
+
+#if GLOSSY_CONF_SETUPTIME_WITH_SYNC
+#define GLOSSY_SYNC_SETUP_TICKS   (uint16_t)(GLOSSY_CONF_SETUPTIME_WITH_SYNC \
+                                             * RTIMER_SECOND_LF / 1000000)
+#endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
+
+#define SET_PKT_TYPE(pkt_type, with_sync, n_tx_max) \
+                        (pkt_type = GLOSSY_COMMON_HEADER | \
+                                ((with_sync) ? GLOSSY_HEADER_SYNC_MASK : 0) | \
+                                ((n_tx_max) & GLOSSY_HEADER_N_TX_MASK))
+#define SET_SYNC(pkt_type, with_sync) \
+                        (pkt_type = (pkt_type & ~GLOSSY_HEADER_SYNC_MASK) | \
+                                    (with_sync ? GLOSSY_HEADER_SYNC_MASK : 0))
 #define SET_N_TX_MAX(pkt_type, n_tx_max) \
-  (pkt_type = ((pkt_type) & 0xf0) | ((n_tx_max) & 0x0f))
+                        (pkt_type = ((pkt_type) & ~GLOSSY_HEADER_N_TX_MASK) | \
+                                    ((n_tx_max) & GLOSSY_HEADER_N_TX_MASK))
 
-#define GET_COMMON_HEADER(pkt_type)   ((pkt_type) & 0xc0)
-#define GET_SYNC(pkt_type)            ((pkt_type) & 0x30)
-#define GET_N_TX_MAX(pkt_type)        ((pkt_type) & 0x0f)
+#define GET_COMMON_HEADER(pkt_type)   ((pkt_type) & GLOSSY_HEADER_BYTE_MASK)
+#define GET_SYNC(pkt_type)            ((pkt_type) & GLOSSY_HEADER_SYNC_MASK)
+#define GET_N_TX_MAX(pkt_type)        ((pkt_type) & GLOSSY_HEADER_N_TX_MASK)
 
 #define IS_INITIATOR()    (g.initiator_id == node_id)
-#define WITH_SYNC()       (GET_SYNC(g.header.pkt_type) == GLOSSY_WITH_SYNC)
-#define WITH_RELAY_CNT()  ((WITH_SYNC()) || \
-                        (GET_SYNC(g.header.pkt_type) == GLOSSY_ONLY_RELAY_CNT))
+#define WITH_SYNC()       (GET_SYNC(g.header.pkt_type))
+#define WITH_RELAY_CNT()  (WITH_SYNC())     /* relay counter if sync enabled */
 
 #define GLOSSY_HEADER_LEN(pkt_type) \
-                          ((GET_SYNC(pkt_type) == GLOSSY_WITHOUT_SYNC) ? 1 : 2)
+                          ((GET_SYNC(pkt_type) == 0) ? 1 : 2)
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
@@ -109,11 +121,6 @@
 #define GLOSSY_FIRST_RX
 #endif /* GLOSSY_FIRST_RX */
 
-/*---------------------------------------------------------------------------*/
-enum {
-  GLOSSY_SUCCESS = 0,
-  GLOSSY_FAIL    = 1
-};
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t  pkt_type;
@@ -179,20 +186,19 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
 
     if(GET_COMMON_HEADER(rcvd_header->pkt_type) != GLOSSY_COMMON_HEADER) {
       /* keep processing only if the common header is correct */
-      return GLOSSY_FAIL;
+      return 0;
     }
-    if((GET_SYNC(g.header.pkt_type) != GLOSSY_UNKNOWN_SYNC) &&
-       (GET_SYNC(g.header.pkt_type) != GET_SYNC(rcvd_header->pkt_type))) {
+    if(GET_SYNC(g.header.pkt_type) != GET_SYNC(rcvd_header->pkt_type)) {
       /* keep processing only if the local sync value is either unknown or it
        * matches the received one */
-      return GLOSSY_FAIL;
+      return 0;
     }
     if((GET_N_TX_MAX(g.header.pkt_type) != GLOSSY_UNKNOWN_N_TX_MAX) &&
        (GET_N_TX_MAX(g.header.pkt_type) !=
         GET_N_TX_MAX(rcvd_header->pkt_type))) {
       /* keep processing only if the local n_tx_max value is either unknown or
        * it matches the received one */
-      return GLOSSY_FAIL;
+      return 0;
     }
     //if((g.initiator_id != GLOSSY_UNKNOWN_INITIATOR) &&
     //   (g.initiator_id != rcvd_header->initiator_id)) {
@@ -204,14 +210,13 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
        (g.payload_len != (pkt_len - GLOSSY_HEADER_LEN(g.header.pkt_type)))) {
       /* keep processing only if the local payload_len value is either unknown
        * or it matches the received one */
-      return GLOSSY_FAIL;
+      return 0;
     }
     /* the header is ok */
     g.header_ok = 1;
   }
   if(crc_ok) {
     /* we have received the entire packet (and the CRC was ok) */
-
     /* store the received header (all the unknown values are also learned) */
     g.header = *rcvd_header;
     /* store the payload_len */
@@ -220,7 +225,7 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
     rf1a_set_header_len_rx(GLOSSY_HEADER_LEN(g.header.pkt_type));
   }
 
-  return GLOSSY_SUCCESS;
+  return 1;     /* success */
 }
 /*---------------------------------------------------------------------------*/
 static inline uint32_t
@@ -290,12 +295,18 @@ add_T_slot_measurement(uint32_t T_slot_measured)
 }
 /*---------------------------- Glossy interface -----------------------------*/
 void
-glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
-             uint8_t n_tx_max, glossy_sync_t sync, glossy_rf_cal_t rf_cal)
+glossy_start(uint16_t initiator_id,
+             uint8_t *payload,
+             uint8_t payload_len,
+             uint8_t n_tx_max,
+             uint8_t with_sync,
+             uint8_t with_rf_cal)
 {
   GLOSSY_STARTED;
-  DEBUG_PRINT_VERBOSE("Glossy started: in=%u, pl=%u, n=%u, s=%u", initiator_id,
-                      payload_len, n_tx_max, sync);
+
+#if GLOSSY_CONF_SETUPTIME_WITH_SYNC
+  uint16_t setup_time_start = rtimer_now_lf_hw();
+#endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 
   /* disable undesired interrupts */
   GLOSSY_DISABLE_INTERRUPTS;
@@ -324,7 +335,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
   /* prepare the Glossy header, with the information known so far */
-  SET_PKT_TYPE(g.header.pkt_type, sync, n_tx_max);
+  SET_PKT_TYPE(g.header.pkt_type, with_sync, n_tx_max);
   g.header.relay_cnt = 0;
 
   /* wake-up the radio core */
@@ -340,7 +351,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   /* reconfigure lost registers */
   rf1a_reconfig_after_sleep();
 
-  if(rf_cal == GLOSSY_WITH_RF_CAL) {
+  if(with_rf_cal) {
     /* if instructed so, perform a manual calibration */
     rf1a_manual_calibration();
   }
@@ -349,15 +360,22 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
   volatile uint16_t timeout;
   if(IS_INITIATOR()) {
     /* Glossy initiator */
-    if(GET_SYNC(g.header.pkt_type) == GLOSSY_UNKNOWN_SYNC ||
-       (g.payload_len + GLOSSY_HEADER_LEN(g.header.pkt_type)) >
-       RF_CONF_MAX_PKT_LEN) {
+    if((g.payload_len + GLOSSY_HEADER_LEN(g.header.pkt_type)) >
+       GLOSSY_MAX_PACKET_LEN) {
       /* the initiator must know whether there will be synchronization or
        * not and the packet length may not exceed the max. length */
       DEBUG_PRINT_ERROR("invalid parameters, Glossy stopped");
       glossy_stop();
       return;
     }
+#if GLOSSY_CONF_SETUPTIME_WITH_SYNC
+    // busy wait for the setup time to pass
+    if(with_sync) {
+      GLOSSY_STOPPED;
+      while((uint16_t)(rtimer_now_lf_hw() - setup_time_start) < GLOSSY_SYNC_SETUP_TICKS);
+      GLOSSY_STARTED;
+    }
+#endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
     /* start the first transmission */
     g.t_timeout = rtimer_now_hf() + TIMEOUT_EXTRA_TICKS;
     rf1a_start_tx();
@@ -376,7 +394,7 @@ glossy_start(uint16_t initiator_id, uint8_t *payload, uint8_t payload_len,
     g.stats.last_flood_duration = rtimer_now_hf();
     /* measure the channel noise (but only if waiting for the schedule */
   #if !GLOSSY_CONF_ALWAYS_SAMPLE_NOISE
-    if(sync == GLOSSY_WITH_SYNC)
+    if(with_sync)
   #endif /* GLOSSY_CONF_ALWAYS_SAMPLE_NOISE */
     {
       /* wait after entering RX mode before reading RSSI (see swra114d.pdf)  */
@@ -499,6 +517,17 @@ glossy_get_t_ref(void)
   return g.t_ref;
 }
 /*---------------------------------------------------------------------------*/
+rtimer_clock_t
+glossy_get_t_ref_lf(void)
+{
+  /* sync HF and LF clocks */
+  rtimer_clock_t hf_now, lf_now;
+  rtimer_now(&hf_now, &lf_now);
+  lf_now = lf_now - 
+           (uint32_t)(hf_now - g.t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
+  return lf_now;
+}
+/*---------------------------------------------------------------------------*/
 #if GLOSSY_CONF_COLLECT_STATS
 uint8_t
 glossy_get_n_rx_started(void)
@@ -541,7 +570,7 @@ glossy_get_rssi(void)
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-glossy_get_relay_cnt_first_rx(void)
+glossy_get_relay_cnt(void)
 {
   return g.stats.last_flood_relay_cnt;
 }
@@ -654,7 +683,7 @@ void
 rf1a_cb_header_received(rtimer_clock_t *timestamp, uint8_t *header,
                         uint8_t packet_len)
 {
-  if(process_glossy_header(header, packet_len, 0) != GLOSSY_SUCCESS) {
+  if(!process_glossy_header(header, packet_len, 0)) {
 #if GLOSSY_CONF_COLLECT_STATS
     if(!g.stats.already_counted) {
       g.stats.last_flood_n_rx_fail++;
@@ -683,7 +712,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   
   /* we have received a packet and the CRC is correct, now check the header */
-  if((process_glossy_header(pkt, pkt_len, 1) == GLOSSY_SUCCESS)) {
+  if(process_glossy_header(pkt, pkt_len, 1)) {
     /* we received a correct packet, and the header has been stored into
      * g.header */
     uint8_t *payload = pkt + GLOSSY_HEADER_LEN(g.header.pkt_type);
@@ -786,7 +815,7 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
   g.n_tx++;
 
   if((g.n_tx == GET_N_TX_MAX(g.header.pkt_type)) &&
-     (GET_N_TX_MAX(g.header.pkt_type) > 1 || (!IS_INITIATOR()))) {
+     (GET_N_TX_MAX(g.header.pkt_type) > 0 || (!IS_INITIATOR()))) {
     /* we have reached N_tx_max and either N_tx_max > 1 or we are a receiver:
      * stop Glossy */
     glossy_stop();

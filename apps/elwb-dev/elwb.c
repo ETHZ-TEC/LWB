@@ -397,7 +397,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
       last_synced_lf = t_start_lf;
       /* collect some stats */
       stats.glossy_snr     = glossy_get_rssi();   /* use RSSI instead of SNR */
-      stats.relay_cnt      = glossy_get_relay_cnt_first_rx();
+      stats.relay_cnt      = glossy_get_relay_cnt();
       stats.glossy_t_to_rx = glossy_get_t_to_first_rx() * 100 / 325;
       stats.glossy_t_flood = glossy_get_flood_duration() * 100 / 325;
       stats.glossy_n_rx    = glossy_get_n_rx();
@@ -685,7 +685,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       t_ref_lf -= (uint32_t)(hf_now - t_ref) / (uint32_t)RTIMER_HF_LF_RATIO;
       if(ELWB_SCHED_IS_FIRST(&schedule)) {
         /* collect some stats of the schedule flood */
-        stats.relay_cnt      = glossy_get_relay_cnt_first_rx();
+        stats.relay_cnt      = glossy_get_relay_cnt();
         stats.glossy_snr     = glossy_get_snr();
         stats.glossy_t_to_rx = glossy_get_t_to_first_rx() * 100 / 325;
         stats.glossy_t_flood = glossy_get_flood_duration() * 100 / 325;

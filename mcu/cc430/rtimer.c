@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -138,7 +137,7 @@ rtimer_init(void)
   ta0_sw_ext = 0;
   /* make sure the input divider expansion is set to 0 before setting the 
    * TACLR bit */
-  TA0EX0 = 0;           
+  TA0EX0 = 0;
   TA0CTL = TASSEL_2 | MC_2 | ID__1 | TACLR | TAIE; /* SMCLK, input divider 1 */
 
   /* initialize timer A1: */
@@ -168,13 +167,18 @@ rtimer_schedule(rtimer_id_t timer,
     if(timer >= RTIMER_LF_0) {
       *(&TA1CCR0 + (timer - RTIMER_LF_0))  = (uint16_t)(start + period);
       *(&TA1CCTL0 + (timer - RTIMER_LF_0)) = CCIE | OUTMOD_4;
+      /* if the scheduled time is in the past, then trigger an interrupt now */
+      if(rt[timer].time <= rtimer_now_lf()) {
+        *(&TA1CCTL0 + (timer - RTIMER_LF_0)) |= CCIFG;
+      }
     } else {
       *(&TA0CCR0 + timer)  = (uint16_t)(start + period);
       *(&TA0CCTL0 + timer) = CCIE | OUTMOD_4;            /* enable interrupt */
+      /* if the scheduled time is in the past, then trigger an interrupt now */
+      if(rt[timer].time <= rtimer_now_hf()) {
+        *(&TA0CCTL0 + timer) |= CCIFG;
+      }
     }
-  } else {
-    /* verbose because this will only be needed for debugging purposes */
-    DEBUG_PRINT_VERBOSE("ERROR: invalid rtimer ID %u", timer);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -231,20 +235,6 @@ rtimer_reset(void)
   DCSTAT_RESET;
 }
 /*---------------------------------------------------------------------------*/
-/* don't use this function, compiler generates code that potentially clears an
- * active interrupt flag! */
-/*inline void
-rtimer_update_enable(uint8_t enable)
-{
-  if(enable) {
-    TA0CTL |= TAIE; 
-    //TA1CTL |= TAIE;
-  } else {
-    TA0CTL &= ~TAIE; 
-    //TA1CTL &= ~TAIE;
-  }
-}*/
-/*---------------------------------------------------------------------------*/
 inline void
 rtimer_update_enable(void)
 {
@@ -261,7 +251,6 @@ inline uint8_t
 rtimer_update_enabled(void)
 {
   return ((TA0CTL & TAIE) > 0);
-  // ((TA1CTL & TAIE) > 0)
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -317,6 +306,8 @@ rtimer_now_hf(void)
     /* in the meantime there has been an overflow of the HW timer: */
     /* manually increment the SW extension */
     sw++;
+    ta0_sw_ext++;
+    TA0CTL &= ~TAIFG;
     /* and take a new snapshot of the HW timer */
     hw = TA0R;
   }
@@ -342,6 +333,7 @@ rtimer_now_lf_hw(void)
     hw1 = TA1R;
     hw2 = TA1R;
   } while(hw1 != hw2);
+
   return hw1;
 }
 /*---------------------------------------------------------------------------*/
@@ -359,6 +351,8 @@ rtimer_now_lf(void)
     /* in the meantime there has been an overflow of the HW timer: */
     /* manually increment the SW extension */
     sw++;
+    ta1_sw_ext++;
+    TA1CTL &= ~TAIFG;
     /* and take a new snapshot of the HW timer */
     hw = rtimer_now_lf_hw();
   }

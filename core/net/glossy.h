@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -49,9 +48,6 @@
 #define __GLOSSY_H__
 
 
-#include <stdlib.h>
-
-
 /* whether the initiator should retransmit the packet after a certain
  * time of no reception */
 #ifndef GLOSSY_CONF_RETRANSMISSION_TIMEOUT
@@ -73,33 +69,37 @@
 #define GLOSSY_CONF_ALWAYS_SAMPLE_NOISE         0
 #endif /* GLOSSY_CONF_ALWAYS_SAMPLE_NOISE */
 
+/* magic ID to identify a Glossy packet (the 3 most significant bits only!) */
+#ifndef GLOSSY_CONF_HEADER_BYTE
+#define GLOSSY_CONF_HEADER_BYTE                 0x40
+#endif /* GLOSSY_CONF_HEADER_BYTE */
+
+/* max. allowed payload length */
+#ifndef GLOSSY_CONF_PAYLOAD_LEN
+#define GLOSSY_CONF_PAYLOAD_LEN                 124
+#endif /* GLOSSY_CONF_PAYLOAD_LEN */
+
 /* max. header length (with sync) */
 #define GLOSSY_MAX_HEADER_LEN                   2
 
+/* Try to keep the setup time in glossy_start() constant to allow for precide
+ * drift compensation on the source nodes. The flood initiator will wait until
+ * the specified amount has passed before issuing the start_tx command. 
+ * Note: This define only has an effect on the initiator if sync is enabled.
+ *       This feature can be disabled by setting the value to zero. */
+#ifndef GLOSSY_CONF_SETUPTIME_WITH_SYNC
+#define GLOSSY_CONF_SETUPTIME_WITH_SYNC         1200    /* in us */
+#endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 
-enum {
-  GLOSSY_UNKNOWN_INITIATOR = 0
-};
+#define GLOSSY_UNKNOWN_INITIATOR                0
+#define GLOSSY_UNKNOWN_N_TX_MAX                 0
+#define GLOSSY_UNKNOWN_PAYLOAD_LEN              0
 
-enum {
-  GLOSSY_UNKNOWN_N_TX_MAX = 0
-};
+#define GLOSSY_WITH_RF_CAL                      1
+#define GLOSSY_WITHOUT_RF_CAL                   0
+#define GLOSSY_WITH_SYNC                        1
+#define GLOSSY_WITHOUT_SYNC                     0
 
-enum {
-  GLOSSY_UNKNOWN_PAYLOAD_LEN = 0
-};
-
-typedef enum {
-  GLOSSY_WITHOUT_RF_CAL = 0,
-  GLOSSY_WITH_RF_CAL = 1,
-} glossy_rf_cal_t;
-
-typedef enum {
-  GLOSSY_UNKNOWN_SYNC = 0x00,
-  GLOSSY_WITH_SYNC = 0x10,
-  GLOSSY_WITHOUT_SYNC = 0x20,
-  GLOSSY_ONLY_RELAY_CNT = 0x30
-} glossy_sync_t;
 
 /**
  * @brief       start Glossy
@@ -118,8 +118,8 @@ void glossy_start(uint16_t initiator_id,
                   uint8_t *payload,
                   uint8_t payload_len,
                   uint8_t n_tx_max,
-                  glossy_sync_t sync,
-                  glossy_rf_cal_t rf_cal);
+                  uint8_t with_sync,
+                  uint8_t with_rf_cal);
 
 /**
  * @brief stop glossy
@@ -155,10 +155,18 @@ uint8_t glossy_get_payload_len(void);
 uint8_t glossy_is_t_ref_updated(void);
 
 /**
- * @brief get the reference time (timestamp of the reception of the first byte)
- * @return 64-bit timestamp (type rtimer_clock_t)
+ * @brief get the reference time (timestamp of the reception of the sync
+ *        interrupt)
+ * @return 64-bit timestamp in HF ticks
  */
 uint64_t glossy_get_t_ref(void);
+
+/**
+ * @brief get the reference time (timestamp of the reception of the sync
+ *        interrupt)
+ * @return 64-bit timestamp in LF ticks
+ */
+uint64_t glossy_get_t_ref_lf(void);
 
 
 #if GLOSSY_CONF_COLLECT_STATS
@@ -196,7 +204,7 @@ int8_t glossy_get_rssi(void);
 /**
  * @brief get the relay count of the first received packet
  */
-uint8_t glossy_get_relay_cnt_first_rx(void);
+uint8_t glossy_get_relay_cnt(void);
 
 /**
  * @brief get the packet error rate/ratio in percentages * 100
