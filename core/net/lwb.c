@@ -850,7 +850,7 @@ PT_THREAD(lwb_thread_src(rtimer_t *rt))
   static int32_t  drift;
   static uint16_t period_last;
   static uint8_t  slot_idx;
-  static uint8_t  relay_cnt_first_rx;
+  static uint8_t  relay_cnt;
 #if !LWB_CONF_RELAY_ONLY
   static uint8_t  payload_len;
   static uint8_t  rounds_to_wait;
@@ -966,7 +966,7 @@ BOOTSTRAP:
         
       static uint8_t i;  /* must be static */      
       slot_idx = 0;   /* reset the packet counter */
-      relay_cnt_first_rx = glossy_get_relay_cnt_first_rx();
+      relay_cnt = glossy_get_relay_cnt();
 #if LWB_CONF_SCHED_COMPRESS
       lwb_sched_uncompress((uint8_t*)schedule.slot, 
                            LWB_SCHED_N_SLOTS(&schedule));
@@ -1255,7 +1255,7 @@ BOOTSTRAP:
                      LWB_STREAMS_ACTIVE, 
                      stats.t_proc_max,
                      stats.pck_cnt,
-                     relay_cnt_first_rx,
+                     relay_cnt,
                      stats.bootstrap_cnt, 
                      stats.unsynced_cnt, 
                      stats.drift, /* in clock ticks per second (x16 or x256) */

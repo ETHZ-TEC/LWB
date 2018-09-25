@@ -1,125 +1,212 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testConf xmlns="http://www.flocklab.ethz.ch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.flocklab.ethz.ch xml/flocklab.xsd">
-    <!-- General configuration -->
-    <generalConf>
-        <name>Blink LED</name>
-        <description>Test program for the DPP</description>
-        <scheduleAsap>
-            <durationSecs>60</durationSecs>
-        </scheduleAsap>
-        <emailResults>no</emailResults>
-    </generalConf>
-    
-    <!-- Observers with a DPP installed: 001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204 -->
+	<!-- Flocklab template with idle APP image and BOLT image already included -->
 
-    <targetConf>
-        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
-        <!--<targetIds> </targetIds>-->
-        <voltage>3.3</voltage>
-        <embeddedImageId>BOLT</embeddedImageId>
-        <embeddedImageId>COM</embeddedImageId>
-        <embeddedImageId>APP</embeddedImageId>
-        <!--<embeddedImageId>SENSOR</embeddedImageId>-->
-    </targetConf>
-    
-    <!-- Note: select the core with the SIG1,SIG2 pins! -->
-    <serialConf>
-        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
-        <port>serial</port>
-        <baudrate>115200</baudrate>
-        <mode>ascii</mode>
-        <remoteIp>255.255.255.255</remoteIp>
-    </serialConf>
-    
-    <gpioTracingConf>
-        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
-        <pinConf>
-            <pin>INT1</pin>
-            <edge>both</edge>
-            <mode>continuous</mode>
-        </pinConf>
-        <pinConf>
-            <pin>INT2</pin>
-            <edge>both</edge>
-            <mode>continuous</mode>
-        </pinConf>
-        <pinConf>
-            <pin>LED1</pin>
-            <edge>both</edge>
-            <mode>continuous</mode>
-        </pinConf>
-        <pinConf>
-            <pin>LED2</pin>
-            <edge>both</edge>
-            <mode>continuous</mode>
-        </pinConf>
-        <pinConf>
-            <pin>LED3</pin>
-            <edge>both</edge>
-            <mode>continuous</mode>
-        </pinConf>
-    </gpioTracingConf>
-    
-    <!-- (SIG1,SIG2): (0,0) = COM, (0,1) = APP, (1,0) = BOLT -->
-    <gpioActuationConf>
-        <obsIds>001 002 003 004 006 007 008 010 013 014 015 016 017 018 019 020 022 023 024 025 027 028 031 032 033 200 204</obsIds>
-        <pinConf>
-            <pin>SIG1</pin>
-            <level>low</level>
-            <relativeTime><offsetSecs>0</offsetSecs></relativeTime>
-        </pinConf>
-        <pinConf>
-            <pin>SIG2</pin>
-            <level>low</level>
-            <relativeTime><offsetSecs>0</offsetSecs></relativeTime>
-        </pinConf>
-    </gpioActuationConf>
-    
-    <!-- Power Profiling Service configuration (Forwarding nodes only) -->
-    <!--<powerProfilingConf>
-        <obsIds> </obsIds>
-        <profConf>
-            <durationMillisecs>30000</durationMillisecs>
-            <relativeTime>
-                <offsetSecs>30</offsetSecs>
-                <offsetMicrosecs>0</offsetMicrosecs>
-            </relativeTime>
-        </profConf>
-    </powerProfilingConf>-->
+	<!-- General configuration -->
+	<generalConf>
+		<name>Name</name>
+		<description>Description</description>
+		<scheduleAsap>
+			<durationSecs>120</durationSecs>
+		</scheduleAsap>
+		<!--scheduleAbsolute>
+			<start>2018-06-28T06:25:38+00:00</start>
+			<end>2018-06-28T06:27:38+00:00</end>
+		</scheduleAbsolute-->
+		<emailResults>no</emailResults>
+	</generalConf>
+	
+	<targetConf>
+		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
+		<!--<targetIds> </targetIds>-->
+		<voltage>3.3</voltage>
+		<embeddedImageId>BOLT</embeddedImageId>
+		<embeddedImageId>COM</embeddedImageId>
+		<embeddedImageId>APP</embeddedImageId>
+		<!--<embeddedImageId>SENSOR</embeddedImageId>-->
+	</targetConf>
+	
+	<!-- Note: select the core with the SIG1,SIG2 pins! -->
+	<serialConf>
+		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
+		<port>serial</port>
+		<baudrate>115200</baudrate>
+		<mode>ascii</mode>
+		<remoteIp>255.255.255.255</remoteIp>
+	</serialConf>
+	
+	<gpioTracingConf>
+		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
+		<pinConf>
+			<pin>INT1</pin>
+			<edge>both</edge>
+			<mode>continuous</mode>
+		</pinConf>
+		<pinConf>
+			<pin>INT2</pin>
+			<edge>both</edge>
+			<mode>continuous</mode>
+		</pinConf>
+ 		
+		<!--Mapped to COM -->
+		<pinConf>
+			<pin>LED1</pin>
+			<edge>both</edge>
+			<mode>continuous</mode>
+		</pinConf>
 
-    <!-- COM -->
-    <imageConf>
-        <embeddedImageId>COM</embeddedImageId>
-        <name>Com image</name>
-        <description>Com test app</description>
-        <platform>dpp</platform>
-        <core>0</core>
-        <os>tinyos</os>
-        <!-- COM IMAGE --><data>
-        </data>
-    </imageConf>
+ 		<!--Mapped to BOLT -->
+		<!--pinConf>
+			<pin>LED2</pin>
+			<edge>both</edge>
+			<mode>continuous</mode>
+		</pinConf-->
+		
+		<!--Mapped to APP -->
+		<!--pinConf> 
+			<pin>LED3</pin>
+			<edge>both</edge>
+			<mode>continuous</mode>
+		</pinConf-->
+	</gpioTracingConf>
+	
+	<!-- (SIG1,SIG2): (0,0) = COM, (0,1) = APP, (1,0) = BOLT -->
+	<gpioActuationConf>
+		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
+		<pinConf>
+			<pin>SIG1</pin>
+			<level>low</level>
+			<relativeTime><offsetSecs>0</offsetSecs></relativeTime>
+		</pinConf>
+		<pinConf>
+			<pin>SIG2</pin>
+			<level>low</level>
+			<relativeTime><offsetSecs>0</offsetSecs></relativeTime>
+		</pinConf>
+	</gpioActuationConf>
+	
+	<!-- Power Profiling Service configuration (Forwarding nodes only) -->
+	<!--<powerProfilingConf>
+		<obsIds> </obsIds>
+		<profConf>
+			<durationMillisecs>30000</durationMillisecs>
+			<relativeTime>
+				<offsetSecs>30</offsetSecs>
+				<offsetMicrosecs>0</offsetMicrosecs>
+			</relativeTime>
+		</profConf>
+	</powerProfilingConf>-->
 
-    <!-- APP -->
-    <imageConf>
-        <embeddedImageId>APP</embeddedImageId>
-        <name>APP image</name>
-        <description>App test</description>
-        <platform>dpp</platform>
-        <core>2</core>
-        <os>tinyos</os>
-        <!-- APP IMAGE --><data>
-        </data>
-    </imageConf>
+	<!-- COM -->
+	<imageConf>
+		<embeddedImageId>COM</embeddedImageId>
+		<name>Com image</name>
+		<description>CC430 app</description>
+		<platform>dpp</platform>
+		<core>0</core>
+		<os>tinyos</os>
+		<data>
+		</data>
+	</imageConf>
 
-    <!-- BOLT -->
-    <imageConf>
-        <embeddedImageId>BOLT</embeddedImageId>
-        <name>BOLT image</name>
-        <description>message size 256 bytes, queue reset at startup</description>
-        <platform>dpp</platform>
-        <core>1</core>
-        <os>other</os>
-        <data>
+	<!-- APP -->
+	<imageConf>
+		<embeddedImageId>APP</embeddedImageId>
+		<name>APP image</name>
+		<description>deepsleep</description>
+		<platform>dpp</platform>
+		<core>2</core>
+		<os>tinyos</os>
+		<data>
+f0VMRgEBAf8AAAAAAAAAAAEAaQABAAAAAAAAAAAAAAB4EAAAAAAAEDQAAAAAACgABAADAAAAASCh
+DgAApw4AAKkOAADBDgAAwQ4AAMEOAAAAAAAAAAAAAAAAAAAAAAAAwQ4AAMEOAAAAAAAAwQ4AAMEO
+AADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4A
+AMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAA
+wQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADB
+DgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEO
+AADBDgAAwQ4AAMEOAADBDgAAwQ4AAMEOAADBDgAArfEQDQGRAJCuSQCYUfggAAKQApgBmgowAYiR
+QwGAApgBmgwwAYiRQwGAApgBmQAdAogRQwGABLBwR63xEA0BkQCQoEkAmFH4IAACkAKYAZoKMAGI
+kUMBgAKYAZoMMAGIkUMBgAKYAZoAHQGIkUMBgAKYAZqAHQGIkUMBgASwcEet8RANApIBkQCQjkkA
+mFH4IAADkAOYAZkAHQKIEUMBgCbgA5gBmQowAogRQwGAA5gBmgwwAYiRQwGAIeADmAGaCjABiJFD
+AYADmAGZDDACiBFDAYAU4AOYAZkKMAKIEUMBgAOYAZkMMAKIEUMBgAfgAphAHtXQQB7g0EAe69D/
+5wSwcEet8RANApIBkQCQbUkAmFH4IAADkAOYAZoAHQGIkUMBgCbgA5gBmQowAogRQwGAA5gBmgww
+AYiRQwGAIeADmAGaCjABiJFDAYADmAGZDDACiBFDAYAU4AOYAZkKMAKIEUMBgAOYAZkMMAKIEUMB
+gAfgAphAHtXQQB7g0EAe69D/5wSwcEet8RANAZEAkExJAJhR+CAAApACmAGZgBwCiBFDAYAEsHBH
+rfEQDQGRAJBESQCYUfggAAKQApgBmoAcAYiRQwGABLBwR63xEA0BkQCQO0kAmFH4IAACkAKYAZmA
+HAKIUUABgASwcEet8RANAZEAkDNJAJhR+CAAApACmAGaCjABiJFDAYACmAGaDDABiJFDAYACmAGa
+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
+		</data>
+	</imageConf>
+
+	<!-- BOLT -->
+	<imageConf>
+		<embeddedImageId>BOLT</embeddedImageId>
+		<name>BOLT image</name>
+		<description>message size 256 bytes, queue reset at startup</description>
+		<platform>dpp</platform>
+		<core>1</core>
+		<os>tinyos</os>
+		<data>
 f0VMRgEBAf8AAAAAAAAAAAEAaQABAAAAAAAAAAAAAABYuAAAAAAAEDQAAAAAACgABgAFAK2gfUBz
 Q2EWPckD3qQfqPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -954,6 +1041,6 @@ AAAXAAAAAQAAAAMAAACA/wAA8LcAABAAAAAAAAAAAAAAAAEAAAAAAAAAHQAAAAEAAAADAAAAzP8A
 AAC4AAA0AAAAAAAAAAAAAAABAAAAAAAAAAEAAAADAAAAAAAAAAAAAAA0uAAAIwAAAAAAAAAAAAAA
 AQAAAAAAAAA=
 </data>
-    </imageConf>
+	</imageConf>
 
 </testConf>
