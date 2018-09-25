@@ -1,0 +1,31 @@
+
+DESCRIPTION ?= $(CONTIKI_PROJECT)
+TESTDURATION ?= 120
+
+FLOCKLABTOOLS = ../../tools/flocklab/
+XMLTEMPLATE = flocklab-$(TARGET)-template.xml
+XMLFILE = flocklab-$(TARGET).xml
+
+ifdef FLOCKLAB
+  CFLAGS += -DFLOCKLAB
+  ifeq ($(TARGET), dpp-cc430)
+    override BOARD = dpp1
+  endif
+endif
+
+CLEAN += flocklab-$(TARGET).xml
+
+GITSHA = ${shell git rev-parse HEAD | head -c8}
+
+flocklab_xml:
+	@base64 $(CONTIKI_PROJECT).$(TARGET) > $(CONTIKI_PROJECT).$(TARGET).b64
+	@sed -n '1h;1!H;$${ g;s/<data>[^<]*<\/data>/<data_new>\n<\/data>/;p}' $(FLOCKLABTOOLS)$(XMLTEMPLATE) > $(XMLFILE)
+	@sed -i '/<data_new>/r $(CONTIKI_PROJECT).$(TARGET).b64' $(XMLFILE)
+	@sed -i 's/<data_new>/<data>/' $(XMLFILE)
+	@sed -i 's/<name>Name<\/name>/<name>$(CONTIKI_PROJECT)<\/name>/' $(XMLFILE)
+	@sed -i 's/<description>Description<\/description>/<description>$(DESCRIPTION) \($(TARGET), $(GITSHA)\)<\/description>/' $(XMLFILE)
+	@sed -i 's/<durationSecs>[^<]*<\/durationSecs>/<durationSecs>$(TESTDURATION)<\/durationSecs>/' $(XMLFILE)
+	@rm $(CONTIKI_PROJECT).$(TARGET).b64
+
+flocklab_test: flocklab_xml
+	$(FLOCKLABTOOLS)flocklab -c $(XMLFILE)
