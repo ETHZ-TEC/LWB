@@ -68,13 +68,6 @@
 void adc_init(void);
 
 /**
- * @brief get the battery voltage and temperature
- * @param[out] out_data the output buffer; the 1st byte will contain the
- * temperature, the 2nd the encoded voltage Venc (Vcc = Venc x 4 + 2000)
- */
-void adc_get_data(uint8_t *out_data);
-
-/**
  * @brief get the internal temperature sensor value
  * @return the temperature
  * @note adc_init() must be called prior to this function

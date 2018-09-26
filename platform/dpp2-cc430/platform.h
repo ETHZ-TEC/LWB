@@ -52,13 +52,12 @@
  * include MCU definitions
  */
 
-#ifdef CC430F5137
-#include <cc430f5137.h>
-#define MCU_DESC                    "CC430F5137"
-#else /* CC430F5137 */
-#include <cc430f5147.h>
+#include <msp430.h>
+#ifdef __CC430F5147__
 #define MCU_DESC                    "CC430F5147"
-#endif /* CC430F5137 */
+#elif defined __CC430F5137__
+#define MCU_DESC                    "CC430F5137"
+#endif
 
 /* compiler info */
 #if defined(__GNUC__)
@@ -89,7 +88,6 @@
  * include application specific config
  */
 #include "config.h"                 /* application specific configuration */
-
 
 #ifndef FW_VERSION
 #define FW_VERSION                  0x0000

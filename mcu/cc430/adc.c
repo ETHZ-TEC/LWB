@@ -43,84 +43,60 @@ static int32_t slope;    /* needed to transform the sampled values (ADC) */
 #define ADC_TEMP_2_5V_85   0x1a24   /* value at 85°C for 2.5V ref */
 #define ADC_TEMP_2_0V_30   0x1a1e   /* value at 30°C for 2.0V ref */
 #define ADC_TEMP_2_0V_85   0x1a20   /* value at 85°C for 2.0V ref */
+#define ADC_REF_CAL_2_0V   0x1A2A   /* reference calibration factor for 2.0V */
 /*---------------------------------------------------------------------------*/
-#ifdef ADC12CTL0_
+#ifdef __CC430F5137__
 /*---------------------------------------------------------------------------*/
 void
 adc_init(void)
 {
-  /* clear master bit to control the REF module with the ADC12CTL bits */
-  REFCTL0 &= ~REFMSTR;
-  /* enable ADC12 and REF module, set sample-and-hold time, set multiple sample
-     conversion (only needed for seq-of-channels) */
-  ADC12CTL0 = ADC12ON + ADC12REFON + ADC12SHT0_10 + ADC12MSC;
-  /* start address is MEM0, sample-and-hold source is SC bit, sequence of
-     channels (samples all channels until EOS bit is found) */
-  ADC12CTL1 = ADC12SHP + ADC12CSTARTADD_0 + ADC12CONSEQ_1 + ADC12SHS_0;
-  ADC12CTL2 |= ADC12RES_2;          /* 12-bit resolution */
-  /* make sure the temperature sensor isn't turned off! */
-  ADC12CTL2 &= ~ADC12TCOFF;
-  ADC12IE = 0;                      /* disable all interrupts */
-  ADC12IFG = 0;                     /* reset interrupt flags */
-  /* ADC channel 10 (temperature sense), select reference Vref (1.5V) */
-  ADC12MCTL0 = ADC12INCH_10 + ADC12SREF_1;
-  /* ADC channel 11 (voltage sense), select reference Vref (1.5V), set EOS bit
-     (this is the last channel to be sampled) */
-  ADC12MCTL1 = ADC12INCH_11 + ADC12SREF_1 + ADC12EOS;
-  /* ~40us delay to allow Ref to settle */
-  __delay_cycles(MCLK_SPEED / 25000);
+  /* enable ADC12 and set sample-and-hold time to 256 cycles */
+  ADC12CTL0 = ADC12ON + ADC12SHT0_8;
+  ADC12CTL1 = ADC12SHP + ADC12SHS_0 + ADC12DIV_0;
+  ADC12CTL2 = ADC12RES_2;               /* default values, 12-bit resolution */
+  ADC12IE   = 0;                        /* disable all interrupts */
+  ADC12IFG  = 0;                        /* reset interrupt flags */
+
+  /* configure internal reference */
+  while(REFCTL0 & REFGENBUSY);          /* wait if ref generator busy */
+  REFCTL0 |= REFVSEL_1 + REFON;         /* select internal ref = 2.0V */
 
   /* use calibration data stored in info memory */
-  slope = (5500) / 
-          (*(int16_t*)ADC_TEMP_1_5V_85 - *(int16_t*)ADC_TEMP_1_5V_30);
-}
-/*---------------------------------------------------------------------------*/
-void
-adc_get_data(uint8_t *out_data)
-{
-  /* enable and trigger the conversion (SC bit only important for
-     sequence-of-channels mode) */
-  ADC12CTL0 |= ADC12ENC + ADC12SC;
-  while(ADC12CTL1 & ADC12BUSY);
-  ADC12CTL0 &= ~(ADC12ENC + ADC12SC);       /* stop ADC */
-
-  /* read out and convert the sampled value */
-  out_data[0] = (uint8_t)((int32_t)(
-                 ((int32_t)ADC12MEM0 - (int32_t)*((int16_t *)ADC_TEMP_1_5V_30))
-                 * slope) / 100) + 30;
-  out_data[1] = (uint8_t)(
-                ((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2000) >> 2);
-  /* another way to encode the voltage as percentage:
-     (uint8_t)LIMIT(((((uint32_t)ADC12MEM1 * 3000 >> 12) + 1) - 2200) / 8, 0,
-     100) */
+  slope = ((uint32_t)5500 << 5) / 
+        (int16_t)(*(uint16_t*)ADC_TEMP_2_0V_85 - *(uint16_t*)ADC_TEMP_2_0V_30);
 }
 /*---------------------------------------------------------------------------*/
 int16_t
 adc_get_temp(void)
-{    
+{
   if(ADC12CTL0 & ADC12ON) {
-    ADC12CTL0 |= ADC12ENC + ADC12SC; 
+    ADC12MCTL0 = ADC12SREF_1 + ADC12INCH_10;  /* sample temperature sensor */
+    ADC12CTL0 |= ADC12ENC + ADC12SC;
     /* wait until sample / conversion operation has completed */
     while (ADC12CTL0 & ADC12BUSY);
-    return (((int32_t)((int16_t)ADC12MEM0 - *(int16_t*)ADC_TEMP_1_5V_30) *
-            slope)) + 3000;
+    ADC12CTL0 &= ~ADC12ENC;
+    return ((((uint32_t)ADC12MEM0 - *(int16_t*)ADC_TEMP_2_0V_30) * slope) >> 5)
+           + 3000;
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
 int16_t
 adc_get_vcc(void)
-{    
+{
   if(ADC12CTL0 & ADC12ON) {
-    ADC12CTL0 |= ADC12ENC + ADC12SC; 
+    ADC12MCTL0 = ADC12SREF_1 + ADC12INCH_11;  /* sample AVSS / 2 */
+    ADC12CTL0 |= ADC12ENC + ADC12SC;
     /* wait until sample / conversion operation has completed */
-    while (ADC12CTL0 & ADC12BUSY);    
-    return (int16_t)(3000 * (uint32_t)(ADC12MEM1) / 4096);
+    while (ADC12CTL0 & ADC12BUSY);
+    ADC12CTL0 &= ~ADC12ENC;
+    int32_t adcval_cal = (uint32_t)ADC12MEM0 * (*(uint16_t*)ADC_REF_CAL_2_0V);
+    return (int16_t)(adcval_cal / (1024 * 32768 / 1000));
   }
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-#elif defined(ADC10CTL0_)
+#elif defined __CC430F5147__
 /*---------------------------------------------------------------------------*/
 void
 adc_init(void)
@@ -133,21 +109,19 @@ adc_init(void)
   ADC10CTL1 = ADC10SHP + ADC10SHS_0 + ADC10DIV_0 + ADC10CONSEQ_2 + ADC10SSEL_0;
   ADC10CTL2 |= ADC10RES;                    /* 10-bit resolution */
   ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10;  // A10, internal Vref+
-  
+
   /* configure internal reference */
-  while(REFCTL0 & REFGENBUSY);              /* wait if ref generator busy */                                         
+  while(REFCTL0 & REFGENBUSY);              /* wait if ref generator busy */
   REFCTL0 |= REFVSEL_1 + REFON;             /* select internal ref = 2.0V */
-                                                
+
   /* values for the 2.0V reference, see datasheet p.105 */
   slope = ((int32_t)5500 << 5) /
           (*(int16_t*)ADC_TEMP_2_0V_85 - *(int16_t*)ADC_TEMP_2_0V_30);
-            
-  //ADC10IE |= ADC10IE0; 
 }
 /*---------------------------------------------------------------------------*/
 int16_t
 adc_get_temp(void)
-{  
+{
   if(ADC10CTL0 & ADC10ON) {
     ADC10MCTL0 = ADC10SREF_1 + ADC10INCH_10;
     ADC10CTL0 |= ADC10ENC + ADC10SC; 
@@ -163,7 +137,7 @@ adc_get_temp(void)
 /*---------------------------------------------------------------------------*/
 int16_t
 adc_get_vcc(void)
-{  
+{
   /* measured: (AVCC - AVSS) / 2 
    * conversion: Vcc = 2 * Vref * ADC_VAL / 1024 */
   if(ADC10CTL0 & ADC10ON) {

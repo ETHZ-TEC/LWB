@@ -69,12 +69,20 @@ print_device_info(void)
     case SYSRSTIV_PMMKEY:   idx = 12; break; /* 32 PMM PW violation */
     default:                idx = 13; break;
   }
+  /* note: KEYV indicates an incorrect FCTLx password was written to any flash
+   * control register and generates a PUC when set. */
+
+  /* errata fix (interrupts not working after programming) */
+#ifdef __CC430F5137__
+  if(idx == 13) {
+    /* unknown? -> SW reset */
+    PMM_TRIGGER_POR;
+  }
+#endif /* __CC430F5137__ */
+
   uint16_t major = FW_VERSION / 10000;
   printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFW: %u.%02u " \
          __DATE__ "\r\n", rst_source[idx], major, FW_VERSION - (10000* major));
-
-  /* note: KEYV indicates an incorrect FCTLx password was written to any flash
-   * control register and generates a PUC when set. */
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -136,11 +144,11 @@ main(int argc, char **argv)
 #ifdef ACLK_PIN
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
-  
+
   clock_init();
-  rtimer_init();
   uart_init();
   uart_enable(1);
+  rtimer_init();
 #if UART_CONF_RX_INTERRUPT
   uart_set_input_handler(serial_line_input_byte);
 #endif /* UART_CONF_RX_INTERRUPT */
@@ -162,7 +170,7 @@ main(int argc, char **argv)
     DEBUG_PRINT_FATAL("ERROR: FRAM failure");
   }
 #endif /* FRAM_CONF_ON */
-  
+
 #if BOLT_CONF_ON
   if (!bolt_init()) {
     DEBUG_PRINT_FATAL("ERROR: Bolt init failed");
@@ -189,52 +197,41 @@ main(int argc, char **argv)
   DCSTAT_CPU_ON;
 #endif /* ENERGEST_CONF_ON */
 
-#if NULLMAC_CONF_ON
-  nullmac_init();
-#endif /* NULLMAC_CONF_ON */
-  
   /* start processes */
   autostart_start(autostart_processes);
   debug_print_init();
   /* note: start debug process as last due to process_poll() execution order */
-  
+
   /* disable status LED to indicate successful termination of init routine */
   PIN_CLR(LED_STATUS);
 
+  /* enable interrupts */
+  __eint(); __nop();
+
   while(1) {
-    int r;
+    uint16_t r;
     do {
 #if WATCHDOG_CONF_ON
       watchdog_reset();
 #endif /* WATCHDOG_CONF_ON */
       r = process_run();
     } while(r > 0);
-    /* idle processing */
-    /* disable interrupts */
-    __dint();
-    __nop();
-    if(process_nevents() != 0 || UART_ACTIVE) {
-      /* re-enable interrupts */
-      __eint();
-      __nop();
-    } else {
-      /* re-enable interrupts and go to sleep atomically */
-      ENERGEST_OFF(ENERGEST_TYPE_CPU);
-      DCSTAT_CPU_OFF;
+
+    ENERGEST_OFF(ENERGEST_TYPE_CPU);
+    DCSTAT_CPU_OFF;
 #if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
-      /* no need to stop the watchdog in the low-power mode if it is reset
-       * within the timer update interrupt (which occurs every 2 seconds) */
-      watchdog_stop();
+    /* no need to stop the watchdog in the low-power mode if it is reset
+      * within the timer update interrupt (which occurs every 2 seconds) */
+    watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
-      /* LPM3 */
-      __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
-      __no_operation();
+    /* LPM3 */
+    __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF);
+    __no_operation();
 #if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
-      watchdog_start();
+    watchdog_start();
 #endif /* WATCHDOG_CONF_ON */
-      DCSTAT_CPU_ON;
-      ENERGEST_ON(ENERGEST_TYPE_CPU);
-    }
+    DCSTAT_CPU_ON;
+    ENERGEST_ON(ENERGEST_TYPE_CPU);
   }
 
   return 0;
