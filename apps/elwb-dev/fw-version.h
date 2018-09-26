@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10004           /* in decimal ABBCC */
+#define FW_VERSION      10005           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
@@ -42,11 +42,16 @@
 Revision History
 ----------------
 
-Version 1.0005 (--- develop ---):
+Version 1.0005 (2018-09-26):
 - bugfix: error in DC stats fixed
 - change: defines for Glossy adjusted (enums replaced by defines, now only
           with_sync or without_sync) + parameter for constant setup time added
           (GLOSSY_CONF_SETUPTIME_WITH_SYNC)
+- change: RTIMER_CONF_LF_UPDATE_INT disabled
+- change: perform a SW POR if reset source unknown (bugfix for CC430F5137)
+- change: issue with ADC on CC430F5137 fixed
+- change: include files and platform.h adjusted to support both the CC430F5137
+          and CC430F5147 (use MCU=... flag for compilation)
 
 Version 1.0004 (2018-09-11):
 - bugfix: value for drift in LWB health was always zero

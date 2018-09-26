@@ -54,11 +54,6 @@
 #define FRAM_CONF_ON                    0   /* enable if FRAM chip installed */
 
 
-/* --- MCU --- */
-
-#define CC430F5137
-
-
 /* --- Radio config --- */
 
 #define ELWB_CONF_RF_CH_PRIMARY         10 //8              /* CH10 = 870MHz */
@@ -71,13 +66,13 @@
 /* --- Network parameters --- */
 
 #define ELWB_CONF_N_HOPS                3
-#if IS_HOST
-/*#define ELWB_CONF_SCHED_NODE_LIST       21001, 21002, 21003, 21004, 21005, \
+#if 0 && IS_HOST
+#define ELWB_CONF_SCHED_NODE_LIST       21001, 21002, 21003, 21004, 21005, \
                                         21006, 21007, 21008, 21009, 21010, \
                                         21011, 21012, 21013, 21014, 21015, \
                                         21016, 21017, 21018, 21019, 21020, \
                                         21021, 21022, 21023, 21024, 21025, \
-                                        21026*/    /* predefined list of nodes */
+                                        21026    /* predefined list of nodes */
 #endif /* IS_HOST */
 
 
@@ -113,6 +108,9 @@
 /* timings */
 #define ELWB_CONF_T_CONT                (RTIMER_SECOND_HF / 200)      /* 5ms */
 #define ELWB_CONF_T_SCHED               (RTIMER_SECOND_HF / 50)      /* 20ms */
+#define ELWB_CONF_T_GAP                 (RTIMER_SECOND_HF / 500)      /* 2ms */
+#define ELWB_CONF_T_GUARD               (RTIMER_SECOND_HF / 4000)  /* 0.25ms */
+#define ELWB_CONF_T_GUARD_LF            (RTIMER_SECOND_LF / 1000)     /* 1ms */
 #define ELWB_CONF_T_SILENT              (120 * RTIMER_SECOND_HF)     /* 2min */
 #define ELWB_CONF_T_DEEPSLEEP_LF        (RTIMER_SECOND_LF * 1800)   /* 30min */
 /* retransmissions */
@@ -134,7 +132,7 @@
 /* Glossy */
 #define GLOSSY_CONF_HEADER_BYTE         0xc0
 #define GLOSSY_CONF_PAYLOAD_LEN         128
-#define GLOSSY_CONF_SETUPTIME_WITH_SYNC 0
+#define GLOSSY_CONF_SETUPTIME_WITH_SYNC 1200
 
 
 /* --- BOLT config --- */
@@ -151,7 +149,6 @@
 #define UTC_TIMESTAMP_MAX_DRIFT         5  /* for host only, allowed drift 
                                             before time is adjusted (= jump) */
 #define WATCHDOG_CONF_ON                1
-#define RTIMER_CONF_LF_UPDATE_LED_ON    0
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
 #define EVENT_CONF_ON                   1
 #if IS_HOST
@@ -160,7 +157,7 @@
   #define EVENT_CONF_TARGET             EVENT_TARGET_LWB
 #endif /* IS_HOST */
 //#define SVS_CONF_ON                   1
-#define RTIMER_CONF_LF_UPDATE_INT       1       /* enable LFXT OVF interrupt */
+#define RTIMER_CONF_LF_UPDATE_INT       0      /* disable LFXT OVF interrupt */
 #define NVCFG_CONF_BLOCK_SIZE           6
 #define FW_UPDATE_CONF_ON               FRAM_CONF_ON
 
@@ -177,11 +174,11 @@
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
                                          /* -> .bss + .dec size */
 #define DEBUG_CONF_P1INT_EN             0
-#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
+//#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
-#define ELWB_CONF_TASK_ACT_PIN          COM_GPIO3
-//#define GLOSSY_START_PIN              COM_GPIO3  /* use the default (LED0) */
+#define ELWB_CONF_TASK_ACT_PIN          COM_GPIO2     /* runs in ISR context */
+#define GLOSSY_START_PIN              COM_GPIO3  /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                      COM_MCU_INT2

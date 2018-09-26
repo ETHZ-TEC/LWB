@@ -148,7 +148,11 @@
 #define ELWB_SCHED_CRC_LEN        (ELWB_CONF_SCHED_CRC ? 2 : 0)
 #define ELWB_SCHED_PERIOD_MAX     (65535 / ELWB_PERIOD_SCALE)
 
+#if GLOSSY_CONF_SETUPTIME_WITH_SYNC
+#define ELWB_T_REF_OFS            ((GLOSSY_CONF_SETUPTIME_WITH_SYNC + 350) * RTIMER_SECOND_HF / 1000000)
+#else  /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 #define ELWB_T_REF_OFS            3822 /* measured with logic analyzer */
+#endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 
 #define ELWB_T_HOP(len)           ((RTIMER_SECOND_HF * \
                                    (3 + 24 + 192 + 192 + ((1000000 * \
