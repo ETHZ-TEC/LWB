@@ -58,8 +58,8 @@
 
 #define GLOSSY_MAX_PACKET_LEN (GLOSSY_CONF_PAYLOAD_LEN + GLOSSY_MAX_HEADER_LEN)
 
-#define GLOSSY_HEADER_BYTE_MASK   0xe0    /* 3 bits */
-#define GLOSSY_HEADER_SYNC_MASK   0x10    /* 1 bit */
+#define GLOSSY_HEADER_BYTE_MASK   0xc0    /* 2 bits */
+#define GLOSSY_HEADER_SYNC_MASK   0x30    /* 2 bits */
 #define GLOSSY_HEADER_N_TX_MASK   0x0f    /* 4 bits */
 #define GLOSSY_COMMON_HEADER      (GLOSSY_CONF_HEADER_BYTE & \
                                    GLOSSY_HEADER_BYTE_MASK)
@@ -69,27 +69,23 @@
                                              * RTIMER_SECOND_LF / 1000000)
 #endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 
-#define SET_PKT_TYPE(pkt_type, with_sync, n_tx_max) \
-                        (pkt_type = GLOSSY_COMMON_HEADER | \
-                                ((with_sync) ? GLOSSY_HEADER_SYNC_MASK : 0) | \
-                                ((n_tx_max) & GLOSSY_HEADER_N_TX_MASK))
-#define SET_SYNC(pkt_type, with_sync) \
-                        (pkt_type = (pkt_type & ~GLOSSY_HEADER_SYNC_MASK) | \
-                                    (with_sync ? GLOSSY_HEADER_SYNC_MASK : 0))
-#define SET_N_TX_MAX(pkt_type, n_tx_max) \
-                        (pkt_type = ((pkt_type) & ~GLOSSY_HEADER_N_TX_MASK) | \
-                                    ((n_tx_max) & GLOSSY_HEADER_N_TX_MASK))
+#define SET_PKT_TYPE(pkt_type, with_sync, n_tx) \
+  (pkt_type) = GLOSSY_COMMON_HEADER | \
+            ((with_sync ? GLOSSY_SYNC_TYPE_WITH : GLOSSY_SYNC_TYPE_WITHOUT) & \
+             GLOSSY_HEADER_SYNC_MASK) | \
+            ((n_tx) & GLOSSY_HEADER_N_TX_MASK)
 
 #define GET_COMMON_HEADER(pkt_type)   ((pkt_type) & GLOSSY_HEADER_BYTE_MASK)
 #define GET_SYNC(pkt_type)            ((pkt_type) & GLOSSY_HEADER_SYNC_MASK)
 #define GET_N_TX_MAX(pkt_type)        ((pkt_type) & GLOSSY_HEADER_N_TX_MASK)
 
-#define IS_INITIATOR()    (g.initiator_id == node_id)
-#define WITH_SYNC()       (GET_SYNC(g.header.pkt_type))
-#define WITH_RELAY_CNT()  (WITH_SYNC())     /* relay counter if sync enabled */
+#define IS_INITIATOR()   (g.initiator_id == node_id)
+#define WITH_SYNC()      (GET_SYNC(g.header.pkt_type) == GLOSSY_SYNC_TYPE_WITH)
+#define WITH_RELAY_CNT() ((WITH_SYNC()) || \
+                   (GET_SYNC(g.header.pkt_type) == GLOSSY_SYNC_TYPE_RELAY_CNT))
 
 #define GLOSSY_HEADER_LEN(pkt_type) \
-                          ((GET_SYNC(pkt_type) == 0) ? 1 : 2)
+                     ((GET_SYNC(pkt_type) == GLOSSY_SYNC_TYPE_WITHOUT) ? 1 : 2)
 
 /* mainly for debugging purposes */
 #ifdef GLOSSY_START_PIN
@@ -121,6 +117,13 @@
 #define GLOSSY_FIRST_RX
 #endif /* GLOSSY_FIRST_RX */
 
+/*---------------------------------------------------------------------------*/
+typedef enum {
+  GLOSSY_SYNC_TYPE_UNKNOWN = 0x00,
+  GLOSSY_SYNC_TYPE_WITH = 0x10,
+  GLOSSY_SYNC_TYPE_WITHOUT = 0x20,
+  GLOSSY_SYNC_TYPE_RELAY_CNT = 0x30
+} glossy_sync_t;
 /*---------------------------------------------------------------------------*/
 typedef struct {
   uint8_t  pkt_type;
