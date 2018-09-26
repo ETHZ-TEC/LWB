@@ -8,7 +8,9 @@ XMLFILE = flocklab-$(TARGET).xml
 
 CLEAN += flocklab-$(TARGET).xml
 
-GITSHA = ${shell git rev-parse HEAD | head -c8}
+ifndef GITSHA
+  GITSHA = ${shell git rev-parse HEAD | head -c8}
+endif
 
 flocklab_xml:
 	@base64 $(CONTIKI_PROJECT).exe > $(CONTIKI_PROJECT).b64

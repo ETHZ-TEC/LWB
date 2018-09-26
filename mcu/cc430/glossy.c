@@ -372,7 +372,8 @@ glossy_start(uint16_t initiator_id,
     // busy wait for the setup time to pass
     if(with_sync) {
       GLOSSY_STOPPED;
-      while((uint16_t)(rtimer_now_lf_hw() - setup_time_start) < GLOSSY_SYNC_SETUP_TICKS);
+      while((uint16_t)(rtimer_now_lf_hw() - setup_time_start) <
+            GLOSSY_SYNC_SETUP_TICKS);
       GLOSSY_STARTED;
     }
 #endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
