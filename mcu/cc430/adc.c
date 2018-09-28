@@ -132,7 +132,7 @@ adc_get_temp(void)
     return (((int32_t)(adcval - *(int16_t*)ADC_TEMP_2_0V_30) *
             slope) >> 5) + 3000;
   }
-  return 0;  
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 int16_t
@@ -146,9 +146,11 @@ adc_get_vcc(void)
     /* wait until sample / conversion operation has completed */
     while (ADC10CTL0 & ADC10BUSY);
     ADC10CTL0 &= ~ADC10ENC;
-    return (int16_t)(((50 * ADC10MEM0 + 64) / 128) * 10);
+    int32_t adcval_cal = ((uint32_t)ADC10MEM0 * (*(uint16_t*)ADC_REF_CAL_2_0V))
+                         / 32768;
+    return (int16_t)(((50 * adcval_cal + 64) / 128) * 10);
   }
-  return 0;  
+  return 0;
 }
 /*---------------------------------------------------------------------------*/
 #endif
