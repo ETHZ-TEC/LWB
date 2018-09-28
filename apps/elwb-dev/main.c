@@ -101,7 +101,7 @@ void
 load_config(void)
 {
   /* load and restore the config */
-  if(nvcfg_load((uint8_t*)&cfg)) {
+  if(nvcfg_load(&cfg)) {
     if(cfg.tx_pwr == 0) {   /* take 0 as invalid -> use value set at compile time */
       cfg.tx_pwr = RF_CONF_TX_POWER;
     } else {
@@ -119,10 +119,23 @@ load_config(void)
     DEBUG_PRINT_MSG_NOW("Config restored (TX pwr %ddBm, DBG flags 0x%x)",
                         rf1a_tx_power_val[cfg.tx_pwr], cfg.dbg_flags);
   } else {
+    EVENT_ERROR(EVENT_CC430_CORRUPTED_CONFIG, 0);
     DEBUG_PRINT_MSG_NOW("WARNING: failed to load config");
+  #if !IS_HOST
+    /* try to retrieve a valid ID from the unique identifier */
+    /*if(node_id == 0x1122) {
+      uint64_t my_id = TI_UNIQUE_ID;
+      if(my_id == 0x470be0150007001b) {
+        node_id = 20054;
+      }
+    }*/
+  #endif /* IS_HOST */
   }
   cfg.rst_cnt++;    /* update reset counter */
-  nvcfg_save((uint8_t*)&cfg);
+  if(!nvcfg_save(&cfg)) {
+    EVENT_ERROR(EVENT_CC430_CORRUPTED_CONFIG, 1);
+    DEBUG_PRINT_MSG_NOW("Failed to save config");
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS(app_pre, "BOLT Task");
@@ -132,7 +145,7 @@ PROCESS_THREAD(app_pre, ev, data)
   
   DEBUG_PRINT_MSG_NOW("Process '%s' started", app_pre.name);
   
-  while(1) {  
+  while(1) {
     APP_TASK_INACTIVE;
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     APP_TASK_ACTIVE;
@@ -210,7 +223,7 @@ PROCESS_THREAD(app_post, ev, data)
   /* init the ADC */
   adc_init();
   ADC_REFOSC_OFF;     /* shut down REF module to save power */
-
+  
   /* start the preprocess and LWB threads */
   elwb_start(&app_pre, &app_post);
   process_start(&app_pre, NULL);

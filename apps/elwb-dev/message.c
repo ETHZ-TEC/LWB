@@ -169,6 +169,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   
   /* only process the message if target ID matched the node ID */
   uint16_t forward = (msg->header.target_id == DPP_DEVICE_ID_BROADCAST);
+  uint8_t cfg_changed = 0;
   if(msg->header.target_id == node_id || forward) {
     rcvd_msg_cnt++;
     if(msg->header.type == DPP_MSG_TYPE_CMD) {
@@ -213,7 +214,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         if(arg1 < N_TX_POWER_LEVELS) {
           if(cfg.tx_pwr != arg1) {
             cfg.tx_pwr = (uint8_t)arg1;
-            nvcfg_save((uint8_t*)&cfg);
+            cfg_changed = 1;
             rf1a_set_tx_power(arg1);
             DEBUG_PRINT_INFO("TX power changed to %ddBm", 
                              rf1a_tx_power_val[arg1]);
@@ -224,7 +225,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       case CMD_CC430_SET_DBG_FLAGS:
         if(cfg.dbg_flags != (uint8_t)arg1) {
           cfg.dbg_flags = (uint8_t)arg1;
-          nvcfg_save((uint8_t*)&cfg);
+          cfg_changed = 1;
         }
         successful = 1;
         break;
@@ -254,10 +255,18 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         forward = 1;  /* forward to BOLT */
         break;
       }
+      /* command successfully executed? */
       if(successful) {
         uint32_t val = (((uint32_t)arg1) << 16 | msg->cmd.type);
         DEBUG_PRINT_INFO("cmd %u processed", msg->cmd.type);
         EVENT_INFO(EVENT_CC430_CFG_CHANGED, val);
+        /* if necessary, store the new config in the flash memory */
+        if(cfg_changed) {
+          if(!nvcfg_save(&cfg)) {
+            EVENT_ERROR(EVENT_CC430_CORRUPTED_CONFIG, 2);
+            DEBUG_PRINT_INFO("Failed to save config");
+          }
+        }
       }
   #if IS_HOST
     } else if(msg->header.type == DPP_MSG_TYPE_TIMESYNC) {

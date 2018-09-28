@@ -178,7 +178,7 @@
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
 #define ELWB_CONF_TASK_ACT_PIN          COM_GPIO2     /* runs in ISR context */
-#define GLOSSY_START_PIN              COM_GPIO3  /* use the default (LED0) */
+#define GLOSSY_START_PIN                LED_STATUS /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
 //#define GLOSSY_TX_PIN                 COM_MCU_INT2
 //#define MCLK_PIN                      COM_MCU_INT2

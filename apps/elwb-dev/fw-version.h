@@ -34,13 +34,23 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10005           /* in decimal ABBCC */
+#define FW_VERSION      10006           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0006 (2018-09-28):
+- feature: new events EVENT_CC430_CORRUPTED_SCHEDULE and
+           EVENT_CC430_CORRUPTED_CONFIG added
+- change: check added for TI device ID (ensures that the code has been compiled
+          for the target platform)
+- bugfix: fixed two potential issues, one where a CRC value of 0xffff would be
+          regarded as invalid in nvcfg_load() and another where an "odd" block
+          size would lead to a corrupted block at the flash segment boundary
+- change: flash content verification added to nvcfg_save
 
 Version 1.0005 (2018-09-26):
 - bugfix: error in DC stats fixed

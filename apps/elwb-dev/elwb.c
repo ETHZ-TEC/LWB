@@ -669,7 +669,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         /* not supposed to happend, all we can do now is go back to bootstrap
          * since the previous (valid schedule has been overwritten with a
          * corrupted one */
-        EVENT_ERROR(EVENT_CC430_RADIO_ERROR, 0);
+        EVENT_ERROR(EVENT_CC430_CORRUPTED_SCHEDULE, 0);
         DEBUG_PRINT_MSG_NOW("ERROR invalid eLWB schedule CRC!");
         sync_state = BOOTSTRAP;
         continue;
