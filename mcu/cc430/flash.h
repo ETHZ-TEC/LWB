@@ -108,6 +108,14 @@ uint8_t flash_erase_check(uint8_t* addr, uint16_t num_bytes);
  */
 void flash_write(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes);
 
+/**
+ * @brief verify the programmed data
+ * @param data pointer to the source data
+ * @param flash_addr start address of the written data in the flash memory
+ * @param num_bytes number of bytes to compare
+ */
+uint8_t flash_verify(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes);
+
 
 #endif /* __FLASH_H__ */
 

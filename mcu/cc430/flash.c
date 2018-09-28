@@ -125,6 +125,16 @@ flash_write(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes)
   FCTL3 = FWPW + LOCK + LOCKA;
 }
 /*---------------------------------------------------------------------------*/
+uint8_t
+flash_verify(uint8_t* data, uint8_t* flash_addr, uint16_t num_bytes)
+{
+  while(num_bytes) {
+    if(*flash_addr++ != *data++) return 0;    /* failure */
+    num_bytes--;
+  }
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
 void 
 flash_erase_bank_from_sram(void)  /* there's only one flash bank */
 {
