@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,8 +49,20 @@
 #define NVCFG_CONF_BLOCK_SIZE   8         /* length without CRC */
 #endif /* NVCFG_CONF_BLOCK_SIZE */
 
-/* sanity check */
-#if NVCFG_CONF_BLOCK_SIZE > NVCFG_CONF_SEG_SIZE || NVCFG_CONF_BLOCK_SIZE & 0x1
+#define NVCFG_BLOCK_SIZE_WITH_CRC   (NVCFG_CONF_BLOCK_SIZE + 2)
+
+/* how many times the flash memory should be erased at max. (if unsuccessful) */
+#ifndef NVCFG_CONF_ERASE_RETRY
+#define NVCFG_CONF_ERASE_RETRY  3
+#endif /* NVCFG_CONF_ERASE_RETRY */
+
+/* CONFIG CHECKS */
+
+#if NVCFG_CONF_ERASE_RETRY == 0
+#error "NVCFG_CONF_ERASE_RETRY can't be zero"
+#endif /* NVCFG_CONF_ERASE_RETRY */
+
+#if (NVCFG_CONF_BLOCK_SIZE + 2) > NVCFG_CONF_SEG_SIZE || NVCFG_CONF_BLOCK_SIZE & 0x1
 #error "invalid NVCFG_CONF_BLOCK_SIZE"
 #endif /* NVCFG_CONF_BLOCK_SIZE check */
 
@@ -62,14 +74,14 @@
  * @return 1 if successful (i.e. CRC ok), 0 otherwise
  * @note the crc checksum will not be copied into out_data!
  */
-uint8_t nvcfg_load(uint8_t* out_data);
+uint8_t nvcfg_load(void* out_data);
 
 /**
  * @brief store a block of data in the predefined flash memory segment
  * @param data data to save, must be exactly NVCFG_CONF_BLOCK_SIZE bytes long
  * @return 1 if successful, 0 otherwise
  */
-uint8_t nvcfg_save(uint8_t* data);
+uint8_t nvcfg_save(void* data);
 
 
 #endif /* __NVCFG_H__ */

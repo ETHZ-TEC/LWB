@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,64 +47,75 @@
 
 /*---------------------------------------------------------------------------*/
 uint8_t
-nvcfg_load(uint8_t* out_data)
-{ 
+nvcfg_load(void* out_data)
+{
   uint16_t addr = NVCFG_CONF_START_ADDR;
-  uint16_t end  = NVCFG_CONF_START_ADDR + NVCFG_CONF_SEG_SIZE;
-  
-  if(*(uint16_t*)addr == 0xffff) {
-    return 0;   /* no data available */
+
+  /* find the first empty block */
+  while((addr < (NVCFG_CONF_START_ADDR + NVCFG_CONF_SEG_SIZE)) &&
+        REGVAL16(addr) != 0xffff) {
+    addr += NVCFG_BLOCK_SIZE_WITH_CRC;
   }
-  addr += NVCFG_CONF_BLOCK_SIZE + 2;
-  
-  while(addr < end) {
-    if(*(uint16_t*)addr == 0xffff) {
-      break;
-    }
-    addr += (NVCFG_CONF_BLOCK_SIZE + 2);
+  if(NVCFG_CONF_START_ADDR == addr) {   /* 1st block is empty? */
+    return 0; /* no data to load */
   }
-  addr -= (NVCFG_CONF_BLOCK_SIZE + 2);
-  
+  addr -= NVCFG_BLOCK_SIZE_WITH_CRC;  /* go back to previous block */
+
   /* check the CRC (first 2 bytes of the block are the CRC!) */
-  if(crc16((uint8_t*)addr + 2, NVCFG_CONF_BLOCK_SIZE, 0) ==
-     *(uint16_t*)addr) {
+  uint16_t crc_calc = crc16((uint8_t*)addr + 2, NVCFG_CONF_BLOCK_SIZE, 0);
+  if(crc_calc == 0xffff) {
+    crc_calc--;             /* CRC mustn't be 0xffff */
+  }
+  if(crc_calc == *(uint16_t*)addr) {
     memcpy(out_data, (uint8_t*)addr + 2, NVCFG_CONF_BLOCK_SIZE);
     return 1;
   }
-  return 0;
+  return 0;   /* invalid CRC */
 }
 /*---------------------------------------------------------------------------*/
 uint8_t
-nvcfg_save(uint8_t* data)
+nvcfg_save(void* data)
 {
-  uint16_t addr = NVCFG_CONF_START_ADDR;     /* seg. 2 */
-  uint16_t end  = NVCFG_CONF_START_ADDR + NVCFG_CONF_SEG_SIZE;
-  
+  uint16_t addr = NVCFG_CONF_START_ADDR;
+  uint16_t tries = NVCFG_CONF_ERASE_RETRY;
+
   /* find the first empty block */
-  while(addr < end) {
-    if(*(uint16_t*)addr == 0xffff && *(uint16_t*)(addr + 2) == 0xffff) {
-      break;
-    }
-    addr += NVCFG_CONF_BLOCK_SIZE + 2;
+  while(addr < (NVCFG_CONF_START_ADDR + NVCFG_CONF_SEG_SIZE) &&
+        REGVAL16(addr) != 0xffff) {
+    addr += NVCFG_BLOCK_SIZE_WITH_CRC;
   }
-  if(addr >= end) {        /* no empty slot found? */
+  /* no empty slot found? */
+  if((addr + NVCFG_BLOCK_SIZE_WITH_CRC) >
+     (NVCFG_CONF_START_ADDR + NVCFG_CONF_SEG_SIZE)) {
     /* erase the segment */
-    flash_erase_info_segment((uint8_t*)NVCFG_CONF_START_ADDR);
-    if(!flash_erase_check((uint8_t*)NVCFG_CONF_START_ADDR,
-                          NVCFG_CONF_SEG_SIZE)) {
-      //DEBUG_PRINT_MSG_NOW("ERROR: failed to erase flash segment!");
-      return 0;
+    do {
+      flash_erase_info_segment((uint8_t*)NVCFG_CONF_START_ADDR);
+      tries--;
+    } while(!flash_erase_check((uint8_t*)NVCFG_CONF_START_ADDR,
+                               NVCFG_CONF_SEG_SIZE) && tries);
+    /* basic wear leveling protection: wait 100ms, just in case nvcfg_save is
+     * accidentially called in a loop */
+    __delay_cycles(MCLK_SPEED / 10);
+    if(tries == 0) {
+      return 0; /* failed */
     }
-    __delay_cycles(MCLK_SPEED / 2);   /* wait 0.5s */
     addr = NVCFG_CONF_START_ADDR;
   }
-  /* update the CRC */
-  uint16_t buffer[NVCFG_CONF_BLOCK_SIZE / 2 + 1];
+  /* copy the data and calculate the CRC */
+  uint16_t buffer[NVCFG_BLOCK_SIZE_WITH_CRC / 2];      /* block size is even */
   memcpy(&buffer[1], data, NVCFG_CONF_BLOCK_SIZE);
-  buffer[0] = crc16((uint8_t*)data, NVCFG_CONF_BLOCK_SIZE, 0);
+  uint16_t crc_calc = crc16((uint8_t*)data, NVCFG_CONF_BLOCK_SIZE, 0);
+  if(crc_calc == 0xffff) {
+    crc_calc--;             /* CRC mustn't be 0xffff! */
+  }
+  buffer[0] = crc_calc;
   /* save the data */
-  flash_write((uint8_t*)buffer, (uint8_t*)addr, NVCFG_CONF_BLOCK_SIZE + 2);
-
-  return 1;
+  tries = NVCFG_CONF_ERASE_RETRY;
+  do {
+    flash_write((uint8_t*)buffer, (uint8_t*)addr, NVCFG_BLOCK_SIZE_WITH_CRC);
+    tries--;
+  } while(!flash_verify((uint8_t*)buffer, (uint8_t*)addr,
+                        NVCFG_BLOCK_SIZE_WITH_CRC) && tries);
+  return (tries > 0);
 }
 /*---------------------------------------------------------------------------*/
