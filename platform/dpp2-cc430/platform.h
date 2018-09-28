@@ -53,11 +53,20 @@
  */
 
 #include <msp430.h>
+
 #ifdef __CC430F5147__
 #define MCU_DESC                    "CC430F5147"
+#define MCU_DEVICE_ID               0x8138    /* TI device ID for this MCU */
 #elif defined __CC430F5137__
 #define MCU_DESC                    "CC430F5137"
+#define MCU_DEVICE_ID               0x3751    /* TI device ID for this MCU */
 #endif
+
+#define TI_DEVICE_ID                REGVAL16(0x1A04)  /* read ID from TLV */
+#define TI_DEVICE_HWREV             REGVAL8(0x01A06)
+/* create unique ID from wafer ID and die position (x, y) */
+#define TI_UNIQUE_ID                ((uint64_t)REGVAL32(0x01A0A) << 32 | \
+                                               REGVAL32(0x01A0E))
 
 /* compiler info */
 #if defined(__GNUC__)
@@ -136,7 +145,7 @@
 #define RTIMER_CONF_NUM_HF          5
 #endif /* RF_CONF_ON */
 
-#define RTIMER_CONF_NUM_LF          3  /* number of low-frequency timers */     
+#define RTIMER_CONF_NUM_LF          3  /* number of low-frequency timers */
 
 /* specify the number of SPI modules */
 #define SPI_CONF_NUM_MODULES        2

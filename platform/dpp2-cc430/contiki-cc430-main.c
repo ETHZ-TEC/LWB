@@ -42,7 +42,7 @@ uint16_t rst_flag;        /* make it global to be accessible by the app task */
 /*---------------------------------------------------------------------------*/
 /* prints some info about the system (e.g. MCU and reset source) */
 void
-print_device_info(void)
+device_info(void)
 {
   const char* rst_source[14] = { "BOR", "nRST", "SWBOR", "SECV", "SVS", "SVM",
                                  "SWPOR", "WDT", "WDTPW", "KEYV", "PLLUL",
@@ -81,8 +81,19 @@ print_device_info(void)
 #endif /* __CC430F5137__ */
 
   uint16_t major = FW_VERSION / 10000;
-  printf("\r\nReset Source: %s\r\nMCU: " MCU_DESC "\r\nFW: %u.%02u " \
-         __DATE__ "\r\n", rst_source[idx], major, FW_VERSION - (10000* major));
+  printf("\r\nReset src: %s\r\nMCU: " MCU_DESC " rev %x\r\nFW: %u.%02u " \
+         __DATE__ "\r\n", rst_source[idx],
+                          TI_DEVICE_HWREV,
+                          major,
+                          FW_VERSION - (10000* major));
+
+  /* check device ID */
+  if(TI_DEVICE_ID != MCU_DEVICE_ID) {
+    /* probably not compiled correctly! */
+    printf("ERROR: invalid device ID detected!\r\n");
+    __delay_cycles(MCLK_SPEED);
+    PMM_TRIGGER_POR;
+  }
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -153,7 +164,7 @@ main(int argc, char **argv)
   uart_set_input_handler(serial_line_input_byte);
 #endif /* UART_CONF_RX_INTERRUPT */
 
-  print_device_info();
+  device_info();
 
 #if RF_CONF_ON
   /* init the radio module and set the parameters */

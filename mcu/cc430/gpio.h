@@ -65,6 +65,10 @@
 #define PIN_TO_BIT(pin)                 (1 << pin)
 
 /**
+ * @brief access a 32-bit register value (read or write)
+ */
+#define REGVAL32(x)                     (*((volatile uint32_t *)((uint16_t)x)))
+/**
  * @brief access a 16-bit register value (read or write)
  */
 #define REGVAL16(x)                     (*((volatile uint16_t *)((uint16_t)x)))
