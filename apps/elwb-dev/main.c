@@ -138,7 +138,7 @@ load_config(void)
   }
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_pre, "BOLT Task");
+PROCESS(app_pre, "BOLT Task Pre");
 PROCESS_THREAD(app_pre, ev, data) 
 {  
   PROCESS_BEGIN();
@@ -188,7 +188,7 @@ PROCESS_THREAD(app_pre, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_post, "App Post");
+PROCESS(app_post, "App Task Post");
 AUTOSTART_PROCESSES(&app_post);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_post, ev, data) 
@@ -224,12 +224,12 @@ PROCESS_THREAD(app_post, ev, data)
   adc_init();
   ADC_REFOSC_OFF;     /* shut down REF module to save power */
   
+  /* --- load/apply the configuration --- */
+  load_config();
+  
   /* start the preprocess and LWB threads */
   elwb_start(&app_pre, &app_post);
   process_start(&app_pre, NULL);
-  
-  /* --- load/apply the configuration --- */
-  load_config();
   
   /* enable the timestamp request interrupt */
   bolt_set_timereq_callback(capture_timestamp);
