@@ -40,7 +40,8 @@
 #include "contiki.h"
 #include "platform.h"
 #include "elwb.h"
-#include "messages/dpp_message.h"      /* packet structure and message types */
+/* packet structure and message types */
+#include "../../common/definitions/messages/dpp_message.h"
 #include "event.h"
 #include "message.h"
 
