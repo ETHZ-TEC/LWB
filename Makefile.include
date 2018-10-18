@@ -138,6 +138,7 @@ else
 endif
 	@mspdebug tilib "prog $(HEXFILE)" --allow-fw-update
 
+upload.bsl: upload_bsl
 
 upload_bsl: $(EXEFILE)
 ifdef NODE_ID
@@ -146,11 +147,11 @@ ifdef NODE_ID
 else
 	@msp430-objcopy $(EXEFILE) -O ihex $(HEXFILE)
 endif
-	@python $(CONTIKI)/tools/dpp/program_cc430.py $(HEXFILE)
+	@python $(CONTIKI)/tools/dpp/program_cc430.py $(HEXFILE) $(PORT)
 
 
 login:
-	@python $(CONTIKI)/tools/dpp/login_cc430.py
+	@python $(CONTIKI)/tools/dpp/login_cc430.py $(PORT)
 
 
 verify:
