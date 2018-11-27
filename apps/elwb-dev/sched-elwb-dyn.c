@@ -482,13 +482,13 @@ elwb_sched_compute(elwb_schedule_t * const sched,
          * buffer */
         char buffer[6];       /* node IDs are 5 characters at most (16 bits) */
         uint16_to_str(curr_node->id, buffer);
-        debug_print_buffer_put(buffer);
-        debug_print_buffer_put(" ");
+        debug_print_put(buffer);
+        debug_print_put(" ");
         curr_node->n_pkts = 0;  /* reset */
         curr_node = curr_node->next;
       }
     }
-    debug_print_buffer_put("\r\n");
+    debug_print_put("\r\n");
     
     sched_state = ELWB_SCHED_STATE_IDLE;
     /* schedule for next round will be set below */
@@ -592,9 +592,9 @@ elwb_sched_register_nodes(void)
     elwb_sched_add_node(node_ids[i]);
     char buffer[8];       /* node IDs are 5 characters at most (16 bits) */
     snprintf(buffer, 8, "%u ", node_ids[i]);
-    debug_print_buffer_put(buffer);
+    debug_print_put(buffer);
   }
-  debug_print_buffer_put("\r\n");
+  debug_print_put("\r\n");
 #endif /* ELWB_CONF_SCHED_NODE_LIST */
 }
 /*---------------------------------------------------------------------------*/

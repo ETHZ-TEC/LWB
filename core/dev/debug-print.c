@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Author:  Reto Da Forno
- *          Federico Ferrari
  */
 
 #include "contiki.h"
@@ -53,36 +52,26 @@
   #define DEBUG_PRINT_UART_DISABLE    while(UART_ACTIVE)
 #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
 /*---------------------------------------------------------------------------*/
-struct printbuf
-{
+struct printbuf {
   uint8_t *data;
   uint16_t size;
   uint16_t put_idx, get_idx;
   uint16_t cnt;
 };
-void printbuf_put(struct printbuf* p, const char* str);
-void printbuf_flush(struct printbuf* p);
-uint16_t sprint_hex16(uint16_t val, char* out_buffer);
-uint16_t sprint_uint16(uint16_t val, char* out_buffer);
-uint16_t sprint_uint32(uint32_t val, char* out_buffer, uint16_t min_chars);
+static void printbuf_flush(void);       /* private function */
 /*---------------------------------------------------------------------------*/
-const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS + 1] = { \
-  "CRIT", "ERR", "WARN", "INFO", "VERB", "" };
+const char* debug_print_lvl_to_string[NUM_OF_DEBUG_PRINT_LEVELS] = { \
+  "CRIT: ", "ERROR:", "WARN: ", "INFO: ", "DBG:  " };
 /* global buffer, required to compose the messages */
-char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN + 1]; 
-static uint8_t buffer_full = 0;  
+char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN];
 #if DEBUG_PRINT_CONF_USE_XMEM
-  static uint8_t n_buffered_msg = 0;
-  static uint32_t start_addr_msg = MEMBX_INVALID_ADDR;
-  static debug_print_t msg;
+static uint8_t buffer_full = 0;
+static uint8_t n_buffered_msg = 0;
+static uint32_t start_addr_msg = MEMBX_INVALID_ADDR;
+static debug_print_t msg;
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
-  #if DEBUG_PRINT_CONF_USE_RINGBUFFER
-    static struct  printbuf dbg_printbuf = { 0 };
-    static uint8_t dbg_printbuf_data[DEBUG_PRINT_CONF_BUFFER_SIZE];
-  #else /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
-    MEMB(debug_print_memb, debug_print_t, DEBUG_PRINT_CONF_NUM_MSG);
-    LIST(debug_print_list);
-  #endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+static struct  printbuf dbg_printbuf = { 0 };
+static uint8_t dbg_printbuf_data[DEBUG_PRINT_CONF_BUFFER_SIZE];
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 /*---------------------------------------------------------------------------*/
 PROCESS(debug_print_process, "Debug Print");
@@ -90,10 +79,10 @@ PROCESS(debug_print_process, "Debug Print");
 PROCESS_THREAD(debug_print_process, ev, data)
 {
   PROCESS_BEGIN();
-  
+
   uart_enable(1);       /* make sure UART is enabled */
-  printf("Process '%s' started\r\n", debug_print_process.name);
-        
+  printf("Process '%s' started" DEBUG_PRINT_CONF_EOL, debug_print_process.name);
+
 #if DEBUG_PRINT_CONF_USE_XMEM
   static uint32_t next_msg = MEMBX_INVALID_ADDR;
   n_buffered_msg = 0;
@@ -103,19 +92,14 @@ PROCESS_THREAD(debug_print_process, ev, data)
   }
   start_addr_msg = xmem_alloc(DEBUG_PRINT_CONF_NUM_MSG *sizeof(debug_print_t));
 #else  /* DEBUG_PRINT_CONF_USE_XMEM */
- #if DEBUG_PRINT_CONF_USE_RINGBUFFER
   dbg_printbuf.data = dbg_printbuf_data;
   dbg_printbuf.size = DEBUG_PRINT_CONF_BUFFER_SIZE;
- #else /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
-  memb_init(&debug_print_memb);
-  list_init(debug_print_list);
- #endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
-  
+
 #ifdef DEBUG_PRINT_CONF_TASK_ACT_PIN
   PIN_CFG_OUT(DEBUG_PRINT_CONF_TASK_ACT_PIN);
 #endif
-  
+
 #if DEBUG_CONF_STACK_GUARD
   /* fîll all unused stack memory with a dummy value */
   uint16_t* addr;
@@ -123,22 +107,22 @@ PROCESS_THREAD(debug_print_process, ev, data)
   for(addr = (uint16_t*)(DEBUG_CONF_STACK_GUARD); addr < end; addr++) {
     *addr = 0xaaaa;
   }
-  printf("Debug buffer size %uB, max stack size %uB\r\n",
+  printf("Debug buffer size %uB, max stack size %uB" DEBUG_PRINT_CONF_EOL,
          DEBUG_PRINT_CONF_NUM_MSG * DEBUG_PRINT_CONF_MSG_LEN + 
          DEBUG_PRINT_CONF_BUFFER_SIZE,
          (SRAM_END - DEBUG_CONF_STACK_GUARD - 7));
 #else
-  printf("Debug buffer size %uB\r\n",
+  printf("Debug buffer size %uB" DEBUG_PRINT_CONF_EOL,
          DEBUG_PRINT_CONF_NUM_MSG * DEBUG_PRINT_CONF_MSG_LEN + 
          DEBUG_PRINT_CONF_BUFFER_SIZE);
 #endif /* DEBUG_CONF_STACK_GUARD */
-  
+
   while(1) {
     /* suspend this task */
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     /* wait until we get polled by another thread */
     DEBUG_PRINT_TASK_ACTIVE;
-        
+
 #if DEBUG_PRINT_CONF_USE_XMEM
     next_msg = start_addr_msg;
     while(n_buffered_msg > 0) {
@@ -146,7 +130,7 @@ PROCESS_THREAD(debug_print_process, ev, data)
       xmem_read(next_msg, sizeof(debug_print_t), (uint8_t *)&msg);
       DEBUG_PRINT_UART_ENABLE;
       msg.content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
-      printf("%u %7lu %s: %s\r\n", node_id, msg.time,
+      printf("%u %7lu %s: %s" DEBUG_PRINT_CONF_EOL, node_id, msg.time,
              debug_print_lvl_to_string[msg.level], msg.content);
       DEBUG_PRINT_UART_DISABLE;
       next_msg += sizeof(debug_print_t);
@@ -155,44 +139,27 @@ PROCESS_THREAD(debug_print_process, ev, data)
          buffer / list data structure will be necessary!) */
       /* only let this task run when no other work is to do */
     }
+    if(buffer_full) {
+      printf("WARN:  debug print buffer full" DEBUG_PRINT_CONF_EOL);
+      buffer_full = 0;
+    }
     xmem_sleep();
 
 #else /* DEBUG_PRINT_CONF_USE_XMEM */
-    
+
     DEBUG_PRINT_UART_ENABLE;
-  #if DEBUG_PRINT_CONF_USE_RINGBUFFER
-    printbuf_flush(&dbg_printbuf);
-  #else /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
-    while(list_length(debug_print_list) > 0) {
-      debug_print_t *msg = list_head(debug_print_list);
-      msg->content[DEBUG_PRINT_CONF_MSG_LEN] = 0;
-      printf("%u %5lu %s: %s\r\n", node_id, msg->time,
-             debug_print_lvl_to_string[msg->level], msg->content);
-      /* remove it from the queue */
-      list_remove(debug_print_list, msg);
-      memb_free(&debug_print_memb, msg);
-      /*DEBUG_PRINT_TASK_SUSPENDED;
-        PROCESS_PAUSE();*/
-    }
-  #endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+    printbuf_flush();
     DEBUG_PRINT_UART_DISABLE;
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 
-    if(buffer_full) { 
-      DEBUG_PRINT_UART_ENABLE;
-      printf("WARNING: Debug messages dropped (buffer full)!\r\n");
-      DEBUG_PRINT_UART_DISABLE;
-      buffer_full = 0;
-    }
-
 #if DEBUG_CONF_STACK_GUARD
     /* check if the stack might be corrupt (check 8 bytes) */
-    if(*(uint16_t*)DEBUG_CONF_STACK_GUARD != 0xaaaa       || 
-       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) != 0xaaaa || 
-       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) != 0xaaaa || 
+    if(*(uint16_t*)DEBUG_CONF_STACK_GUARD != 0xaaaa       ||
+       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 2) != 0xaaaa ||
+       *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 4) != 0xaaaa ||
        *(uint16_t*)(DEBUG_CONF_STACK_GUARD + 6) != 0xaaaa) {
       DEBUG_PRINT_FATAL("FATAL ERROR: Stack overflow detected");
-    }    
+    }
 #endif /* DEBUG_CONF_STACK_GUARD */
 
     DEBUG_PRINT_TASK_SUSPENDED;
@@ -213,18 +180,22 @@ debug_print_poll(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data
-#if DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
-                , char *filename, uint16_t line)
-#else /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
-                )
-#endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
-{  
+#if DEBUG_PRINT_CONF_PRINT_FILENAME
+debug_print_msg(uint32_t timestamp,
+                debug_level_t level,
+                char *data,
+                char *filename)
+#else /* DEBUG_PRINT_CONF_PRINT_FILENAME */
+debug_print_msg(uint32_t timestamp,
+                debug_level_t level,
+                char *data)
+#endif /* DEBUG_PRINT_CONF_PRINT_FILENAME */
+{
 #if DEBUG_PRINT_CONF_USE_XMEM
   if(n_buffered_msg < DEBUG_PRINT_CONF_NUM_MSG &&
      MEMBX_INVALID_ADDR != start_addr_msg) {
     /* compose the message struct */
-    msg.time = timestamp / RTIMER_SECOND_LF;
+    msg.time = timestamp;
     msg.level = level;
     memcpy(msg.content, data, DEBUG_PRINT_CONF_MSG_LEN);
     /* write to external memory */
@@ -236,60 +207,38 @@ debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data
     buffer_full = 1;
   }
 #else
- #if DEBUG_PRINT_CONF_USE_RINGBUFFER
-  /* max. memory size: node_id (6) + timestamp (11) + dbg lvl (5) + 
-   * line_no (6) + filename (16) = 44 */
-  char tmp[45];
-  uint16_t idx = 0;
-  #if DEBUG_PRINT_CONF_PRINT_NODEID
-  idx += sprint_uint16(node_id, &tmp[idx]);
-  tmp[idx++] = ' ';
-  #endif /* DEBUG_PRINT_CONF_PRINT_NODEID */
-  #if DEBUG_PRINT_CONF_PRINT_TIMESTAMP
-  idx += sprint_uint32((uint32_t)(timestamp / RTIMER_SECOND_LF), &tmp[idx], 5);
-  tmp[idx++] = ' ';
-  #endif /* DEBUG_PRINT_CONF_PRINT_TIMESTAMP */
+  char tmp[32];
+  debug_print_put("[");
   #if DEBUG_PRINT_CONF_PRINT_DBGLEVEL
-  strcat(&tmp[idx], debug_print_lvl_to_string[level]);
-  tmp[idx++] = ' ';
+  debug_print_put(debug_print_lvl_to_string[level]);
   #endif /* DEBUG_PRINT_CONF_PRINT_DBGLEVEL */
-  #if DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE
-  strncat(&tmp[idx], filename, 15);   /* copy up to 15 characters */
-  tmp[idx++] = ' ';
-  idx += sprintf_uint16(line, &tmp[idx]);
-  #endif /* DEBUG_PRINT_CONF_PRINT_FILE_AND_LINE */
-  tmp[idx] = 0;   /* make sure string has a terminating null character */
-  printbuf_put(&dbg_printbuf, tmp);
-  printbuf_put(&dbg_printbuf, data);
-  printbuf_put(&dbg_printbuf, "\r\n");
- #else /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
-  debug_print_t *msg = memb_alloc(&debug_print_memb);
-  if(msg != NULL) {
-    /* compose the message struct */
-    msg->time = timestamp / RTIMER_SECOND_LF;
-    msg->level = level;
-    memcpy(msg->content, data, DEBUG_PRINT_CONF_MSG_LEN);
-    /* add it to the list of messages ready to print */
-    list_add(debug_print_list, msg);
-    /* poll the debug print process */
-  #if DEBUG_PRINT_CONF_POLL
-    process_poll(&debug_print_process);
-  #endif /* DEBUG_PRINT_CONF_POLL */
-  } else {
-    buffer_full = 1;
-  }
- #endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
+  #if DEBUG_PRINT_CONF_PRINT_NODEID
+  snprintf(tmp, 32, DEBUG_PRINT_CONF_PRINT_DBGLEVEL ? " %u " : "%u ", node_id);
+  debug_print_put(tmp);
+  #endif /* DEBUG_PRINT_CONF_PRINT_NODEID */
+  #if DEBUG_PRINT_CONF_PRINT_FILENAME
+  snprintf(tmp, 32,
+           (DEBUG_PRINT_CONF_PRINT_DBGLEVEL ||
+            DEBUG_PRINT_CONF_PRINT_NODEID) ? " %-10s" : "%-10s",
+           filename);
+  debug_print_put(tmp);
+  #endif /* DEBUG_PRINT_CONF_PRINT_FILENAME */
+  #if DEBUG_PRINT_CONF_PRINT_TIMESTAMP
+  snprintf(tmp, 32, 
+           (DEBUG_PRINT_CONF_PRINT_DBGLEVEL ||
+            DEBUG_PRINT_CONF_PRINT_NODEID   ||
+            DEBUG_PRINT_CONF_PRINT_FILENAME) ?  " %4lu" : "%4lu",
+           timestamp);
+  debug_print_put(tmp);
+  #endif /* DEBUG_PRINT_CONF_PRINT_TIMESTAMP */
+  debug_print_put("] ");
+  debug_print_put(data);
+  debug_print_put(DEBUG_PRINT_CONF_EOL);
+ #if DEBUG_PRINT_CONF_POLL
+  process_poll(&debug_print_process);
+ #endif /* DEBUG_PRINT_CONF_POLL */
 #endif /* DEBUG_PRINT_CONF_USE_XMEM */
 }
-/*---------------------------------------------------------------------------*/
-#if DEBUG_PRINT_CONF_USE_RINGBUFFER
-/* put strings directly into the print buffer */
-void
-debug_print_buffer_put(char *str)
-{  
-  printbuf_put(&dbg_printbuf, str);
-}
-#endif /* DEBUG_PRINT_CONF_USE_RINGBUFFER */
 /*---------------------------------------------------------------------------*/
 void
 debug_print_msg_now(char *data)
@@ -297,7 +246,7 @@ debug_print_msg_now(char *data)
   if(data) {
     DEBUG_PRINT_UART_ENABLE;
     printf(data);
-    printf("\r\n");
+    printf(DEBUG_PRINT_CONF_EOL);
     DEBUG_PRINT_UART_DISABLE;
   }
 }
@@ -317,46 +266,78 @@ debug_print_get_max_stack_size(void)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+#if !DEBUG_PRINT_CONF_USE_XMEM
 void
-printbuf_put(struct printbuf* p, const char* str)
+debug_print_put(const char* str)
 {
-  if(p->cnt == p->size)
-    return;   /* full */
-  uint16_t lim = p->size - 3;
-  while(*str && p->cnt < lim) {
-    p->data[p->put_idx++] = *str++;
-    if(p->put_idx == p->size) {
-      p->put_idx = 0;
+  static const char line_cut[] = "~" DEBUG_PRINT_CONF_EOL;
+
+  if(dbg_printbuf.cnt == dbg_printbuf.size)
+    return;
+  uint16_t lim = dbg_printbuf.size - strlen(line_cut);
+  while(*str && dbg_printbuf.cnt < lim) {
+    dbg_printbuf.data[dbg_printbuf.put_idx++] = *str++;
+    if(dbg_printbuf.put_idx == dbg_printbuf.size) {
+      dbg_printbuf.put_idx = 0;
     }
-    p->cnt++;
+    dbg_printbuf.cnt++;
   }
   if(*str) {
     /* no more space -> add special character + newline */
-    static const char line_cut[4] = "~\r\n";
     str = line_cut;
     while(*str) {
-      p->data[p->put_idx++] = *str++;
-      if(p->put_idx == p->size) {
-        p->put_idx = 0;
+      dbg_printbuf.data[dbg_printbuf.put_idx++] = *str++;
+      if(dbg_printbuf.put_idx == dbg_printbuf.size) {
+        dbg_printbuf.put_idx = 0;
       }
     }
-    p->cnt += 3;
+    dbg_printbuf.cnt += strlen(line_cut);
   }
-  /* success */
+}
+/*---------------------------------------------------------------------------*/
+static void
+printbuf_flush(void)
+{
+  while(dbg_printbuf.cnt)
+  {
+    uint8_t c = dbg_printbuf.data[dbg_printbuf.get_idx++];
+    if(dbg_printbuf.get_idx == dbg_printbuf.size) {
+      dbg_printbuf.get_idx = 0;
+    }
+    putchar(c);
+    dbg_printbuf.cnt--;
+  }
+}
+#endif /* DEBUG_PRINT_CONF_USE_XMEM */
+/*---------------------------------------------------------------------------*/
+#else /* DEBUG_PRINT_CONF_ON */
+/*---------------------------------------------------------------------------*/
+void
+debug_print_init(void)
+{
 }
 /*---------------------------------------------------------------------------*/
 void
-printbuf_flush(struct printbuf* p)
+debug_print_poll(void)
 {
-  while(p->cnt) {
-    uint8_t c = p->data[p->get_idx++];
-    if(p->get_idx == p->size) {
-      p->get_idx = 0;
-    }
-    putchar(c);
-    p->cnt--;
-  }
 }
+/*---------------------------------------------------------------------------*/
+void
+debug_print_msg(uint32_t timestamp, debug_level_t level, char *data)
+{
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_msg_now(char *data)
+{
+}
+/*---------------------------------------------------------------------------*/
+void
+debug_print_get_max_stack_size(void)
+{
+}
+/*---------------------------------------------------------------------------*/
+#endif /* DEBUG_PRINT_CONF_ON */
 /*---------------------------------------------------------------------------*/
 uint16_t
 sprint_hex16(uint16_t val, char* out_buffer)
@@ -434,31 +415,3 @@ sprint_uint32(uint32_t val, char* out_buffer, uint16_t min_chars)
   return char_cnt;
 }
 /*---------------------------------------------------------------------------*/
-#else /* DEBUG_PRINT_CONF_ON */
-/*---------------------------------------------------------------------------*/
-void
-debug_print_init(void)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
-debug_print_poll(void)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
-debug_print_msg(rtimer_clock_t timestamp, debug_level_t level, char *data)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
-debug_print_msg_now(char *data)
-{
-}
-/*---------------------------------------------------------------------------*/
-void
-debug_print_get_max_stack_size(void)
-{
-}
-/*---------------------------------------------------------------------------*/
-#endif /* DEBUG_PRINT_CONF_ON */

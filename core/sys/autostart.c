@@ -37,15 +37,11 @@
  *         Adam Dunkels <adam@sics.se>
  */
 
-#include "sys/autostart.h"
+#include "contiki.h"
 
-#define DEBUG 0
-#if DEBUG
-#include <stdio.h>
-#define PRINTF(...) printf(__VA_ARGS__)
-#else
+//#include <stdio.h>
+//#define PRINTF(...) printf(__VA_ARGS__)
 #define PRINTF(...)
-#endif
 
 /*---------------------------------------------------------------------------*/
 void
