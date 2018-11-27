@@ -231,15 +231,8 @@ typedef enum {
   NUM_OF_DEBUG_PRINT_LEVELS
 } debug_level_t;
 
-/* +1 for the trailing \0 character */
 extern char debug_print_buffer[DEBUG_PRINT_CONF_MSG_LEN];   
 
-typedef struct debug_print_t {
-  struct debug_print_t *next;
-  uint32_t time;
-  uint8_t level;
-  char content[DEBUG_PRINT_CONF_MSG_LEN];
-} debug_print_t;
 
 /**
  * @brief start the debug print process 

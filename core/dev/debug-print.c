@@ -52,6 +52,13 @@
   #define DEBUG_PRINT_UART_DISABLE    while(UART_ACTIVE)
 #endif /* DEBUG_PRINT_CONF_DISABLE_UART */
 /*---------------------------------------------------------------------------*/
+typedef struct debug_print_t {
+  struct debug_print_t *next;
+  uint32_t time;
+  uint8_t level;
+  char content[DEBUG_PRINT_CONF_MSG_LEN];
+} debug_print_t;
+
 struct printbuf {
   uint8_t *data;
   uint16_t size;
