@@ -185,20 +185,18 @@
   PMM_TRIGGER_POR; \
 }
 
-
 /* defines how the debug print function looks like */
 #if DEBUG_PRINT_CONF_PRINT_DIRECT
   #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg_now(msg)
 #else /* DEBUG_PRINT_CONF_PRINT_DIRECT */
  #if DEBUG_PRINT_CONF_PRINT_FILENAME
-  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg(rtimer_now_lf(), \
+  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg(rtimer_seconds(), \
                                            l, msg, __FILENAME__, __LINE__) 
  #else /* DEBUG_PRINT_CONF_PRINT_FILENAME */
-  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg(rtimer_now_lf(), \
+  #define DEBUG_PRINT_FUNCTION(l, msg)   debug_print_msg(rtimer_seconds(), \
                                            l, msg)
  #endif /* DEBUG_PRINT_CONF_PRINT_FILENAME */
 #endif /* DEBUG_PRINT_CONF_PRINT_DIRECT */
-
 
 #if DEBUG_PRINT_CONF_ON
   #define DEBUG_PRINT_MSG(t, l, ...) \
@@ -271,7 +269,6 @@ void debug_print_msg(uint32_t timestamp,
  * @brief print out a message immediately over UART (blocking call)
  */
 void debug_print_msg_now(char *data);
-
 
 uint16_t debug_print_get_max_stack_size(void);
 

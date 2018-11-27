@@ -42,6 +42,10 @@
 Revision History
 ----------------
 
+Version 1.0007 (2018-11-?):
+- change: debug print task simplified
+- change: undefined ISRs and new define 'DEBUG' added
+
 Version 1.0006 (2018-09-28):
 - feature: new events EVENT_CC430_CORRUPTED_SCHEDULE and
            EVENT_CC430_CORRUPTED_CONFIG added

@@ -252,6 +252,12 @@ rtimer_clock_t rtimer_now_lf(void);
 uint16_t rtimer_now_lf_hw(void);
 
 /**
+ * @brief get the number of seconds since startup
+ * @return seconds (32-bit value)
+ */
+uint32_t rtimer_seconds(void);
+
+/**
  * @brief get the current timer value of both, the high and low frequency
  * timer
  * @param[in] hf_val value in timer clock ticks (timestamp)

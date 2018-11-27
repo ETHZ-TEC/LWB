@@ -323,6 +323,20 @@ rtimer_now_hf(void)
   return time;
 }
 /*---------------------------------------------------------------------------*/
+uint32_t
+rtimer_seconds(void)
+{
+  /* rtimer LF extension is incremented every 2 seconds */
+  uint32_t s = (uint32_t)ta1_sw_ext;
+  if(TA1CTL & TAIFG) {
+    s += 2;
+  }
+  if(rtimer_now_lf_hw() >= 32768) {
+    s++;
+  }
+  return s;
+}
+/*---------------------------------------------------------------------------*/
 uint16_t
 rtimer_now_lf_hw(void)
 {
