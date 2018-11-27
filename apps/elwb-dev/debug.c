@@ -36,7 +36,7 @@
 
   #define WATCHDOG_CONF_RESET_ON_TA1IFG  0
   #define WATCHDOG_CONF_STOP_IN_LPM      0
-  #define WATCHDOG_CONF_TIMER_MODE       1 
+  #define WATCHDOG_CONF_TIMER_MODE       1
 
   To enable the trap within other interrupts, the GIE bit must be set upon
   entering the ISR:
@@ -178,4 +178,43 @@ ISR(WDT, wdt_interrupt)
   dump_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2);
 }
 #endif /* WATCHDOG_CONF_TIMER_MODE */
+/*---------------------------------------------------------------------------*/
+/* define all unused ISRs */
+void
+default_isr(uint16_t val)
+{
+  /* not supposed to happen: toggle LED in infinite loop */
+  watchdog_stop();
+  LED_OFF(LED_ERROR);
+  while(1) {
+    uint16_t i = 2 * val;
+    while(i) {
+      LED_TOGGLE(LED_ERROR);
+      __delay_cycles(1000000);
+      i--;
+    }
+    __delay_cycles(MCLK_SPEED);
+  }
+}
+/*---------------------------------------------------------------------------*/
+ISR(AES, aes_interrupt)         { default_isr(1);  }
+ISR(RTC, rtc_interrupt)         { default_isr(2);  }
+ISR(LCD_B, lcd_interrupt)       { default_isr(3);  }
+ISR(PORT2, p2_interrupt)        { default_isr(4);  }
+ISR(PORT1, p1_interrupt)        { default_isr(5);  }
+//ISR(TIMER1_A1, ta1_1_interrupt) { default_isr(6);  }
+//ISR(TIMER1_A0, ta1_0_interrupt) { default_isr(7);  }
+ISR(DMA, dma_interrupt)         { default_isr(8);  }
+//ISR(CC1101, cc1101_interrupt)   { default_isr(9);  }
+//ISR(TIMER0_A1, ta0_1_interrupt) { default_isr(10); }
+//ISR(TIMER0_A0, ta0_0_interrupt) { default_isr(11); }
+ISR(ADC10, adc_interrupt)       { default_isr(12); }
+ISR(USCI_B0, usci_b0_interrupt) { default_isr(13); }
+ISR(USCI_A0, usci_a0_interrupt) { default_isr(14); }
+#ifndef DEBUG
+ISR(WDT, wtd_interrupt)         { default_isr(15); }
+#endif /* DEBUG */
+ISR(COMP_B, comp_interrupt)     { default_isr(16); }
+//ISR(UNMI, unmi_interrupt)       { default_isr(17); }
+ISR(SYSNMI, sysnmi_interrupt)   { default_isr(18); }
 /*---------------------------------------------------------------------------*/

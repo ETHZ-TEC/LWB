@@ -39,6 +39,9 @@
  * application specific config file to override default settings
  */
 
+#define DEBUG                            /* uncomment to enable debug mode */
+
+
 /* --- Node and component ID --- */
 
 /* uncomment NODE_ID to compile FW image for the host node */
@@ -149,6 +152,11 @@
 #define UTC_TIMESTAMP_MAX_DRIFT         5  /* for host only, allowed drift 
                                             before time is adjusted (= jump) */
 #define WATCHDOG_CONF_ON                1
+#ifdef DEBUG
+  #define WATCHDOG_CONF_RESET_ON_TA1IFG 0
+  #define WATCHDOG_CONF_STOP_IN_LPM     0
+  #define WATCHDOG_CONF_TIMER_MODE      1 
+#endif /* DEBUG */
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
 #define EVENT_CONF_ON                   1
 #if IS_HOST
@@ -156,7 +164,7 @@
 #else /* IS_HOST */
   #define EVENT_CONF_TARGET             EVENT_TARGET_LWB
 #endif /* IS_HOST */
-//#define SVS_CONF_ON                   1
+#define SVS_CONF_ON                     0                   /* don't use SVS */
 #define RTIMER_CONF_LF_UPDATE_INT       0      /* disable LFXT OVF interrupt */
 #define NVCFG_CONF_BLOCK_SIZE           6
 #define FW_UPDATE_CONF_ON               FRAM_CONF_ON
@@ -166,15 +174,14 @@
 
 #define DEBUG_PRINT_CONF_ON             1
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
-#define DEBUG_PRINT_CONF_USE_RINGBUFFER 1
 #define DEBUG_PRINT_CONF_BUFFER_SIZE    512  /* debug print buffer size in b */
 #define DEBUG_PRINT_CONF_MSG_LEN        90  /* max debug msg length per line */
-#define DEBUG_PRINT_CONF_USE_XMEM       0   /* can't be used with RINGBUFFER */
+#define DEBUG_PRINT_CONF_USE_XMEM       0
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
                                          /* -> .bss + .dec size */
 #define DEBUG_CONF_P1INT_EN             0
-//#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
+#define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
 #define ELWB_CONF_TASK_ACT_PIN          COM_GPIO2     /* runs in ISR context */
