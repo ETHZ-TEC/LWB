@@ -39,7 +39,7 @@
  * application specific config file to override default settings
  */
 
-#define DEBUG                            /* uncomment to enable debug mode */
+//#define DEBUG                            /* uncomment to enable debug mode */
 
 
 /* --- Node and component ID --- */
