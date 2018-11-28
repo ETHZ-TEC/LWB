@@ -249,6 +249,13 @@ PROCESS_THREAD(app_post, ev, data)
   adc_init();
   ADC_REFOSC_OFF;     /* shut down REF module to save power */
   
+  /* if FRAM is not used, make sure it is put into sleep mode (if installed) */
+#if !FRAM_CONF_ON
+  if (fram_init()) {
+    fram_sleep();
+  }
+#endif /* FRAM_CONF_ON */
+  
   /* --- load/apply the configuration --- */
   load_config();
   

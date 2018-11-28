@@ -70,8 +70,6 @@
 #define FRAM_CONF_ON            0       /* disabled by default */
 #endif /* FRAM_CONF_ON */
 
-#if FRAM_CONF_ON
-
 /* adjust the following figures according to the used FRAM chip */
 #ifndef FRAM_CONF_START
 #define FRAM_CONF_START         0x00000 /* virtual address of first byte */
@@ -217,9 +215,6 @@ uint8_t fram_fill(uint32_t start_address,
  * specified size on the external FRAM.
  */
 uint32_t fram_alloc(uint16_t size);
-
-#endif /* FRAM_CONF_ON */
-
 
 /**
  * @brief calculates the 16-bit CRC of a memory block

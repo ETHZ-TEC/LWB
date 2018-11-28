@@ -191,13 +191,10 @@
 //#define ACLK_PIN                  COM_GPIO2
 //#define SMCLK_PIN                 COM_GPIO1
 
+#define FRAM_CONF_CTRL_PIN          PORT2, PIN0
+#define FRAM_CONF_SIZE              125000      /* 1 Mbit */
+#define FRAM_CONF_SPI               SPI_1
 #if FRAM_CONF_ON
-  #define FRAM_CONF_CTRL_PIN        PORT2, PIN0
-  #define FRAM_CONF_SIZE            125000      /* 1 Mbit */
-  #define FRAM_CONF_SPI             SPI_1
-  //#ifndef DEBUG_PRINT_CONF_USE_XMEM
-  //#define DEBUG_PRINT_CONF_USE_XMEM 1
-  //#endif /* DEBUG_PRINT_CONF_USE_XMEM */
   #define FRAM_SLEEP                fram_sleep()
   #define FRAM_WAKEUP               fram_wakeup()
 #else /* FRAM_CONF_ON */
