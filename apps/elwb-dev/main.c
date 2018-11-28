@@ -32,7 +32,28 @@
  */
 
 /**
- * @brief eLWB Development Application (ETZ Test deployment)
+ * @brief eLWB Development Application
+ *
+ * used in geophone deployment (dirru & matterhorn)
+ *
+ * ---------------------------------------------------------------------------
+ *
+ * Reset flag info:
+ *    0 unknown
+ *    2 brownout reset
+ *    4 reset pin
+ *    6 software BOR
+ *   10 security violation
+ *   12 supply voltage supervisor
+ *   14 supply voltage supervisor
+ *   20 (software reset)
+ *   22 watchdog timeout
+ *   24 watchdog PW violation
+ *   26 flash password violation
+ *   30 peripheral area fetch
+ *   32 PMM PW violation
+ *
+ * ---------------------------------------------------------------------------
  */
 
 #include "main.h"
@@ -207,7 +228,11 @@ PROCESS_THREAD(app_post, ev, data)
   static uint8_t node_info_sent = 0;
   
 #if DEBUG_CONF_P1INT_EN
+  /* disable module function and activate pullup resistor */
   P1SEL &= ~BIT5;
+  P1OUT |= BIT5;
+  P1REN |= BIT5;
+  /* enable port interrupt */
   P1IES |= BIT5;
   P1IFG &= ~BIT5;
   P1IE  |= BIT5;

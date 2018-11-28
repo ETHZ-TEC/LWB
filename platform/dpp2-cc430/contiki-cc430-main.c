@@ -232,7 +232,7 @@ main(int argc, char **argv)
     DCSTAT_CPU_OFF;
 #if WATCHDOG_CONF_ON && WATCHDOG_CONF_STOP_IN_LPM
     /* no need to stop the watchdog in the low-power mode if it is reset
-      * within the timer update interrupt (which occurs every 2 seconds) */
+     * within the timer update interrupt (which occurs every 2 seconds) */
     watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
     /* LPM3 */

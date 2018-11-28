@@ -201,7 +201,9 @@ ISR(AES, aes_interrupt)         { default_isr(1);  }
 ISR(RTC, rtc_interrupt)         { default_isr(2);  }
 ISR(LCD_B, lcd_interrupt)       { default_isr(3);  }
 ISR(PORT2, p2_interrupt)        { default_isr(4);  }
+#if !DEBUG_CONF_P1INT_EN
 ISR(PORT1, p1_interrupt)        { default_isr(5);  }
+#endif /* DEBUG_CONF_P1INT_EN */
 //ISR(TIMER1_A1, ta1_1_interrupt) { default_isr(6);  }
 //ISR(TIMER1_A0, ta1_0_interrupt) { default_isr(7);  }
 ISR(DMA, dma_interrupt)         { default_isr(8);  }

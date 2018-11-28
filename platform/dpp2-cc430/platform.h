@@ -269,7 +269,7 @@
 #define BEFORE_DEEPSLEEP()      {\
                                   FRAM_SLEEP; \
                                   TA0CTL  &= ~MC_3; /* stop TA0 */ \
-                                  P1DIR    = (BIT2 | BIT3 | BIT4 | BIT6); \
+                                  P1DIR   |= (BIT2 | BIT3 | BIT4 | BIT6); \
                                   P1OUT    = (BIT5 | BIT6); \
                                   P1REN    = BIT5; /* enable pullup */ \
                                   P1SEL    = 0; /* reconfigure GPIOs */ \

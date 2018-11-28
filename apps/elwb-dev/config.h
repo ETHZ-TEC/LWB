@@ -178,9 +178,12 @@
 #define DEBUG_PRINT_CONF_MSG_LEN        90  /* max debug msg length per line */
 #define DEBUG_PRINT_CONF_USE_XMEM       0
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
-#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)
-                                         /* -> .bss + .dec size */
-#define DEBUG_CONF_P1INT_EN             0
+#define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)  /* bss+dec size */
+#if DEBUG
+  #define DEBUG_CONF_P1INT_EN           1
+#else
+  #define DEBUG_CONF_P1INT_EN           0
+#endif /* DEBUG */
 #define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2
