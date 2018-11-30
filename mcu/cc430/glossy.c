@@ -427,8 +427,6 @@ glossy_stop(void)
     /* flush both RX FIFO and TX FIFO and go to sleep */
     rf1a_flush_rx_fifo();
     rf1a_flush_tx_fifo();
-    /* important: if the radio is put into sleep mode, the patable must be 
-     * re-configured! see CC1101 datasheet p.33 */
     rf1a_go_to_sleep();
     rf1a_clear_pending_interrupts();
 
@@ -443,21 +441,6 @@ glossy_stop(void)
       } else {
         g.t_ref -= (uint32_t)g.relay_cnt_t_ref * g.T_slot_estimated;
       }
-    }
-
-    if(g.n_rx > 0) {
-      DEBUG_PRINT_VERBOSE("Glossy stopped: in=%u, pl=%u, n=%u, s=%u, rc_rx=%u,"
-                          " rc_tx=%u",
-                          g.initiator_id, g.payload_len,
-                          GET_N_TX_MAX(g.header.pkt_type),
-                          GET_SYNC(g.header.pkt_type), g.relay_cnt_last_rx,
-                          g.relay_cnt_last_tx);
-      DEBUG_PRINT_VERBOSE("Glossy n_Ts=%u, rc_tref=%u, Ts=%llu, tref=%llu, "
-                          "Ts_est=%lu", g.n_T_slot, g.relay_cnt_t_ref,
-                          (g.n_T_slot > 0) ? (g.T_slot_sum / g.n_T_slot) : 0,
-                          g.t_ref, g.T_slot_estimated);
-    } else {
-      DEBUG_PRINT_VERBOSE("Glossy stopped (n_rx=0)");
     }
 
 #if GLOSSY_CONF_COLLECT_STATS

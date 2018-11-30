@@ -675,9 +675,18 @@ rf1a_get_status_byte(void)
 void
 rf1a_go_to_sleep(void)
 {
+  /* make sure radio is in idle state */
+  if(rf1a_state != NO_RX_TX) {
+    uint8_t status = strobe(RF_SIDLE, 1);
+    /* wait until the radio core goes to the IDLE state */
+    while(GET_RF_STATE(status) != RF_STATE_IDLE) {
+      status = strobe(RF_SNOP, 1);
+    }
+    rf1a_state = NO_RX_TX;
+  }
+
   /* issue the SXOFF command strobe */
   strobe(RF_SXOFF, 1);
-  rf1a_state = NO_RX_TX;
 
   SET_ENERGEST_TIME();
   ENERGEST_OFF_AT_TIME(ENERGEST_TYPE_LISTEN);

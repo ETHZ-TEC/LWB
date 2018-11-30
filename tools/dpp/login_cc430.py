@@ -72,16 +72,9 @@ def serial_read(serialPort):
 
 
 if __name__ == "__main__":
-  if len(sys.argv) < 2:
-    print("no filename provided\r\nusage:  ./" + os.path.basename(__file__) + " [filename] [port (optional)]")
-    sys.exit()
-  fileName = sys.argv[1]
-  if not os.path.isfile(fileName):
-    print("file '%s' not found" % fileName)
-    sys.exit()
-  if len(sys.argv) > 2 and len(sys.argv[2]) > 3:
-    # 2nd argument is supposed to be the serial port
-    serialPort = sys.argv[2]
+  if len(sys.argv) > 1 and len(sys.argv[1]) > 3:
+    # 1st argument is supposed to be the serial port
+    serialPort = sys.argv[1]
   else:
       serialPort = getFirstPort(False)
       if serialPort is None:

@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10006           /* in decimal ABBCC */
+#define FW_VERSION      10007           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
@@ -42,9 +42,10 @@
 Revision History
 ----------------
 
-Version 1.0007 (2018-11-?):
+Version 1.0007 (2018-11-30):
 - change: debug print task simplified
 - change: undefined ISRs and new define 'DEBUG' added
+- change: minor improvements to error handling
 
 Version 1.0006 (2018-09-28):
 - feature: new events EVENT_CC430_CORRUPTED_SCHEDULE and

@@ -88,7 +88,7 @@
  * Note: This define only has an effect on the initiator if sync is enabled.
  *       This feature can be disabled by setting the value to zero. */
 #ifndef GLOSSY_CONF_SETUPTIME_WITH_SYNC
-#define GLOSSY_CONF_SETUPTIME_WITH_SYNC         1200    /* in us */
+#define GLOSSY_CONF_SETUPTIME_WITH_SYNC         1200UL    /* in us */
 #endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 
 #define GLOSSY_UNKNOWN_INITIATOR                0

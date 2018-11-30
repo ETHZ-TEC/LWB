@@ -46,7 +46,7 @@
 
 /* uncomment NODE_ID to compile FW image for the host node */
 //#define NODE_ID                         HOST_ID
-#define HOST_ID                         1
+#define HOST_ID                         16
 
 #define COMPONENT_ID                    DPP_COMPONENT_ID_CC430
 #define IS_HOST                         (NODE_ID == HOST_ID)
@@ -190,8 +190,6 @@
 #define ELWB_CONF_TASK_ACT_PIN          COM_GPIO2     /* runs in ISR context */
 #define GLOSSY_START_PIN                LED_STATUS /* use the default (LED0) */
 #define RF_GDO2_PIN                     COM_GPIO1
-//#define GLOSSY_TX_PIN                 COM_MCU_INT2
-//#define MCLK_PIN                      COM_MCU_INT2
 
 #define LED_CONF_ON                     0     /* override default LED on/off */
 #define LED_ON(portandpin)              if(!(cfg.dbg_flags & 0x01)) \
