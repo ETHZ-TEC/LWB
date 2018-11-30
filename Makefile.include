@@ -129,7 +129,7 @@ $(OBJDIR)/%.o: %.c
 	@$(FINALIZE_DEPENDENCY)
 
 
-upload: $(EXEFILE)
+upload_fet: $(EXEFILE)
 ifdef NODE_ID
 	@tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(EXEFILE) $(HEXFILE) TOS_NODE_ID=$(NODE_ID)
 	$(info ----- node ID set to $(NODE_ID) -----)
@@ -138,9 +138,8 @@ else
 endif
 	@mspdebug tilib "prog $(HEXFILE)" --allow-fw-update
 
-upload.bsl: upload_bsl
 
-upload_bsl: $(EXEFILE)
+upload: $(EXEFILE)
 ifdef NODE_ID
 	@tos-set-symbols --objcopy msp430-objcopy --objdump msp430-objdump --target ihex $(EXEFILE) $(HEXFILE) TOS_NODE_ID=$(NODE_ID)
 	$(info ----- node ID set to $(NODE_ID) -----)
