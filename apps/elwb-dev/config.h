@@ -39,7 +39,7 @@
  * application specific config file to override default settings
  */
 
-//#define DEBUG                            /* uncomment to enable debug mode */
+#define DEBUG                            /* uncomment to enable debug mode */
 
 
 /* --- Node and component ID --- */
@@ -179,7 +179,7 @@
 #define DEBUG_PRINT_CONF_USE_XMEM       0
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)  /* bss+dec size */
-#if DEBUG
+#ifdef DEBUG
   #define DEBUG_CONF_P1INT_EN           1
 #else
   #define DEBUG_CONF_P1INT_EN           0

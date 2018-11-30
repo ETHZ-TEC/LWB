@@ -458,8 +458,7 @@ send_node_health(void)
 #endif /* ENERGEST_CONF_ON */
     
   /* host must send it to BOLT, a source node into the network */
-  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_COM_HEALTH, 0, 0, 
-           IS_HOST);
+  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_COM_HEALTH, 0, 0, IS_HOST);
   
   DEBUG_PRINT_INFO("health msg generated");
 }
@@ -488,8 +487,7 @@ send_lwb_health(void)
 
   glossy_reset_stats();
     
-  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_LWB_HEALTH, 0, 0, 
-           IS_HOST);
+  send_msg(DPP_DEVICE_ID_SINK, DPP_MSG_TYPE_LWB_HEALTH, 0, 0, IS_HOST);
   
   //DEBUG_PRINT_INFO("LWB health msg generated");
 }

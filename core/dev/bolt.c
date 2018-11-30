@@ -289,7 +289,7 @@ bolt_read(uint8_t* out_data)
 
 #if BOLT_CONF_USE_DMA
   dma_config_spi(BOLT_CONF_SPI, bolt_release);
-  dma_start((uint16_t)data, 0, BOLT_MAX_MSG_LEN);
+  dma_start((uint16_t)data, 0, BOLT_CONF_MAX_MSG_LEN);
 #else /* BOLT_CONF_USE_DMA */
 
   /* first, clear the RX buffer */
@@ -318,7 +318,7 @@ uint8_t
 bolt_write(const uint8_t* data, uint16_t len)
 {
   /* parameter check */
-  if(!data || !len) {
+  if(!data || !len || len > BOLT_CONF_MAX_MSG_LEN) {
     BOLT_DEBUG("[Bolt] invalid parameter");
     return 0;
   }

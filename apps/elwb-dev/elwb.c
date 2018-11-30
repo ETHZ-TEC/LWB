@@ -240,15 +240,24 @@ elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
   if(FIFO_ERROR != pkt_addr) {
 #if !ELWB_CONF_USE_XMEM
     /* assume pointers are always 16-bit */
-    elwb_queue_elem_t* next_msg = (elwb_queue_elem_t*)((uint16_t)pkt_addr);  
-    memcpy(out_data, next_msg->data, next_msg->len);
-    *out_len = next_msg->len;
+    elwb_queue_elem_t* next_msg = (elwb_queue_elem_t*)((uint16_t)pkt_addr);
+    if(next_msg->len && next_msg->len <= ELWB_CONF_MAX_PKT_LEN) {
+      memcpy(out_data, next_msg->data, next_msg->len);
+      *out_len = next_msg->len;
+    } else {
+      DEBUG_PRINT_ERROR("invalid message length");
+      *out_len = 0;
+    }
 #else /* ELWB_CONF_USE_XMEM */
     xmem_buffer.len = 0;
-    if(xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer)){
+    if(xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer)
+       && xmem_buffer.len && xmem_buffer.len <= ELWB_CONF_MAX_PKT_LEN) {
       memcpy(out_data, xmem_buffer.data, xmem_buffer.len);
+      *out_len = xmem_buffer.len;
+    } else {
+      DEBUG_PRINT_ERROR("invalid message length");
+      *out_len = 0;
     }
-    *out_len = xmem_buffer.len;
 #endif /* ELWB_CONF_USE_XMEM */
     return 1;
   }
@@ -297,13 +306,19 @@ elwb_rcv_pkt(uint8_t* out_data)
   if(FIFO_ERROR != pkt_addr) {
 #if !ELWB_CONF_USE_XMEM
     /* assume pointers are 16-bit */
-    elwb_queue_elem_t* next_msg = (elwb_queue_elem_t*)((uint16_t)pkt_addr); 
-    memcpy(out_data, next_msg->data, next_msg->len);
-    return next_msg->len;
+    elwb_queue_elem_t* next_msg = (elwb_queue_elem_t*)((uint16_t)pkt_addr);
+    if(next_msg->len && next_msg->len <= ELWB_CONF_MAX_PKT_LEN) {
+      memcpy(out_data, next_msg->data, next_msg->len);
+      return next_msg->len;
+    } else {
+      DEBUG_PRINT_ERROR("invalid message length");
+      return 0;
+    }
 #else /* ELWB_CONF_USE_XMEM */
     xmem_buffer.len = 0;
-    if(!xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), 
-                  (uint8_t*)&xmem_buffer)) {
+    if(!xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer)
+       || xmem_buffer.len == 0 || xmem_buffer.len >= ELWB_CONF_MAX_PKT_LEN) {
+      DEBUG_PRINT_ERROR("invalid message length");
       return 0;
     }
     xmem_wait_until_ready(); /* wait for the data transfer to complete */
@@ -731,12 +746,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
     /* permission to participate in this round? */
     if(sync_state == SYNCED) {
       
-    #if ELWB_CONF_SCHED_COMPRESS
-      /* uncompress the schedule */
-      elwb_sched_uncompress((uint8_t*)schedule.slot, 
-                            ELWB_SCHED_N_SLOTS(&schedule));
-    #endif /* ELWB_CONF_SCHED_COMPRESS */
-      
       /* sanity check (mustn't exceed the compile-time fixed max. # slots!) */
       if(ELWB_SCHED_N_SLOTS(&schedule) > ELWB_SCHED_MAX_SLOTS) {
         DEBUG_PRINT_ERROR("n_slots exceeds limit!");
@@ -744,6 +753,11 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         ELWB_SCHED_CLR_SLOTS(&schedule);
         schedule.n_slots += ELWB_SCHED_MAX_SLOTS;
       }
+    #if ELWB_CONF_SCHED_COMPRESS
+      /* uncompress the schedule */
+      elwb_sched_uncompress((uint8_t*)schedule.slot, 
+                            ELWB_SCHED_N_SLOTS(&schedule));
+    #endif /* ELWB_CONF_SCHED_COMPRESS */
       
       static uint16_t i;
       t_slot_ofs = (ELWB_CONF_T_SCHED + ELWB_CONF_T_GAP); 
