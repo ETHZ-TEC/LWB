@@ -65,8 +65,9 @@
 #define TI_DEVICE_ID                REGVAL16(0x1A04)  /* read ID from TLV */
 #define TI_DEVICE_HWREV             REGVAL8(0x01A06)
 /* create unique ID from wafer ID and die position (x, y) */
-#define TI_UNIQUE_ID                ((uint64_t)REGVAL32(0x01A0A) << 32 | \
-                                               REGVAL32(0x01A0E))
+#define TI_UNIQUE_ID                ((uint64_t)REGVAL32(0x01A0E) << 32 | \
+                                               REGVAL32(0x01A0A))
+#define TI_UNIQUE_ID_ADDR           0x01A0A      /* start address of the UID */
 
 /* compiler info */
 #if defined(__GNUC__)

@@ -42,6 +42,10 @@
 Revision History
 ----------------
 
+Version 1.0008 (develop):
+- feature: if node ID cannot be retrieved from flash memory, a 'random' ID will
+           be generated based on the unique identifier
+
 Version 1.0007 (2018-11-30):
 - change: debug print task simplified
 - change: undefined ISRs and new define 'DEBUG' added

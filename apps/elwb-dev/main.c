@@ -152,6 +152,12 @@ load_config(void)
     }*/
   #endif /* IS_HOST */
   }
+  /* failsafe mechanism: if node ID is still the default value (0x1122), assign
+   * an ID based on the unique identifier */
+  if(cfg.node_id == 0x1122) {
+    uint16_t ofs = *(uint16_t*)TI_UNIQUE_ID_ADDR;
+    cfg.node_id = 22000 + (ofs % 512);
+  }
   cfg.rst_cnt++;    /* update reset counter */
   if(!nvcfg_save(&cfg)) {
     EVENT_ERROR(EVENT_CC430_CORRUPTED_CONFIG, 1);

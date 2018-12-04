@@ -92,7 +92,7 @@ def programWithMSPFET(serialPort, fileName):
 
 def programWithBSL(serialPort, fileName):
   print("connecting to serial port %s" % serialPort)
-  ret = subprocess.call(['python', '-m', 'msp430.bsl5.uart', '-p', serialPort, '--invert-reset', '-e', '-S', '-s', '115200' , '-P', fileName])
+  ret = subprocess.call(['python', '-m', 'msp430.bsl5.uart', '-p', serialPort, '--invert-reset', '-e', '-S', '-s', '115200' , '-P', fileName, '-V'])
   if ret == 0:
     return True
   print("failed")
