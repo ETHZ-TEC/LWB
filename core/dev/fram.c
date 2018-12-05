@@ -33,6 +33,7 @@
 
 #include "contiki.h"
 
+#ifdef FRAM_CONF_CTRL_PIN
 /*---------------------------------------------------------------------------*/
 /* operation codes */
 #define FRAM_OPCODE_WREN    0x06            /* disable write protection */
@@ -330,6 +331,7 @@ inline void xmem_wait_until_ready(void)
   } // else: warning, can't wait for interrupt if GIE bit is not set!    
 #endif /* FRAM_CONF_USE_DMA */
 }
+#endif /* FRAM_CONF_CTRL_PIN */
 /*---------------------------------------------------------------------------*/
 /* CRC-16-IBM, CRC-16-ANSI */
 uint16_t 

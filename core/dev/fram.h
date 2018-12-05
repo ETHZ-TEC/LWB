@@ -98,8 +98,7 @@
 
 #ifndef FRAM_CONF_CTRL_PIN
 /* control line for the external FRAM (SPI chip select/enable line) */
-#warning "FRAM_CONF_CTRL_PIN not defined!"
-#define FRAM_CONF_CTRL_PIN      PORT1, PIN7
+//#warning "FRAM_CONF_CTRL_PIN not defined!"
 #endif /* FRAM_CONF_CTRL_PIN */
 
 #ifndef FRAM_CONF_SCLK_SPEED    /* serial clock speed */
