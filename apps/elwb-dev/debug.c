@@ -52,6 +52,7 @@
 
 #include "main.h"
 
+#ifdef DEBUG
 /*---------------------------------------------------------------------------*/
 #define BLINK_LED(div)      while(1) { \
                               LED_TOGGLE(LED_STATUS); \
@@ -59,7 +60,7 @@
                             }
 /*---------------------------------------------------------------------------*/
 void
-dump_debug_info(uint16_t stack_addr)
+dump_debug_info(uint16_t stack_addr, uint16_t arg)
 {
   /* collect and print debugging info:
    * - stack address / size
@@ -91,9 +92,11 @@ dump_debug_info(uint16_t stack_addr)
   AFTER_DEEPSLEEP();
   
   /* wait until there is a falling edge on P1.5 (UART RXD) */
-  P1DIR &= ~BIT5;
-  P1OUT |= BIT5;
-  P1REN |= BIT5;
+  P1IE  &= ~BIT5;       /* make sure port interrupt is disabled */
+  P1OUT |= BIT5;        /* set pin high */
+  P1REN |= BIT5;        /* enable pullup */
+  P1DIR &= ~BIT5;       /* set as input pin */
+  P1SEL &= ~BIT5;       /* make sure pin is not in module function */
   while (P1IN & BIT5);
   
   /* status register bits:
@@ -110,7 +113,8 @@ dump_debug_info(uint16_t stack_addr)
   /* print out the information */
   uart_enable(1);
   printf("\r\n-------------------------------------------------------\r\n");
-  printf("stack size:   %u\r\n"
+  printf("arg:          0x%04x\r\n"
+         "stack size:   %u\r\n"
          "return addr:  0x%04x\r\n"
          "status reg:   0x%04x\r\n"
          "UCA0CTL1:     0x%02x\r\n"
@@ -124,6 +128,7 @@ dump_debug_info(uint16_t stack_addr)
          "LWB timer HF: %llu (%u)\r\n"
          "Glossy state: %u\r\n"
          "GPIO state:   0x%02x\r\n",
+              arg,
               SRAM_END - stack_addr + 1, 
               *(volatile uint16_t*)(stack_addr + 2),
               *(volatile uint16_t*)(stack_addr),
@@ -156,10 +161,18 @@ dump_debug_info(uint16_t stack_addr)
 #if DEBUG_CONF_P1INT_EN
 ISR(PORT1, port1_interrupt)
 {
+  watchdog_stop();
   AFTER_DEEPSLEEP();
-  DEBUG_PRINT_MSG_NOW("entering BSL...");
+
+  /* blink a few times */
+  uint16_t i = 20;
+  while(i) {
+    LED_TOGGLE(LED_ERROR);
+    __delay_cycles(500000);
+    i--;
+  }
+  /* clear interrupt flag and trigger a software brownout reset */
   P1IFG &= ~BIT5;
-  
   PMM_TRIGGER_BOR;
 }
 #endif /* DEBUG_CONF_P1INT_EN */
@@ -170,12 +183,12 @@ ISR(WDT, wdt_interrupt)
   watchdog_stop();
   LED_ON(LED_ERROR);
   
-  /* see lwb.dis file! (pushm #4 = 4x 16-bit register is pushed onto stack) */
+  /* check .dis file! (pushm #4 = 4x 16-bit register is pushed onto stack) */
   #define REGISTER_BYTES_ON_STACK       (8)
   /* look into the assembly code to find out how many registers have been
    * put onto the stack since this function has been entered */
   uint16_t stack_addr;
-  dump_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2);
+  dump_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2, 0xffff);
 }
 #endif /* WATCHDOG_CONF_TIMER_MODE */
 /*---------------------------------------------------------------------------*/
@@ -190,7 +203,7 @@ default_isr(uint16_t val)
     uint16_t i = 2 * val;
     while(i) {
       LED_TOGGLE(LED_ERROR);
-      __delay_cycles(1000000);
+      __delay_cycles(3000000);
       i--;
     }
     __delay_cycles(MCLK_SPEED);
@@ -218,5 +231,27 @@ ISR(WDT, wtd_interrupt)         { default_isr(15); }
 #endif /* DEBUG */
 ISR(COMP_B, comp_interrupt)     { default_isr(16); }
 //ISR(UNMI, unmi_interrupt)       { default_isr(17); }
-ISR(SYSNMI, sysnmi_interrupt)   { default_isr(18); }
 /*---------------------------------------------------------------------------*/
+ISR(SYSNMI, sysnmi_interrupt)
+{
+  /* Possible System NMI sources:
+   * - Power Management Module (PMM) SVML
+   * - SVMH supply voltage fault
+   * - PMM high/low side delay expiration
+   * - Vacant memory access
+   * - JTAG mailbox (JMB) event
+   * Source register: SYSSNIV. See datasheet p.71 for details. */
+  uint16_t src = SYSSNIV;
+
+  watchdog_stop();
+  LED_ON(LED_ERROR);
+
+  /* check .dis file! (pushm #4 = 4x 16-bit register is pushed onto stack) */
+  #define REGISTER_BYTES_ON_STACK       (8)
+  /* look into the assembly code to find out how many registers have been
+   * put onto the stack since this function has been entered */
+  dump_debug_info((uint16_t)&src + REGISTER_BYTES_ON_STACK + 2, src);
+}
+/*---------------------------------------------------------------------------*/
+#endif /* DEBUG */
+
