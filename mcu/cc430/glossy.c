@@ -112,11 +112,6 @@
   #define GLOSSY_TX_STOPPED
 #endif
 
-/* indicate the first successful reception */
-#ifndef GLOSSY_FIRST_RX
-#define GLOSSY_FIRST_RX
-#endif /* GLOSSY_FIRST_RX */
-
 /*---------------------------------------------------------------------------*/
 typedef enum {
   GLOSSY_SYNC_TYPE_UNKNOWN = 0x00,
@@ -144,7 +139,7 @@ typedef struct {
   uint8_t* payload;
   uint8_t  payload_len;
   uint8_t  n_T_slot;
-  uint8_t  active;
+  volatile uint8_t active;
   uint8_t  t_ref_updated;
   uint8_t  header_ok;
   uint8_t  relay_cnt_last_rx;
@@ -155,22 +150,22 @@ typedef struct {
   uint8_t  n_tx;
 #if GLOSSY_CONF_COLLECT_STATS
   struct {
-  /* --- statistics only, otherwise not relevant for Glossy --- */
-  /* stats of the last flood */
-  uint8_t  last_flood_relay_cnt;                    /* relay cnt on first rx */
-  int8_t   last_flood_rssi_noise;
-  int16_t  last_flood_rssi_sum;
-  uint8_t  last_flood_n_rx_started;            /* # preamble+sync detections */
-  uint8_t  last_flood_n_rx_fail;                      /* header or CRC wrong */
-  uint8_t  already_counted;
-  rtimer_clock_t last_flood_duration;                /* total flood duration */
-  rtimer_clock_t last_flood_t_to_rx;              /* time to first reception */
-  /* global stats since last reset of the node */
-  uint32_t pkt_cnt;           /* total # of received packets (preamble+sync) */
-  uint32_t pkt_cnt_crcok;         /* total # of received packets with CRC ok */
-  uint32_t flood_cnt;    /* total # of floods (with >=1x preamble+sync det.) */
-  uint32_t flood_cnt_success;      /* total # floods with at least 1x CRC ok */
-  uint16_t error_cnt;              /* total number of errors */
+    /* --- statistics only, otherwise not relevant for Glossy --- */
+    /* stats of the last flood */
+    uint8_t  last_flood_relay_cnt;                  /* relay cnt on first rx */
+    int8_t   last_flood_rssi_noise;
+    int16_t  last_flood_rssi_sum;
+    uint8_t  last_flood_n_rx_started;          /* # preamble+sync detections */
+    uint8_t  last_flood_n_rx_fail;                    /* header or CRC wrong */
+    uint8_t  already_counted;
+    uint16_t last_flood_duration;                    /* total flood duration */
+    uint16_t last_flood_t_to_rx;                  /* time to first reception */
+    /* global stats since last reset of the node */
+    uint32_t pkt_cnt;         /* total # of received packets (preamble+sync) */
+    uint32_t pkt_cnt_crcok;       /* total # of received packets with CRC ok */
+    uint32_t flood_cnt;  /* total # of floods (with >=1x preamble+sync det.) */
+    uint32_t flood_cnt_success;    /* total # floods with at least 1x CRC ok */
+    uint16_t error_cnt;                            /* total number of errors */
   } stats;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 } glossy_state_t;
@@ -187,6 +182,11 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
   if(!g.header_ok) {
     /* we have not checked the header yet, so check it now */
 
+    if(pkt_len > RF_CONF_MAX_PKT_LEN) {
+      /* keep processing only if the packet length doesn't exceed the max.
+       * allowed length */
+      return 0;
+    }
     if(GET_COMMON_HEADER(rcvd_header->pkt_type) != GLOSSY_COMMON_HEADER) {
       /* keep processing only if the common header is correct */
       return 0;
@@ -203,12 +203,6 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
        * it matches the received one */
       return 0;
     }
-    //if((g.initiator_id != GLOSSY_UNKNOWN_INITIATOR) &&
-    //   (g.initiator_id != rcvd_header->initiator_id)) {
-      /* keep processing only if the local initiator_id value is either unknown
-       * or it matches the received one */
-    //  return GLOSSY_FAIL;
-    //}
     if((g.payload_len != GLOSSY_UNKNOWN_PAYLOAD_LEN) &&
        (g.payload_len != (pkt_len - GLOSSY_HEADER_LEN(g.header.pkt_type)))) {
       /* keep processing only if the local payload_len value is either unknown
@@ -235,9 +229,9 @@ static inline uint32_t
 estimate_T_slot(uint8_t pkt_len)
 {
   /* T_slot = T_rx + T_rx2tx + tau1 = T_tx + T_tx2rx - tau1 */
-  //rtimer_clock_t T_tx_estim = T_TX_BYTE * (pkt_len + 3) + T_TX_OFFSET;
   /* perform calculations in 32-bit, faster */
-  uint32_t T_tx_estim = T_TX_BYTE * ((uint32_t)pkt_len + 3) + T_TX_OFFSET;
+  uint32_t T_tx_estim = (uint32_t)T_TX_BYTE * ((uint32_t)pkt_len + 3) +
+                        T_TX_OFFSET;
   return NS_TO_RTIMER_HF_32(T_tx_estim + T2R - TAU1);
 }
 /*---------------------------------------------------------------------------*/
@@ -383,9 +377,6 @@ glossy_start(uint16_t initiator_id,
     /* start the first transmission */
     g.t_timeout = rtimer_now_hf() + TIMEOUT_EXTRA_TICKS;
     rf1a_start_tx();
-#if GLOSSY_CONF_COLLECT_STATS
-    g.stats.last_flood_duration = rtimer_now_hf();
-#endif /* GLOSSY_CONF_COLLECT_STATS */
     rf1a_write_to_tx_fifo((uint8_t *)&g.header,
                           GLOSSY_HEADER_LEN(g.header.pkt_type),
                           (uint8_t *)g.payload, g.payload_len);
@@ -395,7 +386,6 @@ glossy_start(uint16_t initiator_id,
     /* Glossy receiver */
     rf1a_start_rx();
 #if GLOSSY_CONF_COLLECT_STATS
-    g.stats.last_flood_duration = rtimer_now_hf();
     /* measure the channel noise (but only if waiting for the schedule */
   #if !GLOSSY_CONF_ALWAYS_SAMPLE_NOISE
     if(with_sync)
@@ -411,6 +401,11 @@ glossy_start(uint16_t initiator_id,
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
   }
+
+#if GLOSSY_CONF_COLLECT_STATS
+  g.stats.last_flood_duration = rtimer_now_lf_hw();
+#endif /* GLOSSY_CONF_COLLECT_STATS */
+
   /* note: RF_RDY bit must be cleared by the radio core before entering LPM
    * after a transition from idle to RX or TX. Either poll the status of the
    * radio core (SNOP strobe) or read the GDOx signal assigned to RF_RDY */
@@ -422,13 +417,14 @@ uint8_t
 glossy_stop(void)
 {
   if(g.active) {
-    /* stop the timeout */
+    /* stop the initiator timeout */
     rtimer_stop(GLOSSY_CONF_RTIMER_ID);
     /* flush both RX FIFO and TX FIFO and go to sleep */
     rf1a_flush_rx_fifo();
     rf1a_flush_tx_fifo();
-    rf1a_go_to_sleep();
+    rf1a_go_to_idle();
     rf1a_clear_pending_interrupts();
+    rf1a_go_to_sleep();
 
     GLOSSY_RX_STOPPED;
     GLOSSY_TX_STOPPED;
@@ -445,7 +441,7 @@ glossy_stop(void)
 
 #if GLOSSY_CONF_COLLECT_STATS
     /* stats */
-    g.stats.last_flood_duration = rtimer_now_hf() - 
+    g.stats.last_flood_duration = rtimer_now_lf_hw() -
                                   g.stats.last_flood_duration;
     if(!IS_INITIATOR()) {
       /* only count if not initiator! */
@@ -601,16 +597,16 @@ glossy_get_n_errors(void)
   return g.stats.error_cnt;
 }
 /*---------------------------------------------------------------------------*/
-uint32_t
+uint16_t
 glossy_get_flood_duration(void)
 {
-  return (uint32_t)g.stats.last_flood_duration;
+  return g.stats.last_flood_duration;
 }
 /*---------------------------------------------------------------------------*/
-uint32_t
+uint16_t
 glossy_get_t_to_first_rx(void)
 {
-  return (uint32_t)g.stats.last_flood_t_to_rx;
+  return g.stats.last_flood_t_to_rx;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -640,7 +636,8 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
   g.stats.already_counted = 0;
   g.stats.pkt_cnt++;
   if(!g.stats.last_flood_n_rx_started) {
-    g.stats.last_flood_t_to_rx = *timestamp - g.stats.last_flood_duration;
+    g.stats.last_flood_t_to_rx = rtimer_now_lf_hw() -
+                                 g.stats.last_flood_duration;
   }
   g.stats.last_flood_n_rx_started++;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
@@ -736,7 +733,6 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
     
     /* increment the reception counter */
     g.n_rx++;
-    GLOSSY_FIRST_RX;
 
     if((!IS_INITIATOR()) && (g.n_rx == 1)) {
       /* we are a receiver and this was our first packet reception: */
@@ -750,7 +746,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
 
       if(g.t_ref_updated == 0) {
         /* t_ref has not been updated yet: update it */
-        update_t_ref(g.t_rx_start - NS_TO_RTIMER_HF(TAU1),
+        update_t_ref(g.t_rx_start - NS_TO_RTIMER_HF_32(TAU1),
                      g.header.relay_cnt - 1);
       }
 
@@ -759,7 +755,7 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
         /* this reception immediately followed a transmission: measure
          * T_slot */
         add_T_slot_measurement(g.t_rx_start - g.t_tx_start -
-                               NS_TO_RTIMER_HF(TAU1));
+                               NS_TO_RTIMER_HF_32(TAU1));
       }
     }
     /* notify about the successful reception */
@@ -795,7 +791,7 @@ rf1a_cb_tx_ended(rtimer_clock_t *timestamp)
     if((g.relay_cnt_last_tx == g.relay_cnt_last_rx + 1) && (g.n_rx > 0)) {
       /* this transmission immediately followed a reception: measure T_slot */
       add_T_slot_measurement(g.t_tx_start - g.t_rx_start +
-                             NS_TO_RTIMER_HF(TAU1));
+                             NS_TO_RTIMER_HF_32(TAU1));
     }
   }
   /* increment the transmission counter */

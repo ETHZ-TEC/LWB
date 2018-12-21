@@ -245,19 +245,18 @@
 
 /* note: P1.5 (BIT5) is the UART RXD pin, not used by default, therefore not
  *       reconfigured in peripheral module function mode */
-#define AFTER_DEEPSLEEP()       if(UCSCTL6 & XT2OFF) { \
-                                  SFRIE1  &= ~OFIE; \
+#define AFTER_DEEPSLEEP()       if(UCSCTL6 & XT2OFF) { /* XT2 OSC disabled? */\
+                                  SFRIE1  &= ~OFIE; /* disable fault int.*/\
                                   ENABLE_XT2(); \
                                   WAIT_FOR_OSC(); \
                                   UCSCTL4  = SELA | SELS | SELM; \
                                   __delay_cycles(100); /* errata PMM11/12? */\
                                   UCSCTL5  = DIVA | DIVS | DIVM; \
-                                  UCSCTL7  = 0; /* errata UCS11 */ \
-                                  SFRIE1  |= OFIE; \
+                                  UCSCTL7  = 0; /* clear fault flags */ \
+                                  SFRIE1  |= OFIE; /* enable OSC fault int. */\
                                   TA0CTL  |= MC_2; \
-                                  P1SEL    = (BIT2 | BIT3 | BIT4 |  \
-                                              BIT6); \
-                                  P1REN    = 0; /* disable pullup */ \
+                                  /* disable pull resistors except for RXD */\
+                                  P1REN = BIT5; \
                                 } \
                                 FRAM_WAKEUP; /* takes ~0.5ms! */
 /* note: errata PMM11 should not affect this clock config; MCLK is sourced from
@@ -267,15 +266,14 @@
 #define BEFORE_DEEPSLEEP()      {\
                                   FRAM_SLEEP; \
                                   TA0CTL  &= ~MC_3; /* stop TA0 */ \
-                                  P1DIR   |= (BIT2 | BIT3 | BIT4 | BIT6); \
-                                  P1OUT    = (BIT5 | BIT6); \
-                                  P1REN    = BIT5; /* enable pullup */ \
-                                  P1SEL    = 0; /* reconfigure GPIOs */ \
+                                  /* enable pull resistors for the inputs */ \
+                                  P1OUT = BIT5 | BIT6; \
+                                  P1REN = BIT2 | BIT3 | BIT4 | BIT5 | BIT6; \
                                   /* set clock source to DCO (3.25MHz) */\
                                   UCSCTL4  = SELA__XT1CLK | SELS__DCOCLKDIV | \
                                              SELM__DCOCLKDIV; \
-                                  UCSCTL5 |= DIVM__4; /* errata PMM11 */ \
-                                  UCSCTL7  = 0; /* errata UCS11 */ \
+                                  UCSCTL5 |= DIVM__4; /* errata PMM11? */ \
+                                  UCSCTL7  = 0; /* clear fault flags */ \
                                   DISABLE_XT2(); \
                                 }
 

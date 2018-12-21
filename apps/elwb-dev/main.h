@@ -62,8 +62,6 @@ extern uint64_t utc_time;
 extern uint64_t utc_time_rx;  /* reception time of the UTC in local ticks */
 extern uint8_t  utc_time_updated;
 extern rtimer_clock_t bolt_captured_trq;
-extern uint16_t seq_no_lwb;   /* separate sequence number for each interface */
-extern uint16_t seq_no_bolt;
 extern uint32_t rst_flag;     /* defined in contiki-cc430-main.c */
 extern dpp_message_t msg_tx;  /* needed for send_msg() */
 

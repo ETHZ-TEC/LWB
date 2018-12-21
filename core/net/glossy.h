@@ -234,15 +234,15 @@ uint32_t glossy_get_n_pkts_crcok(void);
 uint16_t glossy_get_n_errors();
 
 /**
- * @brief get the duration of the last flood (with sync), in HF clock ticks
+ * @brief get the duration of the last flood (with sync), in LF clock ticks
  */
-uint32_t glossy_get_flood_duration(void);
+uint16_t glossy_get_flood_duration(void);
 
 /**
  * @brief get the time to the first RX (since glossy_start) of the last flood
- * (with sync), in HF clock ticks
+ * (with sync), in LF clock ticks
  */
-uint32_t glossy_get_t_to_first_rx(void);
+uint16_t glossy_get_t_to_first_rx(void);
 
 /**
  * @brief reset all statistics values

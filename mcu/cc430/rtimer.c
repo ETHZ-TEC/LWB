@@ -108,7 +108,7 @@ update_rtimer_state(uint16_t timer)
     if(process_nevents() > 0) { \
       __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */ \
     } \
-  } else if(rt[timer].state == RTIMER_WFE) { \
+  } else if(rt[timer].state == RTIMER_WFE && rt[timer].func) { \
     rt[timer].func(&rt[timer]); \
   }
 
@@ -125,7 +125,7 @@ update_rtimer_state(uint16_t timer)
     if(process_nevents() > 0) { \
       __bic_status_register_on_exit(LPM4_bits); /* LPM4_EXIT; */ \
     } \
-  } else if(rt[timer].state == RTIMER_WFE) { \
+  } else if(rt[timer].state == RTIMER_WFE && rt[timer].func) { \
     rt[timer].func(&rt[timer]); \
   }
 /*---------------------------------------------------------------------------*/
@@ -195,14 +195,14 @@ rtimer_wait_for_event(rtimer_id_t timer, rtimer_callback_t func)
        * prevent race conditions, capture input select */
       *(&TA1CCTL0 + timer - RTIMER_LF_0) = CM_1 | SCS | CAP;
       /* only enable interrupts when a callback function is provided */
-      if (func) {       
+      if (func) {
         *(&TA1CCTL0 + timer - RTIMER_LF_0) |= CCIE;
       }
     } else {
       /* set the timer to capture mode */
       *(&TA0CCTL0 + timer) = CM_1 | SCS | CAP;
       /* only enable interrupts when a callback function is provided */
-      if (func) {       
+      if (func) {
         *(&TA0CCTL0 + timer) |= CCIE;
       }
     }
@@ -327,7 +327,7 @@ uint32_t
 rtimer_seconds(void)
 {
   /* rtimer LF extension is incremented every 2 seconds */
-  uint32_t s = (uint32_t)ta1_sw_ext;
+  uint32_t s = (uint32_t)ta1_sw_ext * 2;
   if(TA1CTL & TAIFG) {
     s += 2;
   }

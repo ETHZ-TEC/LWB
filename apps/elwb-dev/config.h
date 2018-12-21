@@ -59,9 +59,7 @@
 
 /* --- Radio config --- */
 
-#define ELWB_CONF_RF_CH_PRIMARY         10 //8              /* CH10 = 870MHz */
-#define ELWB_CONF_RF_CH_SECONDARY       10
-#define RF_CONF_TX_CH                   ELWB_CONF_RF_CH_PRIMARY
+#define RF_CONF_TX_CH                   10                  /* CH10 = 870MHz */
 #define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
 #define RF_CONF_MAX_PKT_LEN             128
 
@@ -109,25 +107,25 @@
  #endif /* ELWB_CONF_USE_XMEM */
 #endif /* IS_HOST */
 /* timings */
-#define ELWB_CONF_T_CONT                (RTIMER_SECOND_HF / 200)      /* 5ms */
-#define ELWB_CONF_T_SCHED               (RTIMER_SECOND_HF / 50)      /* 20ms */
-#define ELWB_CONF_T_GAP                 (RTIMER_SECOND_HF / 500)      /* 2ms */
-#define ELWB_CONF_T_GUARD               (RTIMER_SECOND_HF / 4000)  /* 0.25ms */
-#define ELWB_CONF_T_GUARD_LF            (RTIMER_SECOND_LF / 1000)     /* 1ms */
-#define ELWB_CONF_T_SILENT              (120 * RTIMER_SECOND_HF)     /* 2min */
-#define ELWB_CONF_T_DEEPSLEEP_LF        (RTIMER_SECOND_LF * 1800)   /* 30min */
+#define ELWB_CONF_T_CONT                (ELWB_RTIMER_SECOND / 200)    /* 5ms */
+#define ELWB_CONF_T_SCHED               (ELWB_RTIMER_SECOND / 50)    /* 20ms */
+#define ELWB_CONF_T_GAP                 (ELWB_RTIMER_SECOND / 500)    /* 2ms */
+#define ELWB_CONF_T_GUARD_SLOT          (ELWB_RTIMER_SECOND / 4000)/* 0.25ms */
+#define ELWB_CONF_T_GUARD_ROUND         (ELWB_RTIMER_SECOND / 1000)   /* 1ms */
+#define ELWB_CONF_T_SILENT              (120 * ELWB_RTIMER_SECOND)   /* 2min */
+#define ELWB_CONF_T_DEEPSLEEP           (ELWB_RTIMER_SECOND * 1800) /* 30min */
 /* retransmissions */
 #define ELWB_CONF_N_TX_SCHED            3
 #define ELWB_CONF_N_TX_DATA             3
 /* misc */
 #if IS_HOST
  #define ELWB_CONF_WRITE_TO_BOLT        1      /* write incoming msg to BOLT */
-  #define ELWB_CONF_T_PREPROCESS_LF     (RTIMER_SECOND_LF / 10)     /* 100ms */
+  #define ELWB_CONF_T_PREPROCESS        (ELWB_RTIMER_SECOND / 10)   /* 100ms */
 #else /* IS_HOST */
  #define ELWB_CONF_WRITE_TO_BOLT        0
-  #define ELWB_CONF_T_PREPROCESS_LF     (RTIMER_SECOND_LF / 20)      /* 50ms */
+  #define ELWB_CONF_T_PREPROCESS        (ELWB_RTIMER_SECOND / 20)    /* 50ms */
 #endif /* IS_HOST */
-/* override default packet filter (only keep pkts on src that match node_id) */ 
+/* override default packet filter (only keep pkts on src that match node_id) */
 #define ELWB_CONF_SRC_PKT_FILTER(data)  (data[2] == node_id || \
                                          data[2] == 0xffff)
 #define LWB_VERSION                     0       /* exclude default LWB impl. */
@@ -153,9 +151,7 @@
                                             before time is adjusted (= jump) */
 #define WATCHDOG_CONF_ON                1
 #ifdef DEBUG
-  #define WATCHDOG_CONF_RESET_ON_TA1IFG 0
-  #define WATCHDOG_CONF_STOP_IN_LPM     0
-  #define WATCHDOG_CONF_TIMER_MODE      1 
+#define WATCHDOG_CONF_TIMER_MODE        1
 #endif /* DEBUG */
 #define DCSTAT_CONF_ON                  1  /* use DCSTAT instead of ENERGEST */
 #define EVENT_CONF_ON                   1
@@ -175,15 +171,11 @@
 #define DEBUG_PRINT_CONF_ON             1
 #define DEBUG_PRINT_CONF_LEVEL          DEBUG_PRINT_LVL_INFO
 #define DEBUG_PRINT_CONF_BUFFER_SIZE    512  /* debug print buffer size in b */
-#define DEBUG_PRINT_CONF_MSG_LEN        90  /* max debug msg length per line */
+#define DEBUG_PRINT_CONF_MSG_LEN        100 /* max debug msg length per line */
 #define DEBUG_PRINT_CONF_USE_XMEM       0
 #define DEBUG_PRINT_CONF_PRINT_NODEID   1
 #define DEBUG_CONF_STACK_GUARD          (SRAM_START + 3588)  /* bss+dec size */
-#ifdef DEBUG
-  #define DEBUG_CONF_P1INT_EN           1
-#else
-  #define DEBUG_CONF_P1INT_EN           0
-#endif /* DEBUG */
+#define DEBUG_CONF_P1INT_EN             0
 #define DEBUG_CONF_ISR_IND_PIN          COM_GPIO3     /* pin 9 on DBG header */
 #define DEBUG_PRINT_CONF_TASK_ACT_PIN   COM_GPIO2     /* pin 8 on DBG header */
 #define APP_TASK_ACT_PIN                COM_GPIO2

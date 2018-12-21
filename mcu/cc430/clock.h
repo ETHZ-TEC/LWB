@@ -83,7 +83,7 @@
 #define SELA            SELA__REFOCLK           /* ~32.8kHz */
 #endif /* CLOCK_CONF_XT1_ON */
 #define DIVA            DIVA__1
-#define ACLK_SPEED      (XT1CLK_SPEED / 1)      
+#define ACLK_SPEED      (XT1CLK_SPEED / 1)
 
 /* source and speed of the Sub-System Master Clock SMCLK */
 #define SELS            SELS__XT2CLK
@@ -123,7 +123,7 @@
  */
 #define WAIT_FOR_OSC()  do \
 { \
-    UCSCTL7 &= ~(XT1LFOFFG + DCOFFG + XT2OFFG); \
+    UCSCTL7 &= ~(XT1LFOFFG + XT1HFOFFG + DCOFFG + XT2OFFG); \
     SFRIFG1 &= ~OFIFG; \
 } while (SFRIFG1 & OFIFG)
 

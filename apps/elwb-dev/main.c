@@ -70,8 +70,6 @@
 /* global variables */
 config_t cfg;
 rtimer_clock_t bolt_captured_trq = 0;             /* last captured timestamp */
-uint16_t seq_no_lwb  = 0;
-uint16_t seq_no_bolt = 0;
 uint16_t health_msg_period = HEALTH_MSG_PERIOD;
 /*---------------------------------------------------------------------------*/
 static uint16_t last_health_pkt = 0;
@@ -79,7 +77,7 @@ static dpp_message_t msg_rx;                            /* only used for RX! */
 /*---------------------------------------------------------------------------*/
 void
 capture_timestamp(void)
-{ 
+{
   /* simply store the timestamp, do calculations afterwards */
   rtimer_clock_t now = rtimer_now_lf();
   bolt_captured_trq = now - ((uint16_t)(now & 0xffff) - BOLT_CONF_TIMEREQ_CCR);
@@ -87,15 +85,15 @@ capture_timestamp(void)
 /*---------------------------------------------------------------------------*/
 void
 update_time(void)
-{  
+{
   if(utc_time_updated) {
     /* a UTC timestamp has been received -> update the network time */
     uint32_t elapsed = 0;
     /* adjust the timestamp to align with the next communication round 
     * as closely as possible */
     rtimer_clock_t next_round;
-    if(rtimer_next_expiration(ELWB_CONF_LF_RTIMER_ID, &next_round)) {
-      elapsed = (next_round - utc_time_rx);          
+    if(rtimer_next_expiration(ELWB_CONF_RTIMER_ID, &next_round)) {
+      elapsed = (next_round - utc_time_rx);
     } else {
       DEBUG_PRINT_WARNING("invalid timer value");
     }
@@ -165,9 +163,9 @@ load_config(void)
   }
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_pre, "BOLT Task Pre");
-PROCESS_THREAD(app_pre, ev, data) 
-{  
+PROCESS(app_pre, "BOLT Task");
+PROCESS_THREAD(app_pre, ev, data)
+{
   PROCESS_BEGIN();
   
   DEBUG_PRINT_MSG_NOW("Process '%s' started", app_pre.name);
@@ -177,7 +175,11 @@ PROCESS_THREAD(app_pre, ev, data)
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
     APP_TASK_ACTIVE;
     
-    AFTER_DEEPSLEEP();    /* restore all clocks */
+    APP_TASK_INACTIVE;  /* for debugging */
+    __dint(); __nop();  /* disable interrupts */
+    AFTER_DEEPSLEEP();  /* restore all clocks */
+    __eint(); __nop();  /* re-enable interrupts */
+    APP_TASK_ACTIVE;    /* for debugging */
     
     /* --- read messages from BOLT --- */
     uint16_t read = 0,
@@ -215,7 +217,7 @@ PROCESS_THREAD(app_pre, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-PROCESS(app_post, "App Task Post");
+PROCESS(app_post, "App Task");
 AUTOSTART_PROCESSES(&app_post);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_post, ev, data) 
@@ -269,7 +271,7 @@ PROCESS_THREAD(app_post, ev, data)
   elwb_start(&app_pre, &app_post);
   process_start(&app_pre, NULL);
   
-  /* enable the timestamp request interrupt */
+  /* enable the BOLT timestamp request feature */
   bolt_set_timereq_callback(capture_timestamp);
   
   /* --- start of application main loop --- */
@@ -330,8 +332,10 @@ PROCESS_THREAD(app_post, ev, data)
     /* since this process is only executed at the end of an LWB round, we 
      * can now configure the MCU for minimal power dissipation for the idle
      * period until the next round starts */
+    __dint(); __nop();  /* disable interrupts */
     BEFORE_DEEPSLEEP();
-  } 
+    __eint(); __nop();  /* re-enable interrupts */
+  }
   /* --- end of application main loop --- */
 
   PROCESS_END();

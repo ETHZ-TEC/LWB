@@ -18,7 +18,7 @@
 #define PMM_STATUS_OK     0
 #define PMM_STATUS_ERROR  1
 
-/* disable the SVS (added by rdaforno) */
+/* disable the SVS */
 #define SVS_DISABLE       { PMMCTL0_H = 0xA5;\
                             SVSMHCTL  = 0; /* high-side ctrl register */\
                             SVSMLCTL  = 0; /* low-side ctrl register */ \
@@ -30,7 +30,7 @@
                             SVSMHCTL = SVSHE | SVMHE | SVSHRVL_2 | SVSMHRRL_2;\
                             SVSMLCTL = SVMLE | SVSLE | SVSLRVL_2 | SVSMLRRL_2;\
                             PMMCTL0_H = 0x00; }
-/* trigger a reset (added by rdaforno) */
+/* trigger a reset */
 #define PMM_TRIGGER_POR   { PMMCTL0_H  = 0xA5; PMMCTL0_L |= PMMSWPOR; }
 #define PMM_TRIGGER_BOR   { PMMCTL0_H  = 0xA5; PMMCTL0_L |= PMMSWBOR; }
 

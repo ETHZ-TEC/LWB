@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10007           /* in decimal ABBCC */
+#define FW_VERSION      10008           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
@@ -42,9 +42,13 @@
 Revision History
 ----------------
 
-Version 1.0008 (develop):
+Version 1.0008 (2018-12-21):
 - feature: if node ID cannot be retrieved from flash memory, a 'random' ID will
            be generated based on the unique identifier
+- change: eLWB code simplified, now uses only 1 timer for all wakeups (LF)
+- change: feature with primary and secondary RF channel removed (unused)
+- change: Glossy stats adjusted, now uses lf_hw only for timestamping
+- change: in Glossy, NS_TO_RTIMER_HF replaced by NS_TO_RTIMER_HF_32
 
 Version 1.0007 (2018-11-30):
 - change: debug print task simplified

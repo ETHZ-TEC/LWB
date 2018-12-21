@@ -101,8 +101,8 @@ clock_init(void)
 #endif /* CLOCK_CONF_FLL_ON */
 
   /* finally, use the desired clock sources and speeds */
-  UCSCTL4 = SELA | SELS | SELM;
   UCSCTL5 = DIVA | DIVS | DIVM;
+  UCSCTL4 = SELA | SELS | SELM;
   /* note: will automatically use DCOCLKDIV for SMCLK and MCLK if XT2CLK is 
    * not available */
   

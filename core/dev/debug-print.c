@@ -56,13 +56,14 @@ typedef struct debug_print_t {
   struct debug_print_t *next;
   uint32_t time;
   uint8_t level;
-  char content[DEBUG_PRINT_CONF_MSG_LEN];
+  char content[DEBUG_PRINT_CONF_MSG_LEN + 1];
 } debug_print_t;
 
 struct printbuf {
   uint8_t *data;
   uint16_t size;
-  uint16_t put_idx, get_idx;
+  uint16_t put_idx;
+  uint16_t get_idx;
   uint16_t cnt;
 };
 static void printbuf_flush(void);       /* private function */
@@ -279,8 +280,9 @@ debug_print_put(const char* str)
 {
   static const char line_cut[] = "~" DEBUG_PRINT_CONF_EOL;
 
-  if(dbg_printbuf.cnt == dbg_printbuf.size)
+  if(dbg_printbuf.cnt == dbg_printbuf.size) {
     return;
+  }
   uint16_t lim = dbg_printbuf.size - strlen(line_cut);
   while(*str && dbg_printbuf.cnt < lim) {
     dbg_printbuf.data[dbg_printbuf.put_idx++] = *str++;

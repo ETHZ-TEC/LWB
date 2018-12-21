@@ -34,8 +34,6 @@
 
   To trap in WDT ISR, set the following flags in config.h:
 
-  #define WATCHDOG_CONF_RESET_ON_TA1IFG  0
-  #define WATCHDOG_CONF_STOP_IN_LPM      0
   #define WATCHDOG_CONF_TIMER_MODE       1
 
   To enable the trap within other interrupts, the GIE bit must be set upon
@@ -77,27 +75,30 @@ dump_debug_info(uint16_t stack_addr, uint16_t arg)
   rtimer_clock_t now_lf = rtimer_now_lf();
   rtimer_clock_t now_hf = rtimer_now_hf();
 
-  rtimer_clock_t next_exp_hf = 0;
-  uint8_t hf_scheduled = rtimer_next_expiration(ELWB_CONF_RTIMER_ID,
-                                                &next_exp_hf);
   rtimer_clock_t next_exp_lf = 0;
-  uint8_t lf_scheduled = rtimer_next_expiration(ELWB_CONF_LF_RTIMER_ID,
+  uint8_t lf_scheduled = rtimer_next_expiration(ELWB_CONF_RTIMER_ID,
                                                 &next_exp_lf);
 
-  uint8_t gpio_state = ((PIN_GET(COM_GPIO1) > 0) << 2) |
-                       ((PIN_GET(COM_GPIO2) > 0) << 1) |
-                       (PIN_GET(COM_GPIO3) > 0);
+  uint8_t gpio_state = P3OUT;
   
   /* re-enable the HFXT, required for UART (only change necessary settings!) */
   AFTER_DEEPSLEEP();
   
-  /* wait until there is a falling edge on P1.5 (UART RXD) */
-  P1IE  &= ~BIT5;       /* make sure port interrupt is disabled */
+  /* Wait until there is a falling edge on P1.5 (UART RXD).
+   * At this point, interrupts should be disabled (dump_debug_info is only
+   * called from ISRs). */
   P1OUT |= BIT5;        /* set pin high */
   P1REN |= BIT5;        /* enable pullup */
   P1DIR &= ~BIT5;       /* set as input pin */
   P1SEL &= ~BIT5;       /* make sure pin is not in module function */
-  while (P1IN & BIT5);
+  P1IES |= BIT5;        /* falling edge */
+  P1IFG &= ~BIT5;       /* clear IFG */
+  P1IE  |= BIT5;        /* enable port interrupt */
+  while (!(P1IFG & BIT5)) {
+    LED_TOGGLE(LED_ERROR);
+    __delay_cycles(1000000);
+  }
+  LED_OFF(LED_ERROR);
   
   /* status register bits:
    * 8 = 0x100 = arithmetic overflow
@@ -125,7 +126,6 @@ dump_debug_info(uint16_t stack_addr, uint16_t arg)
          "rtimer LF:    %llu\r\n"
          "rtimer HF:    %llu\r\n"
          "LWB timer LF: %llu (%u)\r\n"
-         "LWB timer HF: %llu (%u)\r\n"
          "Glossy state: %u\r\n"
          "GPIO state:   0x%02x\r\n",
               arg,
@@ -141,8 +141,6 @@ dump_debug_info(uint16_t stack_addr, uint16_t arg)
               now_hf,
               next_exp_lf,
               lf_scheduled,
-              next_exp_hf,
-              hf_scheduled,
               glossy_is_active(),
               gpio_state);
   printf("\r\nSRAM dump:");
@@ -156,13 +154,17 @@ dump_debug_info(uint16_t stack_addr, uint16_t arg)
     printf(" %02x", *(uint8_t*)i);
   }
   printf("\r\n-------------------------------------------------------\r\n");
+  
+  LED_ON(LED_ERROR);
+  while(1);
 }
 /*---------------------------------------------------------------------------*/
 #if DEBUG_CONF_P1INT_EN
 ISR(PORT1, port1_interrupt)
 {
-  watchdog_stop();
+  DEBUG_ISR_ENTRY;
   AFTER_DEEPSLEEP();
+  watchdog_stop();
 
   /* blink a few times */
   uint16_t i = 20;
@@ -174,12 +176,14 @@ ISR(PORT1, port1_interrupt)
   /* clear interrupt flag and trigger a software brownout reset */
   P1IFG &= ~BIT5;
   PMM_TRIGGER_BOR;
+  DEBUG_ISR_EXIT;
 }
 #endif /* DEBUG_CONF_P1INT_EN */
 /*---------------------------------------------------------------------------*/
 #if WATCHDOG_CONF_TIMER_MODE
 ISR(WDT, wdt_interrupt)
 {
+  DEBUG_ISR_ENTRY;
   watchdog_stop();
   LED_ON(LED_ERROR);
   
@@ -189,6 +193,7 @@ ISR(WDT, wdt_interrupt)
    * put onto the stack since this function has been entered */
   uint16_t stack_addr;
   dump_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2, 0xffff);
+  DEBUG_ISR_EXIT;
 }
 #endif /* WATCHDOG_CONF_TIMER_MODE */
 /*---------------------------------------------------------------------------*/
@@ -196,6 +201,7 @@ ISR(WDT, wdt_interrupt)
 void
 default_isr(uint16_t val)
 {
+  DEBUG_ISR_ENTRY;
   /* not supposed to happen: toggle LED in infinite loop */
   watchdog_stop();
   LED_OFF(LED_ERROR);
@@ -208,6 +214,7 @@ default_isr(uint16_t val)
     }
     __delay_cycles(MCLK_SPEED);
   }
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 ISR(AES, aes_interrupt)         { default_isr(1);  }
@@ -226,19 +233,20 @@ ISR(DMA, dma_interrupt)         { default_isr(8);  }
 ISR(ADC10, adc_interrupt)       { default_isr(12); }
 ISR(USCI_B0, usci_b0_interrupt) { default_isr(13); }
 ISR(USCI_A0, usci_a0_interrupt) { default_isr(14); }
-#ifndef DEBUG
+#if !WATCHDOG_CONF_TIMER_MODE
 ISR(WDT, wtd_interrupt)         { default_isr(15); }
-#endif /* DEBUG */
+#endif /* WATCHDOG_CONF_TIMER_MODE */
 ISR(COMP_B, comp_interrupt)     { default_isr(16); }
 //ISR(UNMI, unmi_interrupt)       { default_isr(17); }
 /*---------------------------------------------------------------------------*/
 ISR(SYSNMI, sysnmi_interrupt)
 {
+  DEBUG_ISR_ENTRY;
   /* Possible System NMI sources:
    * - Power Management Module (PMM) SVML
    * - SVMH supply voltage fault
    * - PMM high/low side delay expiration
-   * - Vacant memory access
+   * - Vacant memory access (0x000a)
    * - JTAG mailbox (JMB) event
    * Source register: SYSSNIV. See datasheet p.71 for details. */
   uint16_t src = SYSSNIV;
@@ -251,6 +259,7 @@ ISR(SYSNMI, sysnmi_interrupt)
   /* look into the assembly code to find out how many registers have been
    * put onto the stack since this function has been entered */
   dump_debug_info((uint16_t)&src + REGISTER_BYTES_ON_STACK + 2, src);
+  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 #endif /* DEBUG */

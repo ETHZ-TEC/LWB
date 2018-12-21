@@ -90,6 +90,16 @@ send_msg(uint16_t recipient,
          uint8_t len,
          uint8_t send_to_bolt)
 {
+  uint16_t seq_no_lwb  = 0;   /* separate sequence number for each interface */
+  uint16_t seq_no_bolt = 0;
+
+  /* check message length */
+  if(len > DPP_MSG_PAYLOAD_LEN) {
+    DEBUG_PRINT_WARNING("invalid message length");
+    EVENT_WARNING(EVENT_CC430_INV_MSG, ((uint32_t)type) << 16 | 0xff00 | len);
+    return 0;
+  }
+
   /* compose the message header */
   msg_tx.header.device_id   = node_id;
   msg_tx.header.type        = type;
@@ -300,7 +310,7 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   #if !IS_HOST
         forward = 1;
   #else /* !IS_HOST */
-        /* ignore */      
+        /* ignore */
         EVENT_WARNING(EVENT_CC430_MSG_IGNORED, msg->header.type);
   #endif /* !IS_HOST */
     }

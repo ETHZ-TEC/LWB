@@ -83,7 +83,7 @@
 
 /* duration of a contention slot in HF ticks */
 #ifndef ELWB_CONF_T_CONT
-#define ELWB_CONF_T_CONT          (RTIMER_SECOND_HF / 200)            /* 5ms */
+#define ELWB_CONF_T_CONT          (ELWB_RTIMER_SECOND / 200)          /* 5ms */
 #endif /* ELWB_CONF_T_CONT */
 
 /* duration of a data ACK slot in HF ticks */
@@ -93,27 +93,31 @@
 
 /* gap time between 2 slots in HF ticks */
 #ifndef ELWB_CONF_T_GAP
-#define ELWB_CONF_T_GAP           (RTIMER_SECOND_HF / 500)            /* 2ms */
+#define ELWB_CONF_T_GAP           (ELWB_RTIMER_SECOND / 500)          /* 2ms */
 #endif /* ELWB_CONF_T_GAP */
 
 /* guard time before RX slots in HF ticks */
-#ifndef ELWB_CONF_T_GUARD
-#define ELWB_CONF_T_GUARD         (RTIMER_SECOND_HF / 4000)        /* 0.25ms */
-#endif /* ELWB_CONF_T_GUARD */
+#ifndef ELWB_CONF_T_GUARD_SLOT
+#define ELWB_CONF_T_GUARD_SLOT    (ELWB_RTIMER_SECOND / 4000)      /* 0.25ms */
+#endif /* ELWB_CONF_T_GUARD_SLOT */
 
 /* guard time before a round in LF ticks */
-#ifndef ELWB_CONF_T_GUARD_LF
-#define ELWB_CONF_T_GUARD_LF      (RTIMER_SECOND_LF / 1000)           /* 1ms */
-#endif /* ELWB_CONF_T_GUARD_LF */
+#ifndef ELWB_CONF_T_GUARD_ROUND
+#define ELWB_CONF_T_GUARD_ROUND   (ELWB_RTIMER_SECOND / 1000)         /* 1ms */
+#endif /* ELWB_CONF_T_GUARD_ROUND */
 
 /* time reserved for the preprocess task (before a round) in LF ticks */
-#ifndef ELWB_CONF_T_PREPROCESS_LF
-#define ELWB_CONF_T_PREPROCESS_LF 0                          /* 0 = disabled */
-#endif /* ELWB_CONF_T_PREPROCESS_LF */
+#ifndef ELWB_CONF_T_PREPROCESS
+#define ELWB_CONF_T_PREPROCESS    0                          /* 0 = disabled */
+#endif /* ELWB_CONF_T_PREPROCESS */
+
+#ifndef ELWB_CONF_T_DEEPSLEEP
+#define ELWB_CONF_T_DEEPSLEEP     (ELWB_RTIMER_SECOND * 3600)          /* 1h */
+#endif /* ELWB_CONF_T_DEEPSLEEP */
 
 /* slack time for schedule computation, in HF ticks */
 #ifndef ELWB_CONF_SCHED_COMP_TIME
-#define ELWB_CONF_SCHED_COMP_TIME (RTIMER_SECOND_HF / 50)            /* 20ms */
+#define ELWB_CONF_SCHED_COMP_TIME (ELWB_RTIMER_SECOND / 50)          /* 20ms */
 #endif /* ELWB_CONF_SCHED_COMP_TIME */
 
 /* use a 'fair' scheduler which tries to assign slots to all nodes */
@@ -138,10 +142,26 @@
 #endif /* ELWB_CONF_PREEMPTION */
 
 /* timers to use for the eLWB task */
-#define ELWB_CONF_LF_RTIMER_ID    RTIMER_LF_1
-#define ELWB_CONF_RTIMER_ID       RTIMER_HF_1
+#ifndef ELWB_CONF_RTIMER_ID
+#define ELWB_CONF_RTIMER_ID       RTIMER_LF_1
+#endif /* ELWB_CONF_RTIMER_ID */
+
+#ifndef ELWB_CONF_MAX_CLOCK_DRIFT
+#define ELWB_CONF_MAX_CLOCK_DRIFT 100    /* in ppm */
+#endif /* ELWB_CONF_MAX_CLOCK_DRIFT */
+
 
 /* --------------- END OF CONFIG, do not change values below --------------- */
+
+#if ELWB_CONF_RTIMER_ID >= RTIMER_LF_0
+#define ELWB_RTIMER_SECOND        RTIMER_SECOND_LF
+#define ELWB_RTIMER_NOW()         rtimer_now_lf()
+#define ELWB_T_REF()              glossy_get_t_ref_lf()
+#else
+#define ELWB_RTIMER_SECOND        RTIMER_SECOND_HF
+#define ELWB_RTIMER_NOW()         rtimer_now_hf()
+#define ELWB_T_REF()              glossy_get_t_ref()
+#endif
 
 #define ELWB_PERIOD_SCALE         100
 #define ELWB_REQ_PKT_LEN          2
@@ -149,23 +169,26 @@
 #define ELWB_SCHED_PERIOD_MAX     (65535 / ELWB_PERIOD_SCALE)
 
 #if GLOSSY_CONF_SETUPTIME_WITH_SYNC
-#define ELWB_T_REF_OFS            ((GLOSSY_CONF_SETUPTIME_WITH_SYNC + 350) * RTIMER_SECOND_HF / 1000000)
+#define ELWB_T_REF_OFS            ((GLOSSY_CONF_SETUPTIME_WITH_SYNC + 350) * ELWB_RTIMER_SECOND / 1000000)
 #else  /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 #define ELWB_T_REF_OFS            3822 /* measured with logic analyzer */
 #endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 
-#define ELWB_T_HOP(len)           ((RTIMER_SECOND_HF * \
+#define ELWB_T_HOP(len)           ((ELWB_RTIMER_SECOND * \
                                    (3 + 24 + 192 + 192 + ((1000000 * \
                                    (len) * 8) / RF_CONF_TX_BITRATE))) \
                                     / 1000000)
 #define ELWB_T_SLOT_MIN(len)      ((ELWB_CONF_N_HOPS + \
                                    (2 * ELWB_CONF_N_TX_DATA) - 2) * \
-                                   ELWB_T_HOP(len) + (RTIMER_SECOND_HF / 4000))
+                                   ELWB_T_HOP(len) + (ELWB_RTIMER_SECOND / 4000))
 
 #ifndef RF_CONF_MAX_PKT_LEN
 #define RF_CONF_MAX_PKT_LEN       (ELWB_CONF_MAX_PKT_LEN + \
                                    GLOSSY_MAX_HEADER_LEN)
 #endif /* RF_CONF_MAX_PKT_LEN */
+
+#define ELWB_TICKS_TO_MS(t)       ((uint32_t)(t) * 1000UL / ELWB_RTIMER_SECOND)
+#define ELWB_MS_TO_TICKS(t)       ((uint32_t)(t) * ELWB_RTIMER_SECOND / 1000UL)
 
 /*---------------------------------------------------------------------------*/
 
