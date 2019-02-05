@@ -39,7 +39,7 @@
  * application specific config file to override default settings
  */
 
-#define DEBUG                            /* uncomment to enable debug mode */
+//#define DEBUG                            /* uncomment to enable debug mode */
 
 
 /* --- Node and component ID --- */
@@ -106,6 +106,8 @@
   #define ELWB_CONF_IN_BUFFER_SIZE      4  /* = max #pkts a src node can rcv */
  #endif /* ELWB_CONF_USE_XMEM */
 #endif /* IS_HOST */
+#define ELWB_CONF_CONT_TH               2 /* threshold for # packets in TX
+                                             queue before contending */
 /* timings */
 #define ELWB_CONF_T_CONT                (ELWB_RTIMER_SECOND / 200)    /* 5ms */
 #define ELWB_CONF_T_SCHED               (ELWB_RTIMER_SECOND / 50)    /* 20ms */

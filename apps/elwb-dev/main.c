@@ -200,7 +200,11 @@ PROCESS_THREAD(app_pre, ev, data)
       DEBUG_PRINT_INFO("%u msg read from BOLT, %u forwarded", 
                        read, forwarded);
     }
-    
+    DEBUG_PRINT_INFO("BOLT: %u/%u, LWB TX: %u", 
+                     BOLT_DATA_AVAILABLE,
+                     PIN_GET(BOLT_CONF_IND_OUT_PIN) > 0,
+                     elwb_get_send_buffer_state());
+
   #if !IS_HOST
     /* --- send the timestamp if one has been requested --- */
     if(bolt_captured_trq) {

@@ -169,7 +169,8 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
   if(msg->header.type & DPP_MSG_TYPE_MIN ||
      msg_len > DPP_MSG_PKT_LEN || 
      DPP_MSG_GET_CRC16(msg) != crc16((uint8_t*)msg, msg_len - 2, 0)) {
-    DEBUG_PRINT_WARNING("msg with invalid length or CRC");
+    DEBUG_PRINT_WARNING("msg with invalid length or CRC (%ub, type %u)",
+                        msg_len, msg->header.type);
     EVENT_WARNING(EVENT_CC430_INV_MSG, ((uint32_t)msg->header.type) << 16 |
                                        msg->header.device_id);
     return 1;

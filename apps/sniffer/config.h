@@ -88,7 +88,7 @@
 #define LWB_VERSION                     0       /* exclude default LWB impl. */
 
 /* Glossy */
-#define GLOSSY_COMMON_HEADER            0xc0
+#define GLOSSY_CONF_HEADER_BYTE         0xc0
 
 
 /* --- BOLT config --- */

@@ -183,7 +183,6 @@ ISR(PORT1, port1_interrupt)
 #if WATCHDOG_CONF_TIMER_MODE
 ISR(WDT, wdt_interrupt)
 {
-  DEBUG_ISR_ENTRY;
   watchdog_stop();
   LED_ON(LED_ERROR);
   
@@ -193,7 +192,6 @@ ISR(WDT, wdt_interrupt)
    * put onto the stack since this function has been entered */
   uint16_t stack_addr;
   dump_debug_info((uint16_t)&stack_addr + REGISTER_BYTES_ON_STACK + 2, 0xffff);
-  DEBUG_ISR_EXIT;
 }
 #endif /* WATCHDOG_CONF_TIMER_MODE */
 /*---------------------------------------------------------------------------*/
@@ -241,7 +239,6 @@ ISR(COMP_B, comp_interrupt)     { default_isr(16); }
 /*---------------------------------------------------------------------------*/
 ISR(SYSNMI, sysnmi_interrupt)
 {
-  DEBUG_ISR_ENTRY;
   /* Possible System NMI sources:
    * - Power Management Module (PMM) SVML
    * - SVMH supply voltage fault
@@ -259,7 +256,6 @@ ISR(SYSNMI, sysnmi_interrupt)
   /* look into the assembly code to find out how many registers have been
    * put onto the stack since this function has been entered */
   dump_debug_info((uint16_t)&src + REGISTER_BYTES_ON_STACK + 2, src);
-  DEBUG_ISR_EXIT;
 }
 /*---------------------------------------------------------------------------*/
 #endif /* DEBUG */

@@ -123,7 +123,7 @@
  * @brief checks whether there is data to read from BOLT
  * @remark IND line high means data is available
  */
-#define BOLT_DATA_AVAILABLE             PIN_GET(BOLT_CONF_IND_PIN)
+#define BOLT_DATA_AVAILABLE             (PIN_GET(BOLT_CONF_IND_PIN) > 0)
 
 
 

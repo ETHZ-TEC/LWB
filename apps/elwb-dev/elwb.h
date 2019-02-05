@@ -150,6 +150,10 @@
 #define ELWB_CONF_MAX_CLOCK_DRIFT 100    /* in ppm */
 #endif /* ELWB_CONF_MAX_CLOCK_DRIFT */
 
+#ifndef ELWB_CONF_CONT_TH
+#define ELWB_CONF_CONT_TH         1
+#endif /* ELWB_CONF_CONT_TH */
+
 
 /* --------------- END OF CONFIG, do not change values below --------------- */
 
@@ -165,6 +169,7 @@
 
 #define ELWB_PERIOD_SCALE         100
 #define ELWB_REQ_PKT_LEN          2
+#define ELWB_2ND_SCHED_LEN        2
 #define ELWB_SCHED_CRC_LEN        (ELWB_CONF_SCHED_CRC ? 2 : 0)
 #define ELWB_SCHED_PERIOD_MAX     (65535 / ELWB_PERIOD_SCALE)
 
@@ -236,6 +241,10 @@
   #error "ELWB_CONF_MAX_DATA_SLOTS > 100 not allowed"
   #endif
 #endif
+
+#if ELWB_CONF_CONT_TH == 0
+#error "invalid value for ELWB_CONF_CONT_TH"
+#endif /* ELWB_CONF_CONT_TH == 0 */
 
 /*---------------------------------------------------------------------------*/
 

@@ -34,13 +34,17 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10008           /* in decimal ABBCC */
+#define FW_VERSION      10009           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0009 (2019-02-04  --- DEVELOP ---):
+- feature: new define ELWB_CONF_CONT_TH added to accumulate / hold back data
+           packets in the TX queue for more efficient use of the eLWB
 
 Version 1.0008 (2018-12-21):
 - feature: if node ID cannot be retrieved from flash memory, a 'random' ID will

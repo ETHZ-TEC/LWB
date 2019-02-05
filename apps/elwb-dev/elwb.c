@@ -499,8 +499,8 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
         ELWB_WAIT_UNTIL(t_start + t_slot_ofs);
         ELWB_SEND_PACKET();
         DEBUG_PRINT_VERBOSE("D-ACK sent (%u bytes)", payload_len);
-        t_slot_ofs += (ELWB_CONF_T_DACK + ELWB_CONF_T_GAP);
       }
+      t_slot_ofs += (ELWB_CONF_T_DACK + ELWB_CONF_T_GAP);
       memset(data_ack, 0, (ELWB_CONF_MAX_DATA_SLOTS + 7) / 8);
     }
 #endif /* ELWB_CONF_DATA_ACK */
@@ -538,7 +538,7 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
       
       /* (just a 2-byte packet to indicate a change in the round period) */    
       /* send the 2nd schedule only if there was a contention slot */
-      payload_len = 2;
+      payload_len = ELWB_2ND_SCHED_LEN;
       ELWB_WAIT_UNTIL(t_start + t_slot_ofs);
       ELWB_SEND_PACKET();    /* send as normal packet! saves energy */
     }
@@ -850,11 +850,11 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       
       /* is there a contention slot in this round? */
       if(ELWB_SCHED_HAS_CONT_SLOT(&schedule)) {
-        t_slot = ELWB_CONF_T_CONT;
-        if(!FIFO_EMPTY(&tx_queue)) {
+        t_slot      = ELWB_CONF_T_CONT;
+        payload_len = ELWB_REQ_PKT_LEN;
+        if(FIFO_CNT(&tx_queue) >= ELWB_CONF_CONT_TH) {
           /* if there is data in the output buffer, then request a slot */
           /* a slot request packet always looks the same */
-          payload_len = ELWB_REQ_PKT_LEN;
           /* include the node ID in case this is the first request */
           glossy_payload[0] = 0;
           if(!node_registered) {
@@ -866,7 +866,6 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           ELWB_SEND_PACKET();
         } else {
           /* no request pending -> just receive / relay packets */
-          payload_len = ELWB_REQ_PKT_LEN;
           ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD_SLOT);
           ELWB_RCV_PACKET();
         }
@@ -875,7 +874,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         /* --- RECEIVE 2ND SCHEDULE --- */
       
         /* only rcv the 2nd schedule if there was a contention slot */
-        payload_len = 2;  /* we expect exactly 2 bytes */
+        payload_len = ELWB_2ND_SCHED_LEN;
         ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD_SLOT);
         ELWB_RCV_PACKET();
         if(ELWB_DATA_RCVD) {

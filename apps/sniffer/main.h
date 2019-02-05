@@ -40,7 +40,7 @@
 #include "contiki.h"
 #include "platform.h"
 #include "../elwb-dev/elwb.h"
-#include "../elwb-dev/messages/dpp_message.h"
+#include "../../common/definitions/messages/dpp_message.h"
 
 
 #define EVENT_ERROR(x, y)
