@@ -205,6 +205,7 @@ int8_t glossy_get_rssi(void);
  * @brief get the relay count of the first received packet
  */
 uint8_t glossy_get_relay_cnt(void);
+uint8_t glossy_get_max_relay_cnt(void);
 
 /**
  * @brief get the packet error rate/ratio in percentages * 100

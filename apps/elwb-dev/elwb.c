@@ -404,8 +404,8 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
       /* collect some stats */
       stats.glossy_snr     = glossy_get_rssi();   /* use RSSI instead of SNR */
       stats.relay_cnt      = glossy_get_relay_cnt();
-      stats.glossy_t_to_rx = glossy_get_t_to_first_rx() * 100 / 325;
-      stats.glossy_t_flood = glossy_get_flood_duration() * 100 / 325;
+      stats.glossy_t_to_rx = glossy_get_t_to_first_rx();
+      stats.glossy_t_flood = glossy_get_flood_duration();
       stats.glossy_n_rx    = glossy_get_n_rx();
       stats.glossy_n_tx    = glossy_get_n_tx();
     }
@@ -593,9 +593,10 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
   static uint8_t  node_registered;
   static uint16_t period_idle;        /* last base period */
 #if ELWB_CONF_DATA_ACK
-  static uint8_t first_slot = 0xff,
-                 num_slots  = 0;
+  static uint8_t  first_slot = 0xff,
+                  num_slots  = 0;
 #endif /* ELWB_CONF_DATA_ACK */
+  static uint8_t  rand_backoff = 0;
   
   PT_BEGIN(&elwb_pt);
   
@@ -675,8 +676,8 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         /* collect some stats of the schedule flood */
         stats.relay_cnt      = glossy_get_relay_cnt();
         stats.glossy_snr     = glossy_get_snr();
-        stats.glossy_t_to_rx = glossy_get_t_to_first_rx() * 100 / 325;
-        stats.glossy_t_flood = glossy_get_flood_duration() * 100 / 325;
+        stats.glossy_t_to_rx = glossy_get_t_to_first_rx();
+        stats.glossy_t_flood = glossy_get_flood_duration();
         stats.glossy_n_rx    = glossy_get_n_rx();
         stats.glossy_n_tx    = glossy_get_n_tx();
         /* do some basic drift estimation: measured elapsed time minus
@@ -747,6 +748,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           /* it's a request round */
           t_slot = ELWB_CONF_T_CONT;
           node_registered = 0;
+          rand_backoff = 0;              /* reset, contention was successful */
         }
         for(i = 0; i < ELWB_SCHED_N_SLOTS(&schedule); i++) {
           if(schedule.slot[i] == node_id) {
@@ -852,7 +854,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       if(ELWB_SCHED_HAS_CONT_SLOT(&schedule)) {
         t_slot      = ELWB_CONF_T_CONT;
         payload_len = ELWB_REQ_PKT_LEN;
-        if(FIFO_CNT(&tx_queue) >= ELWB_CONF_CONT_TH) {
+        if((FIFO_CNT(&tx_queue) >= ELWB_CONF_CONT_TH) && rand_backoff == 0) {
           /* if there is data in the output buffer, then request a slot */
           /* a slot request packet always looks the same */
           /* include the node ID in case this is the first request */
@@ -864,10 +866,15 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           /* wait until the contention slot starts */
           ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
           ELWB_SEND_PACKET();
+          /* set random backoff time between 0 and 7 */
+          rand_backoff = (random_rand() & 0x0007);
         } else {
           /* no request pending -> just receive / relay packets */
           ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD_SLOT);
           ELWB_RCV_PACKET();
+          if(rand_backoff) {
+            rand_backoff--;
+          }
         }
         t_slot_ofs += ELWB_CONF_T_CONT + ELWB_CONF_T_GAP;
         

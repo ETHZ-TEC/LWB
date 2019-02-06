@@ -477,7 +477,6 @@ send_node_health(void)
 void
 send_lwb_health(void)
 {
-  static uint16_t max_hops  = 0;
   const elwb_stats_t* stats = elwb_get_stats();
 
   msg_tx.lwb_health.sleep_cnt     = stats->sleep_cnt;
@@ -488,10 +487,7 @@ send_lwb_health(void)
   msg_tx.lwb_health.n_tx          = stats->glossy_n_tx;
   msg_tx.lwb_health.n_rx          = stats->glossy_n_rx;
   msg_tx.lwb_health.n_hops        = stats->relay_cnt;
-  if(stats->relay_cnt > max_hops) {
-    max_hops = stats->relay_cnt;
-  }
-  msg_tx.lwb_health.n_hops_max    = max_hops;
+  msg_tx.lwb_health.n_hops_max    = glossy_get_max_relay_cnt();
   msg_tx.lwb_health.unsynced_cnt  = stats->unsynced_cnt;
   msg_tx.lwb_health.drift         = stats->drift;
   msg_tx.lwb_health.bus_load      = stats->load;

@@ -41,16 +41,12 @@
 
 /*---------------------------------------------------------------------------*/
 
-/* minimum and maximum number of slots after which the timeout expires, since
- * the last transmission
- * NOTE: values below 2 do not make sense, as there would be no chance to
- * receive a packet in between */
-#define SLOT_TIMEOUT_MIN      2
-#define SLOT_TIMEOUT_MAX      2
+/* number of slots after which the timeout expires, since the last TX */
+#define SLOT_TIMEOUT          2
 /* number of extra ticks required by the timeout callback before starting the
  * transmission (to keep synchronous transmissions and time synchronization as
  * accurate as possible) */
-#define TIMEOUT_EXTRA_TICKS   70
+#define TIMEOUT_EXTRA_TICKS   95
 
 /* maximum tolerance to accept measurements of T_slot when comparing to the
  * theoretical value (value in clock ticks) */
@@ -166,6 +162,7 @@ typedef struct {
     uint32_t flood_cnt;  /* total # of floods (with >=1x preamble+sync det.) */
     uint32_t flood_cnt_success;    /* total # floods with at least 1x CRC ok */
     uint16_t error_cnt;                            /* total number of errors */
+    uint8_t  relay_cnt_max;
   } stats;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 } glossy_state_t;
@@ -258,17 +255,13 @@ timeout_expired(rtimer_t *rt)
 static inline void
 schedule_timeout(void)
 {
-  /* number of slots after which the timeout will expire: */
-  /* random number between SLOT_TIMEOUT_MIN and SLOT_TIMEOUT_MAX */
-  uint8_t slot_timeout = SLOT_TIMEOUT_MIN +
-    (random_rand() % (SLOT_TIMEOUT_MAX - SLOT_TIMEOUT_MIN + 1));
   if(WITH_RELAY_CNT()) {
     /* if the relay counter is sent, increment it by the chosen number of
      * slots */
-    g.relay_cnt_timeout = g.header.relay_cnt + slot_timeout;
+    g.relay_cnt_timeout = g.header.relay_cnt + SLOT_TIMEOUT;
   }
   rtimer_schedule(GLOSSY_CONF_RTIMER_ID, 
-                  g.t_timeout + (uint32_t)slot_timeout * g.T_slot_estimated,
+                  g.t_timeout + (uint32_t)SLOT_TIMEOUT * g.T_slot_estimated,
                   0,
                   timeout_expired);
 }
@@ -441,8 +434,9 @@ glossy_stop(void)
 
 #if GLOSSY_CONF_COLLECT_STATS
     /* stats */
-    g.stats.last_flood_duration = rtimer_now_lf_hw() -
-                                  g.stats.last_flood_duration;
+    g.stats.last_flood_duration = (uint16_t)(rtimer_now_lf_hw() -
+                                   g.stats.last_flood_duration) *
+                                  (uint16_t)(1000000UL / RTIMER_SECOND_LF);
     if(!IS_INITIATOR()) {
       /* only count if not initiator! */
       if(g.stats.last_flood_n_rx_started) {
@@ -453,6 +447,9 @@ glossy_stop(void)
       if(g.n_rx) {
         g.stats.flood_cnt_success++;
       }
+    }
+    if(g.stats.last_flood_relay_cnt > g.stats.relay_cnt_max) {
+      g.stats.relay_cnt_max = g.stats.last_flood_relay_cnt;
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 
@@ -558,6 +555,12 @@ glossy_get_relay_cnt(void)
   return g.stats.last_flood_relay_cnt;
 }
 /*---------------------------------------------------------------------------*/
+uint8_t
+glossy_get_max_relay_cnt(void)
+{
+  return g.stats.relay_cnt_max;
+}
+/*---------------------------------------------------------------------------*/
 uint16_t
 glossy_get_per(void)
 {
@@ -617,6 +620,7 @@ glossy_reset_stats(void)
   g.stats.flood_cnt = 0;
   g.stats.flood_cnt_success = 0;
   g.stats.error_cnt = 0;
+  g.stats.relay_cnt_max = 0;
 }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
 /*---------------------- RF1A callback implementation -----------------------*/
@@ -636,8 +640,9 @@ rf1a_cb_rx_started(rtimer_clock_t *timestamp)
   g.stats.already_counted = 0;
   g.stats.pkt_cnt++;
   if(!g.stats.last_flood_n_rx_started) {
-    g.stats.last_flood_t_to_rx = rtimer_now_lf_hw() -
-                                 g.stats.last_flood_duration;
+    g.stats.last_flood_t_to_rx = (uint16_t)(rtimer_now_lf_hw() -
+                                  g.stats.last_flood_duration) *
+                                  (uint16_t)(1000000UL / RTIMER_SECOND_LF);
   }
   g.stats.last_flood_n_rx_started++;
 #endif /* GLOSSY_CONF_COLLECT_STATS */
@@ -768,8 +773,16 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
       g.stats.already_counted = 1;
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
-    /* some fields in the header were not correct: discard it */
-    rf1a_cb_rx_failed(timestamp);
+    if(IS_INITIATOR()) {
+      /* retransmit the packet */
+      g.header.relay_cnt++;
+      rf1a_write_to_tx_fifo((uint8_t *)&g.header,
+                            GLOSSY_HEADER_LEN(g.header.pkt_type),
+                            (uint8_t *)g.payload, g.payload_len);
+    } else {
+      /* some fields in the header or CRC were not correct: discard packet */
+      rf1a_cb_rx_failed(timestamp);
+    }
   }
 }
 /*---------------------------------------------------------------------------*/
