@@ -33,7 +33,7 @@
 
 /*
  * Note: the constants required to calculate the slot duration are defined in
- * the rf1a config file (TAU1, TAU2, T2R, R2T, T_TX_BYTE and T_TX_OFFSET)
+ * the rf1a config file (TAU1, TAU2, T2R, R2T and T_TX_BYTE)
  */
 
 #include "contiki.h"
@@ -46,7 +46,7 @@
 /* number of extra ticks required by the timeout callback before starting the
  * transmission (to keep synchronous transmissions and time synchronization as
  * accurate as possible) */
-#define TIMEOUT_EXTRA_TICKS   95
+#define TIMEOUT_EXTRA_TICKS   -37
 
 /* maximum tolerance to accept measurements of T_slot when comparing to the
  * theoretical value (value in clock ticks) */
@@ -226,9 +226,8 @@ static inline uint32_t
 estimate_T_slot(uint8_t pkt_len)
 {
   /* T_slot = T_rx + T_rx2tx + tau1 = T_tx + T_tx2rx - tau1 */
-  /* perform calculations in 32-bit, faster */
-  uint32_t T_tx_estim = (uint32_t)T_TX_BYTE * ((uint32_t)pkt_len + 3) +
-                        T_TX_OFFSET;
+  /* perform calculations in 32-bit, faster than 64-bit */
+  uint32_t T_tx_estim = (uint32_t)T_TX_BYTE * ((uint32_t)pkt_len + 3);
   return NS_TO_RTIMER_HF_32(T_tx_estim + T2R - TAU1);
 }
 /*---------------------------------------------------------------------------*/
@@ -264,6 +263,7 @@ schedule_timeout(void)
                   g.t_timeout + (uint32_t)SLOT_TIMEOUT * g.T_slot_estimated,
                   0,
                   timeout_expired);
+  g.t_timeout += (uint32_t)SLOT_TIMEOUT * g.T_slot_estimated;
 }
 /*---------------------------------------------------------------------------*/
 static inline void
@@ -773,16 +773,8 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
       g.stats.already_counted = 1;
     }
 #endif /* GLOSSY_CONF_COLLECT_STATS */
-    if(IS_INITIATOR()) {
-      /* retransmit the packet */
-      g.header.relay_cnt++;
-      rf1a_write_to_tx_fifo((uint8_t *)&g.header,
-                            GLOSSY_HEADER_LEN(g.header.pkt_type),
-                            (uint8_t *)g.payload, g.payload_len);
-    } else {
-      /* some fields in the header or CRC were not correct: discard packet */
-      rf1a_cb_rx_failed(timestamp);
-    }
+    /* some fields in the header or CRC were not correct: discard packet */
+    rf1a_cb_rx_failed(timestamp);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -845,8 +837,22 @@ rf1a_cb_rx_failed(rtimer_clock_t *timestamp)
 
   rtimer_update_enable();
   if(g.active) {
-    rf1a_flush_rx_fifo();
-    rf1a_start_rx();
+    if(IS_INITIATOR() && (g.n_rx == 0)) {
+      /* retransmit the packet if initiator and not yet received! */
+      /* note: as initiator, relay count is always even! */
+      if(g.header.relay_cnt & 1) {
+        g.header.relay_cnt++;
+      } else {
+        g.header.relay_cnt += 2;
+      }
+      rf1a_write_to_tx_fifo((uint8_t*)&g.header,
+                            GLOSSY_HEADER_LEN(g.header.pkt_type),
+                            (uint8_t*)g.payload, g.payload_len);
+      rf1a_clear_rx_fifo();
+    } else {
+      rf1a_flush_rx_fifo();
+      rf1a_start_rx();
+    }
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -855,7 +861,6 @@ rf1a_cb_rx_tx_error(rtimer_clock_t *timestamp)
 {
   GLOSSY_RX_STOPPED;
   GLOSSY_TX_STOPPED;
-
   /* notify about the error (not supposed to occur) */
 #if GLOSSY_CONF_COLLECT_STATS
   g.stats.error_cnt++;

@@ -138,6 +138,9 @@ void rf1a_manual_calibration(void);
 /* reconfigure the lost register contents after waking up from SLEEP state */
 void rf1a_reconfig_after_sleep(void);
 
+/* empties the RX FIFO without changing the radio state */
+void rf1a_clear_rx_fifo(void);
+
 /* flush the RX FIFO */
 /* NOTE: the radio will be put into the IDLE state */
 void rf1a_flush_rx_fifo(void);

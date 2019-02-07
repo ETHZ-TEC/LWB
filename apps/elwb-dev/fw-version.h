@@ -42,7 +42,7 @@
 Revision History
 ----------------
 
-Version 1.0009 (2019-02-06):
+Version 1.0009 (2019-02-07):
 - feature: new define ELWB_CONF_CONT_TH added to accumulate / hold back data
            packets in the TX queue for more efficient use of the eLWB
 - feature: random backoff mechanism added to improve contention slot
@@ -52,6 +52,8 @@ Version 1.0009 (2019-02-06):
           with other stats
 - change: Unit for Glossy flood duration and time to first RX changed from
           ticks to us.
+- bugfix: Glossy retransmission timeout didn't work as expected + parameters
+          tuned to better align pulses.
 
 Version 1.0008 (2018-12-21):
 - feature: if node ID cannot be retrieved from flash memory, a 'random' ID will

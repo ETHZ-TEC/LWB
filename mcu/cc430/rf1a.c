@@ -270,7 +270,10 @@ read_data_from_register(uint8_t addr, uint8_t *buffer, uint16_t n_bytes)
     if(TIMEOUT_OCCURRED) return;
     /* read the data (clears also flag RFDOUTIFG and initiates auto-read for
        the next data byte) */
-    buffer[i] = RF1ADOUT1B;
+    volatile uint8_t b = RF1ADOUT1B;
+    if(buffer) {
+      buffer[i] = b;
+    }
   }
   /* wait until the radio has provided the data */
   WAIT_UNTIL_DATA_IS_READY_WITH_TIMEOUT();
@@ -756,6 +759,13 @@ rf1a_reconfig_after_sleep(void)
 #ifdef SMARTRF_TEST2
   write_byte_to_register(TEST2, SMARTRF_TEST2);
 #endif /* SMARTRF_TEST2 */
+}
+/*---------------------------------------------------------------------------*/
+void
+rf1a_clear_rx_fifo(void)
+{
+  /* empties the RX FIFO without changing the radio state */
+  read_data_from_register(RXFIFO, 0, read_byte_from_register(RXBYTES));
 }
 /*---------------------------------------------------------------------------*/
 void

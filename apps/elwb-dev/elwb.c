@@ -866,8 +866,8 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
           /* wait until the contention slot starts */
           ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
           ELWB_SEND_PACKET();
-          /* set random backoff time between 0 and 7 */
-          rand_backoff = (random_rand() & 0x0007);
+          /* set random backoff time between 0 and 3 */
+          rand_backoff = (random_rand() & 0x0003);
         } else {
           /* no request pending -> just receive / relay packets */
           ELWB_WAIT_UNTIL(t_ref + t_slot_ofs - ELWB_CONF_T_GUARD_SLOT);
