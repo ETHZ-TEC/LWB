@@ -90,8 +90,9 @@ send_msg(uint16_t recipient,
          uint8_t len,
          uint8_t send_to_bolt)
 {
-  uint16_t seq_no_lwb  = 0;   /* separate sequence number for each interface */
-  uint16_t seq_no_bolt = 0;
+  /* separate sequence number for each interface */
+  static uint16_t seq_no_lwb  = 0;
+  static uint16_t seq_no_bolt = 0;
 
   /* check message length */
   if(len > DPP_MSG_PAYLOAD_LEN) {

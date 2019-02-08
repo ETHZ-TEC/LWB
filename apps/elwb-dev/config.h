@@ -54,7 +54,7 @@
 
 /* --- External memory (FRAM) --- */
 
-#define FRAM_CONF_ON                    0   /* enable if FRAM chip installed */
+#define FRAM_CONF_ON                    1   /* enable if FRAM chip installed */
 
 
 /* --- Radio config --- */
@@ -102,7 +102,7 @@
   #define ELWB_CONF_OUT_BUFFER_SIZE     10 /* = max #pkts a src node can snd */
   #define ELWB_CONF_IN_BUFFER_SIZE      10 /* = max #pkts a src node can rcv */
  #else /* ELWB_CONF_USE_XMEM */
-  #define ELWB_CONF_OUT_BUFFER_SIZE     6 /* = max #pkts a src node can send */
+  #define ELWB_CONF_OUT_BUFFER_SIZE     8 /* = max #pkts a src node can snd */
   #define ELWB_CONF_IN_BUFFER_SIZE      4  /* = max #pkts a src node can rcv */
  #endif /* ELWB_CONF_USE_XMEM */
 #endif /* IS_HOST */
