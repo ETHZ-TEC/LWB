@@ -161,6 +161,10 @@
 #define ELWB_RTIMER_SECOND        RTIMER_SECOND_LF
 #define ELWB_RTIMER_NOW()         rtimer_now_lf()
 #define ELWB_T_REF()              glossy_get_t_ref_lf()
+#ifndef ELWB_CONF_RTIMER_ID_HF
+  #define ELWB_CONF_RTIMER_ID_HF  RTIMER_HF_0
+  #define ELWB_T_REF_HF()         glossy_get_t_ref()
+#endif /* ELWB_CONF_RTIMER_ID_HF */
 #else
 #define ELWB_RTIMER_SECOND        RTIMER_SECOND_HF
 #define ELWB_RTIMER_NOW()         rtimer_now_hf()

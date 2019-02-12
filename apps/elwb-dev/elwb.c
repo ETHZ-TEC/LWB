@@ -589,6 +589,10 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
 {
   /* variables specific to the source node (all must be static) */
   static rtimer_clock_t t_ref;
+#ifdef ELWB_CONF_RTIMER_ID_HF
+  static rtimer_clock_t t_ref_hf,
+                        rt_time_last;
+#endif /* ELWB_CONF_RTIMER_ID_HF */
   static elwb_syncstate_t sync_state;
   static uint8_t  node_registered;
   static uint16_t period_idle;        /* last base period */
@@ -672,6 +676,10 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
       sync_state = next_state[EVT_SCHED_RCVD][sync_state];
       /* subtract const offset to align src and host */
       t_ref = ELWB_T_REF() - ELWB_T_REF_OFS;
+  #ifdef ELWB_CONF_RTIMER_ID_HF
+      /* also store the HF timestamp in case LF is used for slot wakeups */
+      t_ref_hf = ELWB_T_REF_HF() - ELWB_T_REF_OFS * RTIMER_HF_LF_RATIO;
+  #endif /* ELWB_CONF_RTIMER_ID_HF */
       if(ELWB_SCHED_IS_FIRST(&schedule)) {
         /* collect some stats of the schedule flood */
         stats.relay_cnt      = glossy_get_relay_cnt();
@@ -863,8 +871,23 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
             glossy_payload[0] = node_id;
             DEBUG_PRINT_INFO("transmitting node ID");
           }
+          /* contention slot requires precise timing: use HF timer for this
+           * wake-up! */
+  #ifdef ELWB_CONF_RTIMER_ID_HF
+          /* wait until the contention slot starts */
+          rt_time_last = rt->time;                        /* backup rt->time */
+          rtimer_schedule(ELWB_CONF_RTIMER_ID_HF,
+                          t_ref_hf + t_slot_ofs * RTIMER_HF_LF_RATIO,
+                          0, elwb_cb);
+          ELWB_TASK_SUSPENDED;
+          PT_YIELD(&elwb_pt);
+          ELWB_TASK_RESUMED;
+          ELWB_ENABLE_PREEMPTION;
+          rt->time = rt_time_last;                       /* restore rt->time */
+  #else /* ELWB_CONF_RTIMER_ID_HF */
           /* wait until the contention slot starts */
           ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
+  #endif /* ELWB_CONF_RTIMER_ID_HF */
           ELWB_SEND_PACKET();
           /* set random backoff time between 0 and 3 */
           rand_backoff = (random_rand() & 0x0003);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2019, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,13 +34,18 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10009           /* in decimal ABBCC */
+#define FW_VERSION      10010           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0010 (2019-02-12):
+- bugfix: issue fixed where the network traffic stalls for some time when at
+          least two nodes with comparable links to the host node send (contend)
+          during the contention slot
 
 Version 1.0009 (2019-02-08):
 - feature: new define ELWB_CONF_CONT_TH added to accumulate / hold back data
