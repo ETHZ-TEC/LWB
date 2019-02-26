@@ -72,7 +72,6 @@ config_t cfg;
 rtimer_clock_t bolt_captured_trq = 0;             /* last captured timestamp */
 uint16_t health_msg_period = HEALTH_MSG_PERIOD;
 /*---------------------------------------------------------------------------*/
-static uint16_t last_health_pkt = 0;
 static dpp_message_t msg_rx;                            /* only used for RX! */
 /*---------------------------------------------------------------------------*/
 void
@@ -226,6 +225,8 @@ AUTOSTART_PROCESSES(&app_post);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_post, ev, data) 
 {
+  static uint16_t last_health_pkt = 0;
+  
   PROCESS_BEGIN();
   
   /* compile time checks */

@@ -461,9 +461,18 @@ PT_THREAD(elwb_thread_host(rtimer_t *rt))
             } else {
               DEBUG_PRINT_VERBOSE("data received from node %u (%ub)", 
                                   schedule.slot[i], payload_len);
-              uint16_t res;
+              uint16_t res = 0;
   #if ELWB_CONF_WRITE_TO_BOLT
-              res = bolt_write((uint8_t*)glossy_payload, payload_len);
+              /* check length and CRC! */
+              if(payload_len < (DPP_MSG_HDR_LEN + 2) ||
+                 DPP_MSG_GET_CRC16((dpp_message_t*)glossy_payload) !=
+                 crc16((uint8_t*)glossy_payload, payload_len - 2, 0)) {
+                DEBUG_PRINT_WARNING("msg with invalid length or CRC");
+                EVENT_WARNING(EVENT_CC430_INV_MSG,
+                              (uint32_t)payload_len << 16 | schedule.slot[i]);
+              } else {
+                res = bolt_write((uint8_t*)glossy_payload, payload_len);
+              }
   #else /* ELWB_CONF_WRITE_TO_BOLT */
               res = elwb_in_buffer_put((uint8_t*)glossy_payload, payload_len);
   #endif /* ELWB_CONF_WRITE_TO_BOLT */

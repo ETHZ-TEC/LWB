@@ -34,13 +34,17 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10010           /* in decimal ABBCC */
+#define FW_VERSION      10011           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
 
 Revision History
 ----------------
+
+Version 1.0011 (2019-02-26):
+- change: CRC check added to HOST eLWB task before passing message to BOLT when
+          ELWB_CONF_WRITE_TO_BOLT is enabled (no DACK => source will resend)
 
 Version 1.0010 (2019-02-12):
 - bugfix: issue fixed where the network traffic stalls for some time when at

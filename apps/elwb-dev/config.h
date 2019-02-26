@@ -121,10 +121,10 @@
 #define ELWB_CONF_N_TX_DATA             3
 /* misc */
 #if IS_HOST
- #define ELWB_CONF_WRITE_TO_BOLT        1      /* write incoming msg to BOLT */
+  #define ELWB_CONF_WRITE_TO_BOLT       1      /* write incoming msg to BOLT */
   #define ELWB_CONF_T_PREPROCESS        (ELWB_RTIMER_SECOND / 10)   /* 100ms */
 #else /* IS_HOST */
- #define ELWB_CONF_WRITE_TO_BOLT        0
+  #define ELWB_CONF_WRITE_TO_BOLT       0
   #define ELWB_CONF_T_PREPROCESS        (ELWB_RTIMER_SECOND / 20)    /* 50ms */
 #endif /* IS_HOST */
 /* override default packet filter (only keep pkts on src that match node_id) */
