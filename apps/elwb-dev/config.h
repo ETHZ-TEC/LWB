@@ -93,7 +93,7 @@
  #if ELWB_CONF_USE_XMEM
   #define ELWB_CONF_OUT_BUFFER_SIZE     10  /* = max #pkts the host can send */
  #else /* ELWB_CONF_USE_XMEM */
-  #define ELWB_CONF_OUT_BUFFER_SIZE     3
+  #define ELWB_CONF_OUT_BUFFER_SIZE     4
  #endif /* ELWB_CONF_USE_XMEM */
  #define ELWB_CONF_IN_BUFFER_SIZE       1 /* typically ELWB_CONF_MAX_DATA_SLOTS
                                        but not required if forwarded to BOLT */

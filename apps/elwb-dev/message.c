@@ -288,10 +288,10 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
       utc_time_updated = 1;
   #endif /* IS_HOST */
 
-  #if FW_UPDATE_CONF_ON
     /* firmware message type (only continue if component ID matches) */
     } else if(msg->header.type == DPP_MSG_TYPE_FW &&
               msg->firmware.component_id == DPP_COMPONENT_ID_CC430) {
+  #if FW_UPDATE_CONF_ON
     #if IS_HOST
       /* host node only processes this msg type if target == node_id */
       if(msg->header.target_id == node_id) {

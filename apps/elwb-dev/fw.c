@@ -172,7 +172,7 @@ fw_store_data(const dpp_fw_t* fwpkt)
     memset(&fwinfo, 0, sizeof(fw_info_t));
     fwinfo.state     = FW_STATE_RECEIVING;
     fwinfo.version   = fwpkt->version;
-    DEBUG_PRINT_INFO("new FW version, current FW cleared");
+    DEBUG_PRINT_INFO("new FW version %u, current FW cleared", fwinfo.version);
   }
   if(fwinfo.state == FW_STATE_READY) {
     return SUCCESS; /* no need to continue, we already have all data */
@@ -228,7 +228,8 @@ fw_verify(const dpp_fw_t* fwpkt)
     if(fwinfo.data_crc != crc) {
       DEBUG_PRINT_ERROR("invalid FW file CRC (%lx vs %lx)", crc, 
                                                             fwinfo.data_crc);
-      fwinfo.state = FW_STATE_INIT;  /* drop all FW info and data */
+      EVENT_INFO(EVENT_CC430_FW_PROGRESS, 0);   /* back to 0 */
+      fwinfo.state = FW_STATE_INIT;             /* drop all FW info and data */
       return FAILED;
     }
     /* checksum is ok */
@@ -271,8 +272,7 @@ fw_request_data(void)
   msg_tx.firmware.component_id = DPP_COMPONENT_ID_CC430;
   msg_tx.firmware.version      = fwinfo.version;
   msg_tx.firmware.req.num      = cnt;
-  send_msg(0, DPP_MSG_TYPE_FW, 0, 6 + cnt * 2,
-           IS_HOST);
+  send_msg(0, DPP_MSG_TYPE_FW, 0, 6 + cnt * 2, IS_HOST);
   
   DEBUG_PRINT_INFO("%u FW data blocks requested", cnt);
 }
