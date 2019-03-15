@@ -149,8 +149,8 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
           sync_state = 0;
           continue;
         }
-        if(glossy_get_relay_cnt_first_rx() > max_hop) {
-          max_hop = glossy_get_relay_cnt_first_rx();
+        if(glossy_get_relay_cnt() > max_hop) {
+          max_hop = glossy_get_relay_cnt();
         }
         /* print out some stats */
         DEBUG_PRINT_INFO("rcv=%u miss=%u boot=%u per=%u "
