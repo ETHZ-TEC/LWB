@@ -120,18 +120,18 @@ load_config(void)
 {
   /* load and restore the config */
   if(nvcfg_load(&cfg)) {
-    if(cfg.tx_pwr == 0) {   /* take 0 as invalid -> use value set at compile time */
+    if(cfg.tx_pwr == 0) {   /* treat 0 as invalid */
       cfg.tx_pwr = RF_CONF_TX_POWER;
     } else {
       rf1a_set_tx_power(cfg.tx_pwr);
     }
   #if !IS_HOST
-    if(node_id == 0x1122 && cfg.node_id != 0) {         /* still on default value? */
+    if(node_id == 0x1122 && cfg.node_id != 0) {   /* still on default value? */
       node_id = cfg.node_id;
       DEBUG_PRINT_MSG_NOW("Node ID %u restored from config", cfg.node_id);
     } else {
       /* save node ID */
-      cfg.node_id = node_id;
+      cfg.node_id = node_id;                        /* overwrite the node ID */
     }
   #endif /* IS_HOST */
     DEBUG_PRINT_MSG_NOW("Config restored (TX pwr %ddBm, DBG flags 0x%x)",
@@ -148,6 +148,9 @@ load_config(void)
       }
     }*/
   #endif /* IS_HOST */
+    /* set default config */
+    cfg.tx_pwr  = RF_CONF_TX_POWER;
+    cfg.node_id = node_id;
   }
   /* failsafe mechanism: if node ID is still the default value (0x1122), assign
    * an ID based on the unique identifier */

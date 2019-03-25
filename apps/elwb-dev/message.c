@@ -256,9 +256,21 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
         }
         break;
   #if IS_HOST
+      /* commands only for host node */
       case CMD_CC430_ADD_NODE:
         if(arg1) {
           elwb_sched_process_req(arg1, 0);
+          successful = 1;
+        }
+        break;
+  #else
+      /* commands only for source nodes */
+      case CMD_CC430_SET_NODE_ID:
+        /* broadcast not allowed for this command */
+        if(!forward && arg1 > 1000 && arg1 < 0xffff) {
+          node_id = arg1;
+          cfg.node_id = arg1;
+          cfg_changed = 1;
           successful = 1;
         }
         break;
