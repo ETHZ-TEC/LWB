@@ -80,6 +80,14 @@
 #define COMPILER_VERSION            __TI_COMPILER_VERSION__
 #endif
 
+#define TI_DEVICE_ID                REGVAL16(0x1A04)  /* read ID from TLV */
+#define TI_DEVICE_HWREV             REGVAL8(0x01A06)
+/* create unique ID from wafer ID and die position (x, y) */
+#define TI_UNIQUE_ID                ((uint64_t)REGVAL32(0x01A0E) << 32 | \
+                                               REGVAL32(0x01A0A))
+#define TI_UNIQUE_ID_ADDR           0x01A0A      /* start address of the UID */
+
+
 #define MCU_DESC                    "CC430F5147"
 #define SRAM_START                  0x1c00
 #define SRAM_END                    0x2bff        /* last valid byte in SRAM */
@@ -197,10 +205,10 @@
 #define FLOCKLAB_INT1               COM_MCU_INT1  /* for GPIO tracing */
 #define FLOCKLAB_INT2               COM_MCU_INT2  /* for GPIO tracing */
 
+#define FRAM_CONF_CTRL_PIN        PORT2, PIN0
+#define FRAM_CONF_SIZE            125000      /* 1 Mbit */
+#define FRAM_CONF_SPI             SPI_0
 #if FRAM_CONF_ON
-  #define FRAM_CONF_CTRL_PIN        PORT2, PIN0
-  #define FRAM_CONF_SIZE            125000      /* 1 Mbit */
-  #define FRAM_CONF_SPI             SPI_0       
   //#ifndef DEBUG_PRINT_CONF_USE_XMEM
   //#define DEBUG_PRINT_CONF_USE_XMEM 1
   //#endif /* DEBUG_PRINT_CONF_USE_XMEM */
