@@ -53,6 +53,10 @@
 #error "FW_UPDATE_CONF_ON requires FRAM!"
 #endif
 
+#ifndef FW_UPDATE_CONF_ALLOW_DOWNGRADE
+#define FW_UPDATE_CONF_ALLOW_DOWNGRADE  0
+#endif /* FW_UPDATE_CONF_ALLOW_DOWNGRADE */
+
 /*---------------------------------------------------------------------------*/
 
 typedef enum
@@ -131,7 +135,15 @@ fw_process_msg(dpp_message_t* msg)
      msg->header.payload_len < DPP_FW_HDR_LEN ||
      msg->firmware.component_id != DPP_COMPONENT_ID_CC430) {
     return FAILED;
-  }  
+  }
+  
+#if !FW_UPDATE_CONF_ALLOW_DOWNGRADE
+  /* only continue if FW version is newer than current version */
+  if(msg->firmware.version <= FW_VERSION) {
+    return SUCCESS;
+  }
+#endif /* FW_UPDATE_CONF_ALLOW_DOWNGRADE */
+  
   /* inspect the message type */
   switch (msg->firmware.type)
   {
