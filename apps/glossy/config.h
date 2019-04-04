@@ -10,7 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
@@ -44,17 +43,17 @@
 #ifdef FLOCKLAB
   /* set the highest antenna gain if the program runs on FlockLAB */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
-  #define RF_CONF_TX_CH                 10      /* approx. 870 MHz */
-  #define RF_CONF_MAX_PKT_LEN           63
+  #define RF_CONF_TX_CH                 5                 /* approx. 869 MHz */
+  #define RF_CONF_MAX_PKT_LEN           128
   //#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
   //#define APP_TASK_ACT_PIN              FLOCKLAB_LED3
 #else
   /* only define a node ID if FlockLAB is not used (FlockLAB automatically 
    * assigns node IDs); select an ID other than HOST_ID to compile the code 
    * for a source node */
-  #define RF_CONF_TX_CH                 5      /* approx. 869 MHz */
+  #define RF_CONF_TX_CH                 3               /* approx. 868.6 MHz */
   #define NODE_ID                       1
-  #define RF_CONF_MAX_PKT_LEN           63
+  #define RF_CONF_MAX_PKT_LEN           128
   #define APP_TASK_ACT_PIN              PORT2, PIN1
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
 #endif /* FLOCKLAB */
@@ -65,7 +64,7 @@
 #define GLOSSY_T_SLOT                   (RTIMER_SECOND_HF / 20)
 #define GLOSSY_T_GUARD                  (RTIMER_SECOND_HF / 1000)     /* 1ms */
 #define GLOSSY_PAYLOAD_LEN              8
-#define GLOSSY_N_TX                     6
+#define GLOSSY_N_TX                     3
 #define GLOSSY_CONF_RETRANSMISSION_TIMEOUT      1
 
 /* to align the host and source nodes */
