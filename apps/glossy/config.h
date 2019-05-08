@@ -44,7 +44,6 @@
   /* set the highest antenna gain if the program runs on FlockLAB */
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_PLUS_10_dBm
   #define RF_CONF_TX_CH                 5                 /* approx. 869 MHz */
-  #define RF_CONF_MAX_PKT_LEN           128
   //#define DEBUG_PRINT_TASK_ACT_PIN      FLOCKLAB_LED3
   //#define APP_TASK_ACT_PIN              FLOCKLAB_LED3
 #else
@@ -53,13 +52,13 @@
    * for a source node */
   #define RF_CONF_TX_CH                 3               /* approx. 868.6 MHz */
   #define NODE_ID                       1
-  #define RF_CONF_MAX_PKT_LEN           128
   #define APP_TASK_ACT_PIN              PORT2, PIN1
   #define RF_CONF_TX_POWER              RF1A_TX_POWER_0_dBm
 #endif /* FLOCKLAB */
+  #define RF_CONF_MAX_PKT_LEN           128
 
 /* LWB configuration */
-#define GLOSSY_PERIOD                   (RTIMER_SECOND_HF / 10)
+#define GLOSSY_PERIOD                   (RTIMER_SECOND_HF)            /* 1s */
 #define GLOSSY_RTIMER_ID                RTIMER_HF_0
 #define GLOSSY_T_SLOT                   (RTIMER_SECOND_HF / 20)
 #define GLOSSY_T_GUARD                  (RTIMER_SECOND_HF / 1000)     /* 1ms */

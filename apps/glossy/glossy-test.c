@@ -74,7 +74,7 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
   static uint8_t  sync_state = 0;
   static int32_t  avg_rssi = 0;
   static uint16_t rssi_cnt = 0;
-  
+                        
   /* note: all statements above PT_BEGIN() will be executed each time the 
    * protothread is scheduled */
   SVS_DISABLE;
@@ -87,7 +87,7 @@ PT_THREAD(glossy_thread(rtimer_t *rt))
   /* main loop of this application task */
   while(1) {
     /* HOST NODE */
-    if(node_id == HOST_ID) {
+    if(node_id == HOST_ID) {      
       /* send a packet */
       glossy_start(node_id, (uint8_t*)&glossy_payload, GLOSSY_PAYLOAD_LEN,
                    GLOSSY_N_TX, GLOSSY_WITH_SYNC,

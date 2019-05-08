@@ -42,9 +42,9 @@ PROCESS_THREAD(app_process, ev, data)
   static uint16_t count = 0;
   
   PROCESS_BEGIN();
-  
+    
   while(1) {
-    DEBUG_PRINT_MSG_NOW("hello world %u", count++);
+    DEBUG_PRINT_MSG_NOW("node %u: hello world %u", node_id, count++);
     __delay_cycles(MCLK_SPEED);
     LED_TOGGLE(LED_STATUS);
   }

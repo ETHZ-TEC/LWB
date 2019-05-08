@@ -53,8 +53,7 @@
 #include "platform.h"
 
 #ifndef HOST_ID
-#warning "HOST_ID not defined, set to 0"
-#define HOST_ID                         0
+#define HOST_ID         1
 #endif
 
 #ifndef LWB_VERSION

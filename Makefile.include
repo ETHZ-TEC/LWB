@@ -84,7 +84,7 @@ CFLAGS += -DCOMPILE_TIME=${shell date '+%s'}
 # add git revision SHA to compile flags
 #git log | head -1 | sed 's/.*\s//' equivalent to git rev-parse HEAD
 ifndef GITSHA
-  GITSHA = ${shell git rev-parse HEAD}
+  GITSHA = ${shell git rev-parse HEAD | head -c8}
 endif
 CFLAGS += -DGIT_HEADREV_SHA="\"$(GITSHA)\""
 

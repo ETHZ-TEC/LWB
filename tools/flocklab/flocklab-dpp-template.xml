@@ -9,10 +9,6 @@
 		<scheduleAsap>
 			<durationSecs>120</durationSecs>
 		</scheduleAsap>
-		<!--scheduleAbsolute>
-			<start>2018-06-28T06:25:38+00:00</start>
-			<end>2018-06-28T06:27:38+00:00</end>
-		</scheduleAbsolute-->
 		<emailResults>no</emailResults>
 	</generalConf>
 	
@@ -20,8 +16,9 @@
 		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
 		<!--<targetIds> </targetIds>-->
 		<voltage>3.3</voltage>
-		<embeddedImageId>BOLT</embeddedImageId>
+        <!-- The DPP requires 3 images: one for the communication processor (cc430), one for BOLT (msp430) and one for the application processor (msp432). -->
 		<embeddedImageId>COM</embeddedImageId>
+		<embeddedImageId>BOLT</embeddedImageId>
 		<embeddedImageId>APP</embeddedImageId>
 		<!--<embeddedImageId>SENSOR</embeddedImageId>-->
 	</targetConf>
@@ -37,6 +34,7 @@
 	
 	<gpioTracingConf>
 		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
+		<!--Mapped to COM -->
 		<pinConf>
 			<pin>INT1</pin>
 			<edge>both</edge>
@@ -70,7 +68,7 @@
 		</pinConf-->
 	</gpioTracingConf>
 	
-	<!-- (SIG1,SIG2): (0,0) = COM, (0,1) = APP, (1,0) = BOLT -->
+    <!-- The actuation pins (SIG1,SIG2) are used to select the MCU for the serial output: (0,0) = COM, (0,1) = APP, (1,0) = BOLT. -->
 	<gpioActuationConf>
 		<obsIds>001 002 003 004 006 007 008 010 011 013 014 015 016 017 018 019 020 022 023 024 025 026 027 028 032 033</obsIds>
 		<pinConf>

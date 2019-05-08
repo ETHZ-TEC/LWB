@@ -178,7 +178,8 @@
 #define ELWB_SCHED_PERIOD_MAX     (65535 / ELWB_PERIOD_SCALE)
 
 #if GLOSSY_CONF_SETUPTIME_WITH_SYNC
-#define ELWB_T_REF_OFS            ((GLOSSY_CONF_SETUPTIME_WITH_SYNC + 350) * ELWB_RTIMER_SECOND / 1000000)
+#define ELWB_T_REF_OFS            ((GLOSSY_CONF_SETUPTIME_WITH_SYNC + 350) * \
+                                   ELWB_RTIMER_SECOND / 1000000)
 #else  /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
 #define ELWB_T_REF_OFS            3822 /* measured with logic analyzer */
 #endif /* GLOSSY_CONF_SETUPTIME_WITH_SYNC */
@@ -187,11 +188,11 @@
                                    (3 + 24 + 192 + 192 + ((1000000 * \
                                    (len) * 8) / RF_CONF_TX_BITRATE))) \
                                     / 1000000)*/
-#define ELWB_T_HOP(len)           ((RTIMER_SECOND_HF * (300 + (len) * 32)) / \
+#define ELWB_T_HOP(len)           ((ELWB_RTIMER_SECOND * (300 + (len) * 32)) /\
                                    1000000)
 #define ELWB_T_SLOT_MIN(len)      ((ELWB_CONF_N_HOPS + \
                                    (2 * ELWB_CONF_N_TX_DATA) - 2) * \
-                                   ELWB_T_HOP(len) + (ELWB_RTIMER_SECOND / 4000))
+                                   ELWB_T_HOP(len) + (ELWB_RTIMER_SECOND/4000))
 
 #ifndef RF_CONF_MAX_PKT_LEN
 #define RF_CONF_MAX_PKT_LEN       (ELWB_CONF_MAX_PKT_LEN + \
