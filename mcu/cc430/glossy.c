@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Swiss Federal Institute of Technology (ETH Zurich).
+ * Copyright (c) 2019, Swiss Federal Institute of Technology (ETH Zurich).
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -313,6 +313,7 @@ glossy_start(uint16_t initiator_id,
   g.t_ref_updated     = 0;
   g.T_slot_sum        = 0;
   g.n_T_slot          = 0;
+  g.T_slot_estimated  = 0;
 
 #if GLOSSY_CONF_COLLECT_STATS
   g.stats.last_flood_relay_cnt    = 0;
@@ -659,13 +660,6 @@ rf1a_cb_tx_started(rtimer_clock_t *timestamp)
 {
   GLOSSY_TX_STARTED;
   g.t_tx_start = *timestamp;
-
-  if(g.n_tx == 0) {
-    /* first transmission: estimate the slot length based on the packet
-     * length */
-    g.T_slot_estimated = estimate_T_slot(GLOSSY_HEADER_LEN(g.header.pkt_type) +
-                                         g.payload_len);
-  }
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -753,6 +747,10 @@ rf1a_cb_rx_ended(rtimer_clock_t *timestamp, uint8_t *pkt, uint8_t pkt_len)
         /* t_ref has not been updated yet: update it */
         update_t_ref(g.t_rx_start - NS_TO_RTIMER_HF_32(TAU1),
                      g.header.relay_cnt - 1);
+        /* first transmission: estimate the slot length based on the packet
+         * length */
+        g.T_slot_estimated = estimate_T_slot(
+                         GLOSSY_HEADER_LEN(g.header.pkt_type) + g.payload_len);
       }
 
       if((g.relay_cnt_last_rx == g.relay_cnt_last_tx + 1) &&

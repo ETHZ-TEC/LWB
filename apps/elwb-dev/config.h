@@ -60,7 +60,7 @@
 /* --- Radio config --- */
 
 #define RF_CONF_TX_CH                   10                  /* CH10 = 870MHz */
-#define RF_CONF_TX_POWER                RF1A_TX_POWER_0_dBm
+#define RF_CONF_TX_POWER                RF1A_TX_POWER_PLUS_10_dBm
 #define RF_CONF_MAX_PKT_LEN             128
 
 

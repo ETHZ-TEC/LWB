@@ -42,6 +42,9 @@
 Revision History
 ----------------
 
+Version 1.0013 (development):
+- bugfix: minor bugfix in Glossy (slot estimation was skipped in some cases)
+
 Version 1.0012 (2019-03-25):
 - change: minor adjustment to load_config()
 - feature: new command added to set the node ID (to 'recover' nodes that loose
