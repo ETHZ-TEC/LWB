@@ -34,7 +34,7 @@
 #define __FW_VERSION_H__
 
 /* current FW version (A = major, B = minor, C = patchlevel)  */
-#define FW_VERSION      10012           /* in decimal ABBCC */
+#define FW_VERSION      10013           /* in decimal ABBCC */
 #define FW_NAME         "elwb-dev"      /* name of the application (8 bytes) */
 
 /*
