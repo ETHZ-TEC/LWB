@@ -195,17 +195,22 @@ PROCESS_THREAD(app_pre, ev, data)
           forwarded++;
         }
         read++;
-      } /* else: invalid message received from BOLT */
+      } else {
+        /* invalid message or other BOLT error (not supposed to happen) */
+        DEBUG_PRINT_ERROR("BOLT read failed");
+        EVENT_ERROR(EVENT_CC430_BOLT_ERROR, 0);
+        break;    /* stop here and try later */
+      }
       max_read--;
     }
     if(read) {
       DEBUG_PRINT_INFO("%u msg read from BOLT, %u forwarded", 
                        read, forwarded);
     }
-    DEBUG_PRINT_INFO("BOLT: %u/%u, LWB TX: %u", 
-                     BOLT_DATA_AVAILABLE,
-                     PIN_GET(BOLT_CONF_IND_OUT_PIN) > 0,
-                     elwb_get_send_buffer_state());
+    DEBUG_PRINT_VERBOSE("BOLT: %u/%u, LWB TX: %u", 
+                        BOLT_DATA_AVAILABLE,
+                        PIN_GET(BOLT_CONF_IND_OUT_PIN) > 0,
+                        elwb_get_send_buffer_state());
 
   #if !IS_HOST
     /* --- send the timestamp if one has been requested --- */

@@ -167,9 +167,10 @@ process_message(dpp_message_t* msg, uint8_t rcvd_from_bolt)
 {
   /* check message type, length and CRC */
   uint16_t msg_len = DPP_MSG_LEN(msg);
-  if(msg->header.type & DPP_MSG_TYPE_MIN ||
+  if(msg->header.type & DPP_MSG_TYPE_MIN ||   /* not supported yet */
      msg_len > DPP_MSG_PKT_LEN ||
      msg_len < (DPP_MSG_HDR_LEN + 2) ||
+     msg->header.payload_len == 0 ||
      DPP_MSG_GET_CRC16(msg) != crc16((uint8_t*)msg, msg_len - 2, 0)) {
     DEBUG_PRINT_WARNING("msg with invalid length or CRC (%ub, type %u)",
                         msg_len, msg->header.type);

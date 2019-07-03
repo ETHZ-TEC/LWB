@@ -42,8 +42,15 @@
 Revision History
 ----------------
 
-Version 1.0013 (development):
+Version 1.0013 (2019-07-03):
 - bugfix: minor bugfix in Glossy (slot estimation was skipped in some cases)
+- bugfix: messages with payload length zero were regarded as "CRC OK", even
+          though a CRC check was not done -> drop packets with payload_len zero
+- change: an error event is now generated when BOLT read fails (e.g. due to
+          a message longer than 126 bytes)
+- change: only re-insert the packet into the TX queue if length is != zero
+- change: handling of elwb_out_buffer_get() improved
+- bugfix: potential buffer overflow in glossy.c fixed (check payload length)
 
 Version 1.0012 (2019-03-25):
 - change: minor adjustment to load_config()

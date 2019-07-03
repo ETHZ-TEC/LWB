@@ -215,6 +215,9 @@ process_glossy_header(uint8_t *pkt, uint8_t pkt_len, uint8_t crc_ok)
     g.header = *rcvd_header;
     /* store the payload_len */
     g.payload_len = pkt_len - GLOSSY_HEADER_LEN(g.header.pkt_type);
+    if(g.payload_len > GLOSSY_CONF_PAYLOAD_LEN) {
+      return 0;
+    }
     /* store the header_len */
     rf1a_set_header_len_rx(GLOSSY_HEADER_LEN(g.header.pkt_type));
   }

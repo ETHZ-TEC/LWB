@@ -231,6 +231,7 @@ elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
 {
   /* messages have the max. length ELWB_CONF_MAX_PKT_LEN and are already
    * formatted */
+  *out_len = 0;
   uint32_t pkt_addr = fifo_get(&tx_queue);
   if(FIFO_ERROR != pkt_addr) {
 #if !ELWB_CONF_USE_XMEM
@@ -240,8 +241,7 @@ elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
       memcpy(out_data, next_msg->data, next_msg->len);
       *out_len = next_msg->len;
     } else {
-      DEBUG_PRINT_ERROR("invalid message length");
-      *out_len = 0;
+      DEBUG_PRINT_ERROR("invalid message length %ub", next_msg->len);
     }
 #else /* ELWB_CONF_USE_XMEM */
     xmem_buffer.len = 0;
@@ -250,8 +250,7 @@ elwb_out_buffer_get(uint8_t* out_data, uint8_t* out_len)
       memcpy(out_data, xmem_buffer.data, xmem_buffer.len);
       *out_len = xmem_buffer.len;
     } else {
-      DEBUG_PRINT_ERROR("invalid message length");
-      *out_len = 0;
+      DEBUG_PRINT_ERROR("invalid message length %ub", xmem_buffer.len);
     }
 #endif /* ELWB_CONF_USE_XMEM */
     return 1;
@@ -306,14 +305,14 @@ elwb_rcv_pkt(uint8_t* out_data)
       memcpy(out_data, next_msg->data, next_msg->len);
       return next_msg->len;
     } else {
-      DEBUG_PRINT_ERROR("invalid message length");
+      DEBUG_PRINT_ERROR("invalid message length %ub", next_msg->len);
       return 0;
     }
 #else /* ELWB_CONF_USE_XMEM */
     xmem_buffer.len = 0;
     if(!xmem_read(pkt_addr, sizeof(elwb_queue_elem_t), (uint8_t*)&xmem_buffer)
        || xmem_buffer.len == 0 || xmem_buffer.len >= ELWB_CONF_MAX_PKT_LEN) {
-      DEBUG_PRINT_ERROR("invalid message length");
+      DEBUG_PRINT_ERROR("invalid message length %ub", xmem_buffer.len);
       return 0;
     }
     xmem_wait_until_ready(); /* wait for the data transfer to complete */
@@ -761,6 +760,7 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
         if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
           /* this is a data round */
           t_slot = ELWB_CONF_T_DATA;
+          first_slot = 0xff;
         } else {
           /* it's a request round */
           t_slot = ELWB_CONF_T_CONT;
@@ -773,14 +773,18 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
             /* this is our data slot, send a data packet (if there is any) */
             if(!FIFO_EMPTY(&tx_queue)) {
               if(ELWB_SCHED_HAS_DATA_SLOTS(&schedule)) {
-  #if ELWB_CONF_DATA_ACK
-                if(first_slot == 0xff) {
-                  first_slot = i;
-                }
-                num_slots++;
-  #endif /* ELWB_CONF_DATA_ACK */
+                /* data round */
                 elwb_out_buffer_get((uint8_t*)glossy_payload, &payload_len);
-                stats.pkt_snd++;
+                if(payload_len) {
+    #if ELWB_CONF_DATA_ACK
+                  if(first_slot == 0xff) {
+                    first_slot = i;
+                    num_slots = 0;
+                  }
+                  num_slots++;
+    #endif /* ELWB_CONF_DATA_ACK */
+                  stats.pkt_snd++;
+                }
               } else {
                 payload_len = ELWB_REQ_PKT_LEN;
                 /* request as many data slots as there are pkts in the queue*/
@@ -789,9 +793,11 @@ PT_THREAD(elwb_thread_src(rtimer_t *rt))
                               (uint16_t)elwb_get_send_buffer_state() * 100 / 
                               ELWB_CONF_OUT_BUFFER_SIZE + 9) / 10;
               }
-              ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
-              ELWB_SEND_PACKET();
-              DEBUG_PRINT_VERBOSE("packet sent (%ub)", payload_len);
+              if(payload_len) {
+                ELWB_WAIT_UNTIL(t_ref + t_slot_ofs);
+                ELWB_SEND_PACKET();
+                DEBUG_PRINT_VERBOSE("packet sent (%ub)", payload_len);
+              }
             } else {
               DEBUG_PRINT_VERBOSE("no message to send (data slot ignored)");
             }

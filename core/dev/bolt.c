@@ -305,6 +305,18 @@ bolt_read(uint8_t* out_data)
     out_data++;
     rcvd_bytes++;
   }
+  if(BOLT_ACK_STATUS) {
+    /* ACK is still high -> packet is too long */
+    BOLT_DEBUG("[Bolt] WARNING: rcvd packet is too long");
+    /* generate more clock pulses to remove the message from the Bolt queue */
+    uint16_t max_bytes = 128;
+    while(max_bytes && BOLT_ACK_STATUS) {
+      spi_write_byte(BOLT_CONF_SPI, 0x00);
+      spi_read_byte(BOLT_CONF_SPI, 1);
+      max_bytes--;
+    }
+    rcvd_bytes = 0;   /* error condition */
+  }
 
   BOLT_DEBUG("[Bolt] %d bytes received", rcvd_bytes);
 #endif /* BOLT_CONF_USE_DMA */
