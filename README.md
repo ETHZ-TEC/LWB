@@ -6,6 +6,9 @@ It is intended for internal use only, i.e. primarily for our Permasense field de
 
 The code is based on a modified version of Contiki 2.7 and runs on the CC430 only (DPP1 and DPP2).  
 
+To install the required MSP430 toolchain, run:
+
+    sudo apt install gcc-msp430
 
 ## Apps
 
