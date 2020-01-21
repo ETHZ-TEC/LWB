@@ -39,5 +39,6 @@
  */
 
 #define RF_CONF_ON                      0
+#define BOLT_CONF_ON                    1
 
 #endif /* __CONFIG_H__ */

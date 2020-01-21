@@ -74,8 +74,8 @@ endif
 CC = msp430-gcc
 LD = msp430-gcc
 # -ggdb removed from CFLAGS due to strange "relocation truncated to fit: R_MSP430_16_BYTE against `no symbol'" error during compilation
-CFLAGS  = -mmcu=$(MCU) -Os -Wall -ffunction-sections -fdata-sections
-LDFLAGS = -mmcu=$(MCU) -Wl,--gc-sections -ggdb
+CFLAGS  += -mmcu=$(MCU) -Os -Wall -ffunction-sections -fdata-sections
+LDFLAGS += -mmcu=$(MCU) -Wl,--gc-sections -ggdb
 
 # add timestamp to the compile flags (to be used in the code), will work on UNIX systems only 
 #`date '+%s'`
