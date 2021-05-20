@@ -34,7 +34,7 @@
 #include "platform.h"
 
 /*---------------------------------------------------------------------------*/
-uint16_t TOS_NODE_ID = NODE_ID;             /* required for tos-set-symbols! */
+uint16_t FLOCKLAB_NODE_ID = NODE_ID;             /* required for tos-set-symbols! */
 //#ifndef NODE_ID
 volatile uint16_t node_id;
 //#endif /* NODE_ID */
@@ -95,7 +95,7 @@ main(int argc, char **argv)
 #else
   watchdog_stop();
 #endif /* WATCHDOG_CONF_ON */
-  
+
   rst_flag = SYSRSTIV;    /* read reset flag */
   if(rst_flag == SYSRSTIV_DOBOR) {
     bsl_entry();          /* enter bootstrap loader if software BOR detected */
@@ -115,13 +115,13 @@ main(int argc, char **argv)
   PORT_CFG_OUT_I(J);
 
   /* board-specific GPIO config */
-  
+
 #ifdef MUX_SEL_PIN
   /* this board has a multiplexer (set it to UART) */
   PIN_CFG_OUT(MUX_SEL_PIN);
   PIN_SET(MUX_SEL_PIN);
-#endif 
-  
+#endif
+
   /* enable status LED to indicate start of init routine */
   PIN_SET(LED_STATUS);
 
@@ -144,7 +144,7 @@ main(int argc, char **argv)
 #ifdef ACLK_PIN
   PIN_MAP_AS_OUTPUT(ACLK_PIN, PM_ACLK);
 #endif
-  
+
   clock_init();
   rtimer_init();
   uart_init();
@@ -161,7 +161,7 @@ main(int argc, char **argv)
 #endif /* RF_CONF_ON */
 
   /* set the node ID */
-  node_id = TOS_NODE_ID;
+  node_id = FLOCKLAB_NODE_ID;
   printf(CONTIKI_VERSION_STRING " started. Node ID is set to %u.\r\n",
          node_id);
 
@@ -171,7 +171,7 @@ main(int argc, char **argv)
   }
   uart_enable(1);   /* re-configure module in UART mode */
 #endif /* FRAM_CONF_ON */
-  
+
 #if BOLT_CONF_ON
   if (!bolt_init()) {
     DEBUG_PRINT_FATAL("ERROR: Bolt init failed");
@@ -201,12 +201,12 @@ main(int argc, char **argv)
 #if NULLMAC_CONF_ON
   nullmac_init();
 #endif /* NULLMAC_CONF_ON */
-  
+
   /* start processes */
   autostart_start(autostart_processes);
   debug_print_init();
   /* note: start debug process as last due to process_poll() execution order */
-  
+
   /* disable status LED to indicate successful termination of init routine */
   PIN_CLR(LED_STATUS);
 
