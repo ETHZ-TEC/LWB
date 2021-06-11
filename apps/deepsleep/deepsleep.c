@@ -39,14 +39,8 @@ PROCESS_THREAD(app_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  /* enter shutdown mode (LPM4.5) */
-  BEFORE_DEEPSLEEP();
-  PIN_CLR(LED_STATUS);
-  PMMCTL0 = (PMMPW | PMMREGOFF);
-  __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF | OSCOFF);
-  __no_operation();
-
-  //PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+  /* nothing to do, system init hook in config.h will shutdown the MCU */
+  PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
 
   PROCESS_END();
 

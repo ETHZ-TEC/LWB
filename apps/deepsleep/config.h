@@ -41,4 +41,19 @@
 #define RF_CONF_ON          0
 #define BOLT_CONF_ON        1
 
+#define ENTER_LPM45()       { SVS_DISABLE; PMMCTL0 = (PMMPW | PMMREGOFF); __bis_status_register(GIE | SCG0 | SCG1 | CPUOFF | OSCOFF); __no_operation(); }
+
+#define BOLT_PIN_CFG()      { PIN_CFG_IN(BOLT_CONF_IND_PIN); \
+                              PIN_UNSEL(BOLT_CONF_MODE_PIN); \
+                              PIN_CLR(BOLT_CONF_MODE_PIN); \
+                              PIN_CFG_OUT(BOLT_CONF_MODE_PIN); \
+                              PIN_UNSEL(BOLT_CONF_REQ_PIN); \
+                              PIN_CLR(BOLT_CONF_REQ_PIN); \
+                              PIN_CFG_OUT(BOLT_CONF_REQ_PIN); \
+                              PIN_CFG_IN(BOLT_CONF_ACK_PIN); \
+                              PIN_PULLDOWN_EN(BOLT_CONF_ACK_PIN); \
+                              PIN_CFG_IN(BOLT_CONF_IND_OUT_PIN); }
+
+#define SYSTEM_INIT_HOOK()  { BOLT_PIN_CFG(); BEFORE_DEEPSLEEP(); PIN_SET(LED_STATUS); __delay_cycles(1000); PIN_CLR(LED_STATUS); ENTER_LPM45(); }
+
 #endif /* __CONFIG_H__ */

@@ -122,6 +122,10 @@ main(int argc, char **argv)
   PIN_SET(MUX_SEL_PIN);
 #endif
 
+#ifdef SYSTEM_INIT_HOOK
+  SYSTEM_INIT_HOOK();
+#endif
+
   /* enable status LED to indicate start of init routine */
   PIN_SET(LED_STATUS);
 

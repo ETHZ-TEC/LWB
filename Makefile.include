@@ -146,7 +146,7 @@ ifdef NODE_ID
 else
 	@msp430-objcopy $(EXEFILE) -O ihex $(HEXFILE)
 endif
-	@python $(CONTIKI)/tools/dpp/program_cc430.py $(HEXFILE) $(PORT)
+	@python3 $(CONTIKI)/tools/dpp/program_cc430.py $(HEXFILE) $(PORT)
 
 
 login:
