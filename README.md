@@ -1,9 +1,5 @@
 ## General notes
 
-This repository is a fork of the [LWB on Github](https://github.com/ETHZ-TEC/LWB) (DPP branch only).  
-
-It is intended for internal use only, i.e. primarily for our Permasense field deployment. Code changes in this repository are NOT push back to the github repository. We do not intend to maintain the Github repo anymore, but keep it as a reference implementation of the LWB.
-
 The code is based on a modified version of Contiki 2.7 and runs on the CC430 only (DPP1 and DPP2).  
 
 To install the required MSP430 toolchain, run:
